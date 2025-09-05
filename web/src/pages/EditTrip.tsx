@@ -118,33 +118,34 @@ const EditTrip: React.FC<EditTripProps> = ({ user }) => {
     setError('');
 
     try {
-      // Create FormData for file uploads
-      const formDataToSend = new FormData();
-      formDataToSend.append('title', formData.title);
-      formDataToSend.append('description', formData.description);
-      formDataToSend.append('destination', formData.destination);
-      formDataToSend.append('price', formData.price);
-      formDataToSend.append('capacity', formData.capacity);
-      formDataToSend.append('categories', JSON.stringify(formData.categories));
-      formDataToSend.append('startDate', formData.startDate);
-      formDataToSend.append('endDate', formData.endDate);
-      formDataToSend.append('itinerary', formData.itinerary);
+      // Prepare data for JSON submission
+      const updateData = {
+        title: formData.title,
+        description: formData.description,
+        destination: formData.destination,
+        price: parseFloat(formData.price),
+        capacity: parseInt(formData.capacity),
+        categories: formData.categories,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        itinerary: formData.itinerary
+      };
 
-      if (coverImage) {
-        formDataToSend.append('coverImage', coverImage);
-      }
-      if (itineraryPdf) {
-        formDataToSend.append('itineraryPdf', itineraryPdf);
+      // Note: File uploads (coverImage and itineraryPdf) are not yet supported in this version
+      // They would require a separate endpoint or multipart handling on the backend
+      if (coverImage || itineraryPdf) {
+        console.warn('File uploads are not yet implemented in the backend API');
       }
 
-      await axios.put(`/trips/${id}`, formDataToSend, {
+      await axios.put(`/trips/${id}`, updateData, {
         headers: {
-          'Content-Type': 'multipart/form-data'
+          'Content-Type': 'application/json'
         }
       });
       
       navigate('/profile');
     } catch (error: any) {
+      console.error('Update error:', error);
       setError(error.response?.data?.error || 'Failed to update trip');
     } finally {
       setLoading(false);

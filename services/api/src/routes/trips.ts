@@ -87,6 +87,84 @@ router.delete('/:id/leave', authenticateJwt, async (req, res) => {
   }
 });
 
+// Update trip endpoint
+router.put('/:id', authenticateJwt, requireRole(['organizer','admin']), async (req, res) => {
+  try {
+    const userId = (req as any).auth.userId;
+    const trip = await Trip.findById(req.params.id);
+    
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    
+    // Check if user is the organizer or admin
+    if (trip.organizerId.toString() !== userId && (req as any).auth.role !== 'admin') {
+      return res.status(403).json({ error: 'Not authorized to update this trip' });
+    }
+    
+    // Create update schema (similar to create but all fields optional)
+    const updateTripSchema = z.object({
+      title: z.string().min(1).optional(),
+      description: z.string().min(1).optional(),
+      categories: z.array(z.string()).optional(),
+      destination: z.string().min(1).optional(),
+      location: z.object({ coordinates: z.tuple([z.number(), z.number()]) }).optional(),
+      schedule: z.array(z.object({ day: z.number(), title: z.string(), activities: z.array(z.string()).default([]) })).optional(),
+      images: z.array(z.string()).optional(),
+      capacity: z.number().int().positive().optional(),
+      price: z.number().positive().optional(),
+      startDate: z.coerce.date().optional(),
+      endDate: z.coerce.date().optional(),
+      itinerary: z.string().optional(),
+      coverImage: z.string().optional(),
+      itineraryPdf: z.string().optional(),
+      status: z.enum(['active', 'cancelled', 'completed']).optional()
+    });
+    
+    const parsed = updateTripSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+    
+    const updateData = parsed.data;
+    
+    // Handle location transformation if provided
+    if (updateData.location) {
+      (updateData as any).location = { type: 'Point', coordinates: updateData.location.coordinates };
+    }
+    
+    // Update the trip
+    const updatedTrip = await Trip.findByIdAndUpdate(
+      req.params.id,
+      updateData,
+      { new: true, runValidators: true }
+    );
+    
+    res.json(updatedTrip);
+  } catch (error: any) {
+    console.error('Error updating trip:', error);
+    res.status(500).json({ error: 'Failed to update trip' });
+  }
+});
+
+// Delete trip endpoint
+router.delete('/:id', authenticateJwt, requireRole(['organizer','admin']), async (req, res) => {
+  try {
+    const userId = (req as any).auth.userId;
+    const trip = await Trip.findById(req.params.id);
+    
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    
+    // Check if user is the organizer or admin
+    if (trip.organizerId.toString() !== userId && (req as any).auth.role !== 'admin') {
+      return res.status(403).json({ error: 'Not authorized to delete this trip' });
+    }
+    
+    await Trip.findByIdAndDelete(req.params.id);
+    
+    res.json({ message: 'Trip deleted successfully' });
+  } catch (error: any) {
+    console.error('Error deleting trip:', error);
+    res.status(500).json({ error: 'Failed to delete trip' });
+  }
+});
+
 export default router;
 
 
