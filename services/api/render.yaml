@@ -2,6 +2,7 @@ services:
   - type: web
     name: trekk-tribe-api
     env: node
+    rootDir: services/api
     buildCommand: npm install && npm run build
     startCommand: npm start
     envVars:
