@@ -1,0 +1,12 @@
+node_modules
+.env
+.env.*
+dist
+.next
+.expo
+.DS_Store
+**/build
+**/.turbo
+**/.expo
+**/.cache
+

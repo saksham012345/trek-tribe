@@ -1,0 +1,22 @@
+{
+  "name": "trekk-tribe",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "services/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "docker-compose up --build",
+    "dev:api": "cd services/api && npm run dev",
+    "dev:web": "cd web && npm start",
+    "build": "docker-compose build",
+    "start": "docker-compose up",
+    "stop": "docker-compose down",
+    "clean": "docker-compose down -v",
+    "install:all": "npm install && cd services/api && npm install && cd ../../web && npm install"
+  },
+  "dependencies": {
+    "axios": "^1.11.0"
+  }
+}
