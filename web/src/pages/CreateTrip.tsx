@@ -23,12 +23,15 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
     capacity: '',
     categories: [] as string[],
     startDate: '',
-    endDate: ''
+    endDate: '',
+    itinerary: ''
   });
+  const [coverImage, setCoverImage] = useState<File | null>(null);
+  const [itineraryPdf, setItineraryPdf] = useState<File | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const categories = ['Adventure', 'Cultural', 'Beach', 'Mountain', 'City', 'Nature'];
+  const categories = ['Adventure', 'Cultural', 'Beach', 'Mountain', 'City', 'Nature', 'Wildlife', 'Desert', 'Arctic', 'Botanical'];
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData({
@@ -46,18 +49,54 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
     });
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'cover' | 'itinerary') => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (type === 'cover') {
+        if (file.type.startsWith('image/')) {
+          setCoverImage(file);
+        } else {
+          setError('Please select a valid image file for cover image');
+        }
+      } else if (type === 'itinerary') {
+        if (file.type === 'application/pdf') {
+          setItineraryPdf(file);
+        } else {
+          setError('Please select a valid PDF file for itinerary');
+        }
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
-      await axios.post('/trips', {
-        ...formData,
-        price: parseFloat(formData.price),
-        capacity: parseInt(formData.capacity),
-        startDate: formData.startDate,
-        endDate: formData.endDate
+      // Create FormData for file uploads
+      const formDataToSend = new FormData();
+      formDataToSend.append('title', formData.title);
+      formDataToSend.append('description', formData.description);
+      formDataToSend.append('destination', formData.destination);
+      formDataToSend.append('price', formData.price);
+      formDataToSend.append('capacity', formData.capacity);
+      formDataToSend.append('categories', JSON.stringify(formData.categories));
+      formDataToSend.append('startDate', formData.startDate);
+      formDataToSend.append('endDate', formData.endDate);
+      formDataToSend.append('itinerary', formData.itinerary);
+
+      if (coverImage) {
+        formDataToSend.append('coverImage', coverImage);
+      }
+      if (itineraryPdf) {
+        formDataToSend.append('itineraryPdf', itineraryPdf);
+      }
+
+      await axios.post('/trips', formDataToSend, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
       });
       
       navigate('/trips');
@@ -69,15 +108,21 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white rounded-lg shadow-md p-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-6">Create a New Trip</h1>
+    <div className="min-h-screen bg-gradient-to-br from-forest-50 to-nature-50 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-forest-200">
+          <div className="mb-8">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-forest-800 to-nature-600 bg-clip-text text-transparent mb-2">
+              Create New Adventure
+            </h1>
+            <p className="text-forest-600">Plan an epic wilderness expedition for fellow adventurers</p>
+          </div>
           
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-8">
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md">
-                {error}
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2">
+                <span className="text-xl">⚠️</span>
+                <span className="text-sm">{error}</span>
               </div>
             )}
 
@@ -131,8 +176,8 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-2">
-                  Price per person ($)
+                <label htmlFor="price" className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
+                  💰 Price per person (₹)
                 </label>
                 <input
                   type="number"

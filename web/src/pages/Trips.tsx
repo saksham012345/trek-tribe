@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import JoinTripModal from '../components/JoinTripModal';
 
 interface User {
   id: string;
@@ -33,6 +34,8 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
+  const [showJoinModal, setShowJoinModal] = useState(false);
 
   const categories = ['Adventure', 'Cultural', 'Beach', 'Mountain', 'City', 'Nature'];
 
@@ -55,21 +58,36 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
     fetchTrips();
   }, [searchTerm, selectedCategory]);
 
-  const handleJoinTrip = async (tripId: string) => {
+  const handleJoinTrip = (trip: Trip) => {
     if (!user) {
-      alert('Please login to join a trip');
+      alert('Please login to join trips');
       return;
     }
+    setSelectedTrip(trip);
+    setShowJoinModal(true);
+  };
 
-    try {
-      await axios.post(`/trips/${tripId}/join`);
-      // Refresh trips list
-      const response = await axios.get('/trips');
-      setTrips(response.data);
-      alert('Successfully joined the trip!');
-    } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to join trip');
+  const handleLeaveTrip = async (tripId: string) => {
+    if (!user) return;
+    
+    if (window.confirm('Are you sure you want to leave this trip? This action cannot be undone.')) {
+      try {
+        await axios.post(`/trips/${tripId}/leave`);
+        // Refresh trips list
+        const response = await axios.get('/trips');
+        setTrips(response.data);
+        alert('Successfully left the trip!');
+      } catch (error: any) {
+        alert(error.response?.data?.error || 'Failed to leave trip');
+      }
     }
+  };
+
+  const handleJoinSuccess = async () => {
+    // Refresh trips list
+    const response = await axios.get('/trips');
+    setTrips(response.data);
+    alert('Successfully joined the trip!');
   };
 
   return (
@@ -155,19 +173,31 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
                   </div>
 
                   <div className="flex justify-between items-center">
-                    <span className="text-2xl font-bold text-blue-600">${trip.price}</span>
-                    <button
-                      onClick={() => handleJoinTrip(trip._id)}
-                      disabled={trip.participants.length >= trip.capacity || trip.participants.includes(user?.id || '')}
-                      className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg font-medium transition-colors"
-                    >
-                      {trip.participants.includes(user?.id || '') 
-                        ? 'Joined' 
-                        : trip.participants.length >= trip.capacity 
-                          ? 'Full' 
-                          : 'Join Trip'
-                      }
-                    </button>
+                    <span className="text-2xl font-bold text-nature-600">₹{trip.price}</span>
+                    <div className="flex gap-2">
+                      {trip.participants.includes(user?.id || '') ? (
+                        <button
+                          onClick={() => handleLeaveTrip(trip._id)}
+                          className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-4 py-2 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 text-sm"
+                        >
+                          🚪 Leave Trip
+                        </button>
+                      ) : trip.participants.length >= trip.capacity ? (
+                        <button
+                          disabled
+                          className="bg-gray-400 cursor-not-allowed text-white px-4 py-2 rounded-xl font-medium text-sm"
+                        >
+                          🎆 Full
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleJoinTrip(trip)}
+                          className="bg-gradient-to-r from-forest-600 to-nature-600 hover:from-forest-700 hover:to-nature-700 text-white px-4 py-2 rounded-xl font-medium transition-all duration-300 transform hover:scale-105"
+                        >
+                          🌟 Join Adventure
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -180,6 +210,20 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
             <div className="text-gray-500 text-lg mb-4">No trips found</div>
             <p className="text-gray-400">Try adjusting your search criteria or check back later</p>
           </div>
+        )}
+
+        {/* Join Trip Modal */}
+        {selectedTrip && (
+          <JoinTripModal
+            trip={selectedTrip}
+            user={user!}
+            isOpen={showJoinModal}
+            onClose={() => {
+              setShowJoinModal(false);
+              setSelectedTrip(null);
+            }}
+            onSuccess={handleJoinSuccess}
+          />
         )}
       </div>
     </div>

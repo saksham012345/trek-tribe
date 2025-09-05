@@ -7,9 +7,10 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Trips from './pages/Trips';
 import CreateTrip from './pages/CreateTrip';
+import EditTrip from './pages/EditTrip';
 import Profile from './pages/Profile';
 
-axios.defaults.baseURL = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:4000';
+axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:4000';
 
 interface User {
   id: string;
@@ -84,6 +85,10 @@ function App() {
             <Route 
               path="/create-trip" 
               element={user?.role === 'organizer' ? <CreateTrip user={user} /> : <Navigate to="/" />} 
+            />
+            <Route 
+              path="/edit-trip/:id" 
+              element={user?.role === 'organizer' ? <EditTrip user={user} /> : <Navigate to="/" />} 
             />
             <Route 
               path="/profile" 

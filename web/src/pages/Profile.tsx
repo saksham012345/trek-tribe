@@ -121,7 +121,7 @@ const Profile: React.FC<ProfileProps> = ({ user }) => {
                       </div>
                       <div className="flex items-center text-sm text-gray-500">
                         <span className="mr-2">💰</span>
-                        ${trip.price} per person
+                        ₹{trip.price} per person
                       </div>
                     </div>
 
@@ -142,8 +142,11 @@ const Profile: React.FC<ProfileProps> = ({ user }) => {
                         {trip.status}
                       </span>
                       {user.role === 'organizer' && (
-                        <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                          Edit Trip
+                        <button 
+                          onClick={() => window.location.href = `/edit-trip/${trip._id}`}
+                          className="text-nature-600 hover:text-forest-700 text-sm font-medium flex items-center gap-1 transition-colors"
+                        >
+                          ✏️ Edit Trip
                         </button>
                       )}
                     </div>

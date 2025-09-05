@@ -496,7 +496,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
                     </div>
                     <div className="absolute top-4 right-4">
                       <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 text-forest-800 text-sm font-semibold">
-                        ${trip.price}
+                        ₹{trip.price}
                       </div>
                     </div>
                   </div>
