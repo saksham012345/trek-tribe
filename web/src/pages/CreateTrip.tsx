@@ -174,6 +174,27 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
               />
             </div>
 
+            {/* Cover Image Upload */}
+            <div>
+              <label className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
+                📸 Cover Image
+              </label>
+              <div className="space-y-3">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleFileChange(e, 'cover')}
+                  className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
+                />
+                {coverImage && (
+                  <div className="text-sm text-forest-600">
+                    Selected: <span className="font-medium">{coverImage.name}</span>
+                  </div>
+                )}
+                <p className="text-xs text-forest-500">Upload a beautiful cover image for your adventure (JPG, PNG, WebP)</p>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label htmlFor="price" className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
@@ -240,6 +261,43 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                   onChange={handleChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
+              </div>
+            </div>
+
+            {/* Itinerary Text */}
+            <div>
+              <label htmlFor="itinerary" className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
+                🗺️ Detailed Itinerary
+              </label>
+              <textarea
+                id="itinerary"
+                name="itinerary"
+                rows={4}
+                value={formData.itinerary}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
+                placeholder="Day-by-day breakdown of activities..."
+              />
+            </div>
+
+            {/* Itinerary PDF Upload */}
+            <div>
+              <label className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
+                📄 Itinerary PDF (Optional)
+              </label>
+              <div className="space-y-3">
+                <input
+                  type="file"
+                  accept=".pdf"
+                  onChange={(e) => handleFileChange(e, 'itinerary')}
+                  className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
+                />
+                {itineraryPdf && (
+                  <div className="text-sm text-forest-600">
+                    Selected: <span className="font-medium">{itineraryPdf.name}</span>
+                  </div>
+                )}
+                <p className="text-xs text-forest-500">Upload a detailed itinerary PDF for participants to download</p>
               </div>
             </div>
 
