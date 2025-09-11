@@ -114,9 +114,9 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
         new Promise((_, reject) => 
           setTimeout(() => reject(new Error('Request timeout - please try again')), 10000)
         )
-      ]);
+      ]) as any;
       
-      console.log('Trip created successfully:', response.data);
+      console.log('Trip created successfully:', response?.data);
       
       // Success feedback
       alert('Trip created successfully! Redirecting to trips page...');
