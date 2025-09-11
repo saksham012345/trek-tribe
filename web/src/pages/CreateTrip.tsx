@@ -74,34 +74,85 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
     setError('');
 
     try {
-      // Create FormData for file uploads
-      const formDataToSend = new FormData();
-      formDataToSend.append('title', formData.title);
-      formDataToSend.append('description', formData.description);
-      formDataToSend.append('destination', formData.destination);
-      formDataToSend.append('price', formData.price);
-      formDataToSend.append('capacity', formData.capacity);
-      formDataToSend.append('categories', JSON.stringify(formData.categories));
-      formDataToSend.append('startDate', formData.startDate);
-      formDataToSend.append('endDate', formData.endDate);
-      formDataToSend.append('itinerary', formData.itinerary);
-
-      if (coverImage) {
-        formDataToSend.append('coverImage', coverImage);
+      // Validate form data
+      if (!formData.title.trim()) {
+        throw new Error('Title is required');
       }
-      if (itineraryPdf) {
-        formDataToSend.append('itineraryPdf', itineraryPdf);
+      if (!formData.description.trim()) {
+        throw new Error('Description is required');
+      }
+      if (!formData.destination.trim()) {
+        throw new Error('Destination is required');
+      }
+      if (new Date(formData.startDate) >= new Date(formData.endDate)) {
+        throw new Error('End date must be after start date');
+      }
+      if (new Date(formData.startDate) < new Date()) {
+        throw new Error('Start date cannot be in the past');
       }
 
-      await axios.post('/trips', formDataToSend, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
+      // Prepare data for JSON submission (without file uploads for now)
+      const tripData = {
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        destination: formData.destination.trim(),
+        price: parseFloat(formData.price),
+        capacity: parseInt(formData.capacity),
+        categories: formData.categories,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        itinerary: formData.itinerary.trim() || 'Detailed itinerary will be provided upon booking.'
+      };
+
+      // Submit with proper error handling and timeout
+      const response = await Promise.race([
+        axios.post('/trips', tripData, {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Request timeout - please try again')), 10000)
+        )
+      ]);
       
-      navigate('/trips');
+      console.log('Trip created successfully:', response.data);
+      
+      // Success feedback
+      alert('Trip created successfully! Redirecting to trips page...');
+      
+      // Navigate with a small delay to ensure state updates
+      setTimeout(() => {
+        navigate('/trips');
+      }, 500);
+      
     } catch (error: any) {
-      setError(error.response?.data?.error || 'Failed to create trip');
+      console.error('Error creating trip:', error);
+      
+      // Enhanced error handling
+      let errorMessage = 'Failed to create trip';
+      
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (error.response?.data?.error) {
+        if (typeof error.response.data.error === 'string') {
+          errorMessage = error.response.data.error;
+        } else if (error.response.data.error.fieldErrors) {
+          const fieldErrors = error.response.data.error.fieldErrors;
+          const firstError = Object.values(fieldErrors)[0];
+          errorMessage = Array.isArray(firstError) ? firstError[0] : firstError;
+        }
+      } else if (error.response?.status === 401) {
+        errorMessage = 'Authentication required. Please log in again.';
+      } else if (error.response?.status === 403) {
+        errorMessage = 'You do not have permission to create trips. Please ensure you have organizer role.';
+      } else if (error.response?.status >= 500) {
+        errorMessage = 'Server error. Please try again later.';
+      } else if (error.code === 'NETWORK_ERROR') {
+        errorMessage = 'Network error. Please check your connection.';
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

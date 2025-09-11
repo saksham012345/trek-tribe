@@ -7,10 +7,15 @@
   "scripts": {
     "dev": "nodemon --watch src --exec ts-node src/index.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "cli": "ts-node src/cli/trip-manager.ts",
+    "cli:help": "npm run cli -- --help",
+    "cli:list": "npm run cli -- list",
+    "cli:stats": "npm run cli -- stats"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
+    "commander": "^11.1.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",

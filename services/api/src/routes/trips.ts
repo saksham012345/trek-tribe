@@ -19,14 +19,114 @@ const createTripSchema = z.object({
   endDate: z.coerce.date(),
 });
 
-router.post('/', authenticateJwt, requireRole(['organizer','admin']), async (req, res) => {
-  const parsed = createTripSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  const body = parsed.data;
-  const organizerId = (req as any).auth.userId;
-  const trip = await Trip.create({ ...body, organizerId, location: body.location ? { type: 'Point', coordinates: body.location.coordinates } : undefined });
-  res.status(201).json(trip);
-});
+// Async error wrapper
+const asyncHandler = (fn: Function) => (req: any, res: any, next: any) => {
+  Promise.resolve(fn(req, res, next)).catch(next);
+};
+
+router.post('/', authenticateJwt, requireRole(['organizer','admin']), asyncHandler(async (req: any, res: any) => {
+  try {
+    // Enhanced validation with better error messages
+    const parsed = createTripSchema.safeParse(req.body);
+    if (!parsed.success) {
+      const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
+        .map(([field, errors]) => `${field}: ${errors?.join(', ')}`)
+        .join('; ');
+      return res.status(400).json({ 
+        error: 'Validation failed',
+        details: errorMessages,
+        fields: parsed.error.flatten().fieldErrors
+      });
+    }
+    
+    const body = parsed.data;
+    const organizerId = req.auth.userId;
+    
+    // Additional validation
+    if (body.startDate >= body.endDate) {
+      return res.status(400).json({ 
+        error: 'End date must be after start date' 
+      });
+    }
+    
+    if (new Date(body.startDate) < new Date()) {
+      return res.status(400).json({ 
+        error: 'Start date cannot be in the past' 
+      });
+    }
+    
+    console.log('Creating trip:', {
+      title: body.title,
+      organizerId,
+      destination: body.destination
+    });
+    
+    // Create trip with timeout
+    const createPromise = Trip.create({
+      ...body, 
+      organizerId, 
+      location: body.location ? { type: 'Point', coordinates: body.location.coordinates } : undefined,
+      participants: [],
+      status: 'active',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+    
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Database operation timeout')), 10000)
+    );
+    
+    const trip = await Promise.race([createPromise, timeoutPromise]);
+    
+    console.log('Trip created successfully:', trip._id);
+    
+    res.status(201).json({
+      message: 'Trip created successfully',
+      trip: {
+        id: trip._id,
+        title: trip.title,
+        destination: trip.destination,
+        price: trip.price,
+        capacity: trip.capacity,
+        startDate: trip.startDate,
+        endDate: trip.endDate,
+        categories: trip.categories
+      }
+    });
+    
+  } catch (error: any) {
+    console.error('Error creating trip:', error);
+    
+    // Handle specific MongoDB errors
+    if (error.code === 11000) {
+      return res.status(409).json({ 
+        error: 'Trip with this title already exists' 
+      });
+    }
+    
+    if (error.name === 'ValidationError') {
+      const errorMessages = Object.values(error.errors)
+        .map((err: any) => err.message)
+        .join(', ');
+      return res.status(400).json({ 
+        error: 'Database validation failed',
+        details: errorMessages
+      });
+    }
+    
+    if (error.message === 'Database operation timeout') {
+      return res.status(503).json({ 
+        error: 'Service temporarily unavailable. Please try again.' 
+      });
+    }
+    
+    // Generic error
+    res.status(500).json({ 
+      error: 'Failed to create trip. Please try again later.',
+      ...(process.env.NODE_ENV !== 'production' && { details: error.message })
+    });
+  }
+}));
 
 router.get('/', async (req, res) => {
   const { q, category, minPrice, maxPrice, dest, from, to } = req.query as Record<string, string>;
