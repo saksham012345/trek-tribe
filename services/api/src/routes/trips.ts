@@ -76,7 +76,7 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), asyncHandl
       setTimeout(() => reject(new Error('Database operation timeout')), 10000)
     );
     
-    const trip = await Promise.race([createPromise, timeoutPromise]);
+    const trip = await Promise.race([createPromise, timeoutPromise]) as any;
     
     console.log('Trip created successfully:', trip._id);
     

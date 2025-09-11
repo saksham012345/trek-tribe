@@ -11,7 +11,6 @@ import path from 'path';
 import mongoose from 'mongoose';
 import { Trip } from '../models/Trip';
 import { User } from '../models/User';
-import { connectToDatabase } from '../utils/database';
 
 // CLI colors
 const colors = {

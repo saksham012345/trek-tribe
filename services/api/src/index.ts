@@ -3,8 +3,6 @@ import express, { Request, Response, NextFunction } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import mongoose from 'mongoose';
-import { promises as fs } from 'fs';
-import path from 'path';
 import authRoutes from './routes/auth';
 import tripRoutes from './routes/trips';
 
@@ -49,40 +47,17 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Async file system operations example
-const createLogsDirectory = async (): Promise<void> => {
-  const logsDir = path.join(__dirname, '../logs');
-  try {
-    await fs.access(logsDir);
-    console.log('📂 Logs directory exists');
-  } catch (error) {
-    try {
-      await fs.mkdir(logsDir, { recursive: true });
-      console.log('📂 Created logs directory');
-    } catch (mkdirError) {
-      console.error('❌ Failed to create logs directory:', mkdirError);
-    }
-  }
-};
-
-// Async logging function
-const logToFile = async (level: string, message: string): Promise<void> => {
-  const logFile = path.join(__dirname, '../logs', `${new Date().toISOString().split('T')[0]}.log`);
-  const logEntry = `${new Date().toISOString()} [${level}] ${message}\n`;
-  
-  try {
-    await fs.appendFile(logFile, logEntry);
-  } catch (error) {
-    console.error('❌ Failed to write to log file:', error);
-  }
+// Simple logging function
+const logMessage = (level: string, message: string): void => {
+  console.log(`${new Date().toISOString()} [${level}] ${message}`);
 };
 
 // Global error handler
 const globalErrorHandler = (error: Error, req: Request, res: Response, next: NextFunction) => {
   console.error('🚨 Unhandled error:', error);
   
-  // Log error to file asynchronously
-  logToFile('ERROR', `${req.method} ${req.path} - ${error.message} - Stack: ${error.stack}`);
+  // Log error
+  logMessage('ERROR', `${req.method} ${req.path} - ${error.message}`);
   
   if (res.headersSent) {
     return next(error);
@@ -112,11 +87,11 @@ const connectToDatabase = async (retries = 5): Promise<void> => {
         minPoolSize: 2,
       });
       console.log('✅ Connected to MongoDB successfully');
-      await logToFile('INFO', 'Connected to MongoDB successfully');
+      logMessage('INFO', 'Connected to MongoDB successfully');
       return;
     } catch (error: any) {
       console.error(`❌ Database connection attempt ${i} failed:`, error.message);
-      await logToFile('ERROR', `Database connection attempt ${i} failed: ${error.message}`);
+      logMessage('ERROR', `Database connection attempt ${i} failed: ${error.message}`);
       
       if (i === retries) {
         throw new Error(`Failed to connect to database after ${retries} attempts: ${error.message}`);
@@ -136,9 +111,6 @@ async function start() {
     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`📡 Port: ${port}`);
     
-    // Create logs directory
-    await createLogsDirectory();
-    
     // Connect to database with retry logic
     await connectToDatabase();
     
@@ -157,7 +129,7 @@ async function start() {
       };
       
       // Test database operation
-      const dbTest = await mongoose.connection.db.admin().ping();
+      const dbTest = mongoose.connection.db ? await mongoose.connection.db.admin().ping() : false;
       
       const health = {
         status: 'ok',
@@ -190,29 +162,29 @@ async function start() {
     const server = app.listen(port, () => {
       console.log(`🚀 API listening on http://localhost:${port}`);
       console.log(`📊 Health check: http://localhost:${port}/health`);
-      logToFile('INFO', `Server started on port ${port}`);
+      logMessage('INFO', `Server started on port ${port}`);
     });
     
     // Graceful shutdown handling
     const gracefulShutdown = async (signal: string) => {
       console.log(`\n📴 Received ${signal}. Starting graceful shutdown...`);
-      await logToFile('INFO', `Received ${signal}. Starting graceful shutdown`);
+      logMessage('INFO', `Received ${signal}. Starting graceful shutdown`);
       
       server.close(async (err) => {
         if (err) {
           console.error('❌ Error during server shutdown:', err);
-          await logToFile('ERROR', `Error during server shutdown: ${err.message}`);
+          logMessage('ERROR', `Error during server shutdown: ${err.message}`);
           process.exit(1);
         }
         
         try {
           await mongoose.connection.close();
           console.log('✅ Database connection closed');
-          await logToFile('INFO', 'Graceful shutdown completed');
+          logMessage('INFO', 'Graceful shutdown completed');
           process.exit(0);
         } catch (dbError: any) {
           console.error('❌ Error closing database:', dbError);
-          await logToFile('ERROR', `Error closing database: ${dbError.message}`);
+          logMessage('ERROR', `Error closing database: ${dbError.message}`);
           process.exit(1);
         }
       });
@@ -224,22 +196,22 @@ async function start() {
     
   } catch (err: any) {
     console.error('❌ Failed to start server:', err);
-    await logToFile('ERROR', `Failed to start server: ${err.message}`);
+    logMessage('ERROR', `Failed to start server: ${err.message}`);
     process.exit(1);
   }
 }
 
 // Handle uncaught exceptions
-process.on('uncaughtException', async (error: Error) => {
+process.on('uncaughtException', (error: Error) => {
   console.error('🚨 Uncaught Exception:', error);
-  await logToFile('CRITICAL', `Uncaught Exception: ${error.message} - Stack: ${error.stack}`);
+  logMessage('CRITICAL', `Uncaught Exception: ${error.message}`);
   process.exit(1);
 });
 
 // Handle unhandled promise rejections
-process.on('unhandledRejection', async (reason: any, promise: Promise<any>) => {
+process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
   console.error('🚨 Unhandled Rejection at:', promise, 'reason:', reason);
-  await logToFile('CRITICAL', `Unhandled Rejection: ${reason} - Promise: ${promise}`);
+  logMessage('CRITICAL', `Unhandled Rejection: ${reason}`);
   process.exit(1);
 });
 
