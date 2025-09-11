@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 interface User {
@@ -26,6 +27,7 @@ interface ProfileProps {
 }
 
 const Profile: React.FC<ProfileProps> = ({ user }) => {
+  const navigate = useNavigate();
   const [userTrips, setUserTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -143,7 +145,7 @@ const Profile: React.FC<ProfileProps> = ({ user }) => {
                       </span>
                       {user.role === 'organizer' && (
                         <button 
-                          onClick={() => window.location.href = `/edit-trip/${trip._id}`}
+                          onClick={() => navigate(`/edit-trip/${trip._id}`)}
                           className="text-nature-600 hover:text-forest-700 text-sm font-medium flex items-center gap-1 transition-colors"
                         >
                           ✏️ Edit Trip
