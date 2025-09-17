@@ -1,8 +1,9 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { Types } from 'mongoose';
-import { Review, ReviewDocument, ReviewType } from '../models/Review';
+import { Review, ReviewType } from '../models/Review';
 import { Trip } from '../models/Trip';
+import { authenticateJwt } from '../middleware/auth';
 import { User } from '../models/User';
 import { authenticateJwt } from '../middleware/auth';
 
@@ -78,8 +79,8 @@ const validateReviewPermission = async (req: Request, res: Response, next: NextF
   }
 };
 
-// Node.js Concept: Asynchronous error handling wrapper
-const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
+// Node.js Concept: Async error handling wrapper
+const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) => (req: Request, res: Response, next: NextFunction) => {
   Promise.resolve(fn(req, res, next)).catch(next);
 };
 

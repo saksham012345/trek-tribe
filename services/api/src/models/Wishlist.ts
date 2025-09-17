@@ -9,6 +9,10 @@ export interface WishlistDocument extends Document {
   tags: string[]; // Personal tags for organization
   createdAt: Date;
   updatedAt: Date;
+  // Instance methods
+  updatePriority(newPriority: 'low' | 'medium' | 'high'): Promise<WishlistDocument>;
+  addTags(newTags: string[]): Promise<WishlistDocument>;
+  removeTags(tagsToRemove: string[]): Promise<WishlistDocument>;
 }
 
 // Node.js Concept: Schema design with validation and indexing
@@ -219,6 +223,30 @@ wishlistSchema.methods.removeTags = async function(tagsToRemove: string[]) {
   return await this.save();
 };
 
-export const Wishlist: Model<WishlistDocument> = mongoose.models.Wishlist || mongoose.model<WishlistDocument>('Wishlist', wishlistSchema);
+// Define model interface with static methods
+interface WishlistModel extends Model<WishlistDocument> {
+  getUserWishlistWithTrips(
+    userId: Types.ObjectId, 
+    options?: {
+      priority?: string;
+      tags?: string[];
+      sortBy?: string;
+      sortOrder?: 'asc' | 'desc';
+      page?: number;
+      limit?: number;
+    }
+  ): Promise<{
+    wishlistItems: any[];
+    pagination: {
+      currentPage: number;
+      totalPages: number;
+      totalItems: number;
+      hasNextPage: boolean;
+      hasPrevPage: boolean;
+    };
+  }>;
+}
+
+export const Wishlist: WishlistModel = mongoose.models.Wishlist || mongoose.model<WishlistDocument, WishlistModel>('Wishlist', wishlistSchema);
 
 export default Wishlist;

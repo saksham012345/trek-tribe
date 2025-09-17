@@ -24,6 +24,8 @@ export interface ReviewDocument extends Document {
   tripDate?: Date; // When the trip occurred (for trip reviews)
   createdAt: Date;
   updatedAt: Date;
+  // Instance methods
+  markAsHelpful(userId: Types.ObjectId): Promise<ReviewDocument>;
 }
 
 // Advanced schema with validation and indexing
@@ -234,7 +236,16 @@ reviewSchema.methods.markAsHelpful = async function(userId: Types.ObjectId) {
   return await this.save();
 };
 
-export const Review: Model<ReviewDocument> = mongoose.models.Review || mongoose.model<ReviewDocument>('Review', reviewSchema);
+// Define model interface with static methods
+interface ReviewModel extends Model<ReviewDocument> {
+  calculateAverageRating(targetId: Types.ObjectId, reviewType: ReviewType): Promise<{
+    averageRating: number;
+    totalReviews: number;
+    ratingDistribution: Record<number, number>;
+  }>;
+}
+
+export const Review: ReviewModel = mongoose.models.Review || mongoose.model<ReviewDocument, ReviewModel>('Review', reviewSchema);
 
 // Node.js Concept: Module Exports
 // Export both the model and types for use in other files
