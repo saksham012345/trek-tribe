@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../config/api';
+import axios from 'axios';
 
 interface User {
   id: string;
@@ -89,14 +89,13 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
   
   // Enhanced file upload with progress tracking
   const uploadFileToServer = async (file: File): Promise<string> => {
-    
     // Convert file to base64 for our API
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = async () => {
         try {
           const base64Data = (reader.result as string).split(',')[1];
-          const response = await api.post('/files/upload/base64', {
+          const response = await axios.post('/files/upload/base64', {
             data: base64Data,
             filename: file.name,
             mimeType: file.type
@@ -287,7 +286,9 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       
       // Submit with timeout
       const response = await Promise.race([
-        api.post('/trips', tripData),
+        axios.post('/trips', tripData, {
+          headers: { 'Content-Type': 'application/json' }
+        }),
         new Promise((_, reject) => 
           setTimeout(() => reject(new Error('Request timeout - please try again')), 15000)
         )
@@ -297,7 +298,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       console.log('Trip created successfully:', response?.data);
       
       // Success notification
-      // const tripId = response?.data?.trip?._id; // For future use
+      const tripId = response?.data?.trip?._id;
       alert(`🎉 Trip "${formData.title}" created successfully! Redirecting...`);
       
       setTimeout(() => {
@@ -307,7 +308,6 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
     } catch (error: any) {
       console.error('Error creating trip:', error);
       
-      // Enhanced error handling
       let errorMessage = 'Failed to create trip';
       
       if (error.message) {
@@ -673,7 +673,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                   value={formData.itinerary}
                   onChange={handleChange}
                   className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50 resize-none"
-                  placeholder="Day 1: Arrival and orientation...\nDay 2: Morning hike to base camp...\nDay 3: Summit day..."
+                  placeholder="Day 1: Arrival and orientation...&#10;Day 2: Morning hike to base camp...&#10;Day 3: Summit day..."
                 />
               </div>
               
@@ -888,7 +888,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                       disabled={loading}
                       className="px-6 py-2.5 bg-forest-700 text-white rounded-xl hover:bg-forest-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
-                      {loading ? 'Creating...' : 'Create Trip'}
+                      {loading ? '🚀 Creating Adventure...' : '🎉 Create Trip'}
                     </button>
                   )}
                 </div>
