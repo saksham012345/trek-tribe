@@ -106,7 +106,7 @@ export class ExternalServiceError extends AppError {
 // Node.js Concept: Error handling utilities and helper functions
 export class ErrorHandler {
   // Convert mongoose validation errors to our custom format
-  static handleMongooseValidationError(error: any): ValidationError {
+  static handleMongooseValidationError(error: { errors: Record<string, any> }): ValidationError {
     const errors = Object.values(error.errors).map((err: any) => ({
       field: err.path,
       message: err.message,
@@ -120,7 +120,7 @@ export class ErrorHandler {
   }
 
   // Handle MongoDB duplicate key errors
-  static handleMongoDuplicateKeyError(error: any): ConflictError {
+  static handleMongoDuplicateKeyError(error: { keyValue: Record<string, any> }): ConflictError {
     const field = Object.keys(error.keyValue)[0];
     const value = error.keyValue[field];
     
@@ -131,7 +131,7 @@ export class ErrorHandler {
   }
 
   // Handle MongoDB cast errors (invalid ObjectId, etc.)
-  static handleMongoCastError(error: any): ValidationError {
+  static handleMongoCastError(error: { path: string; value: any }): ValidationError {
     return new ValidationError(
       `Invalid ${error.path}: ${error.value}`,
       { path: error.path, value: error.value }
@@ -139,7 +139,7 @@ export class ErrorHandler {
   }
 
   // Handle JWT errors
-  static handleJWTError(error: any): AuthenticationError {
+  static handleJWTError(error: { name: string }): AuthenticationError {
     if (error.name === 'JsonWebTokenError') {
       return new AuthenticationError('Invalid token');
     }
@@ -150,7 +150,7 @@ export class ErrorHandler {
   }
 
   // Central error processing
-  static processError(error: any): AppError {
+  static processError(error: Error & { name?: string; code?: number; errors?: any; keyValue?: any; path?: string; value?: any }): AppError {
     // If it's already our custom error, return as-is
     if (error instanceof AppError) {
       return error;
@@ -190,7 +190,7 @@ export class ErrorHandler {
 }
 
 // Node.js Concept: Async error wrapper for Express routes
-export const asyncErrorHandler = (fn: Function) => {
+export const asyncErrorHandler = (fn: (...args: any[]) => Promise<any>) => {
   return (req: any, res: any, next: any) => {
     Promise.resolve(fn(req, res, next)).catch(next);
   };
@@ -233,7 +233,7 @@ export const logError = (error: AppError, req?: any) => {
 };
 
 // Node.js Concept: Global error handler for Express
-export const globalErrorHandler = (error: any, req: any, res: any, next: any) => {
+export const globalErrorHandler = (error: Error, req: any, res: any, next: any) => {
   const processedError = ErrorHandler.processError(error);
   
   // Log the error
@@ -334,20 +334,5 @@ export class GracefulShutdown {
   }
 }
 
-// Export commonly used error types for easy imports
-export {
-  AppError as default,
-  ValidationError,
-  AuthenticationError,
-  AuthorizationError,
-  NotFoundError,
-  ConflictError,
-  RateLimitError,
-  DatabaseError,
-  ExternalServiceError,
-  ErrorHandler,
-  asyncErrorHandler,
-  logError,
-  globalErrorHandler,
-  GracefulShutdown
-};
+// Default export
+export default AppError;
