@@ -238,10 +238,14 @@ async function showStats() {
     console.log(`   Total Size: ${(storageStats.totalSize / 1024 / 1024).toFixed(2)} MB`);
     
     console.log('\n📈 Database Health:');
-    const dbStats = await mongoose.connection.db.stats();
-    console.log(`   Collections: ${dbStats.collections}`);
-    console.log(`   Data Size: ${(dbStats.dataSize / 1024 / 1024).toFixed(2)} MB`);
-    console.log(`   Index Size: ${(dbStats.indexSize / 1024 / 1024).toFixed(2)} MB`);
+    if (mongoose.connection.db) {
+      const dbStats = await mongoose.connection.db.stats();
+      console.log(`   Collections: ${dbStats.collections}`);
+      console.log(`   Data Size: ${(dbStats.dataSize / 1024 / 1024).toFixed(2)} MB`);
+      console.log(`   Index Size: ${(dbStats.indexSize / 1024 / 1024).toFixed(2)} MB`);
+    } else {
+      console.log('   Database connection not available');
+    }
     
   } catch (error) {
     colorLog('red', `❌ Error getting stats: ${error}`);

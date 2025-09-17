@@ -156,16 +156,16 @@ export class ErrorHandler {
       return error;
     }
 
-    // Handle specific error types
-    if (error.name === 'ValidationError') {
+    // Handle specific error types with type guards
+    if (error.name === 'ValidationError' && error.errors) {
       return this.handleMongooseValidationError(error);
     }
 
-    if (error.code === 11000) {
+    if (error.code === 11000 && error.keyValue) {
       return this.handleMongoDuplicateKeyError(error);
     }
 
-    if (error.name === 'CastError') {
+    if (error.name === 'CastError' && error.path && error.value !== undefined) {
       return this.handleMongoCastError(error);
     }
 

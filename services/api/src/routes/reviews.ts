@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { Types } from 'mongoose';
 import { Review, ReviewType } from '../models/Review';
 import { Trip } from '../models/Trip';
-import { authenticateJwt } from '../middleware/auth';
 import { User } from '../models/User';
 import { authenticateJwt } from '../middleware/auth';
 

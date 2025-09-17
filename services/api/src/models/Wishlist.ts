@@ -55,8 +55,8 @@ const wishlistSchema = new Schema<WishlistDocument>(
       virtuals: true,
       transform: function(doc, ret) {
         ret.id = ret._id;
-        delete ret._id;
-        delete ret.__v;
+        if ('_id' in ret) delete ret._id;
+        if ('__v' in ret) delete ret.__v;
         return ret;
       }
     }
@@ -217,8 +217,8 @@ wishlistSchema.methods.addTags = async function(newTags: string[]) {
 };
 
 wishlistSchema.methods.removeTags = async function(tagsToRemove: string[]) {
-  this.tags = this.tags.filter(tag => 
-    !tagsToRemove.map(t => t.toLowerCase().trim()).includes(tag)
+  this.tags = this.tags.filter((tag: string) => 
+    !tagsToRemove.map((t: string) => t.toLowerCase().trim()).includes(tag)
   );
   return await this.save();
 };

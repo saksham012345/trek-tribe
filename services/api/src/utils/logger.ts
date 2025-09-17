@@ -61,7 +61,7 @@ export class Logger {
       const stream = createWriteStream(filePath, { flags: 'a' });
       
       // Handle stream errors
-      stream.on('error', (error) => {
+      stream.on('error', (error: Error) => {
         console.error(`❌ Log file stream error for ${filename}:`, error);
       });
 
@@ -215,7 +215,7 @@ export class Logger {
           url: req.originalUrl,
           statusCode,
           duration: `${duration}ms`,
-          ip: req.ip || req.connection.remoteAddress,
+          ip: req.ip || req.connection?.remoteAddress,
           userAgent: req.get('User-Agent'),
           userId: req.auth?.userId,
           requestId

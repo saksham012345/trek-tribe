@@ -121,8 +121,8 @@ const reviewSchema = new Schema<ReviewDocument>(
       virtuals: true,
       transform: function(doc, ret) {
         ret.id = ret._id;
-        delete ret._id;
-        delete ret.__v;
+        if ('_id' in ret) delete ret._id;
+        if ('__v' in ret) delete ret.__v;
         return ret;
       }
     }
