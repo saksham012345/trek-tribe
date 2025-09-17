@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../config/api';
 import JoinTripModal from '../components/JoinTripModal';
 
 interface User {
@@ -46,7 +46,7 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
         if (searchTerm) params.append('search', searchTerm);
         if (selectedCategory) params.append('category', selectedCategory);
         
-        const response = await axios.get(`/trips?${params.toString()}`);
+        const response = await api.get(`/trips?${params.toString()}`);
         setTrips(response.data);
       } catch (error) {
         console.error('Error fetching trips:', error);
@@ -72,9 +72,9 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
     
     if (window.confirm('Are you sure you want to leave this trip? This action cannot be undone.')) {
       try {
-        await axios.post(`/trips/${tripId}/leave`);
+        await api.post(`/trips/${tripId}/leave`);
         // Refresh trips list
-        const response = await axios.get('/trips');
+        const response = await api.get('/trips');
         setTrips(response.data);
         alert('Successfully left the trip!');
       } catch (error: any) {
@@ -85,7 +85,7 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
 
   const handleJoinSuccess = async () => {
     // Refresh trips list
-    const response = await axios.get('/trips');
+    const response = await api.get('/trips');
     setTrips(response.data);
     alert('Successfully joined the trip!');
   };
@@ -206,9 +206,42 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
         )}
 
         {trips.length === 0 && !loading && (
-          <div className="text-center py-12">
-            <div className="text-gray-500 text-lg mb-4">No trips found</div>
-            <p className="text-gray-400">Try adjusting your search criteria or check back later</p>
+          <div className="text-center py-16">
+            <div className="max-w-md mx-auto">
+              <div className="text-6xl mb-6">🏔️</div>
+              <h3 className="text-2xl font-bold text-forest-800 mb-4">
+                {searchTerm || selectedCategory ? 'No matching adventures found' : 'No adventures yet'}
+              </h3>
+              <p className="text-forest-600 mb-6">
+                {searchTerm || selectedCategory 
+                  ? 'Try adjusting your search criteria or check back later' 
+                  : 'Be the first to create an epic adventure for fellow explorers!'}
+              </p>
+              {user?.role === 'organizer' && !searchTerm && !selectedCategory && (
+                <div className="space-y-4">
+                  <button
+                    onClick={() => window.location.href = '/create-trip'}
+                    className="bg-gradient-to-r from-forest-600 to-nature-600 hover:from-forest-700 hover:to-nature-700 text-white px-6 py-3 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 inline-flex items-center gap-2"
+                  >
+                    ✨ Create First Adventure
+                  </button>
+                  <p className="text-sm text-forest-500">
+                    Share your passion for adventure and connect with like-minded travelers
+                  </p>
+                </div>
+              )}
+              {(!user || user.role === 'traveler') && !searchTerm && !selectedCategory && (
+                <div className="bg-forest-50/50 border border-forest-200 rounded-xl p-6 mt-6">
+                  <h4 className="font-semibold text-forest-800 mb-2">Want to organize adventures?</h4>
+                  <p className="text-sm text-forest-600 mb-4">
+                    Upgrade to an organizer account to create and lead amazing trips!
+                  </p>
+                  <button className="bg-forest-600 hover:bg-forest-700 text-white px-4 py-2 rounded-lg text-sm transition-colors">
+                    Contact Support
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
 

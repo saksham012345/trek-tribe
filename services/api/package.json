@@ -15,7 +15,8 @@
     "cli:trip:list": "npm run cli -- trip list",
     "cli:backup": "npm run cli -- backup",
     "cli:cleanup": "npm run cli -- cleanup",
-    "cli:logs": "npm run cli -- logs"
+    "cli:logs": "npm run cli -- logs",
+    "cleanup:trips": "ts-node src/scripts/cleanup-test-trips.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
