@@ -55,8 +55,8 @@ const wishlistSchema = new Schema<WishlistDocument>(
       virtuals: true,
       transform: function(doc, ret) {
         ret.id = ret._id;
-        if ('_id' in ret) delete ret._id;
-        if ('__v' in ret) delete ret.__v;
+        if ('_id' in ret) delete (ret as any)._id;
+        if ('__v' in ret) delete (ret as any).__v;
         return ret;
       }
     }
@@ -247,6 +247,6 @@ interface WishlistModel extends Model<WishlistDocument> {
   }>;
 }
 
-export const Wishlist: WishlistModel = mongoose.models.Wishlist || mongoose.model<WishlistDocument, WishlistModel>('Wishlist', wishlistSchema);
+export const Wishlist = (mongoose.models.Wishlist || mongoose.model<WishlistDocument, WishlistModel>('Wishlist', wishlistSchema)) as WishlistModel;
 
 export default Wishlist;

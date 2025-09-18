@@ -121,8 +121,8 @@ const reviewSchema = new Schema<ReviewDocument>(
       virtuals: true,
       transform: function(doc, ret) {
         ret.id = ret._id;
-        if ('_id' in ret) delete ret._id;
-        if ('__v' in ret) delete ret.__v;
+        if ('_id' in ret) delete (ret as any)._id;
+        if ('__v' in ret) delete (ret as any).__v;
         return ret;
       }
     }
@@ -245,7 +245,7 @@ interface ReviewModel extends Model<ReviewDocument> {
   }>;
 }
 
-export const Review: ReviewModel = mongoose.models.Review || mongoose.model<ReviewDocument, ReviewModel>('Review', reviewSchema);
+export const Review = (mongoose.models.Review || mongoose.model<ReviewDocument, ReviewModel>('Review', reviewSchema)) as ReviewModel;
 
 // Node.js Concept: Module Exports
 // Export both the model and types for use in other files

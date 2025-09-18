@@ -156,17 +156,17 @@ export class ErrorHandler {
       return error;
     }
 
-    // Handle specific error types with type guards
-    if (error.name === 'ValidationError' && error.errors) {
-      return this.handleMongooseValidationError(error);
+    // Handle specific error types with proper type guards
+    if (error.name === 'ValidationError' && error.errors && typeof error.errors === 'object') {
+      return this.handleMongooseValidationError({ errors: error.errors });
     }
 
-    if (error.code === 11000 && error.keyValue) {
-      return this.handleMongoDuplicateKeyError(error);
+    if (error.code === 11000 && error.keyValue && typeof error.keyValue === 'object') {
+      return this.handleMongoDuplicateKeyError({ keyValue: error.keyValue });
     }
 
-    if (error.name === 'CastError' && error.path && error.value !== undefined) {
-      return this.handleMongoCastError(error);
+    if (error.name === 'CastError' && typeof error.path === 'string' && error.value !== undefined) {
+      return this.handleMongoCastError({ path: error.path, value: error.value });
     }
 
     if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {

@@ -238,7 +238,7 @@ export class Logger {
   async close(): Promise<void> {
     const closePromises = Array.from(this.fileStreams.values()).map(stream => {
       return new Promise<void>((resolve, reject) => {
-        stream.end((error) => {
+        stream.end((error: any) => {
           if (error) reject(error);
           else resolve();
         });
