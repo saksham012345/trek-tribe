@@ -45,7 +45,8 @@ const participantInfoSchema = new Schema({
   joinedAt: { type: Date, default: Date.now }
 });
 
-const tripSchema = new Schema<TripDocument>(
+// Define schema without explicit generic type to avoid union complexity
+const tripSchema = new Schema(
   {
     organizerId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     title: { type: String, required: true, index: true },
@@ -56,11 +57,15 @@ const tripSchema = new Schema<TripDocument>(
       type: { type: String, enum: ['Point'] },
       coordinates: { type: [Number], index: '2dsphere' },
     },
-    schedule: [{ day: Number, title: String, activities: [String] }],
+    schedule: [{ 
+      day: { type: Number, required: true }, 
+      title: { type: String, required: true }, 
+      activities: [{ type: String }] 
+    }],
     images: [{ type: String }],
-    coverImage: String,
-    itinerary: String,
-    itineraryPdf: String,
+    coverImage: { type: String },
+    itinerary: { type: String },
+    itineraryPdf: { type: String },
     capacity: { type: Number, required: true },
     price: { type: Number, required: true },
     startDate: { type: Date, required: true, index: true },
@@ -74,6 +79,7 @@ const tripSchema = new Schema<TripDocument>(
 
 tripSchema.index({ title: 'text', description: 'text', destination: 'text' });
 
-export const Trip: Model<TripDocument> = mongoose.models.Trip || mongoose.model<TripDocument>('Trip', tripSchema);
+// Export with proper typing to avoid complex union types
+export const Trip = (mongoose.models.Trip || mongoose.model('Trip', tripSchema)) as any as Model<TripDocument>;
 
 

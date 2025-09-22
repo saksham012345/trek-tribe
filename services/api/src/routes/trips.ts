@@ -178,7 +178,7 @@ router.delete('/:id/leave', authenticateJwt, async (req, res) => {
       return res.status(400).json({ error: 'Not part of this trip' });
     }
     
-    trip.participants = trip.participants.filter(id => id.toString() !== userId);
+    trip.participants = trip.participants.filter((id: any) => id.toString() !== userId);
     await trip.save();
     
     res.json({ message: 'Successfully left trip', trip });

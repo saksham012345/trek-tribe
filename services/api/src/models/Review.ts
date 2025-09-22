@@ -29,7 +29,8 @@ export interface ReviewDocument extends Document {
 }
 
 // Advanced schema with validation and indexing
-const reviewSchema = new Schema<ReviewDocument>(
+// Define schema without explicit generic type to avoid union complexity
+const reviewSchema = new Schema(
   {
     reviewerId: { 
       type: Schema.Types.ObjectId, 
@@ -119,10 +120,10 @@ const reviewSchema = new Schema<ReviewDocument>(
     // Node.js Concept: Schema options and middleware
     toJSON: { 
       virtuals: true,
-      transform: function(doc, ret) {
+      transform: function(doc: any, ret: any) {
         ret.id = ret._id;
-        if ('_id' in ret) delete (ret as any)._id;
-        if ('__v' in ret) delete (ret as any).__v;
+        if ('_id' in ret) delete ret._id;
+        if ('__v' in ret) delete ret.__v;
         return ret;
       }
     }
@@ -145,7 +146,7 @@ reviewSchema.index({
 
 // Node.js Concept: Mongoose Virtual Properties
 // Calculate average rating without storing it
-reviewSchema.virtual('isRecent').get(function() {
+reviewSchema.virtual('isRecent').get(function(this: any) {
   const oneMonthAgo = new Date();
   oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
   return this.createdAt > oneMonthAgo;
@@ -245,7 +246,8 @@ interface ReviewModel extends Model<ReviewDocument> {
   }>;
 }
 
-export const Review = (mongoose.models.Review || mongoose.model<ReviewDocument, ReviewModel>('Review', reviewSchema)) as ReviewModel;
+// Export with proper typing to avoid complex union types
+export const Review = (mongoose.models.Review || mongoose.model('Review', reviewSchema)) as ReviewModel;
 
 // Node.js Concept: Module Exports
 // Export both the model and types for use in other files

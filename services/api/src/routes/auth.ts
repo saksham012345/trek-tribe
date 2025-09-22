@@ -45,7 +45,7 @@ router.get('/me', authenticateJwt, async (req, res) => {
     const userId = (req as any).auth.userId;
     const user = await User.findById(userId).select('-passwordHash').lean();
     if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json({ user: { ...user, id: user._id } });
+    res.json({ user: { ...user, id: (user as any)._id } });
   } catch (error) {
     res.status(500).json({ error: 'Server error' });
   }

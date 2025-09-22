@@ -16,7 +16,8 @@ export interface WishlistDocument extends Document {
 }
 
 // Node.js Concept: Schema design with validation and indexing
-const wishlistSchema = new Schema<WishlistDocument>(
+// Define schema without explicit generic type to avoid union complexity
+const wishlistSchema = new Schema(
   {
     userId: { 
       type: Schema.Types.ObjectId, 
@@ -53,10 +54,10 @@ const wishlistSchema = new Schema<WishlistDocument>(
     // Transform output to include 'id' instead of '_id'
     toJSON: { 
       virtuals: true,
-      transform: function(doc, ret) {
+      transform: function(doc: any, ret: any) {
         ret.id = ret._id;
-        if ('_id' in ret) delete (ret as any)._id;
-        if ('__v' in ret) delete (ret as any).__v;
+        if ('_id' in ret) delete ret._id;
+        if ('__v' in ret) delete ret.__v;
         return ret;
       }
     }
@@ -247,6 +248,7 @@ interface WishlistModel extends Model<WishlistDocument> {
   }>;
 }
 
-export const Wishlist = (mongoose.models.Wishlist || mongoose.model<WishlistDocument, WishlistModel>('Wishlist', wishlistSchema)) as WishlistModel;
+// Export with proper typing to avoid complex union types
+export const Wishlist = (mongoose.models.Wishlist || mongoose.model('Wishlist', wishlistSchema)) as WishlistModel;
 
 export default Wishlist;
