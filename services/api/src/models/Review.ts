@@ -246,8 +246,9 @@ interface ReviewModel extends Model<ReviewDocument> {
   }>;
 }
 
-// Export with proper typing to avoid complex union types
-export const Review = (mongoose.models.Review || mongoose.model('Review', reviewSchema)) as ReviewModel;
+// Use a simpler approach to avoid complex union types
+const ReviewModel = mongoose.models.Review || mongoose.model('Review', reviewSchema);
+export const Review = ReviewModel as ReviewModel;
 
 // Node.js Concept: Module Exports
 // Export both the model and types for use in other files
