@@ -7,6 +7,9 @@ COPY package*.json ./
 # Install all dependencies (including dev dependencies for build)
 RUN npm ci || npm install
 
+# Install TypeScript globally for build
+RUN npm install -g typescript
+
 # Copy source code
 COPY . .
 

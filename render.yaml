@@ -1,0 +1,59 @@
+services:
+  # API Service
+  - type: web
+    name: trek-tribe-api
+    env: node
+    plan: free
+    region: oregon
+    rootDir: services/api
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MONGODB_URI
+        sync: false
+      - key: FRONTEND_URL
+        value: https://trek-tribe-web.onrender.com
+      - key: CORS_ORIGIN
+        value: https://trek-tribe-web.onrender.com
+
+  # Web Service
+  - type: web
+    name: trek-tribe-web
+    env: static
+    plan: free
+    region: oregon
+    rootDir: web
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./build
+    pullRequestPreviewsEnabled: true
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-XSS-Protection
+        value: 1; mode=block
+      - path: /static/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: REACT_APP_API_URL
+        value: https://trek-tribe-api.onrender.com
+      - key: REACT_APP_APP_NAME
+        value: Trek Tribe
+      - key: REACT_APP_VERSION
+        value: 1.0.0
+      - key: NODE_ENV
+        value: production

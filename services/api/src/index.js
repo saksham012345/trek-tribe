@@ -1,30 +1,37 @@
-import 'dotenv/config';
-import express, { Request, Response, NextFunction } from 'express';
-import helmet from 'helmet';
-import cors from 'cors';
-import mongoose from 'mongoose';
-import authRoutes from './routes/auth';
-import tripRoutes from './routes/trips';
-import reviewRoutes from './routes/reviews';
-import wishlistRoutes from './routes/wishlist';
-import fileRoutes from './routes/files';
+require('dotenv').config();
+const express = require('express');
+const path = require('path');
+const helmet = require('helmet');
+const cors = require('cors');
+const session = require('express-session');
+const mongoose = require('mongoose');
+const authRoutes = require('./routes/auth');
+const tripRoutes = require('./routes/trips');
+const reviewRoutes = require('./routes/reviews');
+const wishlistRoutes = require('./routes/wishlist');
+const fileRoutes = require('./routes/files');
+const viewRoutes = require('./routes/views');
 
 const app = express();
 
+// Set EJS as view engine
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
 // Enhanced error handling middleware
-const asyncErrorHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
+const asyncErrorHandler = (fn) => (req, res, next) => {
   Promise.resolve(fn(req, res, next)).catch(next);
 };
 
 // Request timeout middleware
-const timeoutMiddleware = (req: Request, res: Response, next: NextFunction) => {
+const timeoutMiddleware = (req, res, next) => {
   req.setTimeout(30000); // 30 seconds timeout
   res.setTimeout(30000);
   next();
 };
 
 // Request logging middleware
-const requestLogger = (req: Request, res: Response, next: NextFunction) => {
+const requestLogger = (req, res, next) => {
   const start = Date.now();
   console.log(`📨 ${new Date().toISOString()} - ${req.method} ${req.path}`);
   
@@ -41,25 +48,39 @@ const requestLogger = (req: Request, res: Response, next: NextFunction) => {
 // Apply middleware
 app.use(requestLogger);
 app.use(timeoutMiddleware);
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false, // Disable CSP for EJS templates
+}));
 app.use(cors({ 
-  origin: process.env.NODE_ENV === 'production' ? [
-    process.env.FRONTEND_URL || 'https://trek-tribe-web.onrender.com',
-    process.env.CORS_ORIGIN || 'https://trek-tribe-web.onrender.com',
-    'https://your-frontend-domain.com'
-  ] : '*',
+  origin: process.env.NODE_ENV === 'production' ? 
+    ['https://your-frontend-domain.com'] : '*',
   credentials: true 
 }));
+
+// Session middleware
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-session-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Serve static files
+app.use('/static', express.static(path.join(__dirname, 'public')));
+
 // Simple logging function
-const logMessage = (level: string, message: string): void => {
+const logMessage = (level, message) => {
   console.log(`${new Date().toISOString()} [${level}] ${message}`);
 };
 
 // Global error handler
-const globalErrorHandler = (error: Error, req: Request, res: Response, next: NextFunction) => {
+const globalErrorHandler = (error, req, res, next) => {
   console.error('🚨 Unhandled error:', error);
   
   // Log error
@@ -69,21 +90,33 @@ const globalErrorHandler = (error: Error, req: Request, res: Response, next: Nex
     return next(error);
   }
   
-  const statusCode = (error as any).statusCode || 500;
-  res.status(statusCode).json({
+  const statusCode = error.statusCode || 500;
+  
+  // If it's an API request, return JSON
+  if (req.path.startsWith('/api/') || req.xhr || req.get('Content-Type') === 'application/json') {
+    return res.status(statusCode).json({
+      error: process.env.NODE_ENV === 'production' 
+        ? 'Internal server error' 
+        : error.message,
+      ...(process.env.NODE_ENV !== 'production' && { stack: error.stack })
+    });
+  }
+  
+  // Otherwise render error page
+  res.status(statusCode).render('error', {
     error: process.env.NODE_ENV === 'production' 
       ? 'Internal server error' 
       : error.message,
-    ...(process.env.NODE_ENV !== 'production' && { stack: error.stack })
+    statusCode,
+    user: req.session.user || null
   });
 };
 
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 4000;
-// Render uses port 10000 by default, but process.env.PORT should be available
 const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/trekktribe';
 
 // Enhanced database connection with retry logic
-const connectToDatabase = async (retries = 5): Promise<void> => {
+const connectToDatabase = async (retries = 5) => {
   for (let i = 1; i <= retries; i++) {
     try {
       console.log(`🔄 Database connection attempt ${i}/${retries}`);
@@ -96,7 +129,7 @@ const connectToDatabase = async (retries = 5): Promise<void> => {
       console.log('✅ Connected to MongoDB successfully');
       logMessage('INFO', 'Connected to MongoDB successfully');
       return;
-    } catch (error: any) {
+    } catch (error) {
       console.error(`❌ Database connection attempt ${i} failed:`, error.message);
       logMessage('ERROR', `Database connection attempt ${i} failed: ${error.message}`);
       
@@ -121,15 +154,18 @@ async function start() {
     // Connect to database with retry logic
     await connectToDatabase();
     
-    // Routes
-    app.use('/auth', authRoutes);
-    app.use('/trips', tripRoutes);
-    app.use('/reviews', reviewRoutes);
-    app.use('/wishlist', wishlistRoutes);
-    app.use('/files', fileRoutes);
+    // View routes (main application pages)
+    app.use('/', viewRoutes);
+    
+    // API Routes
+    app.use('/api/auth', authRoutes);
+    app.use('/api/trips', tripRoutes);
+    app.use('/api/reviews', reviewRoutes);
+    app.use('/api/wishlist', wishlistRoutes);
+    app.use('/api/files', fileRoutes);
     
     // Health check endpoint with detailed info
-    app.get('/health', asyncErrorHandler(async (_req: Request, res: Response) => {
+    app.get('/health', asyncErrorHandler(async (req, res) => {
       const mongoStatus = mongoose.connection.readyState;
       const statusMap = {
         0: 'disconnected',
@@ -145,7 +181,7 @@ async function start() {
         status: 'ok',
         timestamp: new Date().toISOString(),
         mongodb: {
-          status: statusMap[mongoStatus as keyof typeof statusMap],
+          status: statusMap[mongoStatus],
           ping: dbTest ? 'successful' : 'failed'
         },
         uptime: process.uptime(),
@@ -157,12 +193,19 @@ async function start() {
     }));
     
     // 404 handler
-    app.use('*', (req: Request, res: Response) => {
-      res.status(404).json({ 
-        error: 'Route not found',
-        path: req.originalUrl,
-        method: req.method
-      });
+    app.use('*', (req, res) => {
+      if (req.path.startsWith('/api/')) {
+        res.status(404).json({ 
+          error: 'Route not found',
+          path: req.originalUrl,
+          method: req.method
+        });
+      } else {
+        res.status(404).render('404', { 
+          user: req.session.user || null,
+          path: req.originalUrl
+        });
+      }
     });
     
     // Apply global error handler
@@ -176,7 +219,7 @@ async function start() {
     });
     
     // Graceful shutdown handling
-    const gracefulShutdown = async (signal: string) => {
+    const gracefulShutdown = async (signal) => {
       console.log(`\n📴 Received ${signal}. Starting graceful shutdown...`);
       logMessage('INFO', `Received ${signal}. Starting graceful shutdown`);
       
@@ -192,7 +235,7 @@ async function start() {
           console.log('✅ Database connection closed');
           logMessage('INFO', 'Graceful shutdown completed');
           process.exit(0);
-        } catch (dbError: any) {
+        } catch (dbError) {
           console.error('❌ Error closing database:', dbError);
           logMessage('ERROR', `Error closing database: ${dbError.message}`);
           process.exit(1);
@@ -204,7 +247,7 @@ async function start() {
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
     process.on('SIGINT', () => gracefulShutdown('SIGINT'));
     
-  } catch (err: any) {
+  } catch (err) {
     console.error('❌ Failed to start server:', err);
     logMessage('ERROR', `Failed to start server: ${err.message}`);
     process.exit(1);
@@ -212,14 +255,14 @@ async function start() {
 }
 
 // Handle uncaught exceptions
-process.on('uncaughtException', (error: Error) => {
+process.on('uncaughtException', (error) => {
   console.error('🚨 Uncaught Exception:', error);
   logMessage('CRITICAL', `Uncaught Exception: ${error.message}`);
   process.exit(1);
 });
 
 // Handle unhandled promise rejections
-process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+process.on('unhandledRejection', (reason, promise) => {
   console.error('🚨 Unhandled Rejection at:', promise, 'reason:', reason);
   logMessage('CRITICAL', `Unhandled Rejection: ${reason}`);
   process.exit(1);
@@ -227,5 +270,3 @@ process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
 
 // Start the application
 start();
-
-

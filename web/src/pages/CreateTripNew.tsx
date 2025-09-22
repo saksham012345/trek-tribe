@@ -298,7 +298,6 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       console.log('Trip created successfully:', response?.data);
       
       // Success notification
-      const tripId = response?.data?.trip?._id;
       alert(`🎉 Trip "${formData.title}" created successfully! Redirecting...`);
       
       setTimeout(() => {

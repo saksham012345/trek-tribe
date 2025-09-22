@@ -15,7 +15,7 @@ services:
       - MONGODB_URI=mongodb://mongo:27017/trekktribe
       - NODE_ENV=development
       - PORT=4000
-      - JWT_SECRET=devsecret123456789
+      - JWT_SECRET=${JWT_SECRET}
     ports:
       - '4000:4000'
     depends_on:
