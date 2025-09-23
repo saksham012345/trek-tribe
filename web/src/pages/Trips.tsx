@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../config/api';
 import JoinTripModal from '../components/JoinTripModal';
 
@@ -38,6 +39,7 @@ interface TripsProps {
 }
 
 const Trips: React.FC<TripsProps> = ({ user }) => {
+  const navigate = useNavigate();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -209,12 +211,20 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
                     <span className="text-2xl font-bold text-nature-600">₹{trip.price}</span>
                     <div className="flex gap-2">
                       {trip.participants.includes(user?.id || '') ? (
-                        <button
-                          onClick={() => handleLeaveTrip(trip._id)}
-                          className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-4 py-2 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 text-sm"
-                        >
-                          🚪 Leave Trip
-                        </button>
+                        <>
+                          <button
+                            onClick={() => navigate(`/trip-tracking/${trip._id}`)}
+                            className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-3 py-2 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 text-xs"
+                          >
+                            📍 Track
+                          </button>
+                          <button
+                            onClick={() => handleLeaveTrip(trip._id)}
+                            className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-3 py-2 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 text-xs"
+                          >
+                            🚪 Leave
+                          </button>
+                        </>
                       ) : trip.participants.length >= trip.capacity ? (
                         <button
                           disabled
@@ -228,6 +238,15 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
                           className="bg-gradient-to-r from-forest-600 to-nature-600 hover:from-forest-700 hover:to-nature-700 text-white px-4 py-2 rounded-xl font-medium transition-all duration-300 transform hover:scale-105"
                         >
                           🌟 Join Adventure
+                        </button>
+                      )}
+                      {/* Track button for organizers */}
+                      {trip.organizerId === user?.id && (
+                        <button
+                          onClick={() => navigate(`/trip-tracking/${trip._id}`)}
+                          className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white px-3 py-2 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 text-xs"
+                        >
+                          🎛️ Manage
                         </button>
                       )}
                     </div>

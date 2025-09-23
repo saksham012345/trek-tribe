@@ -9,6 +9,7 @@ import Trips from './pages/Trips';
 import CreateTrip from './pages/CreateTrip';
 import EditTrip from './pages/EditTrip';
 import Profile from './pages/Profile';
+import TripTracking from './pages/TripTracking';
 
 axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:4000';
 
@@ -93,6 +94,10 @@ function App() {
             <Route 
               path="/profile" 
               element={user ? <Profile user={user} /> : <Navigate to="/login" />} 
+            />
+            <Route 
+              path="/trip-tracking/:tripId" 
+              element={user ? <TripTracking user={user} /> : <Navigate to="/login" />} 
             />
           </Routes>
         </main>
