@@ -25,6 +25,8 @@ services:
       - key: LOG_LEVEL
         value: info
       - key: ALLOWED_ORIGINS
-        value: "*"
+        value: "https://trek-tribe-6pb4ones7-saksham-s-projects-76ba6bcc.vercel.app,*"
       - key: CORS_ORIGIN
-        value: "*"
+        value: "https://trek-tribe-6pb4ones7-saksham-s-projects-76ba6bcc.vercel.app"
+      - key: FRONTEND_URL
+        value: "https://trek-tribe-6pb4ones7-saksham-s-projects-76ba6bcc.vercel.app"
