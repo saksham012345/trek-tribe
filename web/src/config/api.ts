@@ -4,9 +4,7 @@ import axios from 'axios';
 // Priority: Environment Variable > Production Detection > Development Default
 const API_BASE_URL = process.env.REACT_APP_API_URL || 
   (process.env.NODE_ENV === 'production' 
-    ? (window.location.hostname.includes('onrender.com') 
-        ? 'https://trek-tribe-api.onrender.com'  // Render deployment
-        : 'https://your-api-domain.vercel.app')  // Vercel deployment
+    ? 'https://trekktribe.onrender.com'  // Backend is always on Render
     : 'http://localhost:4000');  // Local development
 
 // Create axios instance with default configuration
