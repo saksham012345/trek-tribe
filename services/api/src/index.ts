@@ -130,7 +130,7 @@ async function start() {
     app.get('/', (req: Request, res: Response) => {
       res.json({
         message: 'Trek Tribe API',
-        version: '1.0.0',
+        version: '1.0.1',
         status: 'active',
         timestamp: new Date().toISOString(),
         endpoints: {
