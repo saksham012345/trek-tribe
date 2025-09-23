@@ -69,7 +69,7 @@ npm run dev:api
    ```
    - Uses `vercel.json` configuration
    - Automatically connects to backend API
-   - ✅ **Currently deployed at**: `https://trek-tribe-6pb4ones7-saksham-s-projects-76ba6bcc.vercel.app`
+   - ✅ **Currently deployed at**: `https://trek-tribe-web.vercel.app` (🌐 **Public Access**)
 
 ## 📋 API Documentation
 
@@ -85,8 +85,11 @@ npm run dev:api
 - **Status**: ✅ **LIVE & CONNECTED**
 
 ### 🌎 **Frontend (Live on Vercel)**
-- **Web App**: `https://trek-tribe-6pb4ones7-saksham-s-projects-76ba6bcc.vercel.app`
-- **Status**: ✅ **LIVE & CONNECTED TO API**
+- **Web App**: `https://trek-tribe-web.vercel.app` 🌐 **PUBLIC ACCESS**
+- **Alternative URLs**: 
+  - `https://trek-tribe-web-saksham-s-projects-76ba6bcc.vercel.app`
+  - `https://trek-tribe-6pb4ones7-saksham-s-projects-76ba6bcc.vercel.app`
+- **Status**: ✅ **LIVE & PUBLICLY ACCESSIBLE**
 
 ### Authentication
 All protected endpoints require JWT token in header:

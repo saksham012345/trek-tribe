@@ -27,6 +27,6 @@ services:
       - key: ALLOWED_ORIGINS
         value: "https://trek-tribe-6pb4ones7-saksham-s-projects-76ba6bcc.vercel.app,*"
       - key: CORS_ORIGIN
-        value: "https://trek-tribe-6pb4ones7-saksham-s-projects-76ba6bcc.vercel.app"
+        value: "https://trek-tribe-web.vercel.app"
       - key: FRONTEND_URL
-        value: "https://trek-tribe-6pb4ones7-saksham-s-projects-76ba6bcc.vercel.app"
+        value: "https://trek-tribe-web.vercel.app"

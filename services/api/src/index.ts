@@ -44,6 +44,8 @@ app.use(timeoutMiddleware);
 app.use(helmet());
 app.use(cors({ 
   origin: process.env.NODE_ENV === 'production' ? [
+    'https://trek-tribe-web.vercel.app',
+    'https://trek-tribe-web-saksham-s-projects-76ba6bcc.vercel.app',
     'https://trek-tribe-6pb4ones7-saksham-s-projects-76ba6bcc.vercel.app',
     'https://trek-tribe-web.onrender.com',
     process.env.FRONTEND_URL || '*',
