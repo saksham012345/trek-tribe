@@ -39,7 +39,7 @@ router.post('/trips/:tripId/initialize', authenticateJwt, requireRole(['organize
       organizerId: userId,
       status: 'not_started' as const,
       participants: participants.map(p => ({
-        userId: p._id.toString(),
+        userId: (p._id as any).toString(),
         userName: p.name,
         status: 'joined' as const
       })),
@@ -305,18 +305,22 @@ router.post('/trips/:tripId/sos', authenticateJwt, async (req, res) => {
     tracking.status = 'emergency';
 
     // Create emergency alert
-    const emergencyAlert = {
+    const emergencyAlert: any = {
       userId,
       type: 'sos' as const,
       timestamp: new Date(),
-      resolved: false,
-      ...(locationData.success && {
-        location: {
-          ...locationData.data,
-          timestamp: new Date()
-        }
-      })
+      resolved: false
     };
+    
+    if (locationData.success && locationData.data) {
+      emergencyAlert.location = {
+        latitude: locationData.data.latitude,
+        longitude: locationData.data.longitude,
+        altitude: locationData.data.altitude,
+        accuracy: locationData.data.accuracy,
+        timestamp: new Date()
+      };
+    }
 
     tracking.emergencyAlerts.push(emergencyAlert);
     await tracking.save();
