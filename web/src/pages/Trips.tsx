@@ -19,10 +19,18 @@ interface Trip {
   participants: string[];
   categories: string[];
   images: string[];
+  coverImage?: string;
+  itinerary?: string;
+  itineraryPdf?: string;
+  schedule?: Array<{day: number; title: string; activities: string[]}>;
   organizerId: string;
   status: string;
   startDate: string;
   endDate: string;
+  difficultyLevel?: string;
+  includedItems?: string[];
+  excludedItems?: string[];
+  requirements?: string[];
 }
 
 interface TripsProps {
@@ -142,8 +150,33 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {trips.map((trip) => (
               <div key={trip._id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-                <div className="h-48 bg-gray-200 flex items-center justify-center">
-                  <span className="text-gray-500">Trip Image</span>
+                <div className="h-48 bg-gray-200 relative overflow-hidden">
+                  {trip.coverImage || trip.images?.[0] ? (
+                    <img 
+                      src={`https://trekktribe.onrender.com${trip.coverImage || trip.images[0]}`}
+                      alt={trip.title}
+                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5YTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPvCfj5QgQWR2ZW50dXJlIEltYWdlPC90ZXh0Pjwvc3ZnPg==';
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-forest-100 to-nature-100">
+                      <div className="text-center">
+                        <span className="text-4xl mb-2 block">🏔️</span>
+                        <span className="text-forest-600 text-sm">Adventure Awaits</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Image overlay with trip info */}
+                  <div className="absolute top-2 right-2">
+                    {trip.images && trip.images.length > 1 && (
+                      <span className="bg-black/70 text-white px-2 py-1 rounded-full text-xs">
+                        +{trip.images.length - 1} more
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="p-6">
                   <h3 className="text-xl font-semibold mb-2">{trip.title}</h3>
