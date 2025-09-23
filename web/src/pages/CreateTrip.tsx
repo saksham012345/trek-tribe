@@ -290,7 +290,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       }
 
       // Prepare enhanced trip data
-      const tripData = {
+      const tripData: any = {
         title: formData.title.trim(),
         description: formData.description.trim(),
         destination: formData.destination.trim(),
@@ -304,13 +304,19 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
         images: uploadedImageUrls,
         coverImage: uploadedImageUrls[coverImageIndex] || uploadedImageUrls[0],
         itineraryPdf: uploadedPdfUrl,
-        location: formData.location,
         difficultyLevel: formData.difficultyLevel,
         includedItems: formData.includedItems,
         excludedItems: formData.excludedItems,
         requirements: formData.requirements,
         cancellationPolicy: formData.cancellationPolicy
       };
+      
+      // Only include location if it has valid coordinates
+      if (formData.location && formData.location.latitude && formData.location.longitude) {
+        tripData.location = {
+          coordinates: [formData.location.longitude, formData.location.latitude]
+        };
+      }
 
       setUploadProgress(90);
       
