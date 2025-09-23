@@ -38,7 +38,7 @@ app.use(helmet({
 }));
 app.use(cors({ 
   origin: process.env.NODE_ENV === 'production' ? 
-    [process.env.FRONTEND_URL || 'https://your-frontend-domain.vercel.app'] : '*',
+    process.env.ALLOWED_ORIGINS?.split(',') || ['*'] : '*',
   credentials: true 
 }));
 app.use(express.json({ limit: '10mb' }));

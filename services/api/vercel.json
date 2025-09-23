@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "name": "trek-tribe-api",
   "builds": [
     {
       "src": "dist/serverless.js",
@@ -17,13 +18,16 @@
     }
   ],
   "env": {
-    "NODE_ENV": "production"
+    "NODE_ENV": "production",
+    "ALLOWED_ORIGINS": "*"
   },
   "installCommand": "npm install",
   "buildCommand": "npm run build",
   "functions": {
     "dist/serverless.js": {
-      "maxDuration": 30
+      "maxDuration": 30,
+      "memory": 1024
     }
-  }
+  },
+  "regions": ["iad1"]
 }

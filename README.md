@@ -27,32 +27,66 @@ cp .env.example .env
 npm run dev:api
 ```
 
-## 🌐 Production Deployment (Render)
+## 🌐 Production Deployment
 
-### 1. Prerequisites
+### 🔴 Backend API (Render)
+
+#### Prerequisites
 - GitHub repository
 - MongoDB Atlas cluster
 - Render account
 
-### 2. MongoDB Atlas Setup
-```bash
-# Create cluster at https://cloud.mongodb.com/
-# Create database: trekktribe
-# Get connection string:
-# mongodb+srv://<username>:<password>@<cluster>.mongodb.net/trekktribe
-```
+#### Setup Steps
+1. **MongoDB Atlas Setup**
+   ```bash
+   # Create cluster at https://cloud.mongodb.com/
+   # Create database: trekktribe
+   # Get connection string:
+   # mongodb+srv://<username>:<password>@<cluster>.mongodb.net/trekktribe
+   ```
 
-### 3. Render Deployment
-1. Connect your GitHub repository to Render
-2. Use the included `render.yaml` configuration
-3. Set environment variable in Render dashboard:
-   - `MONGODB_URI`: Your MongoDB Atlas connection string
+2. **Deploy to Render**
+   - Connect your GitHub repository to Render
+   - Use the included `render.yaml` configuration
+   - Set environment variable: `MONGODB_URI`
+   - ✅ **Currently deployed at**: `https://trekktribe.onrender.com`
+
+### 🔵 Frontend (Vercel)
+
+#### Prerequisites
+- Vercel account
+- Live backend API URL
+
+#### Setup Steps
+1. **Navigate to web folder**
+   ```bash
+   cd web
+   ```
+
+2. **Deploy to Vercel**
+   ```bash
+   npx vercel --prod
+   ```
+   - Uses `vercel.json` configuration
+   - Automatically connects to backend API
+   - ✅ **Currently deployed at**: `https://trek-tribe-6pb4ones7-saksham-s-projects-76ba6bcc.vercel.app`
 
 ## 📋 API Documentation
 
 ### Base URL
 - **Local**: `http://localhost:4000`
-- **Production**: `https://trek-tribe-api.onrender.com`
+- **Production**: `https://trekktribe.onrender.com`
+
+## 🌐 Live Application
+
+### 🚀 **Backend API (Live on Render)**
+- **API URL**: `https://trekktribe.onrender.com`
+- **Health Check**: `https://trekktribe.onrender.com/health`
+- **Status**: ✅ **LIVE & CONNECTED**
+
+### 🌎 **Frontend (Live on Vercel)**
+- **Web App**: `https://trek-tribe-6pb4ones7-saksham-s-projects-76ba6bcc.vercel.app`
+- **Status**: ✅ **LIVE & CONNECTED TO API**
 
 ### Authentication
 All protected endpoints require JWT token in header:
