@@ -125,6 +125,25 @@ async function start() {
     await connectToDatabase();
     
     // Routes
+    // Root route handler
+    app.get('/', (req: Request, res: Response) => {
+      res.json({
+        message: 'Trek Tribe API',
+        version: '1.0.0',
+        status: 'active',
+        timestamp: new Date().toISOString(),
+        endpoints: {
+          health: '/health',
+          auth: '/auth/*',
+          trips: '/trips',
+          reviews: '/reviews',
+          wishlist: '/wishlist',
+          files: '/files/*',
+          uploads: '/uploads/*'
+        }
+      });
+    });
+
 // Serve uploaded files statically
 app.use('/uploads', express.static('uploads'));
 
