@@ -80,7 +80,7 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
     
     if (window.confirm('Are you sure you want to leave this trip? This action cannot be undone.')) {
       try {
-        await api.post(`/trips/${tripId}/leave`);
+        await api.delete(`/trips/${tripId}/leave`);
         // Refresh trips list
         const response = await api.get('/trips');
         setTrips(response.data);
