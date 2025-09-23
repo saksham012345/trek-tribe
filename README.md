@@ -1,93 +1,222 @@
-# Trekk Tribe
+# 🏔️ Trek Tribe API
 
-A travel platform that connects travelers for group trips and adventures.
+A robust RESTful API for managing travel experiences, trips, reviews, and user interactions. Built with Node.js, Express, TypeScript, and MongoDB.
 
-## Features
-
-- **User Authentication**: Register as a traveler or organizer
-- **Trip Creation**: Organizers can create and manage trips
-- **Trip Discovery**: Browse and search for trips by category, destination, price
-- **Trip Joining**: Travelers can join trips with available spots
-- **User Profiles**: Manage your account and view your trips
-
-## Tech Stack
-
-- **Frontend**: React, TypeScript, Tailwind CSS
-- **Backend**: Node.js, Express, TypeScript
-- **Database**: MongoDB
-- **Authentication**: JWT
-- **Containerization**: Docker
-
-## Quick Start
+## 🚀 Quick Start
 
 ### Prerequisites
-- Docker and Docker Compose
-- Node.js 20+ (for local development)
-
-### Running with Docker (Recommended)
-
-1. Clone the repository
-2. Run the application:
-   ```bash
-   npm run dev
-   ```
-
-3. Access the application:
-   - **Web App**: http://localhost:3000
-   - **API**: http://localhost:4000
-   - **MongoDB**: localhost:27017
+- Node.js 18+ 
+- MongoDB Atlas account
+- Git
 
 ### Local Development
+```bash
+# Clone the repository
+git clone https://github.com/your-username/trek-tribe.git
+cd trek-tribe
 
-1. Install dependencies:
-   ```bash
-   npm run install:all
-   ```
+# Install dependencies
+npm run install:all
 
-2. Start MongoDB (via Docker):
-   ```bash
-   docker run -d -p 27017:27017 --name trekk-mongo mongo:6
-   ```
+# Set up environment
+cd services/api
+cp .env.example .env
+# Edit .env with your configuration
 
-3. Start the API:
-   ```bash
-   npm run dev:api
-   ```
+# Start the API server
+npm run dev:api
+```
 
-4. Start the web app (in another terminal):
-   ```bash
-   npm run dev:web
-   ```
+## 🌐 Production Deployment (Render)
 
-## Available Scripts
+### 1. Prerequisites
+- GitHub repository
+- MongoDB Atlas cluster
+- Render account
 
-- `npm run dev` - Start all services with Docker
-- `npm run build` - Build all Docker images
-- `npm run stop` - Stop all services
-- `npm run clean` - Stop services and remove volumes
-- `npm run dev:api` - Start API in development mode
-- `npm run dev:web` - Start web app in development mode
+### 2. MongoDB Atlas Setup
+```bash
+# Create cluster at https://cloud.mongodb.com/
+# Create database: trekktribe
+# Get connection string:
+# mongodb+srv://<username>:<password>@<cluster>.mongodb.net/trekktribe
+```
 
-## API Endpoints
+### 3. Render Deployment
+1. Connect your GitHub repository to Render
+2. Use the included `render.yaml` configuration
+3. Set environment variable in Render dashboard:
+   - `MONGODB_URI`: Your MongoDB Atlas connection string
+
+## 📋 API Documentation
+
+### Base URL
+- **Local**: `http://localhost:4000`
+- **Production**: `https://trek-tribe-api.onrender.com`
 
 ### Authentication
-- `POST /auth/register` - Register a new user
-- `POST /auth/login` - Login user
-- `GET /auth/me` - Get current user info
+All protected endpoints require JWT token in header:
+```
+Authorization: Bearer <your_jwt_token>
+```
 
-### Trips
-- `GET /trips` - Get all trips (with search/filter)
-- `POST /trips` - Create a new trip (organizers only)
-- `GET /trips/:id` - Get trip by ID
-- `POST /trips/:id/join` - Join a trip
-- `DELETE /trips/:id/leave` - Leave a trip
+### Core Endpoints
 
-## Project Structure
+#### 🔐 Authentication
+```
+POST /auth/register       # Register new user
+POST /auth/login          # User login
+POST /auth/logout         # User logout
+GET  /auth/me             # Get current user profile
+PUT  /auth/profile        # Update user profile
+```
+
+#### 🗺️ Trips
+```
+GET    /trips             # Get all trips (with filters)
+POST   /trips             # Create new trip
+GET    /trips/:id         # Get specific trip
+PUT    /trips/:id         # Update trip
+DELETE /trips/:id         # Delete trip
+```
+
+#### ⭐ Reviews
+```
+GET    /reviews           # Get reviews for a trip
+POST   /reviews           # Create review
+PUT    /reviews/:id       # Update review
+DELETE /reviews/:id       # Delete review
+```
+
+#### ❤️ Wishlist
+```
+GET    /wishlist          # Get user's wishlist
+POST   /wishlist          # Add trip to wishlist
+DELETE /wishlist/:tripId  # Remove from wishlist
+```
+
+#### 📁 File Uploads
+```
+POST /files/upload/base64   # Upload file as base64
+POST /files/upload/binary   # Upload binary file
+GET  /uploads/*             # Access uploaded files
+```
+
+#### 🏥 Health Check
+```
+GET /health               # API health status
+```
+
+## 🏗️ Project Structure
 
 ```
+trek-tribe/
 ├── services/
-│   └── api/          # Node.js API
-├── web/              # React frontend
-├── docker-compose.yml
-└── package.json      # Root package.json
+│   ├── api/                 # Main API service
+│   │   ├── src/
+│   │   │   ├── routes/      # API routes
+│   │   │   ├── models/      # MongoDB models
+│   │   │   ├── middleware/  # Custom middleware
+│   │   │   ├── utils/       # Utility functions
+│   │   │   ├── cli/         # CLI tools
+│   │   │   └── scripts/     # Database scripts
+│   │   ├── uploads/         # File uploads (gitignored)
+│   │   ├── dist/            # Compiled JavaScript
+│   │   └── package.json
+│   └── cli/                 # CLI utilities
+├── web/                     # Frontend (React) - Optional
+├── render.yaml              # Render deployment config
+├── docker-compose.yml       # Local Docker setup
+└── package.json             # Root package.json
 ```
+
+## 🛠️ Development
+
+### Available Scripts
+```bash
+# Root level
+npm run dev:api              # Start API in development mode
+npm run build:api            # Build API for production
+npm run install:all          # Install all dependencies
+
+# API level (services/api)
+npm run dev                  # Start with hot reload
+npm run build                # Compile TypeScript
+npm run start                # Start production server
+npm run cli                  # Run CLI tools
+```
+
+## 🔧 Configuration
+
+### Environment Variables (Production)
+The following are automatically configured by `render.yaml`:
+- `NODE_ENV=production`
+- `PORT=10000`
+- `JWT_SECRET` (auto-generated)
+- `MAX_FILE_SIZE=10485760`
+- `UPLOAD_DIR=uploads`
+- `LOG_LEVEL=info`
+- `ALLOWED_ORIGINS=*`
+- `CORS_ORIGIN=*`
+
+**You only need to set:**
+- `MONGODB_URI` - Your MongoDB Atlas connection string
+
+## 🔐 Security Features
+
+- JWT-based authentication
+- Helmet.js security headers
+- CORS protection
+- Input validation with Zod
+- File upload restrictions
+- Secure password hashing with bcrypt
+
+## 📊 Monitoring
+
+- Health check endpoint: `/health`
+- Request logging with timestamps
+- Error tracking and logging
+- Database connection monitoring
+- Memory usage reporting
+
+## 🚦 API Response Format
+
+### Success Response
+```json
+{
+  "success": true,
+  "data": { ... },
+  "message": "Operation successful"
+}
+```
+
+### Error Response
+```json
+{
+  "success": false,
+  "error": "Error message",
+  "code": "ERROR_CODE"
+}
+```
+
+## 📝 Contributing
+
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License.
+
+## 🆘 Support
+
+- **Issues**: Create GitHub issue
+- **Documentation**: Check API endpoints above
+- **API Status**: Check `/health` endpoint
+
+---
+
+**Happy Trekking! 🥾⛰️**

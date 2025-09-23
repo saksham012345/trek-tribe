@@ -122,11 +122,14 @@ async function start() {
     await connectToDatabase();
     
     // Routes
-    app.use('/auth', authRoutes);
-    app.use('/trips', tripRoutes);
-    app.use('/reviews', reviewRoutes);
-    app.use('/wishlist', wishlistRoutes);
-    app.use('/files', fileRoutes);
+// Serve uploaded files statically
+app.use('/uploads', express.static('uploads'));
+
+app.use('/auth', authRoutes);
+app.use('/trips', tripRoutes);
+app.use('/reviews', reviewRoutes);
+app.use('/wishlist', wishlistRoutes);
+app.use('/files', fileRoutes);
     
     // Health check endpoint with detailed info
     app.get('/health', asyncErrorHandler(async (_req: Request, res: Response) => {

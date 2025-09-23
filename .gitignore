@@ -1,13 +1,60 @@
-node_modules
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
 .env
 .env.*
 !.env.example
-dist
-.next
-.expo
-.DS_Store
-**/build
-**/.turbo
-**/.expo
-**/.cache
 
+# Build outputs
+dist/
+build/
+.next/
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Logs
+logs/
+*.log
+
+# Uploads directory (contains user files)
+uploads/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Cache directories
+.cache/
+.turbo/
+.expo/
+
+# MongoDB data (for local development)
+data/
+mongodb-data/
+
+# Temporary files
+tmp/
+temp/

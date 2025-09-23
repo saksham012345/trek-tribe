@@ -17,6 +17,15 @@ const createTripSchema = z.object({
   price: z.number().positive(),
   startDate: z.coerce.date(),
   endDate: z.coerce.date(),
+  // Additional fields from frontend
+  difficultyLevel: z.enum(['beginner', 'intermediate', 'advanced']).default('intermediate'),
+  includedItems: z.array(z.string()).default([]),
+  excludedItems: z.array(z.string()).default([]),
+  requirements: z.array(z.string()).default([]),
+  cancellationPolicy: z.string().default('moderate'),
+  itinerary: z.string().default(''),
+  coverImage: z.string().optional(),
+  itineraryPdf: z.string().optional(),
 });
 
 // Async error wrapper

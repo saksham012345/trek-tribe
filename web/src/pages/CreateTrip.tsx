@@ -89,7 +89,6 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
   
   // Enhanced file upload with progress tracking
   const uploadFileToServer = async (file: File): Promise<string> => {
-    
     // Convert file to base64 for our API
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -101,12 +100,18 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
             filename: file.name,
             mimeType: file.type
           });
-          resolve(response.data.file.url);
-        } catch (error) {
-          reject(error);
+          
+          if (response.data && response.data.file && response.data.file.url) {
+            resolve(response.data.file.url);
+          } else {
+            reject(new Error('Invalid response from file upload'));
+          }
+        } catch (error: any) {
+          console.error('File upload error:', error);
+          reject(new Error(error.response?.data?.error || 'File upload failed'));
         }
       };
-      reader.onerror = reject;
+      reader.onerror = () => reject(new Error('Failed to read file'));
       reader.readAsDataURL(file);
     });
   };
@@ -191,13 +196,21 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
   };
   
   // Step navigation
-  const nextStep = () => {
+  const nextStep = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
     }
   };
   
-  const prevStep = () => {
+  const prevStep = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
     }
@@ -247,17 +260,33 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       
       setUploadProgress(10);
       
+      // Check authentication first
+      const token = localStorage.getItem('token');
+      console.log('Authentication token:', token ? 'Present' : 'Missing');
+      
+      if (!token) {
+        throw new Error('Please log in again. Authentication token is missing.');
+      }
+      
       if (images.length > 0) {
         setUploadProgress(20);
-        const imageUploadPromises = images.map(image => uploadFileToServer(image));
-        uploadedImageUrls = await Promise.all(imageUploadPromises);
-        setUploadProgress(50);
+        try {
+          const imageUploadPromises = images.map(image => uploadFileToServer(image));
+          uploadedImageUrls = await Promise.all(imageUploadPromises);
+          setUploadProgress(50);
+        } catch (error: any) {
+          throw new Error('Image upload failed: ' + error.message);
+        }
       }
       
       if (itineraryPdf) {
         setUploadProgress(70);
-        uploadedPdfUrl = await uploadFileToServer(itineraryPdf);
-        setUploadProgress(80);
+        try {
+          uploadedPdfUrl = await uploadFileToServer(itineraryPdf);
+          setUploadProgress(80);
+        } catch (error: any) {
+          throw new Error('PDF upload failed: ' + error.message);
+        }
       }
 
       // Prepare enhanced trip data
@@ -306,13 +335,20 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       
     } catch (error: any) {
       console.error('Error creating trip:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        headers: error.response?.headers
+      });
       
-      // Enhanced error handling
+      // Enhanced error handling with more debugging
       let errorMessage = 'Failed to create trip';
       
       if (error.message) {
         errorMessage = error.message;
       } else if (error.response?.data?.error) {
+        console.log('Server error response:', error.response.data);
         if (typeof error.response.data.error === 'string') {
           errorMessage = error.response.data.error;
         } else if (error.response.data.error.fieldErrors) {
@@ -322,8 +358,11 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
         }
       } else if (error.response?.status === 401) {
         errorMessage = 'Authentication required. Please log in again.';
+        console.log('Auth error - redirecting to login');
       } else if (error.response?.status === 403) {
         errorMessage = 'You do not have permission to create trips. Please ensure you have organizer role.';
+      } else if (error.response?.status === 400) {
+        errorMessage = error.response?.data?.message || error.response?.data?.error || 'Bad request - please check your input.';
       } else if (error.response?.status >= 500) {
         errorMessage = 'Server error. Please try again later.';
       } else if (error.code === 'NETWORK_ERROR') {
@@ -862,7 +901,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                   {currentStep > 1 && (
                     <button
                       type="button"
-                      onClick={prevStep}
+                      onClick={(e) => prevStep(e)}
                       className="px-5 py-2.5 bg-forest-200 text-forest-800 rounded-xl hover:bg-forest-300 transition-colors"
                     >
                       ← Back
@@ -872,7 +911,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                   {currentStep < totalSteps ? (
                     <button
                       type="button"
-                      onClick={nextStep}
+                      onClick={(e) => nextStep(e)}
                       disabled={!isStepValid(currentStep)}
                       className={`px-5 py-2.5 rounded-xl text-white transition-colors ${
                         isStepValid(currentStep)

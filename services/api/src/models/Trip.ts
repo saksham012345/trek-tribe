@@ -30,6 +30,12 @@ export interface TripDocument extends Document {
   participants: Types.ObjectId[];
   participantDetails: ParticipantInfo[];
   status: 'active' | 'cancelled' | 'completed';
+  // Additional fields
+  difficultyLevel: 'beginner' | 'intermediate' | 'advanced';
+  includedItems: string[];
+  excludedItems: string[];
+  requirements: string[];
+  cancellationPolicy: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -73,6 +79,12 @@ const tripSchema = new Schema(
     participants: [{ type: Schema.Types.ObjectId, ref: 'User' }],
     participantDetails: [participantInfoSchema],
     status: { type: String, enum: ['active', 'cancelled', 'completed'], default: 'active' },
+    // Additional fields
+    difficultyLevel: { type: String, enum: ['beginner', 'intermediate', 'advanced'], default: 'intermediate' },
+    includedItems: [{ type: String }],
+    excludedItems: [{ type: String }],
+    requirements: [{ type: String }],
+    cancellationPolicy: { type: String, default: 'moderate' },
   },
   { timestamps: true }
 );
