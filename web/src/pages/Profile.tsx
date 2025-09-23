@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import EmergencyContacts from '../components/EmergencyContacts';
 
 interface User {
   id: string;
@@ -81,6 +82,11 @@ const Profile: React.FC<ProfileProps> = ({ user }) => {
                 <p className="mt-1 text-lg text-gray-900 capitalize">{user.role}</p>
               </div>
             </div>
+          </div>
+
+          {/* Emergency Contacts */}
+          <div className="mb-8">
+            <EmergencyContacts />
           </div>
 
           {/* User Trips */}

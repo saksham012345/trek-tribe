@@ -2,10 +2,24 @@ import mongoose, { Schema, Document, Model } from 'mongoose';
 
 export type UserRole = 'traveler' | 'organizer' | 'admin';
 
+interface EmergencyContact {
+  name: string;
+  relationship: string;
+  phone: string;
+  email?: string;
+  isPrimary?: boolean;
+}
+
 interface UserPreferences {
   categories?: string[];
   budgetRange?: [number, number];
   locations?: string[];
+}
+
+interface TrackingPreferences {
+  shareLocationWithEmergencyContacts?: boolean;
+  allowLocationTracking?: boolean;
+  notificationFrequency?: 'hourly' | 'every4hours' | 'daily';
 }
 
 export interface UserDocument extends Document {
@@ -14,6 +28,9 @@ export interface UserDocument extends Document {
   name: string;
   role: UserRole;
   preferences?: UserPreferences;
+  emergencyContacts?: EmergencyContact[];
+  trackingPreferences?: TrackingPreferences;
+  phone?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,6 +47,7 @@ const userSchema = new Schema(
       default: 'traveler', 
       index: true 
     },
+    phone: { type: String, required: false },
     preferences: {
       type: {
         categories: [{ type: String }],
@@ -45,6 +63,22 @@ const userSchema = new Schema(
         locations: [{ type: String }]
       },
       required: false
+    },
+    emergencyContacts: [{
+      name: { type: String, required: true },
+      relationship: { type: String, required: true },
+      phone: { type: String, required: true },
+      email: { type: String, required: false },
+      isPrimary: { type: Boolean, default: false }
+    }],
+    trackingPreferences: {
+      shareLocationWithEmergencyContacts: { type: Boolean, default: true },
+      allowLocationTracking: { type: Boolean, default: true },
+      notificationFrequency: { 
+        type: String, 
+        enum: ['hourly', 'every4hours', 'daily'], 
+        default: 'every4hours'
+      }
     }
   },
   { timestamps: true }
