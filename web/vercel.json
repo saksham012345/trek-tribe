@@ -1,7 +1,6 @@
 {
-  "name": "trek-tribe-web",
-  "alias": "trek-tribe-web.vercel.app",
   "version": 2,
+  "public": true,
   "buildCommand": "npm run build",
   "outputDirectory": "build",
   "installCommand": "npm install",
