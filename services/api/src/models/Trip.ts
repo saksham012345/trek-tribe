@@ -36,6 +36,29 @@ export interface TripDocument extends Document {
   excludedItems: string[];
   requirements: string[];
   cancellationPolicy: string;
+  // Payment options
+  paymentOptions: {
+    allowAdvancePayment: boolean;
+    advanceAmount?: number;
+    advancePercentage?: number;
+    fullPaymentRequired?: boolean;
+    refundPolicy: string;
+  };
+  // Ratings and reviews
+  averageRating?: number;
+  totalRatings: number;
+  ratingBreakdown?: {
+    5: number;
+    4: number;
+    3: number;
+    2: number;
+    1: number;
+  };
+  // Wishlist count
+  wishlistCount: number;
+  // Trip statistics
+  viewCount: number;
+  bookingCount: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -85,6 +108,28 @@ const tripSchema = new Schema(
     excludedItems: [{ type: String }],
     requirements: [{ type: String }],
     cancellationPolicy: { type: String, default: 'moderate' },
+    // Payment options
+    paymentOptions: {
+      allowAdvancePayment: { type: Boolean, default: false },
+      advanceAmount: { type: Number, min: 0 },
+      advancePercentage: { type: Number, min: 0, max: 100 },
+      fullPaymentRequired: { type: Boolean, default: false },
+      refundPolicy: { type: String, default: 'Refund as per cancellation policy' }
+    },
+    // Ratings and reviews
+    averageRating: { type: Number, min: 1, max: 5 },
+    totalRatings: { type: Number, default: 0, min: 0 },
+    ratingBreakdown: {
+      5: { type: Number, default: 0 },
+      4: { type: Number, default: 0 },
+      3: { type: Number, default: 0 },
+      2: { type: Number, default: 0 },
+      1: { type: Number, default: 0 }
+    },
+    // Trip statistics
+    wishlistCount: { type: Number, default: 0, min: 0 },
+    viewCount: { type: Number, default: 0, min: 0 },
+    bookingCount: { type: Number, default: 0, min: 0 }
   },
   { timestamps: true }
 );

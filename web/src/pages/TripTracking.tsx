@@ -2,13 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../config/api';
 import LocationSharing from '../components/LocationSharing';
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: 'traveler' | 'organizer' | 'admin';
-}
+import { User } from '../types';
 
 interface Trip {
   _id: string;

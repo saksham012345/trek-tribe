@@ -34,7 +34,7 @@ router.post('/login', async (req, res) => {
   const { email, password } = parsed.data;
   const user = await User.findOne({ email });
   if (!user) return res.status(401).json({ error: 'Invalid credentials' });
-  const ok = await bcrypt.compare(password, user.passwordHash);
+  const ok = await bcrypt.compare(password, user.passwordHash!);
   if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
   const token = jwt.sign({ userId: String(user._id), role: user.role }, process.env.JWT_SECRET || 'devsecret', { expiresIn: '7d' });
   return res.json({ token });
@@ -166,6 +166,182 @@ router.put('/emergency-contacts', authenticateJwt, async (req, res) => {
   }
 });
 
-export default router;
+// Google OAuth - Initiate
+router.get('/google', (req, res) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+  
+  if (!clientId || !redirectUri) {
+    return res.status(500).json({ error: 'Google OAuth not configured' });
+  }
 
+  const scope = 'openid email profile';
+  const responseType = 'code';
+  const state = Math.random().toString(36).substring(7); // Simple state for CSRF protection
+  
+  const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=${responseType}&state=${state}`;
+  
+  res.json({ 
+    success: true,
+    authUrl: googleAuthUrl,
+    message: 'Redirect to this URL for Google authentication'
+  });
+});
+
+// Google OAuth - Callback
+router.get('/google/callback', async (req, res) => {
+  try {
+    const { code, state } = req.query;
+    
+    if (!code) {
+      return res.status(400).json({ error: 'Authorization code not provided' });
+    }
+
+    // Exchange code for access token
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        client_id: process.env.GOOGLE_CLIENT_ID!,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+        code: code as string,
+        grant_type: 'authorization_code',
+        redirect_uri: process.env.GOOGLE_REDIRECT_URI!,
+      }),
+    });
+
+    const tokenData = await tokenResponse.json();
+    
+    if (!tokenData.access_token) {
+      return res.status(400).json({ error: 'Failed to get access token from Google' });
+    }
+
+    // Get user info from Google
+    const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: {
+        Authorization: `Bearer ${tokenData.access_token}`,
+      },
+    });
+
+    const googleUser = await userInfoResponse.json();
+    
+    if (!googleUser.email) {
+      return res.status(400).json({ error: 'Failed to get user info from Google' });
+    }
+
+    // Find or create user
+    let user = await User.findOne({ email: googleUser.email });
+    
+    if (user) {
+      // Update Google info if user exists
+      user.googleId = googleUser.id;
+      user.emailVerified = googleUser.verified_email || true;
+      user.profilePicture = user.profilePicture || googleUser.picture;
+      user.lastLoginAt = new Date();
+    } else {
+      // Create new user
+      user = new User({
+        name: googleUser.name || googleUser.email.split('@')[0],
+        email: googleUser.email,
+        googleId: googleUser.id,
+        isEmailVerified: googleUser.verified_email || true,
+        isPhoneVerified: false,
+        profilePicture: googleUser.picture,
+        role: 'traveler',
+        lastLogin: new Date()
+        // Note: No passwordHash for Google OAuth users
+      });
+    }
+
+    await user.save();
+
+    // Generate JWT token
+    const token = jwt.sign({ userId: String(user._id), role: user.role }, process.env.JWT_SECRET || 'devsecret', { expiresIn: '7d' });
+
+    // Redirect to frontend with token
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    res.redirect(`${frontendUrl}/auth/callback?token=${token}&user=${encodeURIComponent(JSON.stringify({
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      isEmailVerified: user.emailVerified,
+      isPhoneVerified: user.phoneVerified,
+      profilePicture: user.profilePicture
+    }))}`);
+  } catch (error: any) {
+    console.error('Google OAuth callback error:', error);
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    res.redirect(`${frontendUrl}/auth/error?message=${encodeURIComponent('Google authentication failed')}`);
+  }
+});
+
+// Google OAuth - Frontend Token Exchange (Alternative method)
+router.post('/google/token', async (req, res) => {
+  try {
+    const { credential } = req.body; // Google ID Token from frontend
+    
+    if (!credential) {
+      return res.status(400).json({ error: 'Google credential not provided' });
+    }
+
+    // Verify the Google ID token
+    const response = await fetch(`https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=${credential}`);
+    const googleUser = await response.json();
+    
+    if (!googleUser.email || googleUser.aud !== process.env.GOOGLE_CLIENT_ID) {
+      return res.status(400).json({ error: 'Invalid Google credential' });
+    }
+
+    // Find or create user
+    let user = await User.findOne({ email: googleUser.email });
+    
+    if (user) {
+      // Update Google info if user exists
+      user.googleId = googleUser.sub;
+      user.emailVerified = googleUser.email_verified === 'true';
+      user.profilePicture = user.profilePicture || googleUser.picture;
+      user.lastLoginAt = new Date();
+    } else {
+      // Create new user
+      user = new User({
+        name: googleUser.name || googleUser.email.split('@')[0],
+        email: googleUser.email,
+        googleId: googleUser.sub,
+        isEmailVerified: googleUser.email_verified === 'true',
+        isPhoneVerified: false,
+        profilePicture: googleUser.picture,
+        role: 'traveler',
+        lastLogin: new Date()
+      });
+    }
+
+    await user.save();
+
+    // Generate JWT token
+    const token = jwt.sign({ userId: String(user._id), role: user.role }, process.env.JWT_SECRET || 'devsecret', { expiresIn: '7d' });
+
+    res.json({
+      success: true,
+      message: 'Google authentication successful',
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isEmailVerified: user.emailVerified,
+        isPhoneVerified: user.phoneVerified,
+        profilePicture: user.profilePicture
+      }
+    });
+  } catch (error: any) {
+    console.error('Google token verification error:', error);
+    res.status(500).json({ error: 'Server error during Google authentication' });
+  }
+});
+
+export default router;
 

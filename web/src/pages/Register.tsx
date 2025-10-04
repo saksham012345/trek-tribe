@@ -1,13 +1,8 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: 'traveler' | 'organizer' | 'admin';
-}
+import GoogleSignInButton from '../components/GoogleSignInButton';
+import { User } from '../types';
 
 interface RegisterProps {
   onLogin: (token: string, user: User) => void;
@@ -78,6 +73,14 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
     }
   };
 
+  const handleGoogleSuccess = (token: string, userData: any) => {
+    onLogin(token, userData);
+  };
+
+  const handleGoogleError = (error: string) => {
+    setError(error);
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-forest-50 to-nature-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
@@ -98,6 +101,22 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
         </div>
         
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-forest-200">
+          {/* Google Sign-In */}
+          <div className="mb-6">
+            <GoogleSignInButton 
+              onSuccess={handleGoogleSuccess}
+              onError={handleGoogleError}
+              text="Sign up with Google"
+              disabled={loading}
+            />
+            
+            <div className="my-6 flex items-center">
+              <div className="flex-grow border-t border-forest-200"></div>
+              <span className="flex-shrink mx-4 text-forest-500 text-sm font-medium">or</span>
+              <div className="flex-grow border-t border-forest-200"></div>
+            </div>
+          </div>
+          
           <form className="space-y-6" onSubmit={handleSubmit}>
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2">

@@ -1,16 +1,30 @@
 import 'dotenv/config';
 import express, { Request, Response, NextFunction } from 'express';
+import { createServer } from 'http';
 import helmet from 'helmet';
 import cors from 'cors';
 import mongoose from 'mongoose';
+import ChatServer from './socket/chatServer';
 import authRoutes from './routes/auth';
 import tripRoutes from './routes/trips';
 import reviewRoutes from './routes/reviews';
 import wishlistRoutes from './routes/wishlist';
 import fileRoutes from './routes/files';
 import trackingRoutes from './routes/tracking';
+import ratingsRoutes from './routes/ratings';
+import statisticsRoutes from './routes/statistics';
+import paymentsRoutes from './routes/payments';
+import otpRoutes from './routes/otp';
+import chatbotRoutes from './routes/chatbot';
+import chatRoutes from './routes/chat';
+import adminRoutes from './routes/admin';
+import agentRoutes from './routes/agent';
 
 const app = express();
+const httpServer = createServer(app);
+
+// Initialize chat server
+let chatServer: ChatServer;
 
 // Enhanced error handling middleware
 const asyncErrorHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
@@ -125,6 +139,11 @@ async function start() {
     // Connect to database with retry logic
     await connectToDatabase();
     
+    // Initialize chat server after database connection
+    console.log('🔌 Initializing real-time chat server...');
+    chatServer = new ChatServer(httpServer);
+    console.log('✅ Chat server initialized successfully');
+    
     // Routes
     // Root route handler
     app.get('/', (req: Request, res: Response) => {
@@ -142,7 +161,10 @@ async function start() {
           wishlist: '/wishlist',
           files: '/files/*',
           tracking: '/tracking/*',
-          uploads: '/uploads/*'
+          uploads: '/uploads/*',
+          chat: '/chat/*',
+          admin: '/admin/*',
+          agent: '/agent/*'
         }
       });
     });
@@ -156,6 +178,14 @@ app.use('/reviews', reviewRoutes);
 app.use('/wishlist', wishlistRoutes);
 app.use('/files', fileRoutes);
 app.use('/tracking', trackingRoutes);
+app.use('/ratings', ratingsRoutes);
+app.use('/statistics', statisticsRoutes);
+app.use('/payments', paymentsRoutes);
+app.use('/otp', otpRoutes);
+app.use('/chatbot', chatbotRoutes);
+app.use('/chat', chatRoutes);
+app.use('/admin', adminRoutes);
+app.use('/agent', agentRoutes);
     
     // Health check endpoint with detailed info
     app.get('/health', asyncErrorHandler(async (_req: Request, res: Response) => {
@@ -198,8 +228,9 @@ app.use('/tracking', trackingRoutes);
     app.use(globalErrorHandler);
     
     // Start server with error handling
-    const server = app.listen(port, () => {
-      console.log(`🚀 API listening on http://localhost:${port}`);
+    httpServer.listen(port, () => {
+      console.log(`🚀 API server listening on http://localhost:${port}`);
+      console.log(`🔌 Socket.io server ready for real-time chat`);
       console.log(`📊 Health check: http://localhost:${port}/health`);
       logMessage('INFO', `Server started on port ${port}`);
     });
@@ -209,7 +240,7 @@ app.use('/tracking', trackingRoutes);
       console.log(`\n📴 Received ${signal}. Starting graceful shutdown...`);
       logMessage('INFO', `Received ${signal}. Starting graceful shutdown`);
       
-      server.close(async (err) => {
+      httpServer.close(async (err) => {
         if (err) {
           console.error('❌ Error during server shutdown:', err);
           logMessage('ERROR', `Error during server shutdown: ${err.message}`);

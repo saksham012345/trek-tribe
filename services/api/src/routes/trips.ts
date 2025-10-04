@@ -137,17 +137,165 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), asyncHandl
   }
 }));
 
-router.get('/', async (req, res) => {
-  const { q, category, minPrice, maxPrice, dest, from, to } = req.query as Record<string, string>;
-  const filter: any = {};
-  if (q) filter.$text = { $search: q };
-  if (category) filter.categories = category;
-  if (dest) filter.destination = dest;
-  if (minPrice || maxPrice) filter.price = { ...(minPrice ? { $gte: Number(minPrice) } : {}), ...(maxPrice ? { $lte: Number(maxPrice) } : {}) };
-  if (from || to) filter.startDate = { ...(from ? { $gte: new Date(from) } : {}), ...(to ? { $lte: new Date(to) } : {}) };
-  const trips = await Trip.find(filter).lean().limit(50);
-  res.json(trips);
-});
+router.get('/', asyncHandler(async (req: any, res: any) => {
+  try {
+    const { 
+      q, 
+      category, 
+      minPrice, 
+      maxPrice, 
+      destination, 
+      dateFrom, 
+      dateTo,
+      difficultyLevel,
+      organizerId,
+      status = 'active',
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      page = 1,
+      limit = 12,
+      latitude,
+      longitude,
+      radius = 50 // km
+    } = req.query as Record<string, string>;
+    
+    const filter: any = { status };
+    
+    // Text search
+    if (q) {
+      filter.$or = [
+        { $text: { $search: q } },
+        { title: { $regex: q, $options: 'i' } },
+        { destination: { $regex: q, $options: 'i' } },
+        { description: { $regex: q, $options: 'i' } }
+      ];
+    }
+    
+    // Category filter
+    if (category) {
+      filter.categories = { $in: Array.isArray(category) ? category : [category] };
+    }
+    
+    // Destination filter
+    if (destination) {
+      filter.destination = { $regex: destination, $options: 'i' };
+    }
+    
+    // Price range filter
+    if (minPrice || maxPrice) {
+      filter.price = {};
+      if (minPrice) filter.price.$gte = Number(minPrice);
+      if (maxPrice) filter.price.$lte = Number(maxPrice);
+    }
+    
+    // Date range filter
+    if (dateFrom || dateTo) {
+      filter.startDate = {};
+      if (dateFrom) filter.startDate.$gte = new Date(dateFrom);
+      if (dateTo) filter.startDate.$lte = new Date(dateTo);
+    }
+    
+    // Difficulty level filter
+    if (difficultyLevel) {
+      filter.difficultyLevel = { $in: Array.isArray(difficultyLevel) ? difficultyLevel : [difficultyLevel] };
+    }
+    
+    // Organizer filter
+    if (organizerId) {
+      filter.organizerId = organizerId;
+    }
+    
+    // Location-based search (within radius)
+    if (latitude && longitude) {
+      filter.location = {
+        $near: {
+          $geometry: {
+            type: 'Point',
+            coordinates: [parseFloat(longitude), parseFloat(latitude)]
+          },
+          $maxDistance: parseFloat(String(radius)) * 1000 // Convert km to meters
+        }
+      };
+    }
+    
+    // Pagination
+    const pageNum = parseInt(String(page));
+    const limitNum = parseInt(String(limit));
+    const skip = (pageNum - 1) * limitNum;
+    
+    // Sort configuration
+    const sortConfig: any = {};
+    switch (sortBy) {
+      case 'price':
+        sortConfig.price = sortOrder === 'desc' ? -1 : 1;
+        break;
+      case 'date':
+        sortConfig.startDate = sortOrder === 'desc' ? -1 : 1;
+        break;
+      case 'rating':
+        sortConfig.averageRating = sortOrder === 'desc' ? -1 : 1;
+        break;
+      case 'popularity':
+        sortConfig.bookingCount = -1;
+        break;
+      default:
+        sortConfig.createdAt = sortOrder === 'desc' ? -1 : 1;
+    }
+    
+    // Execute search with population
+    const trips = await Trip.find(filter)
+      .populate('organizerId', 'name averageRating totalRatings profilePicture')
+      .sort(sortConfig)
+      .skip(skip)
+      .limit(limitNum)
+      .lean();
+    
+    // Increment view count for displayed trips
+    if (trips.length > 0) {
+      await Trip.updateMany(
+        { _id: { $in: trips.map(t => t._id) } },
+        { $inc: { viewCount: 1 } }
+      );
+    }
+    
+    // Get total count for pagination
+    const totalCount = await Trip.countDocuments(filter);
+    
+    // Get filter statistics for frontend
+    const filterStats = await getFilterStatistics(filter);
+    
+    res.json({
+      success: true,
+      trips,
+      pagination: {
+        currentPage: pageNum,
+        totalPages: Math.ceil(totalCount / limitNum),
+        totalCount,
+        hasMore: skip + trips.length < totalCount,
+        limit: limitNum
+      },
+      filters: {
+        applied: {
+          q: q || null,
+          category: category || null,
+          destination: destination || null,
+          priceRange: minPrice || maxPrice ? [minPrice, maxPrice] : null,
+          dateRange: dateFrom || dateTo ? [dateFrom, dateTo] : null,
+          difficultyLevel: difficultyLevel || null,
+          location: latitude && longitude ? { latitude, longitude, radius } : null
+        },
+        statistics: filterStats
+      }
+    });
+    
+  } catch (error: any) {
+    console.error('Error searching trips:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to search trips' 
+    });
+  }
+}));
 
 router.get('/:id', async (req, res) => {
   const trip = await Trip.findById(req.params.id).lean();
@@ -274,6 +422,53 @@ router.delete('/:id', authenticateJwt, requireRole(['organizer','admin']), async
   }
 });
 
-export default router;
+// Helper function to get filter statistics
+async function getFilterStatistics(baseFilter: any) {
+  try {
+    const [categories, destinations, priceRange, difficultyLevels] = await Promise.all([
+      Trip.aggregate([
+        { $match: { ...baseFilter, categories: { $exists: true } } },
+        { $unwind: '$categories' },
+        { $group: { _id: '$categories', count: { $sum: 1 } } },
+        { $sort: { count: -1 } }
+      ]),
+      Trip.aggregate([
+        { $match: { ...baseFilter, destination: { $exists: true } } },
+        { $group: { _id: '$destination', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 10 }
+      ]),
+      Trip.aggregate([
+        { $match: baseFilter },
+        { $group: { 
+          _id: null, 
+          minPrice: { $min: '$price' }, 
+          maxPrice: { $max: '$price' },
+          avgPrice: { $avg: '$price' }
+        }}
+      ]),
+      Trip.aggregate([
+        { $match: { ...baseFilter, difficultyLevel: { $exists: true } } },
+        { $group: { _id: '$difficultyLevel', count: { $sum: 1 } } }
+      ])
+    ]);
+    
+    return {
+      categories,
+      destinations,
+      priceRange: priceRange[0] || { minPrice: 0, maxPrice: 10000, avgPrice: 0 },
+      difficultyLevels
+    };
+  } catch (error) {
+    console.error('Error getting filter statistics:', error);
+    return {
+      categories: [],
+      destinations: [],
+      priceRange: { minPrice: 0, maxPrice: 10000, avgPrice: 0 },
+      difficultyLevels: []
+    };
+  }
+}
 
+export default router;
 

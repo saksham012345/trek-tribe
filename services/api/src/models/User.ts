@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
-export type UserRole = 'traveler' | 'organizer' | 'admin';
+export type UserRole = 'traveler' | 'organizer' | 'admin' | 'agent';
 
 interface EmergencyContact {
   name: string;
@@ -24,13 +24,40 @@ interface TrackingPreferences {
 
 export interface UserDocument extends Document {
   email: string;
-  passwordHash: string;
+  passwordHash?: string; // Optional for OAuth users
   name: string;
   role: UserRole;
   preferences?: UserPreferences;
   emergencyContacts?: EmergencyContact[];
   trackingPreferences?: TrackingPreferences;
   phone?: string;
+  // OAuth and verification fields
+  googleId?: string;
+  profilePicture?: string;
+  emailVerified: boolean;
+  phoneVerified: boolean;
+  // Ratings and reviews
+  averageRating?: number;
+  totalRatings: number;
+  totalTripsOrganized: number;
+  totalTripsJoined: number;
+  // Notification preferences
+  notificationPreferences?: {
+    email: boolean;
+    push: boolean;
+    sms: boolean;
+    marketing: boolean;
+  };
+  // Referral code
+  referralCode?: string;
+  referralStats?: {
+    totalReferred: number;
+    successfulReferrals: number;
+    totalRewardsClaimed: number;
+  };
+  // Account status
+  isActive: boolean;
+  lastLoginAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -39,15 +66,48 @@ export interface UserDocument extends Document {
 const userSchema = new Schema(
   {
     email: { type: String, required: true, unique: true, lowercase: true, index: true },
-    passwordHash: { type: String, required: true },
+    passwordHash: { type: String, required: false }, // Optional for OAuth users
     name: { type: String, required: true },
     role: { 
       type: String, 
-      enum: ['traveler', 'organizer', 'admin'], 
+      enum: ['traveler', 'organizer', 'admin', 'agent'], 
       default: 'traveler', 
       index: true 
     },
     phone: { type: String, required: false },
+    // OAuth and verification fields
+    googleId: { type: String, unique: true, sparse: true, index: true },
+    profilePicture: { type: String },
+    emailVerified: { type: Boolean, default: false, index: true },
+    phoneVerified: { type: Boolean, default: false, index: true },
+    // Ratings and reviews
+    averageRating: { type: Number, min: 1, max: 5 },
+    totalRatings: { type: Number, default: 0, min: 0 },
+    totalTripsOrganized: { type: Number, default: 0, min: 0 },
+    totalTripsJoined: { type: Number, default: 0, min: 0 },
+    // Notification preferences
+    notificationPreferences: {
+      email: { type: Boolean, default: true },
+      push: { type: Boolean, default: true },
+      sms: { type: Boolean, default: false },
+      marketing: { type: Boolean, default: true }
+    },
+    // Referral code
+    referralCode: { 
+      type: String, 
+      unique: true, 
+      sparse: true,
+      uppercase: true,
+      default: () => 'USER' + Math.random().toString(36).substr(2, 6).toUpperCase()
+    },
+    referralStats: {
+      totalReferred: { type: Number, default: 0 },
+      successfulReferrals: { type: Number, default: 0 },
+      totalRewardsClaimed: { type: Number, default: 0 }
+    },
+    // Account status
+    isActive: { type: Boolean, default: true, index: true },
+    lastLoginAt: { type: Date },
     preferences: {
       type: {
         categories: [{ type: String }],

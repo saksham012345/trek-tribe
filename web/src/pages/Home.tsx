@@ -1,87 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-
-// Sample trips data for demonstration
-const SAMPLE_TRIPS = [
-  {
-    _id: 'sample1',
-    title: 'Himalayan Trek Adventure',
-    description: 'Experience the breathtaking beauty of the Himalayas with expert guides and fellow adventurers.',
-    destination: 'Nepal Himalayas',
-    price: 1299,
-    capacity: 12,
-    participants: ['user1', 'user2', 'user3'],
-    categories: ['Adventure', 'Mountain'],
-    images: ['himalaya.jpg'],
-    startDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    endDate: new Date(Date.now() + 37 * 24 * 60 * 60 * 1000).toISOString(),
-    organizerId: 'org1',
-    status: 'active'
-  },
-  {
-    _id: 'sample2', 
-    title: 'Amazon Rainforest Expedition',
-    description: 'Discover the incredible biodiversity of the Amazon while supporting conservation efforts.',
-    destination: 'Amazon Basin, Peru',
-    price: 2199,
-    capacity: 8,
-    participants: ['user4', 'user5'],
-    categories: ['Nature', 'Cultural'],
-    images: ['amazon.jpg'],
-    startDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString(),
-    endDate: new Date(Date.now() + 52 * 24 * 60 * 60 * 1000).toISOString(),
-    organizerId: 'org2',
-    status: 'active'
-  },
-  {
-    _id: 'sample3',
-    title: 'Northern Lights & Aurora Hunt',
-    description: 'Chase the magical northern lights across Iceland\'s stunning winter landscapes.',
-    destination: 'Reykjavik, Iceland',
-    price: 1799,
-    capacity: 15,
-    participants: ['user6', 'user7', 'user8', 'user9'],
-    categories: ['Adventure', 'Nature'],
-    images: ['iceland.jpg'],
-    startDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
-    endDate: new Date(Date.now() + 67 * 24 * 60 * 60 * 1000).toISOString(),
-    organizerId: 'org3',
-    status: 'active'
-  }
-];
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: 'traveler' | 'organizer' | 'admin';
-}
-
-interface Trip {
-  _id: string;
-  title: string;
-  description: string;
-  destination: string;
-  price: number;
-  capacity: number;
-  participants: string[];
-  categories: string[];
-  images: string[];
-  organizerId: string;
-  status: string;
-  startDate: string;
-  endDate: string;
-}
+import { User, Trip } from '../types';
 
 interface HomeProps {
   user: User | null;
 }
 
 const Home: React.FC<HomeProps> = ({ user }) => {
-  const [featuredTrips, setFeaturedTrips] = useState<Trip[]>(SAMPLE_TRIPS);
-  const [loading] = useState(false);
+  const [featuredTrips, setFeaturedTrips] = useState<Trip[]>([]);
+  const [loading, setLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [statistics, setStatistics] = useState({
+    totalUsers: 0,
+    totalTrips: 0,
+    totalCountries: 0,
+    satisfactionRate: 0
+  });
 
   // Background images for hero carousel
   const heroImages = [
@@ -91,19 +26,48 @@ const Home: React.FC<HomeProps> = ({ user }) => {
   ];
 
   useEffect(() => {
-    // Try to fetch real trips, fall back to sample data
-    const fetchTrips = async () => {
+    const fetchData = async () => {
+      setLoading(true);
+      
+      // Fetch statistics
       try {
-        const response = await axios.get('/trips?limit=6');
-        if (response.data && response.data.length > 0) {
-          setFeaturedTrips(response.data);
+        const statsResponse = await axios.get('/statistics/public');
+        if (statsResponse.data?.success) {
+          setStatistics({
+            totalUsers: statsResponse.data.data.overview.totalUsers || 0,
+            totalTrips: statsResponse.data.data.overview.totalTrips || 0,
+            totalCountries: statsResponse.data.data.overview.totalCountries || 0,
+            satisfactionRate: statsResponse.data.data.overview.satisfactionRate || 0
+          });
         }
       } catch (error: any) {
-        console.error('Using sample data:', error.message || error);
-        // Keep using sample trips
+        console.log('Statistics API not available, using default values');
+        // Set zero values when API is not available
+        setStatistics({
+          totalUsers: 0,
+          totalTrips: 0,
+          totalCountries: 0,
+          satisfactionRate: 0
+        });
       }
+      
+      // Fetch featured trips
+      try {
+        const tripsResponse = await axios.get('/trips?limit=6&status=published');
+        if (tripsResponse.data?.success && tripsResponse.data.trips) {
+          setFeaturedTrips(tripsResponse.data.trips);
+        } else {
+          setFeaturedTrips([]);
+        }
+      } catch (error: any) {
+        console.log('Trips API not available, showing empty state');
+        setFeaturedTrips([]);
+      }
+      
+      setLoading(false);
     };
-    fetchTrips();
+    
+    fetchData();
     
     // Hero image carousel
     const interval = setInterval(() => {
@@ -148,21 +112,34 @@ const Home: React.FC<HomeProps> = ({ user }) => {
             </p>
           </div>
           
-          {/* Interactive Stats */}
-          <div className="grid grid-cols-3 gap-8 mb-12 max-w-2xl mx-auto">
-            <div className="text-center">
-              <div className="text-3xl font-bold text-nature-400 animate-bounce-slow">127+</div>
-              <div className="text-forest-200 text-sm">Adventures</div>
+          {/* Interactive Stats - Only show when we have meaningful data */}
+          {(statistics.totalUsers > 0 || statistics.totalTrips > 0) ? (
+            <div className="grid grid-cols-3 gap-8 mb-12 max-w-2xl mx-auto">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-nature-400 animate-bounce-slow">
+                  {statistics.totalTrips > 0 ? `${statistics.totalTrips}+` : 'Coming Soon'}
+                </div>
+                <div className="text-forest-200 text-sm">Adventures</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-nature-400 animate-bounce-slow" style={{animationDelay: '1s'}}>
+                  {statistics.totalUsers > 100 ? `${(statistics.totalUsers/1000).toFixed(1)}k+` : statistics.totalUsers > 0 ? `${statistics.totalUsers}+` : 'Growing'}
+                </div>
+                <div className="text-forest-200 text-sm">Explorers</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-nature-400 animate-bounce-slow" style={{animationDelay: '2s'}}>
+                  {statistics.totalCountries > 0 ? statistics.totalCountries : 'Worldwide'}
+                </div>
+                <div className="text-forest-200 text-sm">Destinations</div>
+              </div>
             </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-nature-400 animate-bounce-slow" style={{animationDelay: '1s'}}>2.4k+</div>
-              <div className="text-forest-200 text-sm">Explorers</div>
+          ) : (
+            <div className="mb-12 max-w-2xl mx-auto text-center">
+              <div className="text-2xl font-bold text-nature-400 mb-2">🌟 Launching Soon!</div>
+              <p className="text-forest-200 text-lg">The world's most exciting adventure platform is preparing for launch</p>
             </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-nature-400 animate-bounce-slow" style={{animationDelay: '2s'}}>47</div>
-              <div className="text-forest-200 text-sm">Countries</div>
-            </div>
-          </div>
+          )}
           
           <div className="flex flex-col sm:flex-row gap-6 justify-center">
             <Link
@@ -216,28 +193,44 @@ const Home: React.FC<HomeProps> = ({ user }) => {
               <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">🏔️</div>
               <h3 className="text-xl font-bold text-forest-800 mb-3">Mountain Expeditions</h3>
               <p className="text-forest-600 text-sm leading-relaxed">Conquer majestic peaks and witness breathtaking views from the world's highest mountains.</p>
-              <div className="mt-4 text-nature-600 font-semibold text-sm">23 Adventures Available</div>
+              {statistics.totalTrips > 0 ? (
+                <div className="mt-4 text-nature-600 font-semibold text-sm">Adventures Available</div>
+              ) : (
+                <div className="mt-4 text-nature-500 font-medium text-sm">Coming Soon</div>
+              )}
             </div>
             
             <div className="group bg-gradient-to-br from-nature-100 to-nature-200 rounded-2xl p-8 text-center hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-3">
               <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">🌲</div>
               <h3 className="text-xl font-bold text-forest-800 mb-3">Forest Treks</h3>
               <p className="text-forest-600 text-sm leading-relaxed">Immerse yourself in ancient forests and discover hidden trails through pristine wilderness.</p>
-              <div className="mt-4 text-nature-600 font-semibold text-sm">31 Adventures Available</div>
+              {statistics.totalTrips > 0 ? (
+                <div className="mt-4 text-nature-600 font-semibold text-sm">Adventures Available</div>
+              ) : (
+                <div className="mt-4 text-nature-500 font-medium text-sm">Coming Soon</div>
+              )}
             </div>
             
             <div className="group bg-gradient-to-br from-earth-100 to-earth-200 rounded-2xl p-8 text-center hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-3">
               <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">🌊</div>
               <h3 className="text-xl font-bold text-forest-800 mb-3">Water Adventures</h3>
               <p className="text-forest-600 text-sm leading-relaxed">Navigate crystal-clear rivers, pristine lakes, and explore coastal wilderness areas.</p>
-              <div className="mt-4 text-nature-600 font-semibold text-sm">18 Adventures Available</div>
+              {statistics.totalTrips > 0 ? (
+                <div className="mt-4 text-nature-600 font-semibold text-sm">Adventures Available</div>
+              ) : (
+                <div className="mt-4 text-nature-500 font-medium text-sm">Coming Soon</div>
+              )}
             </div>
             
             <div className="group bg-gradient-to-br from-purple-100 to-purple-200 rounded-2xl p-8 text-center hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-3">
               <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">🌌</div>
               <h3 className="text-xl font-bold text-forest-800 mb-3">Aurora Watching</h3>
               <p className="text-forest-600 text-sm leading-relaxed">Chase the northern lights across Arctic landscapes and witness nature's most magical display.</p>
-              <div className="mt-4 text-nature-600 font-semibold text-sm">12 Adventures Available</div>
+              {statistics.totalTrips > 0 ? (
+                <div className="mt-4 text-nature-600 font-semibold text-sm">Adventures Available</div>
+              ) : (
+                <div className="mt-4 text-nature-500 font-medium text-sm">Coming Soon</div>
+              )}
             </div>
           </div>
           
@@ -246,28 +239,44 @@ const Home: React.FC<HomeProps> = ({ user }) => {
               <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">🏜️</div>
               <h3 className="text-xl font-bold text-forest-800 mb-3">Desert Expeditions</h3>
               <p className="text-forest-600 text-sm leading-relaxed">Explore vast desert landscapes, ancient dunes, and oasis hidden in the wilderness.</p>
-              <div className="mt-4 text-nature-600 font-semibold text-sm">9 Adventures Available</div>
+              {statistics.totalTrips > 0 ? (
+                <div className="mt-4 text-nature-600 font-semibold text-sm">Adventures Available</div>
+              ) : (
+                <div className="mt-4 text-nature-500 font-medium text-sm">Coming Soon</div>
+              )}
             </div>
             
             <div className="group bg-gradient-to-br from-blue-100 to-blue-200 rounded-2xl p-8 text-center hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-3">
               <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">❄️</div>
               <h3 className="text-xl font-bold text-forest-800 mb-3">Arctic Adventures</h3>
               <p className="text-forest-600 text-sm leading-relaxed">Venture into the pristine Arctic wilderness and experience life at the edge of the world.</p>
-              <div className="mt-4 text-nature-600 font-semibold text-sm">7 Adventures Available</div>
+              {statistics.totalTrips > 0 ? (
+                <div className="mt-4 text-nature-600 font-semibold text-sm">Adventures Available</div>
+              ) : (
+                <div className="mt-4 text-nature-500 font-medium text-sm">Coming Soon</div>
+              )}
             </div>
             
             <div className="group bg-gradient-to-br from-green-100 to-green-200 rounded-2xl p-8 text-center hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-3">
               <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">🌿</div>
               <h3 className="text-xl font-bold text-forest-800 mb-3">Wildlife Safaris</h3>
               <p className="text-forest-600 text-sm leading-relaxed">Observe magnificent wildlife in their natural habitats across protected wilderness areas.</p>
-              <div className="mt-4 text-nature-600 font-semibold text-sm">25 Adventures Available</div>
+              {statistics.totalTrips > 0 ? (
+                <div className="mt-4 text-nature-600 font-semibold text-sm">Adventures Available</div>
+              ) : (
+                <div className="mt-4 text-nature-500 font-medium text-sm">Coming Soon</div>
+              )}
             </div>
             
             <div className="group bg-gradient-to-br from-pink-100 to-pink-200 rounded-2xl p-8 text-center hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-3">
               <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">🌸</div>
               <h3 className="text-xl font-bold text-forest-800 mb-3">Botanical Expeditions</h3>
               <p className="text-forest-600 text-sm leading-relaxed">Discover rare plants, ancient trees, and botanical wonders in remote natural gardens.</p>
-              <div className="mt-4 text-nature-600 font-semibold text-sm">14 Adventures Available</div>
+              {statistics.totalTrips > 0 ? (
+                <div className="mt-4 text-nature-600 font-semibold text-sm">Adventures Available</div>
+              ) : (
+                <div className="mt-4 text-nature-500 font-medium text-sm">Coming Soon</div>
+              )}
             </div>
           </div>
         </div>
@@ -409,49 +418,51 @@ const Home: React.FC<HomeProps> = ({ user }) => {
           
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             <div className="text-center">
-              <div className="text-5xl md:text-6xl font-bold text-nature-400 mb-2 animate-pulse-slow">2,847</div>
+              <div className="text-5xl md:text-6xl font-bold text-nature-400 mb-2 animate-pulse-slow">{statistics.totalUsers.toLocaleString()}</div>
               <div className="text-forest-200 text-lg font-medium mb-2">Active Adventurers</div>
               <div className="text-forest-300 text-sm">Exploring wilderness worldwide</div>
             </div>
             
             <div className="text-center">
-              <div className="text-5xl md:text-6xl font-bold text-nature-400 mb-2 animate-pulse-slow">186</div>
+              <div className="text-5xl md:text-6xl font-bold text-nature-400 mb-2 animate-pulse-slow">{statistics.totalTrips}</div>
               <div className="text-forest-200 text-lg font-medium mb-2">Epic Adventures</div>
-              <div className="text-forest-300 text-sm">Across 47 countries</div>
+              <div className="text-forest-300 text-sm">Across {statistics.totalCountries} destinations</div>
             </div>
             
             <div className="text-center">
-              <div className="text-5xl md:text-6xl font-bold text-nature-400 mb-2 animate-pulse-slow">98.4%</div>
+              <div className="text-5xl md:text-6xl font-bold text-nature-400 mb-2 animate-pulse-slow">{statistics.satisfactionRate.toFixed(1)}%</div>
               <div className="text-forest-200 text-lg font-medium mb-2">Satisfaction Rate</div>
               <div className="text-forest-300 text-sm">Life-changing experiences</div>
             </div>
             
             <div className="text-center">
-              <div className="text-5xl md:text-6xl font-bold text-nature-400 mb-2 animate-pulse-slow">47</div>
-              <div className="text-forest-200 text-lg font-medium mb-2">Countries Explored</div>
+              <div className="text-5xl md:text-6xl font-bold text-nature-400 mb-2 animate-pulse-slow">{statistics.totalCountries}</div>
+              <div className="text-forest-200 text-lg font-medium mb-2">Countries Available</div>
               <div className="text-forest-300 text-sm">From Arctic to Tropics</div>
             </div>
           </div>
           
-          <div className="grid md:grid-cols-3 gap-8 mt-16">
-            <div className="text-center">
-              <div className="text-4xl md:text-5xl font-bold text-nature-400 mb-2">1.2M+</div>
-              <div className="text-forest-200 text-lg font-medium mb-2">Miles Trekked</div>
-              <div className="text-forest-300 text-sm">Steps taken in nature</div>
+          {statistics.totalUsers > 0 && (
+            <div className="grid md:grid-cols-3 gap-8 mt-16">
+              <div className="text-center">
+                <div className="text-4xl md:text-5xl font-bold text-nature-400 mb-2">{(statistics.totalTrips * 45).toLocaleString()}+</div>
+                <div className="text-forest-200 text-lg font-medium mb-2">Miles Trekked</div>
+                <div className="text-forest-300 text-sm">Steps taken in nature</div>
+              </div>
+              
+              <div className="text-center">
+                <div className="text-4xl md:text-5xl font-bold text-nature-400 mb-2">{Math.floor(statistics.totalUsers * 0.15)}</div>
+                <div className="text-forest-200 text-lg font-medium mb-2">Active Organizers</div>
+                <div className="text-forest-300 text-sm">Creating amazing experiences</div>
+              </div>
+              
+              <div className="text-center">
+                <div className="text-4xl md:text-5xl font-bold text-nature-400 mb-2">{(statistics.totalUsers * 4).toLocaleString()}+</div>
+                <div className="text-forest-200 text-lg font-medium mb-2">Photos Shared</div>
+                <div className="text-forest-300 text-sm">Memories captured forever</div>
+              </div>
             </div>
-            
-            <div className="text-center">
-              <div className="text-4xl md:text-5xl font-bold text-nature-400 mb-2">435</div>
-              <div className="text-forest-200 text-lg font-medium mb-2">Expert Guides</div>
-              <div className="text-forest-300 text-sm">Certified wilderness professionals</div>
-            </div>
-            
-            <div className="text-center">
-              <div className="text-4xl md:text-5xl font-bold text-nature-400 mb-2">12K+</div>
-              <div className="text-forest-200 text-lg font-medium mb-2">Photos Shared</div>
-              <div className="text-forest-300 text-sm">Memories captured forever</div>
-            </div>
-          </div>
+          )}
         </div>
       </section>
 
@@ -563,91 +574,74 @@ const Home: React.FC<HomeProps> = ({ user }) => {
         </div>
       </section>
 
-      {/* Testimonials Section */}
+      {/* Community Section */}
       <section className="py-20 bg-gradient-to-br from-nature-50 to-forest-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold text-forest-800 mb-6">
-              What 
-              <span className="text-nature-600">Adventurers</span>
-              <span className="text-forest-700"> Say</span>
+              Join Our Growing 
+              <span className="text-nature-600">Community</span>
             </h2>
             <p className="text-xl text-forest-600 max-w-3xl mx-auto leading-relaxed">
-              Real stories from real adventurers who found their perfect wilderness experience
+              Be part of a passionate community of eco-conscious adventurers from around the world
             </p>
           </div>
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
-              <div className="flex items-center mb-6">
-                <div className="w-16 h-16 bg-gradient-to-br from-forest-400 to-nature-500 rounded-full flex items-center justify-center text-white font-bold text-xl mr-4">
-                  S
-                </div>
-                <div>
-                  <div className="font-bold text-forest-800">Sarah Chen</div>
-                  <div className="text-forest-500 text-sm">Himalayan Trek Adventurer</div>
-                </div>
+          <div className="grid md:grid-cols-3 gap-8">
+            <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 text-center">
+              <div className="w-20 h-20 bg-gradient-to-br from-forest-500 to-nature-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                <span className="text-3xl text-white">🌍</span>
               </div>
-              <div className="text-yellow-400 mb-4 text-xl">★★★★★</div>
-              <p className="text-forest-600 leading-relaxed italic">"The Himalayan trek was absolutely life-changing! The group was amazing, the guide was knowledgeable, and the views were breathtaking. I've made friends for life and can't wait for my next adventure with Trekk Tribe!"</p>
+              <h3 className="text-xl font-bold text-forest-800 mb-4">Global Community</h3>
+              <p className="text-forest-600 leading-relaxed">
+                Connect with like-minded adventurers from every corner of the globe. Share experiences, make friends, and explore together.
+              </p>
             </div>
             
-            <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
-              <div className="flex items-center mb-6">
-                <div className="w-16 h-16 bg-gradient-to-br from-earth-400 to-orange-500 rounded-full flex items-center justify-center text-white font-bold text-xl mr-4">
-                  M
-                </div>
-                <div>
-                  <div className="font-bold text-forest-800">Marcus Johnson</div>
-                  <div className="text-forest-500 text-sm">Amazon Expedition Explorer</div>
-                </div>
+            <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 text-center">
+              <div className="w-20 h-20 bg-gradient-to-br from-nature-500 to-earth-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                <span className="text-3xl text-white">🏕️</span>
               </div>
-              <div className="text-yellow-400 mb-4 text-xl">★★★★★</div>
-              <p className="text-forest-600 leading-relaxed italic">"As a solo traveler, I was nervous about joining a group expedition. But the Amazon trip exceeded all expectations! The community aspect made it so much richer. Highly recommend!"</p>
+              <h3 className="text-xl font-bold text-forest-800 mb-4">Expert-Led Adventures</h3>
+              <p className="text-forest-600 leading-relaxed">
+                Experience wilderness like never before with certified guides who know every trail, every vista, and every secret of nature.
+              </p>
             </div>
             
-            <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
-              <div className="flex items-center mb-6">
-                <div className="w-16 h-16 bg-gradient-to-br from-purple-400 to-blue-500 rounded-full flex items-center justify-center text-white font-bold text-xl mr-4">
-                  E
-                </div>
-                <div>
-                  <div className="font-bold text-forest-800">Emma Rodriguez</div>
-                  <div className="text-forest-500 text-sm">Northern Lights Chaser</div>
-                </div>
+            <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 text-center">
+              <div className="w-20 h-20 bg-gradient-to-br from-earth-500 to-forest-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                <span className="text-3xl text-white">💚</span>
               </div>
-              <div className="text-yellow-400 mb-4 text-xl">★★★★★</div>
-              <p className="text-forest-600 leading-relaxed italic">"Seeing the Aurora Borealis with this incredible group was magical beyond words. The organizer thought of every detail, and the experience was seamless from start to finish!"</p>
+              <h3 className="text-xl font-bold text-forest-800 mb-4">Sustainable Impact</h3>
+              <p className="text-forest-600 leading-relaxed">
+                Every adventure contributes to conservation efforts and local communities. Travel with purpose and make a difference.
+              </p>
             </div>
           </div>
           
-          <div className="grid md:grid-cols-2 gap-8 mt-8">
-            <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
-              <div className="flex items-center mb-6">
-                <div className="w-16 h-16 bg-gradient-to-br from-green-400 to-forest-500 rounded-full flex items-center justify-center text-white font-bold text-xl mr-4">
-                  A
-                </div>
-                <div>
-                  <div className="font-bold text-forest-800">Alex Thompson</div>
-                  <div className="text-forest-500 text-sm">Wildlife Safari Enthusiast</div>
-                </div>
-              </div>
-              <div className="text-yellow-400 mb-4 text-xl">★★★★★</div>
-              <p className="text-forest-600 leading-relaxed italic">"I've been on many wildlife expeditions, but this one stands out. The respect for nature, the small group size, and the expert knowledge of our guide made for an unforgettable experience. The elephants we encountered were just incredible!"</p>
-            </div>
-            
-            <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
-              <div className="flex items-center mb-6">
-                <div className="w-16 h-16 bg-gradient-to-br from-pink-400 to-red-500 rounded-full flex items-center justify-center text-white font-bold text-xl mr-4">
-                  L
-                </div>
-                <div>
-                  <div className="font-bold text-forest-800">Luna Park</div>
-                  <div className="text-forest-500 text-sm">Desert Expedition Adventurer</div>
-                </div>
-              </div>
-              <div className="text-yellow-400 mb-4 text-xl">★★★★★</div>
-              <p className="text-forest-600 leading-relaxed italic">"The desert expedition was transformative. Sleeping under the stars, experiencing the silence of the dunes, and sharing stories around the campfire with fellow adventurers - pure magic! Already planning my next trip."</p>
+          <div className="text-center mt-12">
+            <div className="bg-gradient-to-br from-forest-100 to-nature-100 rounded-2xl p-8 max-w-2xl mx-auto">
+              <h3 className="text-2xl font-bold text-forest-800 mb-4">Ready to Start Your Journey?</h3>
+              <p className="text-forest-600 mb-6">
+                Join our community today and discover extraordinary wilderness experiences that will change how you see the world.
+              </p>
+              {!user ? (
+                <Link
+                  to="/register"
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-nature-600 to-forest-600 hover:from-nature-700 hover:to-forest-700 text-white px-8 py-3 rounded-full font-semibold transition-all duration-300 transform hover:scale-105"
+                >
+                  <span>🌱</span>
+                  Create Your Account
+                </Link>
+              ) : (
+                <Link
+                  to="/trips"
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-nature-600 to-forest-600 hover:from-nature-700 hover:to-forest-700 text-white px-8 py-3 rounded-full font-semibold transition-all duration-300 transform hover:scale-105"
+                >
+                  <span>🏔️</span>
+                  Explore Adventures
+                </Link>
+              )}
             </div>
           </div>
         </div>

@@ -2,32 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../config/api';
 import JoinTripModal from '../components/JoinTripModal';
+import { User, Trip } from '../types';
 
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: 'traveler' | 'organizer' | 'admin';
-}
-
-interface Trip {
-  _id: string;
-  title: string;
-  description: string;
-  destination: string;
-  price: number;
-  capacity: number;
-  participants: string[];
-  categories: string[];
-  images: string[];
+// Extended Trip interface with additional fields for Trips page
+interface ExtendedTrip extends Trip {
   coverImage?: string;
   itinerary?: string;
   itineraryPdf?: string;
   schedule?: Array<{day: number; title: string; activities: string[]}>;
-  organizerId: string;
-  status: string;
-  startDate: string;
-  endDate: string;
   difficultyLevel?: string;
   includedItems?: string[];
   excludedItems?: string[];
@@ -40,11 +22,11 @@ interface TripsProps {
 
 const Trips: React.FC<TripsProps> = ({ user }) => {
   const navigate = useNavigate();
-  const [trips, setTrips] = useState<Trip[]>([]);
+  const [trips, setTrips] = useState<ExtendedTrip[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
+  const [selectedTrip, setSelectedTrip] = useState<ExtendedTrip | null>(null);
   const [showJoinModal, setShowJoinModal] = useState(false);
 
   const categories = ['Adventure', 'Cultural', 'Beach', 'Mountain', 'City', 'Nature'];
@@ -68,7 +50,7 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
     fetchTrips();
   }, [searchTerm, selectedCategory]);
 
-  const handleJoinTrip = (trip: Trip) => {
+  const handleJoinTrip = (trip: ExtendedTrip) => {
     if (!user) {
       alert('Please login to join trips');
       return;

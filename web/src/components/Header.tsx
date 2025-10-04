@@ -1,12 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: 'traveler' | 'organizer' | 'admin';
-}
+import { User } from '../types';
 
 interface HeaderProps {
   user: User | null;
@@ -40,6 +34,14 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
                 className="text-forest-700 hover:text-nature-600 hover:bg-forest-50 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2"
               >
                 ➕ Create Adventure
+              </Link>
+            )}
+            {(user?.role === 'admin' || user?.role === 'agent') && (
+              <Link 
+                to="/admin" 
+                className="text-forest-700 hover:text-nature-600 hover:bg-forest-50 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2"
+              >
+                ⚙️ Admin Panel
               </Link>
             )}
           </nav>

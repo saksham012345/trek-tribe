@@ -1,12 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: 'traveler' | 'organizer' | 'admin';
-}
+import { User } from '../types';
 
 interface Trip {
   _id: string;

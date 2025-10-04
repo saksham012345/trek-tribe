@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import Header from './components/Header';
+import RealTimeChatWidget from './components/RealTimeChatWidget';
+import AgentChatDashboard from './components/AgentChatDashboard';
+import CookieConsent from './components/CookieConsent';
+import Footer from './components/Footer';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -10,19 +14,20 @@ import CreateTrip from './pages/CreateTrip';
 import EditTrip from './pages/EditTrip';
 import Profile from './pages/Profile';
 import TripTracking from './pages/TripTracking';
+import AuthCallback from './pages/AuthCallback';
+import AdminDashboard from './pages/AdminDashboard';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsAndConditions from './pages/TermsAndConditions';
+import CookieSettings from './pages/CookieSettings';
+import DataManagement from './pages/DataManagement';
+import { User } from './types';
 
 axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:4000';
 
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: 'traveler' | 'organizer' | 'admin';
-}
-
-function App() {
+function AppContent() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const location = useLocation();
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -68,8 +73,7 @@ function App() {
   }
 
   return (
-    <Router>
-      <div className="min-h-screen bg-forest-50">
+    <div className="min-h-screen bg-forest-50">
         <Header user={user} onLogout={handleLogout} />
         <main className="pt-16">
           <Routes>
@@ -81,6 +85,14 @@ function App() {
             <Route 
               path="/register" 
               element={user ? <Navigate to="/" /> : <Register onLogin={handleLogin} />} 
+            />
+            <Route 
+              path="/auth/callback" 
+              element={<AuthCallback onLogin={handleLogin} />} 
+            />
+            <Route 
+              path="/auth/error" 
+              element={<Navigate to="/login" />} 
             />
             <Route path="/trips" element={<Trips user={user} />} />
             <Route 
@@ -99,9 +111,45 @@ function App() {
               path="/trip-tracking/:tripId" 
               element={user ? <TripTracking user={user} /> : <Navigate to="/login" />} 
             />
+            <Route 
+              path="/admin" 
+              element={user && (user.role === 'admin' || user.role === 'agent') ? <AdminDashboard user={user} /> : <Navigate to="/" />} 
+            />
+            <Route 
+              path="/agent/chat" 
+              element={user && user.role === 'agent' ? <AgentChatDashboard onAuthRequired={() => window.location.href = '/login'} /> : <Navigate to="/" />} 
+            />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<TermsAndConditions />} />
+            <Route path="/cookie-settings" element={<CookieSettings />} />
+            <Route 
+              path="/data-management" 
+              element={user ? <DataManagement /> : <Navigate to="/login" />} 
+            />
           </Routes>
         </main>
-      </div>
+        
+        {/* Real-time Chat Widget - Available on all pages except agent chat dashboard */}
+        {location.pathname !== '/agent/chat' && (
+          <RealTimeChatWidget 
+            isAuthenticated={!!user} 
+            onAuthRequired={() => window.location.href = '/login'} 
+          />
+        )}
+        
+        {/* Cookie Consent Banner */}
+        <CookieConsent />
+        
+        {/* Footer */}
+        <Footer />
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <AppContent />
     </Router>
   );
 }
