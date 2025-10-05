@@ -11,6 +11,17 @@ const createTripSchema = z.object({
   categories: z.array(z.string()).default([]),
   destination: z.string().min(1),
   location: z.object({ coordinates: z.tuple([z.number(), z.number()]) }).optional(),
+  pickupPoints: z.array(z.object({
+    id: z.string(),
+    name: z.string().min(1),
+    address: z.string().min(1),
+    coordinates: z.tuple([z.number(), z.number()]), // [longitude, latitude]
+    landmark: z.string().optional(),
+    contactPerson: z.string().optional(),
+    contactPhone: z.string().optional(),
+    estimatedTime: z.string().optional(),
+    isActive: z.boolean().default(true)
+  })).default([]),
   schedule: z.array(z.object({ day: z.number(), title: z.string(), activities: z.array(z.string()).default([]) })).default([]),
   images: z.array(z.string()).default([]),
   capacity: z.number().int().positive(),
@@ -303,7 +314,38 @@ router.get('/:id', async (req, res) => {
   res.json(trip);
 });
 
-router.post('/:id/join', authenticateJwt, async (req, res) => {
+// Get pickup points for a trip
+router.get('/:id/pickup-points', asyncHandler(async (req: any, res: any) => {
+  const trip = await Trip.findById(req.params.id).select('pickupPoints title destination').lean();
+  
+  if (!trip) {
+    return res.status(404).json({ error: 'Trip not found' });
+  }
+  
+  // Filter only active pickup points
+  const activePickupPoints = trip.pickupPoints?.filter(point => point.isActive) || [];
+  
+  res.json({
+    success: true,
+    tripId: trip._id,
+    tripTitle: trip.title,
+    destination: trip.destination,
+    pickupPoints: activePickupPoints
+  });
+}));
+
+// Schema for joining trips with participant details
+const joinTripSchema = z.object({
+  emergencyContactName: z.string().min(1),
+  emergencyContactPhone: z.string().min(1),
+  medicalConditions: z.string().optional(),
+  dietaryRestrictions: z.string().optional(),
+  experienceLevel: z.enum(['beginner', 'intermediate', 'advanced']),
+  specialRequests: z.string().optional(),
+  selectedPickupPoint: z.string().optional() // pickup point ID
+});
+
+router.post('/:id/join', authenticateJwt, asyncHandler(async (req: any, res: any) => {
   try {
     const userId = (req as any).auth.userId;
     const trip = await Trip.findById(req.params.id);
@@ -316,14 +358,59 @@ router.post('/:id/join', authenticateJwt, async (req, res) => {
       return res.status(400).json({ error: 'Already joined this trip' });
     }
     
+    // Validate request body
+    const parsed = joinTripSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ 
+        error: 'Validation failed',
+        details: parsed.error.flatten().fieldErrors
+      });
+    }
+    
+    const participantData = parsed.data;
+    
+    // Validate pickup point if provided
+    if (participantData.selectedPickupPoint) {
+      const pickupPoint = trip.pickupPoints.find(p => 
+        p.id === participantData.selectedPickupPoint && p.isActive
+      );
+      if (!pickupPoint) {
+        return res.status(400).json({ 
+          error: 'Selected pickup point is not available' 
+        });
+      }
+    }
+    
+    // Add to participants array
     trip.participants.push(userId);
+    
+    // Add detailed participant information
+    trip.participantDetails.push({
+      userId,
+      ...participantData,
+      joinedAt: new Date()
+    } as any);
+    
+    // Update booking count
+    trip.bookingCount = (trip.bookingCount || 0) + 1;
+    
     await trip.save();
     
-    res.json({ message: 'Successfully joined trip', trip });
+    res.json({ 
+      message: 'Successfully joined trip',
+      trip: {
+        id: trip._id,
+        title: trip.title,
+        participantCount: trip.participants.length,
+        capacity: trip.capacity,
+        selectedPickupPoint: participantData.selectedPickupPoint
+      }
+    });
   } catch (error) {
+    console.error('Error joining trip:', error);
     res.status(500).json({ error: 'Server error' });
   }
-});
+}));
 
 router.delete('/:id/leave', authenticateJwt, async (req, res) => {
   try {

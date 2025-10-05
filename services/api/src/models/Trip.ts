@@ -1,5 +1,17 @@
 import mongoose, { Schema, Document, Model, Types } from 'mongoose';
 
+export interface PickupPoint {
+  id: string;
+  name: string;
+  address: string;
+  coordinates: [number, number]; // [longitude, latitude]
+  landmark?: string;
+  contactPerson?: string;
+  contactPhone?: string;
+  estimatedTime?: string; // e.g., "6:00 AM"
+  isActive: boolean;
+}
+
 export interface ParticipantInfo {
   userId: Types.ObjectId;
   emergencyContactName: string;
@@ -8,6 +20,7 @@ export interface ParticipantInfo {
   dietaryRestrictions?: string;
   experienceLevel: 'beginner' | 'intermediate' | 'advanced';
   specialRequests?: string;
+  selectedPickupPoint?: string; // pickup point ID
   joinedAt: Date;
 }
 
@@ -18,6 +31,7 @@ export interface TripDocument extends Document {
   categories: string[];
   destination: string;
   location?: { type: 'Point'; coordinates: [number, number] };
+  pickupPoints: PickupPoint[];
   schedule: { day: number; title: string; activities: string[] }[];
   images: string[];
   coverImage?: string;
@@ -63,6 +77,27 @@ export interface TripDocument extends Document {
   updatedAt: Date;
 }
 
+const pickupPointSchema = new Schema({
+  id: { type: String, required: true },
+  name: { type: String, required: true },
+  address: { type: String, required: true },
+  coordinates: {
+    type: [Number], // [longitude, latitude]
+    required: true,
+    validate: {
+      validator: function(coords: number[]) {
+        return coords.length === 2;
+      },
+      message: 'Coordinates must be [longitude, latitude]'
+    }
+  },
+  landmark: { type: String },
+  contactPerson: { type: String },
+  contactPhone: { type: String },
+  estimatedTime: { type: String },
+  isActive: { type: Boolean, default: true }
+});
+
 const participantInfoSchema = new Schema({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   emergencyContactName: { type: String, required: true },
@@ -71,6 +106,7 @@ const participantInfoSchema = new Schema({
   dietaryRestrictions: String,
   experienceLevel: { type: String, enum: ['beginner', 'intermediate', 'advanced'], required: true },
   specialRequests: String,
+  selectedPickupPoint: { type: String }, // pickup point ID
   joinedAt: { type: Date, default: Date.now }
 });
 
@@ -86,6 +122,7 @@ const tripSchema = new Schema(
       type: { type: String, enum: ['Point'] },
       coordinates: { type: [Number], index: '2dsphere' },
     },
+    pickupPoints: [pickupPointSchema],
     schedule: [{ 
       day: { type: Number, required: true }, 
       title: { type: String, required: true }, 

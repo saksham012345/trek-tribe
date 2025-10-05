@@ -10,6 +10,7 @@ import tripRoutes from './routes/trips';
 import reviewRoutes from './routes/reviews';
 import wishlistRoutes from './routes/wishlist';
 import fileRoutes from './routes/files';
+import secureFileRoutes from './routes/secure-files';
 import trackingRoutes from './routes/tracking';
 import ratingsRoutes from './routes/ratings';
 import statisticsRoutes from './routes/statistics';
@@ -19,6 +20,7 @@ import chatbotRoutes from './routes/chatbot';
 import chatRoutes from './routes/chat';
 import adminRoutes from './routes/admin';
 import agentRoutes from './routes/agent';
+import supportRoutes from './routes/support';
 
 const app = express();
 const httpServer = createServer(app);
@@ -164,7 +166,8 @@ async function start() {
           uploads: '/uploads/*',
           chat: '/chat/*',
           admin: '/admin/*',
-          agent: '/agent/*'
+          agent: '/agent/*',
+          support: '/support/*'
         }
       });
     });
@@ -177,6 +180,7 @@ app.use('/trips', tripRoutes);
 app.use('/reviews', reviewRoutes);
 app.use('/wishlist', wishlistRoutes);
 app.use('/files', fileRoutes);
+app.use('/secure-files', secureFileRoutes);
 app.use('/tracking', trackingRoutes);
 app.use('/ratings', ratingsRoutes);
 app.use('/statistics', statisticsRoutes);
@@ -186,6 +190,7 @@ app.use('/chatbot', chatbotRoutes);
 app.use('/chat', chatRoutes);
 app.use('/admin', adminRoutes);
 app.use('/agent', agentRoutes);
+app.use('/support', supportRoutes);
     
     // Health check endpoint with detailed info
     app.get('/health', asyncErrorHandler(async (_req: Request, res: Response) => {
@@ -200,19 +205,54 @@ app.use('/agent', agentRoutes);
       // Test database operation
       const dbTest = mongoose.connection.db ? await mongoose.connection.db.admin().ping() : false;
       
+      // Check service availability
+      const { firebaseService } = require('./utils/firebaseService');
+      const { emailService } = require('./utils/emailService');
+      const { smsService } = require('./utils/smsService');
+      
       const health = {
-        status: 'ok',
+        status: mongoStatus === 1 && dbTest ? 'healthy' : 'unhealthy',
         timestamp: new Date().toISOString(),
-        mongodb: {
-          status: statusMap[mongoStatus as keyof typeof statusMap],
-          ping: dbTest ? 'successful' : 'failed'
+        environment: process.env.NODE_ENV || 'development',
+        version: '1.0.3',
+        services: {
+          api: 'running',
+          database: {
+            status: statusMap[mongoStatus as keyof typeof statusMap],
+            ping: dbTest ? 'successful' : 'failed',
+            connected: mongoStatus === 1
+          },
+          firebase: {
+            available: firebaseService?.isAvailable() || false,
+            status: firebaseService?.isAvailable() ? 'configured' : 'disabled'
+          },
+          email: {
+            available: emailService?.isConfigured || false,
+            status: emailService?.isConfigured ? 'configured' : 'disabled'
+          },
+          sms: {
+            available: smsService?.client !== null || false,
+            status: smsService?.client ? 'configured' : 'disabled'
+          },
+          chat: {
+            available: chatServer !== null,
+            status: 'socket.io initialized'
+          }
         },
-        uptime: process.uptime(),
-        memory: process.memoryUsage(),
-        version: process.version
+        system: {
+          uptime: Math.floor(process.uptime()),
+          memory: {
+            used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + ' MB',
+            total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + ' MB'
+          },
+          nodeVersion: process.version,
+          platform: process.platform
+        }
       };
       
-      res.json(health);
+      // Return appropriate HTTP status
+      const httpStatus = health.status === 'healthy' ? 200 : 503;
+      res.status(httpStatus).json(health);
     }));
     
     // 404 handler

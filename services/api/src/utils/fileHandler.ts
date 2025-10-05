@@ -4,6 +4,7 @@ import { createReadStream, createWriteStream } from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { pipeline } from 'stream/promises';
+import { firebaseService } from './firebaseService';
 
 // Node.js Concept: Custom error classes for file operations
 export class FileError extends Error {
@@ -157,8 +158,30 @@ export class FileHandler {
       // Calculate checksum
       const checksum = crypto.createHash('sha256').update(buffer).digest('hex');
 
-      // Write file
-      await fs.writeFile(fullPath, buffer);
+      let fileUrl = `/uploads/${relativePath.replace(/\\/g, '/')}`; // Default local URL
+      let cloudPath = '';
+
+      try {
+        // Try to save locally first
+        await fs.writeFile(fullPath, buffer);
+        console.log(`✅ File saved locally: ${filename}`);
+      } catch (localError) {
+        console.warn(`⚠️  Local save failed, trying Firebase: ${localError}`);
+      }
+
+      // Always try to backup to Firebase (if configured)
+      if (firebaseService.isAvailable()) {
+        try {
+          const firebaseResult = await firebaseService.uploadFile(buffer, filename, subdir);
+          if (firebaseResult) {
+            fileUrl = firebaseResult.url; // Use Firebase URL as primary
+            cloudPath = firebaseResult.path;
+            console.log(`✅ File backed up to Firebase: ${filename}`);
+          }
+        } catch (firebaseError) {
+          console.warn(`⚠️  Firebase backup failed: ${firebaseError}`);
+        }
+      }
 
       // Create result object
       const result: FileUploadResult = {
@@ -166,8 +189,8 @@ export class FileHandler {
         originalName,
         size: buffer.length,
         mimeType,
-        path: relativePath,
-        url: `/uploads/${relativePath.replace(/\\/g, '/')}`, // Normalize path separators
+        path: cloudPath || relativePath, // Use cloud path if available
+        url: fileUrl,
         checksum
       };
 

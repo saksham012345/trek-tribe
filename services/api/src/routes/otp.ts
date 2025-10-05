@@ -4,6 +4,7 @@ import { OtpVerification } from '../models/OtpVerification';
 import { User } from '../models/User';
 import { emailService } from '../utils/emailService';
 import { smsService } from '../utils/smsService';
+import { whatsappService } from '../utils/whatsappService';
 import { authenticateJwt } from '../middleware/auth';
 
 const router = Router();
@@ -110,7 +111,14 @@ router.post('/send', asyncHandler(async (req: any, res: any) => {
           error: 'Invalid phone number format'
         });
       }
+      
+      // Try SMS first, then fallback to WhatsApp
       sent = await smsService.sendOTPSMS(phone, otpDoc.otp, purposeText);
+      
+      if (!sent) {
+        console.log('SMS failed, trying WhatsApp...');
+        sent = await whatsappService.sendOTPWhatsApp(phone, otpDoc.otp, purposeText);
+      }
     }
     
     if (!sent) {
@@ -276,6 +284,11 @@ router.post('/resend', asyncHandler(async (req: any, res: any) => {
     
     if (phone && (type === 'phone_verification' || type === 'login')) {
       sent = await smsService.sendOTPSMS(phone, newOtp, purposeText);
+      
+      if (!sent) {
+        console.log('SMS resend failed, trying WhatsApp...');
+        sent = await whatsappService.sendOTPWhatsApp(phone, newOtp, purposeText);
+      }
     }
     
     if (!sent) {

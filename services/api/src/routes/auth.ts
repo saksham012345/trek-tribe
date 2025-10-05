@@ -11,19 +11,47 @@ const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   name: z.string().min(1),
+  phone: z.string().optional(),
   role: z.enum(['traveler', 'organizer']).optional(),
 });
 
 router.post('/register', async (req, res) => {
   const parsed = registerSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  const { email, password, name, role } = parsed.data;
+  const { email, password, name, phone, role } = parsed.data;
+  
+  // Check if email already exists
   const existing = await User.findOne({ email }).lean();
   if (existing) return res.status(409).json({ error: 'Email already in use' });
+  
+  // Check if phone already exists (if provided)
+  if (phone) {
+    const existingPhone = await User.findOne({ phone }).lean();
+    if (existingPhone) return res.status(409).json({ error: 'Phone number already in use' });
+  }
+  
   const passwordHash = await bcrypt.hash(password, 10);
-  const user = await User.create({ email, passwordHash, name, role: role ?? 'traveler' });
+  const user = await User.create({ 
+    email, 
+    passwordHash, 
+    name, 
+    phone, 
+    role: role ?? 'traveler'
+  });
+  
   const token = jwt.sign({ userId: String(user._id), role: user.role }, process.env.JWT_SECRET || 'devsecret', { expiresIn: '7d' });
-  return res.status(201).json({ token });
+  return res.status(201).json({ 
+    token, 
+    user: {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      emailVerified: user.emailVerified,
+      phoneVerified: user.phoneVerified
+    }
+  });
 });
 
 const loginSchema = z.object({ email: z.string().email(), password: z.string().min(6) });

@@ -55,7 +55,66 @@ class SMSService {
   async sendOTPSMS(phone: string, otp: string, purpose: string): Promise<boolean> {
     const message = `Trek Tribe: Your OTP for ${purpose} is ${otp}. Valid for 10 minutes. Do not share this code. Happy Trekking! 🏔️`;
     
-    return this.sendSMS(phone, message);
+    // Try Twilio first if configured
+    if (this.client) {
+      return this.sendSMS(phone, message);
+    }
+    
+    // Fallback to free email-to-SMS gateway
+    return this.sendFreeEmailToSMS(phone, message);
+  }
+
+  // Free SMS via email-to-SMS gateways (for Indian carriers)
+  private async sendFreeEmailToSMS(phone: string, message: string): Promise<boolean> {
+    const { emailService } = require('./emailService');
+    
+    // Check if email service is configured
+    if (!emailService || !process.env.EMAIL_USER) {
+      console.warn('Email service not configured - cannot send SMS via email gateway');
+      return false;
+    }
+
+    try {
+      const cleanPhone = phone.replace(/\D/g, ''); // Remove non-digits
+      let emailAddress = '';
+      
+      // Indian carrier email-to-SMS gateways
+      // These are free but less reliable
+      const carriers = [
+        'sms.airtel.in',        // Airtel
+        'alerts.vodafone.in',   // Vodafone
+        'sms.jio.com',          // Jio (less reliable)
+        'sms.bsnl.in',          // BSNL
+        'smsgateways.idea.com'  // Idea
+      ];
+      
+      // Try the most common carriers first
+      const primaryCarriers = ['sms.airtel.in', 'alerts.vodafone.in'];
+      
+      for (const carrier of primaryCarriers) {
+        emailAddress = `${cleanPhone}@${carrier}`;
+        
+        const success = await emailService.sendEmail({
+          from: process.env.EMAIL_USER,
+          to: emailAddress,
+          subject: '', // Most SMS gateways ignore subject
+          text: message,
+          html: message
+        });
+        
+        if (success) {
+          console.log(`SMS sent via ${carrier} to ${phone}`);
+          return true;
+        }
+      }
+      
+      console.warn('Failed to send SMS via email gateways');
+      return false;
+      
+    } catch (error: any) {
+      console.error('Error sending SMS via email gateway:', error.message);
+      return false;
+    }
   }
 
   async sendBookingConfirmationSMS(
