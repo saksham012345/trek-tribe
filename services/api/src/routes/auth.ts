@@ -25,7 +25,11 @@ router.post('/register', async (req, res) => {
   if (existing) return res.status(409).json({ error: 'Email already in use' });
   const passwordHash = await bcrypt.hash(password, 10);
   const user = await User.create({ email, passwordHash, name, role: role ?? 'traveler' });
-  const token = jwt.sign({ userId: String(user._id), role: user.role }, process.env.JWT_SECRET || 'devsecret', { expiresIn: '7d' });
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret) {
+    throw new Error('JWT_SECRET environment variable is required');
+  }
+  const token = jwt.sign({ userId: String(user._id), role: user.role }, jwtSecret, { expiresIn: '7d' });
   return res.status(201).json({ token });
 });
 
@@ -39,7 +43,11 @@ router.post('/login', async (req, res) => {
   if (!user) return res.status(401).json({ error: 'Invalid credentials' });
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
-  const token = jwt.sign({ userId: String(user._id), role: user.role }, process.env.JWT_SECRET || 'devsecret', { expiresIn: '7d' });
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret) {
+    throw new Error('JWT_SECRET environment variable is required');
+  }
+  const token = jwt.sign({ userId: String(user._id), role: user.role }, jwtSecret, { expiresIn: '7d' });
   return res.json({ token });
 });
 

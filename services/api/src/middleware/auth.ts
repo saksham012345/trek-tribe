@@ -13,7 +13,10 @@ export function authenticateJwt(req: Request, res: Response, next: NextFunction)
   }
   const token = authHeader.slice(7);
   try {
-    const secret = process.env.JWT_SECRET || 'devsecret';
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      throw new Error('JWT_SECRET environment variable is required');
+    }
     const payload = jwt.verify(token, secret) as AuthPayload;
     (req as any).auth = payload;
     return next();

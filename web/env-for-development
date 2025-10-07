@@ -1,0 +1,27 @@
+# Frontend Environment Variables
+# This file contains all the configuration needed for the React frontend
+# ⚠️ NEVER COMMIT THIS FILE TO GIT ⚠️
+# 
+# TO USE: Rename this file to .env
+
+# ===========================================
+# API CONFIGURATION
+# ===========================================
+# Backend API URL
+REACT_APP_API_URL=http://localhost:4000
+
+# ===========================================
+# APPLICATION CONFIGURATION
+# ===========================================
+REACT_APP_APP_NAME=Trek Tribe
+REACT_APP_VERSION=1.0.0
+
+# ===========================================
+# DEVELOPMENT NOTES
+# ===========================================
+# This configuration is for local development
+# The frontend will connect to the backend running on port 4000
+# 
+# To use:
+# 1. Make sure the backend is running (npm run dev:api)
+# 2. Run: npm run dev:web (starts frontend on port 3000)

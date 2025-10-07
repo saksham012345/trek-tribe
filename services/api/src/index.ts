@@ -85,7 +85,10 @@ const globalErrorHandler = (error: Error, req: Request, res: Response, next: Nex
 
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 4000;
 // Render uses port 10000 by default, but process.env.PORT should be available
-const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/trekktribe';
+const mongoUri = process.env.MONGODB_URI;
+if (!mongoUri) {
+  throw new Error('MONGODB_URI environment variable is required');
+}
 
 // Enhanced database connection with retry logic
 const connectToDatabase = async (retries = 5): Promise<void> => {

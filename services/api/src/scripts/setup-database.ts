@@ -8,6 +8,9 @@ const setupDatabase = async (): Promise<void> => {
     const mongoUri = process.env.MONGODB_URI;
     
     if (!mongoUri) {
+      console.error('❌ MONGODB_URI environment variable is required');
+      console.error('💡 Please set MONGODB_URI in your .env file or environment');
+      console.error('📝 Example: MONGODB_URI=mongodb://localhost:27017/trekktribe');
       throw new Error('MONGODB_URI environment variable is required');
     }
 
