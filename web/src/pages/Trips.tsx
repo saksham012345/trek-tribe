@@ -1,13 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../config/api';
 import JoinTripModal from '../components/JoinTripModal';
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: 'traveler' | 'organizer' | 'admin';
-}
+import { User } from '../types';
 
 interface Trip {
   _id: string;
@@ -175,6 +170,12 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
                   <div className="flex justify-between items-center">
                     <span className="text-2xl font-bold text-nature-600">₹{trip.price}</span>
                     <div className="flex gap-2">
+                      <Link
+                        to={`/trip/${trip._id}`}
+                        className="bg-forest-100 hover:bg-forest-200 text-forest-700 px-3 py-2 rounded-lg font-medium text-sm transition-all duration-300 border border-forest-200"
+                      >
+                        👁️ View Details
+                      </Link>
                       {trip.participants.includes(user?.id || '') ? (
                         <button
                           onClick={() => handleLeaveTrip(trip._id)}

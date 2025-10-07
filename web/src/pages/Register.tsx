@@ -1,13 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: 'traveler' | 'organizer' | 'admin';
-}
+import { User } from '../types';
 
 interface RegisterProps {
   onLogin: (token: string, user: User) => void;

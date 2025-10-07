@@ -1,12 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: 'traveler' | 'organizer' | 'admin';
-}
+import { User } from '../types';
 
 interface HeaderProps {
   user: User | null;
@@ -42,16 +36,32 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
                 ➕ Create Adventure
               </Link>
             )}
+            {user?.role === 'admin' && (
+              <Link 
+                to="/admin" 
+                className="text-forest-700 hover:text-nature-600 hover:bg-forest-50 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2"
+              >
+                🛠️ Admin Dashboard
+              </Link>
+            )}
+            {(user?.role === 'agent' || user?.role === 'admin') && (
+              <Link 
+                to="/agent" 
+                className="text-forest-700 hover:text-nature-600 hover:bg-forest-50 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2"
+              >
+                🎧 Agent Portal
+              </Link>
+            )}
           </nav>
 
           <div className="flex items-center space-x-3">
             {user ? (
               <div className="flex items-center space-x-3">
                 <Link 
-                  to="/profile" 
+                  to="/my-profile" 
                   className="text-forest-700 hover:text-nature-600 hover:bg-forest-50 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2"
                 >
-                  🏕️ {user.name}
+                  🏥️ {user.name}
                 </Link>
                 <button
                   onClick={onLogout}

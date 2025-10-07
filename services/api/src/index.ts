@@ -8,6 +8,11 @@ import tripRoutes from './routes/trips';
 import reviewRoutes from './routes/reviews';
 import wishlistRoutes from './routes/wishlist';
 import fileRoutes from './routes/files';
+import bookingRoutes from './routes/bookings';
+import adminRoutes from './routes/admin';
+import profileRoutes from './routes/profile';
+import agentRoutes from './routes/agent';
+import { whatsappService } from './services/whatsappService';
 
 const app = express();
 
@@ -121,12 +126,22 @@ async function start() {
     // Connect to database with retry logic
     await connectToDatabase();
     
+    // Initialize WhatsApp service (non-blocking)
+    whatsappService.initialize().catch((error) => {
+      console.error('❌ Failed to initialize WhatsApp service:', error.message);
+      console.log('ℹ️  WhatsApp notifications will be disabled');
+    });
+    
     // Routes
     app.use('/auth', authRoutes);
     app.use('/trips', tripRoutes);
     app.use('/reviews', reviewRoutes);
     app.use('/wishlist', wishlistRoutes);
     app.use('/files', fileRoutes);
+    app.use('/bookings', bookingRoutes);
+    app.use('/admin', adminRoutes);
+    app.use('/profile', profileRoutes);
+    app.use('/agent', agentRoutes);
     
     // Health check endpoint with detailed info
     app.get('/health', asyncErrorHandler(async (_req: Request, res: Response) => {

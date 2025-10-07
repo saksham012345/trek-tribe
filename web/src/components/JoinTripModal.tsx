@@ -1,12 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { User } from '../types';
 
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: 'traveler' | 'organizer' | 'admin';
-}
 
 interface Trip {
   _id: string;
@@ -31,6 +26,7 @@ interface JoinTripModalProps {
 
 const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
+    numberOfTravelers: 1,
     emergencyContactName: '',
     emergencyContactPhone: '',
     medicalConditions: '',
@@ -39,15 +35,62 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
     specialRequests: '',
     agreeToTerms: false
   });
+  
+  const [additionalTravelers, setAdditionalTravelers] = useState<Array<{
+    name: string;
+    age: number;
+    emergencyContact: string;
+    medicalConditions: string;
+    dietaryRestrictions: string;
+  }>>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
-    }));
+    const newValue = type === 'checkbox' ? (e.target as HTMLInputElement).checked : 
+                     type === 'number' ? Number(value) : value;
+    
+    setFormData(prev => {
+      const updated = {
+        ...prev,
+        [name]: newValue
+      };
+      
+      // Update additional travelers when number changes
+      if (name === 'numberOfTravelers') {
+        const newCount = Number(value) - 1; // -1 because main user is not in additional list
+        const currentTravelers = [...additionalTravelers];
+        
+        if (newCount > currentTravelers.length) {
+          // Add new travelers
+          for (let i = currentTravelers.length; i < newCount; i++) {
+            currentTravelers.push({
+              name: '',
+              age: 0,
+              emergencyContact: '',
+              medicalConditions: '',
+              dietaryRestrictions: ''
+            });
+          }
+        } else if (newCount < currentTravelers.length) {
+          // Remove excess travelers
+          currentTravelers.splice(newCount);
+        }
+        
+        setAdditionalTravelers(currentTravelers);
+      }
+      
+      return updated;
+    });
+  };
+  
+  const handleAdditionalTravelerChange = (index: number, field: string, value: string | number) => {
+    setAdditionalTravelers(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -61,17 +104,46 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
       return;
     }
 
+    // Validate additional travelers if any
+    if (formData.numberOfTravelers > 1) {
+      const incompleteFields = additionalTravelers.some((traveler, index) => 
+        !traveler.name.trim() || traveler.age <= 0 || !traveler.emergencyContact.trim()
+      );
+      
+      if (incompleteFields) {
+        setError('Please fill in all required fields for additional travelers');
+        setLoading(false);
+        return;
+      }
+    }
+    
     try {
-      await axios.post(`/trips/${trip._id}/join`, {
-        participantInfo: {
-          userId: user.id,
-          emergencyContactName: formData.emergencyContactName,
-          emergencyContactPhone: formData.emergencyContactPhone,
+      // Prepare traveler details array
+      const travelerDetails = [
+        {
+          name: user.name,
+          age: 25, // Default age - could be added to user profile
+          phone: formData.emergencyContactPhone,
+          emergencyContact: formData.emergencyContactPhone,
           medicalConditions: formData.medicalConditions,
-          dietaryRestrictions: formData.dietaryRestrictions,
-          experienceLevel: formData.experienceLevel,
-          specialRequests: formData.specialRequests
-        }
+          dietary: formData.dietaryRestrictions
+        },
+        ...additionalTravelers.map(traveler => ({
+          name: traveler.name,
+          age: traveler.age,
+          phone: traveler.emergencyContact,
+          emergencyContact: traveler.emergencyContact,
+          medicalConditions: traveler.medicalConditions || '',
+          dietary: traveler.dietaryRestrictions || ''
+        }))
+      ];
+
+      await axios.post('/bookings', {
+        tripId: trip._id,
+        numberOfTravelers: formData.numberOfTravelers,
+        travelerDetails: travelerDetails.slice(0, formData.numberOfTravelers),
+        specialRequests: formData.specialRequests,
+        contactPhone: formData.emergencyContactPhone
       });
       
       onSuccess();
@@ -126,8 +198,13 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                   </p>
                 </div>
                 <div>
-                  <span className="text-forest-600">💰 Price:</span>
+                  <span className="text-forest-600">💰 Price per person:</span>
                   <p className="font-bold text-nature-600 text-lg">₹{trip.price}</p>
+                  {formData.numberOfTravelers > 1 && (
+                    <p className="text-sm text-forest-500">
+                      Total: ₹{trip.price * formData.numberOfTravelers}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <span className="text-forest-600">👥 Available Spots:</span>
@@ -141,6 +218,36 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                     {trip.categories.join(', ')}
                   </p>
                 </div>
+              </div>
+            </div>
+            
+            {/* Group Booking */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-forest-800 flex items-center gap-2">
+                👥 Group Booking
+              </h3>
+              <div>
+                <label htmlFor="numberOfTravelers" className="block text-sm font-medium text-forest-700 mb-2">
+                  Number of Travelers (including yourself) *
+                </label>
+                <select
+                  id="numberOfTravelers"
+                  name="numberOfTravelers"
+                  value={formData.numberOfTravelers}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border-2 border-forest-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300"
+                >
+                  {[1,2,3,4,5,6,7,8].map(num => (
+                    <option key={num} value={num} disabled={num > (trip.capacity - trip.participants.length)}>
+                      {num} {num === 1 ? 'traveler' : 'travelers'} {num > (trip.capacity - trip.participants.length) && '(Not available)'}
+                    </option>
+                  ))}
+                </select>
+                {formData.numberOfTravelers > 1 && (
+                  <p className="text-sm text-blue-600 mt-2">
+                    ℹ️ You're booking for {formData.numberOfTravelers} people. Please provide details for additional travelers below.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -237,6 +344,89 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
               </select>
             </div>
 
+            {/* Additional Travelers */}
+            {formData.numberOfTravelers > 1 && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-semibold text-forest-800 flex items-center gap-2">
+                  📝 Additional Travelers ({additionalTravelers.length})
+                </h3>
+                {additionalTravelers.map((traveler, index) => (
+                  <div key={index} className="border border-forest-200 rounded-xl p-4 bg-forest-50/30">
+                    <h4 className="font-medium text-forest-700 mb-3">
+                      Traveler {index + 2} Details
+                    </h4>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-forest-700 mb-1">
+                          Full Name *
+                        </label>
+                        <input
+                          type="text"
+                          value={traveler.name}
+                          onChange={(e) => handleAdditionalTravelerChange(index, 'name', e.target.value)}
+                          className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300"
+                          placeholder="Enter full name"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-forest-700 mb-1">
+                          Age *
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="100"
+                          value={traveler.age || ''}
+                          onChange={(e) => handleAdditionalTravelerChange(index, 'age', Number(e.target.value))}
+                          className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300"
+                          placeholder="Age"
+                          required
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-forest-700 mb-1">
+                          Emergency Contact *
+                        </label>
+                        <input
+                          type="tel"
+                          value={traveler.emergencyContact}
+                          onChange={(e) => handleAdditionalTravelerChange(index, 'emergencyContact', e.target.value)}
+                          className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300"
+                          placeholder="+91 98765 43210"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-forest-700 mb-1">
+                          Medical Conditions
+                        </label>
+                        <input
+                          type="text"
+                          value={traveler.medicalConditions}
+                          onChange={(e) => handleAdditionalTravelerChange(index, 'medicalConditions', e.target.value)}
+                          className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300"
+                          placeholder="Any medical conditions"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-forest-700 mb-1">
+                          Dietary Restrictions
+                        </label>
+                        <input
+                          type="text"
+                          value={traveler.dietaryRestrictions}
+                          onChange={(e) => handleAdditionalTravelerChange(index, 'dietaryRestrictions', e.target.value)}
+                          className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300"
+                          placeholder="Vegetarian, Vegan, etc."
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
             {/* Special Requests */}
             <div>
               <label htmlFor="specialRequests" className="block text-sm font-medium text-forest-700 mb-2">
@@ -258,11 +448,14 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                 <h4 className="font-semibold text-amber-800 mb-2">📋 Important Terms</h4>
                 <ul className="text-sm text-amber-700 space-y-1">
-                  <li>• Full payment of ₹{trip.price} is required upon confirmation</li>
+                  <li>• Full payment of ₹{trip.price * formData.numberOfTravelers} is required upon confirmation</li>
                   <li>• Cancellation policy: 7 days notice for full refund, 3 days for 50% refund</li>
                   <li>• Travel insurance is recommended but not mandatory</li>
                   <li>• All participants must follow safety guidelines and organizer instructions</li>
                   <li>• Weather conditions may affect itinerary</li>
+                  {formData.numberOfTravelers > 1 && (
+                    <li>• You are responsible for all travelers in your group booking</li>
+                  )}
                 </ul>
               </div>
               
@@ -302,7 +495,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                   </span>
                 ) : (
                   <span className="flex items-center justify-center gap-2">
-                    🌟 Join Adventure (₹{trip.price})
+                    🌟 Join Adventure{formData.numberOfTravelers > 1 ? ` (${formData.numberOfTravelers} travelers)` : ''} (₹{trip.price * formData.numberOfTravelers})
                   </span>
                 )}
               </button>

@@ -1,13 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../config/api';
+import { User } from '../types';
 
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: 'traveler' | 'organizer' | 'admin';
-}
 
 interface CreateTripProps {
   user: User;
@@ -53,6 +48,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
   const [images, setImages] = useState<File[]>([]);
   const [coverImageIndex, setCoverImageIndex] = useState(0);
   const [itineraryPdf, setItineraryPdf] = useState<File | null>(null);
+  const [paymentQR, setPaymentQR] = useState<File | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -178,7 +174,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
     }
   };
   
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'itinerary') => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'itinerary' | 'paymentQR') => {
     const file = e.target.files?.[0];
     if (file && type === 'itinerary') {
       if (file.type === 'application/pdf') {
@@ -186,6 +182,13 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
         setError('');
       } else {
         setError('Please select a valid PDF file for itinerary');
+      }
+    } else if (file && type === 'paymentQR') {
+      if (file.type.startsWith('image/')) {
+        setPaymentQR(file);
+        setError('');
+      } else {
+        setError('Please select a valid image file for payment QR code');
       }
     }
   };
@@ -257,7 +260,14 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       if (itineraryPdf) {
         setUploadProgress(70);
         uploadedPdfUrl = await uploadFileToServer(itineraryPdf);
+        setUploadProgress(75);
+      }
+      
+      let uploadedQRUrl: string | undefined;
+      if (paymentQR) {
         setUploadProgress(80);
+        uploadedQRUrl = await uploadFileToServer(paymentQR);
+        setUploadProgress(85);
       }
 
       // Prepare enhanced trip data
@@ -275,6 +285,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
         images: uploadedImageUrls,
         coverImage: uploadedImageUrls[coverImageIndex] || uploadedImageUrls[0],
         itineraryPdf: uploadedPdfUrl,
+        paymentQR: uploadedQRUrl,
         location: formData.location,
         difficultyLevel: formData.difficultyLevel,
         includedItems: formData.includedItems,
@@ -702,6 +713,45 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                       ✅ Selected: {itineraryPdf.name}
                     </div>
                   )}
+                </div>
+                
+                {/* Payment QR Code Upload */}
+                <div className="mt-6">
+                  <label className="block text-sm font-semibold text-forest-700 mb-3">
+                    💳 Payment QR Code (Temporary Solution)
+                  </label>
+                  <div className="border-2 border-dashed border-forest-300 rounded-xl p-6 text-center hover:border-nature-400 transition-colors">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleFileChange(e, 'paymentQR')}
+                      className="hidden"
+                      id="qr-upload"
+                    />
+                    <label
+                      htmlFor="qr-upload"
+                      className="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors cursor-pointer"
+                    >
+                      📱 Upload Payment QR
+                    </label>
+                    <p className="mt-2 text-sm text-forest-600">Upload your UPI/Bank QR code for payments</p>
+                    <div className="mt-2 text-xs text-amber-600">
+                      ⚠️ Temporary solution while Razorpay is under review
+                    </div>
+                    
+                    {paymentQR && (
+                      <div className="mt-4">
+                        <div className="text-sm text-forest-700 bg-green-50 p-2 rounded mb-2">
+                          ✅ QR Code: {paymentQR.name}
+                        </div>
+                        <img
+                          src={URL.createObjectURL(paymentQR)}
+                          alt="Payment QR Code Preview"
+                          className="mx-auto w-32 h-32 object-cover border-2 border-green-300 rounded-lg"
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
                 
                 {/* Schedule Builder */}

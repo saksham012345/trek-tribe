@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
-export type UserRole = 'traveler' | 'organizer' | 'admin';
+export type UserRole = 'traveler' | 'organizer' | 'admin' | 'agent';
 
 interface UserPreferences {
   categories?: string[];
@@ -8,12 +8,42 @@ interface UserPreferences {
   locations?: string[];
 }
 
+interface SocialLinks {
+  instagram?: string;
+  facebook?: string;
+  twitter?: string;
+  linkedin?: string;
+  website?: string;
+}
+
+interface OrganizerProfile {
+  bio?: string;
+  experience?: string;
+  specialties?: string[];
+  certifications?: string[];
+  languages?: string[];
+  yearsOfExperience?: number;
+  totalTripsOrganized?: number;
+  achievements?: string[];
+}
+
 export interface UserDocument extends Document {
   email: string;
   passwordHash: string;
   name: string;
   role: UserRole;
+  phone?: string;
+  bio?: string;
+  profilePhoto?: string;
+  location?: string;
+  dateOfBirth?: Date;
   preferences?: UserPreferences;
+  socialLinks?: SocialLinks;
+  organizerProfile?: OrganizerProfile;
+  isVerified?: boolean;
+  lastActive?: Date;
+  resetPasswordToken?: string;
+  resetPasswordExpires?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -26,10 +56,15 @@ const userSchema = new Schema(
     name: { type: String, required: true },
     role: { 
       type: String, 
-      enum: ['traveler', 'organizer', 'admin'], 
+      enum: ['traveler', 'organizer', 'admin', 'agent'], 
       default: 'traveler', 
       index: true 
     },
+    phone: { type: String },
+    bio: { type: String, maxlength: 500 },
+    profilePhoto: { type: String },
+    location: { type: String },
+    dateOfBirth: { type: Date },
     preferences: {
       type: {
         categories: [{ type: String }],
@@ -45,7 +80,34 @@ const userSchema = new Schema(
         locations: [{ type: String }]
       },
       required: false
-    }
+    },
+    socialLinks: {
+      type: {
+        instagram: { type: String },
+        facebook: { type: String },
+        twitter: { type: String },
+        linkedin: { type: String },
+        website: { type: String }
+      },
+      required: false
+    },
+    organizerProfile: {
+      type: {
+        bio: { type: String, maxlength: 1000 },
+        experience: { type: String, maxlength: 1000 },
+        specialties: [{ type: String }],
+        certifications: [{ type: String }],
+        languages: [{ type: String }],
+        yearsOfExperience: { type: Number, min: 0 },
+        totalTripsOrganized: { type: Number, default: 0, min: 0 },
+        achievements: [{ type: String }]
+      },
+      required: false
+    },
+    isVerified: { type: Boolean, default: false },
+    lastActive: { type: Date, default: Date.now },
+    resetPasswordToken: { type: String },
+    resetPasswordExpires: { type: Date }
   },
   { timestamps: true }
 );

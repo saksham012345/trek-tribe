@@ -1,13 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: 'traveler' | 'organizer' | 'admin';
-}
+import { User } from '../types';
 
 interface LoginProps {
   onLogin: (token: string, user: User) => void;
@@ -112,6 +106,14 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
                   placeholder="Enter your password"
                 />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="text-sm">
+                <Link to="/forgot-password" className="font-medium text-nature-600 hover:text-forest-700 transition-colors">
+                  Forgot your password?
+                </Link>
               </div>
             </div>
 

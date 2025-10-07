@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import Header from './components/Header';
@@ -7,56 +7,20 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Trips from './pages/Trips';
 import CreateTrip from './pages/CreateTrip';
-import EditTrip from './pages/EditTrip';
+import EnhancedEditTrip from './pages/EnhancedEditTrip';
 import Profile from './pages/Profile';
+import TripDetails from './pages/TripDetails';
+import AdminDashboard from './pages/AdminDashboard';
+import EnhancedProfile from './pages/EnhancedProfile';
+import ForgotPassword from './components/auth/ForgotPassword';
+import ResetPassword from './components/auth/ResetPassword';
+import AgentDashboard from './pages/AgentDashboard';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:4000';
 
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: 'traveler' | 'organizer' | 'admin';
-}
-
-function App() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      // Set default authorization header
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      
-      // Verify token and get user info
-      axios.get('/auth/me')
-        .then(response => {
-          setUser(response.data.user);
-        })
-        .catch(() => {
-          localStorage.removeItem('token');
-          delete axios.defaults.headers.common['Authorization'];
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-    } else {
-      setLoading(false);
-    }
-  }, []);
-
-  const handleLogin = (token: string, userData: User) => {
-    localStorage.setItem('token', token);
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    setUser(userData);
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    delete axios.defaults.headers.common['Authorization'];
-    setUser(null);
-  };
+function AppContent() {
+  const { user, loading, login: handleLogin, logout: handleLogout } = useAuth();
 
   if (loading) {
     return (
@@ -81,23 +45,56 @@ function App() {
               path="/register" 
               element={user ? <Navigate to="/" /> : <Register onLogin={handleLogin} />} 
             />
+            <Route 
+              path="/forgot-password" 
+              element={user ? <Navigate to="/" /> : <ForgotPassword />} 
+            />
+            <Route 
+              path="/reset-password" 
+              element={user ? <Navigate to="/" /> : <ResetPassword />} 
+            />
             <Route path="/trips" element={<Trips user={user} />} />
+            <Route path="/trip/:id" element={<TripDetails user={user} />} />
             <Route 
               path="/create-trip" 
               element={user?.role === 'organizer' ? <CreateTrip user={user} /> : <Navigate to="/" />} 
             />
             <Route 
               path="/edit-trip/:id" 
-              element={user?.role === 'organizer' ? <EditTrip user={user} /> : <Navigate to="/" />} 
+              element={user?.role === 'organizer' ? <EnhancedEditTrip /> : <Navigate to="/" />} 
             />
             <Route 
               path="/profile" 
               element={user ? <Profile user={user} /> : <Navigate to="/login" />} 
             />
+            <Route 
+              path="/admin" 
+              element={user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/" />} 
+            />
+            <Route 
+              path="/agent" 
+              element={user?.role === 'agent' || user?.role === 'admin' ? <AgentDashboard /> : <Navigate to="/" />} 
+            />
+            <Route 
+              path="/profile/:userId" 
+              element={<EnhancedProfile />} 
+            />
+            <Route 
+              path="/my-profile" 
+              element={user ? <EnhancedProfile /> : <Navigate to="/login" />} 
+            />
           </Routes>
         </main>
       </div>
     </Router>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 
