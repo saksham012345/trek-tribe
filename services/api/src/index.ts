@@ -3,6 +3,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import mongoose from 'mongoose';
+import { createServer } from 'http';
 import authRoutes from './routes/auth';
 import tripRoutes from './routes/trips';
 import reviewRoutes from './routes/reviews';
@@ -12,9 +13,16 @@ import bookingRoutes from './routes/bookings';
 import adminRoutes from './routes/admin';
 import profileRoutes from './routes/profile';
 import agentRoutes from './routes/agent';
+import chatSupportRoutes from './routes/chatSupportRoutes';
+import enhancedProfileRoutes from './routes/enhancedProfile';
+import publicProfileRoutes from './routes/publicProfile';
+// Production-ready file upload routes
+import fileUploadRoutes from './routes/fileUploadProd';
 import { whatsappService } from './services/whatsappService';
+import { socketService } from './services/socketService';
 
 const app = express();
+const server = createServer(app);
 
 // Enhanced error handling middleware
 const asyncErrorHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
@@ -57,6 +65,9 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Serve static files for uploads
+app.use('/uploads', express.static('uploads'));
 
 // Simple logging function
 const logMessage = (level: string, message: string): void => {
@@ -135,6 +146,11 @@ async function start() {
       console.log('ℹ️  WhatsApp notifications will be disabled');
     });
     
+    // Initialize Socket.IO service
+    socketService.initialize(server);
+    console.log('✅ Socket.IO service initialized');
+    logMessage('INFO', 'Socket.IO service initialized');
+    
     // Routes
     app.use('/auth', authRoutes);
     app.use('/trips', tripRoutes);
@@ -144,7 +160,16 @@ async function start() {
     app.use('/bookings', bookingRoutes);
     app.use('/admin', adminRoutes);
     app.use('/profile', profileRoutes);
+    app.use('/profile', enhancedProfileRoutes);
+    app.use('/api/public', publicProfileRoutes);
+    // File upload system (production ready)
+    app.use('/api/uploads', fileUploadRoutes);
+    
+    // TODO: Enable group bookings and review verification after frontend integration
+    // app.use('/api/group-bookings', groupBookingRoutes);
+    // app.use('/api/review-verification', reviewVerificationRoutes);
     app.use('/agent', agentRoutes);
+    app.use('/chat', chatSupportRoutes);
     
     // Health check endpoint with detailed info
     app.get('/health', asyncErrorHandler(async (_req: Request, res: Response) => {
@@ -166,6 +191,7 @@ async function start() {
           status: statusMap[mongoStatus as keyof typeof statusMap],
           ping: dbTest ? 'successful' : 'failed'
         },
+        socketIO: socketService.getServiceStatus(),
         uptime: process.uptime(),
         memory: process.memoryUsage(),
         version: process.version
@@ -187,9 +213,10 @@ async function start() {
     app.use(globalErrorHandler);
     
     // Start server with error handling
-    const server = app.listen(port, () => {
+    const httpServer = server.listen(port, () => {
       console.log(`🚀 API listening on http://localhost:${port}`);
       console.log(`📊 Health check: http://localhost:${port}/health`);
+      console.log(`💬 Socket.IO chat support: http://localhost:${port}/socket.io/`);
       logMessage('INFO', `Server started on port ${port}`);
     });
     
@@ -198,7 +225,7 @@ async function start() {
       console.log(`\n📴 Received ${signal}. Starting graceful shutdown...`);
       logMessage('INFO', `Received ${signal}. Starting graceful shutdown`);
       
-      server.close(async (err) => {
+      httpServer.close(async (err) => {
         if (err) {
           console.error('❌ Error during server shutdown:', err);
           logMessage('ERROR', `Error during server shutdown: ${err.message}`);
@@ -206,6 +233,10 @@ async function start() {
         }
         
         try {
+          // Shutdown Socket.IO service
+          socketService.shutdown();
+          console.log('✅ Socket.IO service shut down');
+          
           await mongoose.connection.close();
           console.log('✅ Database connection closed');
           logMessage('INFO', 'Graceful shutdown completed');

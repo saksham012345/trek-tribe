@@ -18,7 +18,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBack }) => {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/auth/forgot-password`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/auth/forgot-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

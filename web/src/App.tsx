@@ -15,6 +15,7 @@ import EnhancedProfile from './pages/EnhancedProfile';
 import ForgotPassword from './components/auth/ForgotPassword';
 import ResetPassword from './components/auth/ResetPassword';
 import AgentDashboard from './pages/AgentDashboard';
+import AIChatWidget from './components/AIChatWidget';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:4000';
@@ -85,6 +86,9 @@ function AppContent() {
             />
           </Routes>
         </main>
+        
+        {/* AI Chat Support Widget */}
+        <AIChatWidget />
       </div>
     </Router>
   );

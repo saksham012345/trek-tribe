@@ -45,26 +45,24 @@ const AdminDashboard: React.FC = () => {
 
   const fetchDashboardStats = async () => {
     try {
-      const [usersRes, tripsRes, systemRes, whatsappRes] = await Promise.all([
-        axios.get('/admin/users/stats'),
-        axios.get('/admin/trips/stats'),
-        axios.get('/health'),
-        axios.get('/bookings/whatsapp-status')
+      const [statsRes] = await Promise.all([
+        axios.get('/admin/stats')
       ]);
 
+      const data = statsRes.data;
       setStats({
-        users: usersRes.data,
-        trips: tripsRes.data,
+        users: data.users,
+        trips: data.trips,
         bookings: {
-          total: tripsRes.data.totalBookings || 0,
-          revenue: tripsRes.data.totalRevenue || 0,
-          recentBookings: tripsRes.data.recentBookings || []
+          total: data.trips.totalBookings || 0,
+          revenue: data.trips.totalRevenue || 0,
+          recentBookings: data.trips.recentBookings || []
         },
         system: {
-          uptime: systemRes.data.uptime || 0,
-          memoryUsage: systemRes.data.memory || {},
-          dbStatus: systemRes.data.mongodb?.status || 'unknown',
-          whatsappStatus: whatsappRes.data.isReady || false
+          uptime: 0,
+          memoryUsage: {},
+          dbStatus: 'connected',
+          whatsappStatus: false
         }
       });
     } catch (err: any) {

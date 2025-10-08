@@ -20,11 +20,22 @@ interface LocationCoordinates {
   longitude: number;
 }
 
+interface PickupDropPoint {
+  name: string;
+  address: string;
+  coordinates?: [number, number];
+  time?: string;
+  contactPerson?: string;
+  contactPhone?: string;
+  landmarks?: string;
+  instructions?: string;
+}
+
 const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 4;
+  const totalSteps = 5;
   
   const [formData, setFormData] = useState({
     title: '',
@@ -45,6 +56,8 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
   });
   
   const [schedule, setSchedule] = useState<ScheduleDay[]>([]);
+  const [pickupPoints, setPickupPoints] = useState<PickupDropPoint[]>([]);
+  const [dropOffPoints, setDropOffPoints] = useState<PickupDropPoint[]>([]);
   const [images, setImages] = useState<File[]>([]);
   const [coverImageIndex, setCoverImageIndex] = useState(0);
   const [itineraryPdf, setItineraryPdf] = useState<File | null>(null);
@@ -148,6 +161,51 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       .map((day, index) => ({ ...day, day: index + 1 }));
     setSchedule(updatedSchedule);
   };
+  
+  // Pickup and drop-off point management
+  const addPickupPoint = () => {
+    setPickupPoints([...pickupPoints, {
+      name: '',
+      address: '',
+      time: '',
+      contactPerson: '',
+      contactPhone: '',
+      landmarks: '',
+      instructions: ''
+    }]);
+  };
+  
+  const updatePickupPoint = (index: number, field: keyof PickupDropPoint, value: string) => {
+    const updated = [...pickupPoints];
+    (updated[index] as any)[field] = value;
+    setPickupPoints(updated);
+  };
+  
+  const removePickupPoint = (index: number) => {
+    setPickupPoints(pickupPoints.filter((_, i) => i !== index));
+  };
+  
+  const addDropOffPoint = () => {
+    setDropOffPoints([...dropOffPoints, {
+      name: '',
+      address: '',
+      time: '',
+      contactPerson: '',
+      contactPhone: '',
+      landmarks: '',
+      instructions: ''
+    }]);
+  };
+  
+  const updateDropOffPoint = (index: number, field: keyof PickupDropPoint, value: string) => {
+    const updated = [...dropOffPoints];
+    (updated[index] as any)[field] = value;
+    setDropOffPoints(updated);
+  };
+  
+  const removeDropOffPoint = (index: number) => {
+    setDropOffPoints(dropOffPoints.filter((_, i) => i !== index));
+  };
 
   const handleMultipleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -216,6 +274,8 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
         return formData.categories.length > 0;
       case 4:
         return true; // Optional step
+      case 5:
+        return true; // Pickup/dropoff points are optional but recommended
       default:
         return false;
     }
@@ -291,7 +351,9 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
         includedItems: formData.includedItems,
         excludedItems: formData.excludedItems,
         requirements: formData.requirements,
-        cancellationPolicy: formData.cancellationPolicy
+        cancellationPolicy: formData.cancellationPolicy,
+        pickupPoints: pickupPoints.filter(point => point.name.trim() && point.address.trim()),
+        dropOffPoints: dropOffPoints.filter(point => point.name.trim() && point.address.trim())
       };
 
       setUploadProgress(90);
@@ -828,6 +890,237 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        );
+        
+      case 5:
+        return (
+          <div className="space-y-6">
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold text-forest-800 mb-2">🚌 Pickup & Drop-off Points</h2>
+              <p className="text-forest-600">Add convenient pickup and drop-off locations for participants</p>
+            </div>
+            
+            {/* Pickup Points */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <label className="block text-lg font-semibold text-forest-700">
+                  📍 Pickup Points
+                </label>
+                <button
+                  type="button"
+                  onClick={addPickupPoint}
+                  className="px-4 py-2 bg-nature-500 text-white text-sm rounded-lg hover:bg-nature-600 transition-colors"
+                >
+                  ➕ Add Pickup Point
+                </button>
+              </div>
+              
+              <div className="space-y-4 max-h-64 overflow-y-auto">
+                {pickupPoints.map((point, index) => (
+                  <div key={index} className="border border-forest-200 rounded-xl p-4 bg-forest-50/30">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="font-medium text-forest-700">Pickup Point {index + 1}</span>
+                      <button
+                        type="button"
+                        onClick={() => removePickupPoint(index)}
+                        className="text-red-500 hover:text-red-700 text-sm px-2 py-1 rounded hover:bg-red-50"
+                      >
+                        🗑️ Remove
+                      </button>
+                    </div>
+                    
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-forest-700 mb-1">
+                          Location Name *
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Metro Station, Bus Stop, etc."
+                          value={point.name}
+                          onChange={(e) => updatePickupPoint(index, 'name', e.target.value)}
+                          className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-forest-700 mb-1">
+                          Pickup Time
+                        </label>
+                        <input
+                          type="time"
+                          value={point.time || ''}
+                          onChange={(e) => updatePickupPoint(index, 'time', e.target.value)}
+                          className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
+                        />
+                      </div>
+                      
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-forest-700 mb-1">
+                          Full Address *
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Complete address with landmarks"
+                          value={point.address}
+                          onChange={(e) => updatePickupPoint(index, 'address', e.target.value)}
+                          className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-forest-700 mb-1">
+                          Contact Person
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Person name for coordination"
+                          value={point.contactPerson || ''}
+                          onChange={(e) => updatePickupPoint(index, 'contactPerson', e.target.value)}
+                          className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-forest-700 mb-1">
+                          Contact Phone
+                        </label>
+                        <input
+                          type="tel"
+                          placeholder="Contact number"
+                          value={point.contactPhone || ''}
+                          onChange={(e) => updatePickupPoint(index, 'contactPhone', e.target.value)}
+                          className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
+                        />
+                      </div>
+                      
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-forest-700 mb-1">
+                          Landmarks & Instructions
+                        </label>
+                        <textarea
+                          rows={2}
+                          placeholder="Nearby landmarks, special instructions for participants..."
+                          value={point.instructions || ''}
+                          onChange={(e) => updatePickupPoint(index, 'instructions', e.target.value)}
+                          className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500 resize-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                {pickupPoints.length === 0 && (
+                  <div className="text-center py-8 text-forest-500">
+                    <p>No pickup points added yet. Add at least one pickup point to help participants.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Drop-off Points */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <label className="block text-lg font-semibold text-forest-700">
+                  🏁 Drop-off Points
+                </label>
+                <button
+                  type="button"
+                  onClick={addDropOffPoint}
+                  className="px-4 py-2 bg-forest-500 text-white text-sm rounded-lg hover:bg-forest-600 transition-colors"
+                >
+                  ➕ Add Drop-off Point
+                </button>
+              </div>
+              
+              <div className="space-y-4 max-h-64 overflow-y-auto">
+                {dropOffPoints.map((point, index) => (
+                  <div key={index} className="border border-forest-200 rounded-xl p-4 bg-forest-50/30">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="font-medium text-forest-700">Drop-off Point {index + 1}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeDropOffPoint(index)}
+                        className="text-red-500 hover:text-red-700 text-sm px-2 py-1 rounded hover:bg-red-50"
+                      >
+                        🗑️ Remove
+                      </button>
+                    </div>
+                    
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-forest-700 mb-1">
+                          Location Name *
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Metro Station, Bus Stop, etc."
+                          value={point.name}
+                          onChange={(e) => updateDropOffPoint(index, 'name', e.target.value)}
+                          className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-forest-700 mb-1">
+                          Expected Drop-off Time
+                        </label>
+                        <input
+                          type="time"
+                          value={point.time || ''}
+                          onChange={(e) => updateDropOffPoint(index, 'time', e.target.value)}
+                          className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
+                        />
+                      </div>
+                      
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-forest-700 mb-1">
+                          Full Address *
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Complete address with landmarks"
+                          value={point.address}
+                          onChange={(e) => updateDropOffPoint(index, 'address', e.target.value)}
+                          className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
+                        />
+                      </div>
+                      
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-forest-700 mb-1">
+                          Instructions for Participants
+                        </label>
+                        <textarea
+                          rows={2}
+                          placeholder="Meeting point details, what to expect, next steps..."
+                          value={point.instructions || ''}
+                          onChange={(e) => updateDropOffPoint(index, 'instructions', e.target.value)}
+                          className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500 resize-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                {dropOffPoints.length === 0 && (
+                  <div className="text-center py-8 text-forest-500">
+                    <p>No drop-off points added yet. You can use the same locations as pickup points or specify different ones.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+              <h3 className="font-medium text-blue-800 mb-2">💡 Tips for Pickup & Drop-off Points:</h3>
+              <ul className="text-sm text-blue-700 space-y-1">
+                <li>• Choose easily accessible locations with parking</li>
+                <li>• Include major landmarks and clear instructions</li>
+                <li>• Consider multiple pickup points for participant convenience</li>
+                <li>• Add contact information for last-minute coordination</li>
+                <li>• Drop-off points can be the same as pickup points</li>
+              </ul>
             </div>
           </div>
         );

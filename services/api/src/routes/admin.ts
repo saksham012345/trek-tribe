@@ -233,7 +233,7 @@ router.patch('/users/:id/role', async (req, res) => {
     const { id } = req.params;
     const { role } = req.body;
 
-    if (!['user', 'organizer', 'admin', 'agent'].includes(role)) {
+    if (!['traveler', 'organizer', 'admin', 'agent'].includes(role)) {
       return res.status(400).json({ error: 'Invalid role' });
     }
 

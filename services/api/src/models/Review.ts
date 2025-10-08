@@ -7,7 +7,9 @@ export type ReviewType = 'trip' | 'organizer';
 
 export interface ReviewDocument extends Document {
   reviewerId: Types.ObjectId;
+  userId?: Types.ObjectId; // Alternative reference to user
   targetId: Types.ObjectId; // Trip ID or Organizer ID
+  tripId?: Types.ObjectId; // Direct trip reference
   reviewType: ReviewType;
   rating: number; // 1-5 scale
   title: string;
@@ -22,6 +24,24 @@ export interface ReviewDocument extends Document {
     respondedAt: Date;
   };
   tripDate?: Date; // When the trip occurred (for trip reviews)
+  // Verification and moderation fields
+  verifiedAt?: Date;
+  verifiedBy?: Types.ObjectId;
+  verificationNotes?: string;
+  isRejected?: boolean;
+  rejectedAt?: Date;
+  rejectedBy?: Types.ObjectId;
+  rejectionReason?: string;
+  isFlagged?: boolean;
+  flaggedAt?: Date;
+  flags?: Array<{
+    userId: Types.ObjectId;
+    reason: string;
+    flaggedAt: Date;
+  }>;
+  moderatedAt?: Date;
+  moderatedBy?: Types.ObjectId;
+  moderationNotes?: string;
   createdAt: Date;
   updatedAt: Date;
   // Instance methods
@@ -113,7 +133,61 @@ const reviewSchema = new Schema(
       },
       respondedAt: Date
     },
-    tripDate: Date
+    tripDate: Date,
+    // Verification and moderation fields
+    userId: { 
+      type: Schema.Types.ObjectId, 
+      ref: 'User',
+      index: true 
+    },
+    tripId: { 
+      type: Schema.Types.ObjectId, 
+      ref: 'Trip',
+      index: true 
+    },
+    verifiedAt: Date,
+    verifiedBy: { 
+      type: Schema.Types.ObjectId, 
+      ref: 'User' 
+    },
+    verificationNotes: String,
+    isRejected: { 
+      type: Boolean, 
+      default: false 
+    },
+    rejectedAt: Date,
+    rejectedBy: { 
+      type: Schema.Types.ObjectId, 
+      ref: 'User' 
+    },
+    rejectionReason: String,
+    isFlagged: { 
+      type: Boolean, 
+      default: false,
+      index: true 
+    },
+    flaggedAt: Date,
+    flags: [{
+      userId: { 
+        type: Schema.Types.ObjectId, 
+        ref: 'User',
+        required: true 
+      },
+      reason: { 
+        type: String, 
+        required: true 
+      },
+      flaggedAt: { 
+        type: Date, 
+        default: Date.now 
+      }
+    }],
+    moderatedAt: Date,
+    moderatedBy: { 
+      type: Schema.Types.ObjectId, 
+      ref: 'User' 
+    },
+    moderationNotes: String
   },
   { 
     timestamps: true,

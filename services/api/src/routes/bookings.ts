@@ -106,7 +106,7 @@ router.post('/', authenticateJwt, async (req, res) => {
       // Send WhatsApp confirmation
       try {
         if (whatsappService.isServiceReady()) {
-          await whatsappService.sendBookingConfirmation({
+          await whatsappService.sendBookingConfirmation(contactPhone, {
             userName: user.name,
             tripTitle: trip.title,
             tripDestination: trip.destination,

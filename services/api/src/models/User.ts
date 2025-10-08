@@ -6,6 +6,16 @@ interface UserPreferences {
   categories?: string[];
   budgetRange?: [number, number];
   locations?: string[];
+  difficultyLevels?: string[];
+  accommodationTypes?: string[];
+  tripDurations?: string[];
+  notifications?: {
+    email?: boolean;
+    sms?: boolean;
+    push?: boolean;
+    tripUpdates?: boolean;
+    promotions?: boolean;
+  };
 }
 
 interface SocialLinks {
@@ -14,6 +24,22 @@ interface SocialLinks {
   twitter?: string;
   linkedin?: string;
   website?: string;
+}
+
+interface EmergencyContact {
+  name: string;
+  relationship: string;
+  phone: string;
+  email?: string;
+}
+
+interface TravelStats {
+  tripsCompleted: number;
+  totalDistance: number;
+  favoriteDestinations: string[];
+  badges: string[];
+  reviewCount: number;
+  averageRating: number;
 }
 
 interface OrganizerProfile {
@@ -25,6 +51,23 @@ interface OrganizerProfile {
   yearsOfExperience?: number;
   totalTripsOrganized?: number;
   achievements?: string[];
+  uniqueUrl?: string;
+  businessInfo?: {
+    companyName?: string;
+    licenseNumber?: string;
+    insuranceDetails?: string;
+  };
+  paymentQR?: string;
+  qrCodes?: Array<{
+    filename: string;
+    originalName: string;
+    path: string;
+    paymentMethod: string;
+    description: string;
+    uploadedAt: Date;
+    isActive: boolean;
+    _id?: any;
+  }>;
 }
 
 export interface UserDocument extends Document {
@@ -35,12 +78,33 @@ export interface UserDocument extends Document {
   phone?: string;
   bio?: string;
   profilePhoto?: string;
+  coverPhoto?: string;
   location?: string;
   dateOfBirth?: Date;
+  gender?: string;
+  occupation?: string;
+  uniqueUrl?: string;
+  emergencyContact?: EmergencyContact;
+  travelStats?: TravelStats;
   preferences?: UserPreferences;
   socialLinks?: SocialLinks;
   organizerProfile?: OrganizerProfile;
   isVerified?: boolean;
+  verificationDocuments?: Array<{
+    filename: string;
+    originalName: string;
+    path: string;
+    size: number;
+    mimetype: string;
+    uploadedAt: Date;
+    verified: boolean;
+  }>;
+  privacySettings?: {
+    profileVisibility: 'public' | 'private' | 'friends';
+    showEmail: boolean;
+    showPhone: boolean;
+    showLocation: boolean;
+  };
   lastActive?: Date;
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
@@ -63,8 +127,32 @@ const userSchema = new Schema(
     phone: { type: String },
     bio: { type: String, maxlength: 500 },
     profilePhoto: { type: String },
+    coverPhoto: { type: String },
     location: { type: String },
     dateOfBirth: { type: Date },
+    gender: { type: String, enum: ['male', 'female', 'other', 'prefer-not-to-say'] },
+    occupation: { type: String },
+    uniqueUrl: { type: String, unique: true, sparse: true },
+    emergencyContact: {
+      type: {
+        name: { type: String, required: true },
+        relationship: { type: String, required: true },
+        phone: { type: String, required: true },
+        email: { type: String }
+      },
+      required: false
+    },
+    travelStats: {
+      type: {
+        tripsCompleted: { type: Number, default: 0 },
+        totalDistance: { type: Number, default: 0 },
+        favoriteDestinations: [{ type: String }],
+        badges: [{ type: String }],
+        reviewCount: { type: Number, default: 0 },
+        averageRating: { type: Number, default: 0, min: 0, max: 5 }
+      },
+      required: false
+    },
     preferences: {
       type: {
         categories: [{ type: String }],
@@ -77,7 +165,20 @@ const userSchema = new Schema(
             message: 'Budget range must have exactly 2 numbers or be empty'
           }
         },
-        locations: [{ type: String }]
+        locations: [{ type: String }],
+        difficultyLevels: [{ type: String, enum: ['beginner', 'intermediate', 'advanced'] }],
+        accommodationTypes: [{ type: String }],
+        tripDurations: [{ type: String }],
+        notifications: {
+          type: {
+            email: { type: Boolean, default: true },
+            sms: { type: Boolean, default: false },
+            push: { type: Boolean, default: true },
+            tripUpdates: { type: Boolean, default: true },
+            promotions: { type: Boolean, default: false }
+          },
+          required: false
+        }
       },
       required: false
     },
@@ -100,11 +201,48 @@ const userSchema = new Schema(
         languages: [{ type: String }],
         yearsOfExperience: { type: Number, min: 0 },
         totalTripsOrganized: { type: Number, default: 0, min: 0 },
-        achievements: [{ type: String }]
+        achievements: [{ type: String }],
+        uniqueUrl: { type: String, unique: true, sparse: true },
+        businessInfo: {
+          type: {
+            companyName: { type: String },
+            licenseNumber: { type: String },
+            insuranceDetails: { type: String }
+          },
+          required: false
+        },
+        paymentQR: { type: String },
+        qrCodes: [{
+          filename: { type: String, required: true },
+          originalName: { type: String, required: true },
+          path: { type: String, required: true },
+          paymentMethod: { type: String, default: 'UPI' },
+          description: { type: String, default: '' },
+          uploadedAt: { type: Date, default: Date.now },
+          isActive: { type: Boolean, default: true }
+        }]
       },
       required: false
     },
     isVerified: { type: Boolean, default: false },
+    verificationDocuments: [{
+      filename: { type: String, required: true },
+      originalName: { type: String, required: true },
+      path: { type: String, required: true },
+      size: { type: Number, required: true },
+      mimetype: { type: String, required: true },
+      uploadedAt: { type: Date, default: Date.now },
+      verified: { type: Boolean, default: false }
+    }],
+    privacySettings: {
+      type: {
+        profileVisibility: { type: String, enum: ['public', 'private', 'friends'], default: 'public' },
+        showEmail: { type: Boolean, default: false },
+        showPhone: { type: Boolean, default: false },
+        showLocation: { type: Boolean, default: true }
+      },
+      required: false
+    },
     lastActive: { type: Date, default: Date.now },
     resetPasswordToken: { type: String },
     resetPasswordExpires: { type: Date }
