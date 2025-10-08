@@ -37,11 +37,6 @@ const Home: React.FC<HomeProps> = ({ user }) => {
   });
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  // Require authentication to access home page
-  if (!currentUser) {
-    return <Navigate to="/login" replace />;
-  }
-
   // Background images for hero carousel
   const heroImages = [
     'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?q=80&w=2071',
@@ -50,6 +45,11 @@ const Home: React.FC<HomeProps> = ({ user }) => {
   ];
 
   useEffect(() => {
+    // Only fetch data if user is authenticated
+    if (!currentUser) {
+      return;
+    }
+
     // Fetch real data from the API
     const fetchData = async () => {
       try {
@@ -59,13 +59,15 @@ const Home: React.FC<HomeProps> = ({ user }) => {
           axios.get('/admin/stats')
         ]);
         
-        setFeaturedTrips(tripsRes.data || []);
+        const tripsData = tripsRes.data as Trip[];
+        setFeaturedTrips(tripsData || []);
         
-        if (statsRes.data) {
+        const statsData = statsRes.data as { trips?: { total?: number; totalBookings?: number }; users?: { total?: number } };
+        if (statsData) {
           setStats({
-            totalTrips: statsRes.data.trips?.total || 0,
-            totalUsers: statsRes.data.users?.total || 0,
-            totalBookings: statsRes.data.trips?.totalBookings || 0,
+            totalTrips: statsData.trips?.total || 0,
+            totalUsers: statsData.users?.total || 0,
+            totalBookings: statsData.trips?.totalBookings || 0,
             countries: 15 // This could be calculated from trip destinations
           });
         }
@@ -86,7 +88,12 @@ const Home: React.FC<HomeProps> = ({ user }) => {
     }, 5000);
     
     return () => clearInterval(interval);
-  }, [heroImages.length]);
+  }, [heroImages.length, currentUser]);
+
+  // Require authentication to access home page
+  if (!currentUser) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
     <div className="min-h-screen bg-forest-50">

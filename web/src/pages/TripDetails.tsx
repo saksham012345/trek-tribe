@@ -54,7 +54,8 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
       
       try {
         const response = await api.get(`/trips/${id}`);
-        setTrip(response.data);
+        const tripData = response.data as Trip;
+        setTrip(tripData);
       } catch (error: any) {
         console.error('Error fetching trip:', error);
         setError('Failed to load trip details');
@@ -70,7 +71,8 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
     // Refresh trip data
     if (id) {
       const response = await api.get(`/trips/${id}`);
-      setTrip(response.data);
+      const tripData = response.data as Trip;
+      setTrip(tripData);
     }
   };
 

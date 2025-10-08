@@ -100,7 +100,8 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
             filename: file.name,
             mimeType: file.type
           });
-          resolve(response.data.file.url);
+          const responseData = response.data as { file: { url: string } };
+          resolve(responseData.file.url);
         } catch (error) {
           reject(error);
         }

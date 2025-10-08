@@ -35,10 +35,12 @@ const Profile: React.FC<ProfileProps> = ({ user }) => {
         // Filter trips based on user role
         if (user.role === 'organizer') {
           // Show trips created by the user
-          setUserTrips(allTrips.filter((trip: Trip) => trip.organizerId === user.id));
+          const tripsData = allTrips as Trip[];
+          setUserTrips(tripsData.filter((trip: Trip) => trip.organizerId === user.id));
         } else {
           // Show trips the user has joined
-          setUserTrips(allTrips.filter((trip: Trip) => trip.participants.includes(user.id)));
+          const tripsData = allTrips as Trip[];
+          setUserTrips(tripsData.filter((trip: Trip) => trip.participants.includes(user.id)));
         }
       } catch (error) {
         console.error('Error fetching user trips:', error);

@@ -29,14 +29,16 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
     try {
       const response = await axios.post('/auth/login', formData);
-      const { token } = response.data;
+      const authData = response.data as { token: string };
+      const { token } = authData;
       
       // Get user info (you might need to add this endpoint to your API)
       const userResponse = await axios.get('/auth/me', {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      onLogin(token, userResponse.data.user);
+      const userData = userResponse.data as { user: User };
+      onLogin(token, userData.user);
     } catch (error: any) {
       setError(error.response?.data?.error || 'Login failed');
     } finally {

@@ -49,7 +49,10 @@ const AdminDashboard: React.FC = () => {
         axios.get('/admin/stats')
       ]);
 
-      const data = statsRes.data;
+      const data = statsRes.data as {
+        users: { total: number; byRole: any[]; recentUsers: any[] };
+        trips: { total: number; byStatus: any[]; recentTrips: any[]; totalBookings?: number; totalRevenue?: number; recentBookings?: any[] };
+      };
       setStats({
         users: data.users,
         trips: data.trips,

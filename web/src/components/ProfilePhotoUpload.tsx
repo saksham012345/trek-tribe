@@ -58,7 +58,8 @@ const ProfilePhotoUpload: React.FC<ProfilePhotoUploadProps> = ({
         },
       });
 
-      const photoUrl = response.data.url;
+      const responseData = response.data as { url: string };
+      const photoUrl = responseData.url;
       onPhotoUpdate(photoUrl);
       setPreviewUrl(null);
     } catch (error: any) {

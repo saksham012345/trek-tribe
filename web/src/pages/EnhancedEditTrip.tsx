@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { Camera, Upload, X, MapPin, Calendar, Users, Plus, Trash2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import api from '../config/api';
 
 interface ScheduleDay {
   day: number;
@@ -74,15 +75,15 @@ const EnhancedEditTrip: React.FC = () => {
 
   const fetchTrip = async () => {
     try {
-      const response = await axios.get(`/trips/${id}`);
-      const tripData = response.data;
-
-      // Verify user is the organizer
+      const response = await api.get(`/trips/${id}`);
+      const tripData = response.data as TripData;
+      
+      // Verify ownership
       if (tripData.organizerId !== user?.id) {
         navigate('/trips');
         return;
       }
-
+      
       setTrip(tripData);
       setFormData({
         title: tripData.title,
@@ -96,7 +97,7 @@ const EnhancedEditTrip: React.FC = () => {
         itinerary: tripData.itinerary || '',
         status: tripData.status || 'active'
       });
-
+      
       setSchedule(tripData.schedule || []);
     } catch (error: any) {
       setError('Failed to fetch trip details');
@@ -213,7 +214,8 @@ const EnhancedEditTrip: React.FC = () => {
             filename: file.name,
             mimeType: file.type
           });
-          resolve(response.data.file.url);
+          const responseData = response.data as { file: { url: string } };
+          resolve(responseData.file.url);
         } catch (error) {
           reject(error);
         }

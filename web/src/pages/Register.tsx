@@ -44,13 +44,15 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
         role: formData.role
       });
       
-      const { token } = response.data;
+      const authData = response.data as { token: string };
+      const { token } = authData;
       
       const userResponse = await axios.get('/auth/me', {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      onLogin(token, userResponse.data.user);
+      const userData = userResponse.data as { user: User };
+      onLogin(token, userData.user);
     } catch (error: any) {
       console.log('Registration error details:', error);
       if (error.response?.data?.error) {

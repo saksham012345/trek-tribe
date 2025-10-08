@@ -73,9 +73,10 @@ const PreviousTripImages: React.FC<PreviousTripImagesProps> = ({
           },
         });
 
+        const responseData = response.data as { url: string };
         return {
           id: `temp-${Date.now()}-${Math.random()}`,
-          imageUrl: response.data.url,
+          imageUrl: responseData.url,
           caption: '',
           location: '',
           date: '',

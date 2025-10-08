@@ -90,7 +90,8 @@ const EnhancedProfile: React.FC = () => {
       const endpoint = isOwnProfile ? '/profile/me' : `/profile/${userId}`;
       const response = await axios.get(endpoint);
       
-      const userData = isOwnProfile ? response.data.user : response.data.profile;
+      const responseData = response.data as { user?: any; profile?: any };
+      const userData = isOwnProfile ? responseData.user : responseData.profile;
       setProfile(userData);
       
       // Initialize edit form
@@ -126,7 +127,8 @@ const EnhancedProfile: React.FC = () => {
   const fetchStats = async () => {
     try {
       const response = await axios.get('/profile/me/stats');
-      setStats(response.data.stats);
+      const statsData = response.data as { stats: any };
+      setStats(statsData.stats);
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
@@ -135,7 +137,8 @@ const EnhancedProfile: React.FC = () => {
   const generateShareableLink = async () => {
     try {
       const response = await axios.post('/profile/me/share');
-      setShareableLink(response.data.shareableLink);
+      const linkData = response.data as { shareableLink: string };
+      setShareableLink(linkData.shareableLink);
     } catch (error) {
       console.error('Error generating shareable link:', error);
     }
@@ -148,7 +151,8 @@ const EnhancedProfile: React.FC = () => {
   const handleSave = async () => {
     try {
       const response = await axios.put('/profile/me', editForm);
-      setProfile(response.data.user);
+      const userData = response.data as { user: any };
+      setProfile(userData.user);
       setEditing(false);
       alert('Profile updated successfully!');
     } catch (error: any) {

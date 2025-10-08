@@ -100,7 +100,8 @@ const AgentDashboard: React.FC = () => {
   const fetchAgentStats = async () => {
     try {
       const response = await axios.get('/agent/stats');
-      setStats(response.data);
+      const statsData = response.data as AgentStats;
+      setStats(statsData);
     } catch (error: any) {
       console.error('Error fetching agent stats:', error);
     }
@@ -116,9 +117,10 @@ const AgentDashboard: React.FC = () => {
       });
       
       const response = await axios.get(`/agent/tickets?${params}`);
-      setTickets(response.data.tickets);
-      setCurrentPage(response.data.pagination.current);
-      setTotalPages(response.data.pagination.pages);
+      const ticketData = response.data as { tickets: Ticket[]; pagination: { current: number; pages: number } };
+      setTickets(ticketData.tickets);
+      setCurrentPage(ticketData.pagination.current);
+      setTotalPages(ticketData.pagination.pages);
     } catch (error: any) {
       setError(error.response?.data?.error || 'Failed to fetch tickets');
     } finally {
@@ -129,7 +131,8 @@ const AgentDashboard: React.FC = () => {
   const fetchTicketDetails = async (ticketId: string) => {
     try {
       const response = await axios.get(`/agent/tickets/${ticketId}`);
-      setSelectedTicket(response.data.ticket);
+      const ticketData = response.data as { ticket: Ticket };
+      setSelectedTicket(ticketData.ticket);
     } catch (error: any) {
       setError(error.response?.data?.error || 'Failed to fetch ticket details');
     }
@@ -184,7 +187,8 @@ const AgentDashboard: React.FC = () => {
     
     try {
       const response = await axios.get(`/agent/customers/search?q=${encodeURIComponent(query)}`);
-      setCustomerSearchResults(response.data.customers);
+      const customerData = response.data as { customers: Customer[] };
+      setCustomerSearchResults(customerData.customers);
     } catch (error: any) {
       console.error('Error searching customers:', error);
     }
@@ -205,7 +209,8 @@ const AgentDashboard: React.FC = () => {
   const fetchServiceStatus = async () => {
     try {
       const response = await axios.get('/agent/services/status');
-      setServiceStatus(response.data);
+      const statusData = response.data as any;
+      setServiceStatus(statusData);
     } catch (error: any) {
       console.error('Error fetching service status:', error);
     }

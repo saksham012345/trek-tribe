@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import api from '../config/api';
 import { User } from '../types';
 
 
@@ -37,29 +38,29 @@ const EditTrip: React.FC<EditTripProps> = ({ user }) => {
       if (!id) return;
       
       try {
-        const response = await axios.get(`/trips/${id}`);
-        const trip = response.data;
-        
-        // Check if user is the organizer
-        if (trip.organizerId !== user.id) {
-          navigate('/trips');
-          return;
-        }
-        
-        setFormData({
-          title: trip.title,
-          description: trip.description,
-          destination: trip.destination,
-          price: trip.price.toString(),
-          capacity: trip.capacity.toString(),
-          categories: trip.categories,
-          startDate: trip.startDate ? new Date(trip.startDate).toISOString().split('T')[0] : '',
-          endDate: trip.endDate ? new Date(trip.endDate).toISOString().split('T')[0] : '',
-          itinerary: trip.itinerary || ''
-        });
-        
-        setCurrentCoverImage(trip.coverImage || '');
-        setCurrentItineraryPdf(trip.itineraryPdf || '');
+      const response = await api.get(`/trips/${id}`);
+      const trip = response.data as any;
+      
+      // Check if user is the organizer
+      if (trip.organizerId !== user.id) {
+        navigate('/trips');
+        return;
+      }
+      
+      setFormData({
+        title: trip.title,
+        description: trip.description,
+        destination: trip.destination,
+        price: trip.price.toString(),
+        capacity: trip.capacity.toString(),
+        categories: trip.categories,
+        startDate: trip.startDate ? new Date(trip.startDate).toISOString().split('T')[0] : '',
+        endDate: trip.endDate ? new Date(trip.endDate).toISOString().split('T')[0] : '',
+        itinerary: trip.itinerary || ''
+      });
+      
+      setCurrentCoverImage(trip.coverImage || '');
+      setCurrentItineraryPdf(trip.itineraryPdf || '');
         
       } catch (error: any) {
         setError('Failed to fetch trip details');

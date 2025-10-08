@@ -110,7 +110,8 @@ const EnhancedProfileForm: React.FC<EnhancedProfileFormProps> = ({ onClose }) =>
     try {
       setLoading(true);
       const response = await api.get('/profile/enhanced');
-      setProfileData(response.data.data.user);
+      const responseData = response.data as { data: { user: EnhancedUser } };
+      setProfileData(responseData.data.user);
     } catch (error: any) {
       setError(error.response?.data?.message || 'Failed to load profile');
     } finally {
@@ -151,8 +152,9 @@ const EnhancedProfileForm: React.FC<EnhancedProfileFormProps> = ({ onClose }) =>
       const response = await api.post('/profile/generate-unique-url', {
         baseName: profileData.name || profileData.organizerProfile?.businessInfo?.companyName || ''
       });
-      setUniqueUrlSuggestion(response.data.data.suggestion);
-      handleInputChange('uniqueUrl', response.data.data.suggestion, 'organizerProfile');
+      const responseData = response.data as { data: { suggestion: string } };
+      setUniqueUrlSuggestion(responseData.data.suggestion);
+      handleInputChange('uniqueUrl', responseData.data.suggestion, 'organizerProfile');
     } catch (error: any) {
       setError(error.response?.data?.message || 'Failed to generate URL');
     }

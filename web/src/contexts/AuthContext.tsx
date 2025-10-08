@@ -37,13 +37,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Verify token and get user info
       axios.get('/auth/me')
         .then(response => {
-          setUser(response.data.user);
+          const responseData = response.data as { user: User };
+          setUser(responseData.user);
         })
         .catch(() => {
           localStorage.removeItem('token');
           delete axios.defaults.headers.common['Authorization'];
         })
-        .finally(() => {
+        .then(() => {
+          setLoading(false);
+        })
+        .catch(() => {
           setLoading(false);
         });
     } else {

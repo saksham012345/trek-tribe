@@ -42,7 +42,8 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
         if (selectedCategory) params.append('category', selectedCategory);
         
         const response = await api.get(`/trips?${params.toString()}`);
-        setTrips(response.data);
+        const tripsData = response.data as Trip[];
+        setTrips(tripsData);
       } catch (error) {
         console.error('Error fetching trips:', error);
       } finally {
@@ -70,7 +71,8 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
         await api.post(`/trips/${tripId}/leave`);
         // Refresh trips list
         const response = await api.get('/trips');
-        setTrips(response.data);
+        const tripsData = response.data as Trip[];
+        setTrips(tripsData);
         alert('Successfully left the trip!');
       } catch (error: any) {
         alert(error.response?.data?.error || 'Failed to leave trip');
@@ -81,7 +83,8 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
   const handleJoinSuccess = async () => {
     // Refresh trips list
     const response = await api.get('/trips');
-    setTrips(response.data);
+    const tripsData = response.data as Trip[];
+    setTrips(tripsData);
     alert('Successfully joined the trip!');
   };
 

@@ -39,7 +39,7 @@ const ReviewsList: React.FC<ReviewsListProps> = ({
     const fetchReviews = async () => {
       try {
         const response = await api.get(`/reviews/trip/${tripId}`);
-        const reviewData = response.data;
+        const reviewData = response.data as Review[];
         setReviews(reviewData);
         calculateStats(reviewData);
       } catch (error) {
