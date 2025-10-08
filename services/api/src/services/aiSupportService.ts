@@ -37,6 +37,15 @@ interface KnowledgeBase {
     confidence: number;
     requiresHuman: boolean;
     actions?: string[];
+    quickReplies?: string[];
+    multipleChoice?: {
+      question: string;
+      options: Array<{
+        id: string;
+        text: string;
+        value: string;
+      }>;
+    };
   }>;
   contextualResponses: {
     booking: string[];
@@ -209,7 +218,7 @@ class TrekTribeAI {
           quickReplies: [
             'Trip Booking Process',
             'Cancellation Policy', 
-            'What's Included',
+            'What\'s Included',
             'Safety Measures',
             'Group Size Info',
             'Talk to Human Agent'
