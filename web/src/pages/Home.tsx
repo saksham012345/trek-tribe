@@ -1,56 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import { User } from '../types';
-
-// Sample trips data for demonstration
-const SAMPLE_TRIPS = [
-  {
-    _id: 'sample1',
-    title: 'Himalayan Trek Adventure',
-    description: 'Experience the breathtaking beauty of the Himalayas with expert guides and fellow adventurers.',
-    destination: 'Nepal Himalayas',
-    price: 1299,
-    capacity: 12,
-    participants: ['user1', 'user2', 'user3'],
-    categories: ['Adventure', 'Mountain'],
-    images: ['himalaya.jpg'],
-    startDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    endDate: new Date(Date.now() + 37 * 24 * 60 * 60 * 1000).toISOString(),
-    organizerId: 'org1',
-    status: 'active'
-  },
-  {
-    _id: 'sample2', 
-    title: 'Amazon Rainforest Expedition',
-    description: 'Discover the incredible biodiversity of the Amazon while supporting conservation efforts.',
-    destination: 'Amazon Basin, Peru',
-    price: 2199,
-    capacity: 8,
-    participants: ['user4', 'user5'],
-    categories: ['Nature', 'Cultural'],
-    images: ['amazon.jpg'],
-    startDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString(),
-    endDate: new Date(Date.now() + 52 * 24 * 60 * 60 * 1000).toISOString(),
-    organizerId: 'org2',
-    status: 'active'
-  },
-  {
-    _id: 'sample3',
-    title: 'Northern Lights & Aurora Hunt',
-    description: 'Chase the magical northern lights across Iceland\'s stunning winter landscapes.',
-    destination: 'Reykjavik, Iceland',
-    price: 1799,
-    capacity: 15,
-    participants: ['user6', 'user7', 'user8', 'user9'],
-    categories: ['Adventure', 'Nature'],
-    images: ['iceland.jpg'],
-    startDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
-    endDate: new Date(Date.now() + 67 * 24 * 60 * 60 * 1000).toISOString(),
-    organizerId: 'org3',
-    status: 'active'
-  }
-];
+import { useAuth } from '../contexts/AuthContext';
 
 
 interface Trip {
@@ -74,9 +26,21 @@ interface HomeProps {
 }
 
 const Home: React.FC<HomeProps> = ({ user }) => {
-  const [featuredTrips, setFeaturedTrips] = useState<Trip[]>(SAMPLE_TRIPS);
-  const [loading] = useState(false);
+  const { user: currentUser } = useAuth();
+  const [featuredTrips, setFeaturedTrips] = useState<Trip[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalTrips: 0,
+    totalUsers: 0,
+    totalBookings: 0,
+    countries: 0
+  });
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  // Require authentication to access home page
+  if (!currentUser) {
+    return <Navigate to="/login" replace />;
+  }
 
   // Background images for hero carousel
   const heroImages = [
@@ -86,19 +50,35 @@ const Home: React.FC<HomeProps> = ({ user }) => {
   ];
 
   useEffect(() => {
-    // Try to fetch real trips, fall back to sample data
-    const fetchTrips = async () => {
+    // Fetch real data from the API
+    const fetchData = async () => {
       try {
-        const response = await axios.get('/trips?limit=6');
-        if (response.data && response.data.length > 0) {
-          setFeaturedTrips(response.data);
+        setLoading(true);
+        const [tripsRes, statsRes] = await Promise.all([
+          axios.get('/trips?limit=6'),
+          axios.get('/admin/stats')
+        ]);
+        
+        setFeaturedTrips(tripsRes.data || []);
+        
+        if (statsRes.data) {
+          setStats({
+            totalTrips: statsRes.data.trips?.total || 0,
+            totalUsers: statsRes.data.users?.total || 0,
+            totalBookings: statsRes.data.trips?.totalBookings || 0,
+            countries: 15 // This could be calculated from trip destinations
+          });
         }
       } catch (error: any) {
-        console.error('Using sample data:', error.message || error);
-        // Keep using sample trips
+        console.error('Error fetching data:', error.message || error);
+        // Set minimal default values on error
+        setStats({ totalTrips: 0, totalUsers: 0, totalBookings: 0, countries: 0 });
+      } finally {
+        setLoading(false);
       }
     };
-    fetchTrips();
+    
+    fetchData();
     
     // Hero image carousel
     const interval = setInterval(() => {
@@ -146,15 +126,15 @@ const Home: React.FC<HomeProps> = ({ user }) => {
           {/* Interactive Stats */}
           <div className="grid grid-cols-3 gap-8 mb-12 max-w-2xl mx-auto">
             <div className="text-center">
-              <div className="text-3xl font-bold text-nature-400 animate-bounce-slow">127+</div>
+              <div className="text-3xl font-bold text-nature-400 animate-bounce-slow">{stats.totalTrips || 0}+</div>
               <div className="text-forest-200 text-sm">Adventures</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-nature-400 animate-bounce-slow" style={{animationDelay: '1s'}}>2.4k+</div>
+              <div className="text-3xl font-bold text-nature-400 animate-bounce-slow" style={{animationDelay: '1s'}}>{stats.totalUsers || 0}+</div>
               <div className="text-forest-200 text-sm">Explorers</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-nature-400 animate-bounce-slow" style={{animationDelay: '2s'}}>47</div>
+              <div className="text-3xl font-bold text-nature-400 animate-bounce-slow" style={{animationDelay: '2s'}}>{stats.countries || 0}</div>
               <div className="text-forest-200 text-sm">Countries</div>
             </div>
           </div>

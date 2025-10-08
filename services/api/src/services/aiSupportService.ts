@@ -8,6 +8,15 @@ interface AIResponse {
   requiresHumanSupport: boolean;
   suggestedActions?: string[];
   confidence: number;
+  quickReplies?: string[];
+  multipleChoice?: {
+    question: string;
+    options: Array<{
+      id: string;
+      text: string;
+      value: string;
+    }>;
+  };
 }
 
 interface ChatContext {
@@ -190,6 +199,53 @@ class TrekTribeAI {
           confidence: 0.75,
           requiresHuman: true,
           actions: ['Custom Trip Inquiry', 'Group Booking']
+        },
+        {
+          keywords: ['help', 'support', 'assistance', 'question'],
+          response: "I'm here to help! What would you like to know about?",
+          confidence: 0.9,
+          requiresHuman: false,
+          actions: ['Ask Question'],
+          quickReplies: [
+            'Trip Booking Process',
+            'Cancellation Policy', 
+            'What's Included',
+            'Safety Measures',
+            'Group Size Info',
+            'Talk to Human Agent'
+          ]
+        },
+        {
+          keywords: ['interested', 'want to book', 'like to join'],
+          response: "Great to hear you're interested! Let me help you find the perfect adventure.",
+          confidence: 0.85,
+          requiresHuman: false,
+          multipleChoice: {
+            question: "What type of adventure are you looking for?",
+            options: [
+              { id: 'easy', text: 'Easy Treks (Beginner Friendly)', value: 'easy_trek' },
+              { id: 'moderate', text: 'Moderate Treks (Some Experience)', value: 'moderate_trek' },
+              { id: 'challenging', text: 'Challenging Treks (Experienced)', value: 'challenging_trek' },
+              { id: 'adventure', text: 'Adventure Sports', value: 'adventure_sports' },
+              { id: 'wildlife', text: 'Wildlife Safaris', value: 'wildlife_safari' }
+            ]
+          }
+        },
+        {
+          keywords: ['price', 'cost', 'budget', 'affordable'],
+          response: "Our treks are priced transparently with no hidden costs. Let me help you find something within your budget.",
+          confidence: 0.85,
+          requiresHuman: false,
+          multipleChoice: {
+            question: "What's your preferred budget range per person?",
+            options: [
+              { id: 'budget1', text: 'Under ₹2,000', value: 'under_2000' },
+              { id: 'budget2', text: '₹2,000 - ₹5,000', value: '2000_5000' },
+              { id: 'budget3', text: '₹5,000 - ₹10,000', value: '5000_10000' },
+              { id: 'budget4', text: '₹10,000 - ₹20,000', value: '10000_20000' },
+              { id: 'budget5', text: 'Above ₹20,000', value: 'above_20000' }
+            ]
+          }
         }
       ],
       contextualResponses: {
@@ -360,7 +416,9 @@ class TrekTribeAI {
       message: enhancedResponse,
       requiresHumanSupport: match.pattern.requiresHuman,
       suggestedActions: match.pattern.actions || [],
-      confidence: match.confidence
+      confidence: match.confidence,
+      quickReplies: (match.pattern as any).quickReplies,
+      multipleChoice: (match.pattern as any).multipleChoice
     };
   }
   

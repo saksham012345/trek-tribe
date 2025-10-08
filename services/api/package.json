@@ -19,7 +19,9 @@
     "cli:logs": "npm run cli -- logs",
     "cleanup:trips": "ts-node src/scripts/cleanup-test-trips.ts",
     "setup:db": "ts-node src/scripts/setup-database.ts",
-    "setup:db:prod": "node dist/scripts/setup-database.js"
+    "setup:db:prod": "node dist/scripts/setup-database.js",
+    "setup:users": "ts-node src/scripts/setup-preset-users.ts",
+    "setup:users:prod": "node dist/scripts/setup-preset-users.js"
   },
   "dependencies": {
     "@types/nodemailer": "^7.0.2",
