@@ -52,7 +52,7 @@ class TelegramService {
         parse_mode: parseMode
       });
 
-      if (response.data.ok) {
+      if ((response.data as any).ok) {
         logger.info('Telegram message sent successfully', { 
           chatId: chatId.toString(),
           messageLength: message.length 
@@ -233,7 +233,7 @@ class TelegramService {
         url: webhookUrl
       });
 
-      return response.data.ok;
+      return (response.data as any).ok;
     } catch (error: any) {
       logger.error('Error setting Telegram webhook', { error: error.message });
       return false;
