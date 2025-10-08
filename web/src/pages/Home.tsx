@@ -47,6 +47,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
   useEffect(() => {
     // Only fetch data if user is authenticated
     if (!currentUser) {
+      setLoading(false);
       return;
     }
 
