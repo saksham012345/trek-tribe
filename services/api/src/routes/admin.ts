@@ -69,6 +69,7 @@ router.get('/stats', async (req, res) => {
       users: {
         total: totalUsers,
         byRole: usersByRole,
+        organizers: usersByRole.find(role => role.role === 'organizer')?.count || 0,
         recentUsers
       },
       trips: {

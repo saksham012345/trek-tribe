@@ -53,13 +53,11 @@ const ProfilePhotoUpload: React.FC<ProfilePhotoUploadProps> = ({
       reader.onload = async () => {
         try {
           const base64Data = (reader.result as string).split(',')[1];
-          const response = await axios.post('/files/upload/base64', {
-            data: base64Data,
-            filename: file.name,
-            mimeType: file.type
+          const response = await axios.post('/profile/photo', {
+            photo: `data:${file.type};base64,${base64Data}`
           });
-          const responseData = response.data as { file: { url: string } };
-          onPhotoUpdate(responseData.file.url);
+          const responseData = response.data as { profilePhoto: string };
+          onPhotoUpdate(responseData.profilePhoto);
           setPreviewUrl(null);
         } catch (error: any) {
           console.error('Error uploading photo:', error);
@@ -84,7 +82,9 @@ const ProfilePhotoUpload: React.FC<ProfilePhotoUploadProps> = ({
 
   const removePhoto = async () => {
     try {
-      await axios.delete('/profile/me/photo');
+      await axios.post('/profile/photo', {
+        photo: ''
+      });
       onPhotoUpdate('');
       setPreviewUrl(null);
     } catch (error) {

@@ -150,23 +150,79 @@ const EnhancedProfile: React.FC = () => {
 
   const handleSave = async () => {
     try {
-      // Clean up form data before sending - remove empty strings and invalid data
-      const cleanedForm = {
-        ...editForm,
+      // Validate form data before cleaning
+      const errors: string[] = [];
+      
+      // Validate name
+      if (!editForm.name?.trim() && !profile?.name) {
+        errors.push('Name is required');
+      }
+      
+      // Validate phone if provided
+      if (editForm.phone?.trim() && (editForm.phone.trim().length < 10 || editForm.phone.trim().length > 15)) {
+        errors.push('Phone number must be between 10-15 digits');
+      }
+      
+      // Validate website URL if provided
+      if (editForm.socialLinks.website?.trim()) {
+        try {
+          new URL(editForm.socialLinks.website.trim());
+        } catch {
+          errors.push('Website must be a valid URL (e.g., https://example.com)');
+        }
+      }
+      
+      // Validate years of experience
+      const yearsExp = editForm.organizerProfile.yearsOfExperience || 0;
+      if (yearsExp < 0 || yearsExp > 50) {
+        errors.push('Years of experience must be between 0-50');
+      }
+      
+      // Validate text lengths
+      if (editForm.bio && editForm.bio.length > 500) {
+        errors.push('Bio must be under 500 characters');
+      }
+      if (editForm.organizerProfile.bio && editForm.organizerProfile.bio.length > 1000) {
+        errors.push('Organizer bio must be under 1000 characters');
+      }
+      if (editForm.organizerProfile.experience && editForm.organizerProfile.experience.length > 1000) {
+        errors.push('Experience description must be under 1000 characters');
+      }
+      
+      if (errors.length > 0) {
+        alert(`Please fix the following errors:\n\n${errors.join('\n')}`);
+        return;
+      }
+      
+      // Clean up form data before sending
+      const cleanedForm: any = {
         name: editForm.name?.trim() || profile?.name || '',
         phone: editForm.phone?.trim() || '',
         bio: editForm.bio?.trim() || '',
         location: editForm.location?.trim() || '',
         socialLinks: {
           instagram: editForm.socialLinks.instagram?.trim() || '',
-          website: editForm.socialLinks.website?.trim() || ''
-        },
-        organizerProfile: profile?.role === 'organizer' ? {
+          facebook: editForm.socialLinks.facebook?.trim() || '',
+          twitter: editForm.socialLinks.twitter?.trim() || '',
+          linkedin: editForm.socialLinks.linkedin?.trim() || ''
+        }
+      };
+      
+      // Only add website if it's a valid URL
+      if (editForm.socialLinks.website?.trim()) {
+        cleanedForm.socialLinks.website = editForm.socialLinks.website.trim();
+      }
+      
+      // Only add organizer profile for organizers
+      if (profile?.role === 'organizer') {
+        cleanedForm.organizerProfile = {
           bio: editForm.organizerProfile.bio?.trim() || '',
           experience: editForm.organizerProfile.experience?.trim() || '',
-          yearsOfExperience: Math.max(0, editForm.organizerProfile.yearsOfExperience || 0)
-        } : undefined
-      };
+          specialties: editForm.organizerProfile.specialties || [],
+          languages: editForm.organizerProfile.languages || [],
+          yearsOfExperience: Math.max(0, Math.min(50, editForm.organizerProfile.yearsOfExperience || 0))
+        };
+      }
       
       const response = await axios.put('/profile/me', cleanedForm);
       const userData = response.data as { user: any };

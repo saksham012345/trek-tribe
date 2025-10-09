@@ -80,9 +80,29 @@ const AIChatWidget: React.FC = () => {
       initializeChat();
     });
 
-    socket.on('disconnect', () => {
-      console.log('Disconnected from chat server');
+    socket.on('disconnect', (reason) => {
+      console.log('Disconnected from chat server:', reason);
       setIsConnected(false);
+      setIsLoading(false);
+      
+      // Show offline message if disconnect was not intentional
+      if (reason !== 'io client disconnect') {
+        const offlineMessage: ChatMessage = {
+          id: `offline_${Date.now()}`,
+          senderId: 'system',
+          senderName: 'System',
+          senderRole: 'ai',
+          message: '🔌 Connection lost. You can still request human support or try refreshing the page.',
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, offlineMessage]);
+      }
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('Socket connection error:', error);
+      setIsConnected(false);
+      setIsLoading(false);
     });
 
     socket.on('chat_initialized', (data) => {
@@ -176,12 +196,34 @@ const AIChatWidget: React.FC = () => {
   };
 
   const requestHumanAgent = () => {
-    if (!socketRef.current || !chatSession) return;
+    if (!socketRef.current) {
+      // If no socket connection, show message that request is queued
+      const queuedMessage: ChatMessage = {
+        id: `queued_${Date.now()}`,
+        senderId: 'system',
+        senderName: 'System',
+        senderRole: 'ai',
+        message: '🎧 Your request for human support has been queued. An agent will connect as soon as the system is back online.',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, queuedMessage]);
+      setShowHumanSupportOption(false);
+      return;
+    }
 
-    socketRef.current.emit('request_human_agent', {
-      reason: 'User requested human support',
-      urgency: 'medium'
-    });
+    if (!chatSession && !isConnected) {
+      // Create a temporary session for human agent request
+      socketRef.current.emit('request_human_agent', {
+        reason: 'Bot offline - direct human support requested',
+        urgency: 'high'
+      });
+    } else {
+      socketRef.current.emit('request_human_agent', {
+        sessionId: chatSession?.sessionId,
+        reason: 'User requested human support',
+        urgency: 'medium'
+      });
+    }
 
     setShowHumanSupportOption(false);
   };
