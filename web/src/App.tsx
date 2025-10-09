@@ -16,8 +16,12 @@ import ForgotPassword from './components/auth/ForgotPassword';
 import ResetPassword from './components/auth/ResetPassword';
 import AgentDashboard from './pages/AgentDashboard';
 import AIChatWidget from './components/AIChatWidget';
+import CookieConsent from './components/CookieConsent';
+import CookieSettings from './components/CookieSettings';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsConditions from './pages/TermsConditions';
+import { Trip } from './types';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-
 axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:4000';
 
 function AppContent() {
@@ -84,11 +88,17 @@ function AppContent() {
               path="/my-profile" 
               element={user ? <EnhancedProfile /> : <Navigate to="/login" />} 
             />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/terms-conditions" element={<TermsConditions />} />
+            <Route path="/cookie-settings" element={<CookieSettings />} />
           </Routes>
         </main>
         
         {/* AI Chat Support Widget */}
         <AIChatWidget />
+        
+        {/* Cookie Consent Banner */}
+        <CookieConsent />
       </div>
     </Router>
   );
