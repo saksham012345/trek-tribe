@@ -240,8 +240,21 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
                   <p className="text-sm text-forest-600 mb-4">
                     Upgrade to an organizer account to create and lead amazing trips!
                   </p>
-                  <button className="bg-forest-600 hover:bg-forest-700 text-white px-4 py-2 rounded-lg text-sm transition-colors">
-                    Contact Support
+                  <button 
+                    onClick={() => {
+                      // Open AI chat widget or redirect to support
+                      const chatWidget = document.querySelector('[data-testid="ai-chat-widget"]') as HTMLButtonElement;
+                      if (chatWidget) {
+                        chatWidget.click();
+                      } else {
+                        // Fallback: scroll to bottom and show contact info
+                        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                        alert('💬 Chat support will be available soon. For immediate help, please contact us at support@trekkingapp.com');
+                      }
+                    }}
+                    className="bg-forest-600 hover:bg-forest-700 text-white px-4 py-2 rounded-lg text-sm transition-colors"
+                  >
+                    💬 Contact Support
                   </button>
                 </div>
               )}

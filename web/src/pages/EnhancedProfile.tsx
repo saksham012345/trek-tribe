@@ -150,13 +150,33 @@ const EnhancedProfile: React.FC = () => {
 
   const handleSave = async () => {
     try {
-      const response = await axios.put('/profile/me', editForm);
+      // Clean up form data before sending - remove empty strings and invalid data
+      const cleanedForm = {
+        ...editForm,
+        name: editForm.name?.trim() || profile?.name || '',
+        phone: editForm.phone?.trim() || '',
+        bio: editForm.bio?.trim() || '',
+        location: editForm.location?.trim() || '',
+        socialLinks: {
+          instagram: editForm.socialLinks.instagram?.trim() || '',
+          website: editForm.socialLinks.website?.trim() || ''
+        },
+        organizerProfile: profile?.role === 'organizer' ? {
+          bio: editForm.organizerProfile.bio?.trim() || '',
+          experience: editForm.organizerProfile.experience?.trim() || '',
+          yearsOfExperience: Math.max(0, editForm.organizerProfile.yearsOfExperience || 0)
+        } : undefined
+      };
+      
+      const response = await axios.put('/profile/me', cleanedForm);
       const userData = response.data as { user: any };
       setProfile(userData.user);
       setEditing(false);
       alert('Profile updated successfully!');
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to update profile');
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Failed to update profile';
+      alert(`Error: ${errorMessage}`);
+      console.error('Profile update error:', error.response?.data);
     }
   };
 
@@ -285,8 +305,23 @@ const EnhancedProfile: React.FC = () => {
           </div>
           
           <div className="p-6">
-            {/* Profile Stats */}
-            {isOwnProfile && stats && (
+            {/* Editing Help Message */}
+            {editing && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <div className="flex items-start gap-2">
+                  <span className="text-blue-600 text-lg">ℹ️</span>
+                  <div>
+                    <h4 className="font-semibold text-blue-800 mb-1">Complete your profile in steps</h4>
+                    <p className="text-blue-700 text-sm">
+                      You can save your progress anytime - no need to fill all fields at once. Update what you want and click Save!
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Profile Stats - Only show when not editing */}
+            {isOwnProfile && stats && !editing && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div className="text-center p-4 bg-gray-50 rounded-lg">
                   <div className="text-2xl font-bold text-forest-600">{stats.profileCompleteness}%</div>

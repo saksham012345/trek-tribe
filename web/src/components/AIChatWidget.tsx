@@ -272,6 +272,18 @@ const AIChatWidget: React.FC = () => {
         </div>
 
         <div className="chat-messages">
+          {!isConnected && messages.length === 0 && (
+            <div className="message assistant ai">
+              <div className="message-header">
+                <span className="message-sender">System</span>
+                <span className="message-timestamp">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+              <div className="message-content">
+                📵 Our AI assistant is currently offline. You can still connect with a human agent for immediate assistance!
+              </div>
+            </div>
+          )}
+          
           {messages.map((message) => (
             <div
               key={message.id}
@@ -361,9 +373,10 @@ const AIChatWidget: React.FC = () => {
               <button 
                 className="human-agent-request-btn"
                 onClick={requestHumanAgent}
-                disabled={!isConnected}
+                disabled={false} // Always allow agent request even if bot is offline
+                title={!isConnected ? 'Bot is offline - connect to human agent directly' : 'Request human support'}
               >
-                🧑‍💼 Talk to a Human Agent
+                🧑‍💼 {!isConnected ? 'Bot Offline - Get Human Help' : 'Talk to a Human Agent'}
               </button>
             </div>
           )}

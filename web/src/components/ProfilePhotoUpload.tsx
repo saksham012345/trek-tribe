@@ -52,7 +52,7 @@ const ProfilePhotoUpload: React.FC<ProfilePhotoUploadProps> = ({
       formData.append('file', file);
       formData.append('type', 'profile');
 
-      const response = await axios.post('/api/uploads/profile-picture', formData, {
+      const response = await axios.post('/files/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

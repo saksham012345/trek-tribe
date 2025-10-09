@@ -38,9 +38,18 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Handle unauthorized access
-      localStorage.removeItem('authToken');
-      window.location.href = '/login';
+      // Only redirect to login for authentication endpoints or if no token exists
+      const isAuthEndpoint = error.config?.url?.includes('/auth/') || error.config?.url?.includes('/login');
+      const hasToken = localStorage.getItem('authToken');
+      
+      if (!hasToken || isAuthEndpoint) {
+        // Clear invalid token and redirect
+        localStorage.removeItem('authToken');
+        window.location.href = '/login';
+      } else {
+        // For other 401 errors, just log and let the component handle it
+        console.warn('API 401 Error:', error.config?.url, error.response?.data);
+      }
     }
     return Promise.reject(error);
   }
