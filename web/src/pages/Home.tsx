@@ -132,18 +132,14 @@ const Home: React.FC<HomeProps> = ({ user }) => {
           </div>
           
           {/* Interactive Stats */}
-          <div className="grid grid-cols-3 gap-8 mb-12 max-w-2xl mx-auto">
+          <div className="grid grid-cols-2 gap-8 mb-12 max-w-lg mx-auto">
             <div className="text-center">
-              <div className="text-3xl font-bold text-nature-400 animate-bounce-slow">{stats.totalTrips || 0}+</div>
+              <div className="text-3xl font-bold text-nature-400 animate-bounce-slow">{stats.totalTrips || 0}</div>
               <div className="text-forest-200 text-sm">Adventures</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-nature-400 animate-bounce-slow" style={{animationDelay: '1s'}}>{stats.totalUsers || 0}+</div>
+              <div className="text-3xl font-bold text-nature-400 animate-bounce-slow" style={{animationDelay: '1s'}}>{stats.totalUsers || 0}</div>
               <div className="text-forest-200 text-sm">Explorers</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-nature-400 animate-bounce-slow" style={{animationDelay: '2s'}}>{stats.countries || 0}</div>
-              <div className="text-forest-200 text-sm">Countries</div>
             </div>
           </div>
           
@@ -199,28 +195,24 @@ const Home: React.FC<HomeProps> = ({ user }) => {
               <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">🏔️</div>
               <h3 className="text-xl font-bold text-forest-800 mb-3">Mountain Expeditions</h3>
               <p className="text-forest-600 text-sm leading-relaxed">Conquer majestic peaks and witness breathtaking views from the world's highest mountains.</p>
-              <div className="mt-4 text-nature-600 font-semibold text-sm">23 Adventures Available</div>
             </div>
             
             <div className="group bg-gradient-to-br from-nature-100 to-nature-200 rounded-2xl p-8 text-center hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-3">
               <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">🌲</div>
               <h3 className="text-xl font-bold text-forest-800 mb-3">Forest Treks</h3>
               <p className="text-forest-600 text-sm leading-relaxed">Immerse yourself in ancient forests and discover hidden trails through pristine wilderness.</p>
-              <div className="mt-4 text-nature-600 font-semibold text-sm">31 Adventures Available</div>
             </div>
             
             <div className="group bg-gradient-to-br from-earth-100 to-earth-200 rounded-2xl p-8 text-center hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-3">
               <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">🌊</div>
               <h3 className="text-xl font-bold text-forest-800 mb-3">Water Adventures</h3>
               <p className="text-forest-600 text-sm leading-relaxed">Navigate crystal-clear rivers, pristine lakes, and explore coastal wilderness areas.</p>
-              <div className="mt-4 text-nature-600 font-semibold text-sm">18 Adventures Available</div>
             </div>
             
             <div className="group bg-gradient-to-br from-purple-100 to-purple-200 rounded-2xl p-8 text-center hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-3">
               <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">🌌</div>
               <h3 className="text-xl font-bold text-forest-800 mb-3">Aurora Watching</h3>
               <p className="text-forest-600 text-sm leading-relaxed">Chase the northern lights across Arctic landscapes and witness nature's most magical display.</p>
-              <div className="mt-4 text-nature-600 font-semibold text-sm">12 Adventures Available</div>
             </div>
           </div>
           
@@ -229,28 +221,24 @@ const Home: React.FC<HomeProps> = ({ user }) => {
               <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">🏜️</div>
               <h3 className="text-xl font-bold text-forest-800 mb-3">Desert Expeditions</h3>
               <p className="text-forest-600 text-sm leading-relaxed">Explore vast desert landscapes, ancient dunes, and oasis hidden in the wilderness.</p>
-              <div className="mt-4 text-nature-600 font-semibold text-sm">9 Adventures Available</div>
             </div>
             
             <div className="group bg-gradient-to-br from-blue-100 to-blue-200 rounded-2xl p-8 text-center hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-3">
               <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">❄️</div>
               <h3 className="text-xl font-bold text-forest-800 mb-3">Arctic Adventures</h3>
               <p className="text-forest-600 text-sm leading-relaxed">Venture into the pristine Arctic wilderness and experience life at the edge of the world.</p>
-              <div className="mt-4 text-nature-600 font-semibold text-sm">7 Adventures Available</div>
             </div>
             
             <div className="group bg-gradient-to-br from-green-100 to-green-200 rounded-2xl p-8 text-center hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-3">
               <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">🌿</div>
               <h3 className="text-xl font-bold text-forest-800 mb-3">Wildlife Safaris</h3>
               <p className="text-forest-600 text-sm leading-relaxed">Observe magnificent wildlife in their natural habitats across protected wilderness areas.</p>
-              <div className="mt-4 text-nature-600 font-semibold text-sm">25 Adventures Available</div>
             </div>
             
             <div className="group bg-gradient-to-br from-pink-100 to-pink-200 rounded-2xl p-8 text-center hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-3">
               <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">🌸</div>
               <h3 className="text-xl font-bold text-forest-800 mb-3">Botanical Expeditions</h3>
               <p className="text-forest-600 text-sm leading-relaxed">Discover rare plants, ancient trees, and botanical wonders in remote natural gardens.</p>
-              <div className="mt-4 text-nature-600 font-semibold text-sm">14 Adventures Available</div>
             </div>
           </div>
         </div>
@@ -371,72 +359,6 @@ const Home: React.FC<HomeProps> = ({ user }) => {
         </div>
       </section>
 
-      {/* Statistics Section */}
-      <section className="py-20 bg-gradient-to-br from-forest-800 to-nature-800 text-white relative overflow-hidden">
-        <div className="absolute inset-0">
-          <div className="absolute top-10 left-10 text-9xl opacity-10">🌲</div>
-          <div className="absolute bottom-10 right-10 text-9xl opacity-10">🏔️</div>
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-8xl opacity-5">🌍</div>
-        </div>
-        
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold mb-6">
-              Trekk Tribe by the 
-              <span className="text-nature-400">Numbers</span>
-            </h2>
-            <p className="text-xl text-forest-100 max-w-3xl mx-auto leading-relaxed">
-              Join a growing community of wilderness enthusiasts from around the globe
-            </p>
-          </div>
-          
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            <div className="text-center">
-              <div className="text-5xl md:text-6xl font-bold text-nature-400 mb-2 animate-pulse-slow">2,847</div>
-              <div className="text-forest-200 text-lg font-medium mb-2">Active Adventurers</div>
-              <div className="text-forest-300 text-sm">Exploring wilderness worldwide</div>
-            </div>
-            
-            <div className="text-center">
-              <div className="text-5xl md:text-6xl font-bold text-nature-400 mb-2 animate-pulse-slow">186</div>
-              <div className="text-forest-200 text-lg font-medium mb-2">Epic Adventures</div>
-              <div className="text-forest-300 text-sm">Across 47 countries</div>
-            </div>
-            
-            <div className="text-center">
-              <div className="text-5xl md:text-6xl font-bold text-nature-400 mb-2 animate-pulse-slow">98.4%</div>
-              <div className="text-forest-200 text-lg font-medium mb-2">Satisfaction Rate</div>
-              <div className="text-forest-300 text-sm">Life-changing experiences</div>
-            </div>
-            
-            <div className="text-center">
-              <div className="text-5xl md:text-6xl font-bold text-nature-400 mb-2 animate-pulse-slow">47</div>
-              <div className="text-forest-200 text-lg font-medium mb-2">Countries Explored</div>
-              <div className="text-forest-300 text-sm">From Arctic to Tropics</div>
-            </div>
-          </div>
-          
-          <div className="grid md:grid-cols-3 gap-8 mt-16">
-            <div className="text-center">
-              <div className="text-4xl md:text-5xl font-bold text-nature-400 mb-2">1.2M+</div>
-              <div className="text-forest-200 text-lg font-medium mb-2">Miles Trekked</div>
-              <div className="text-forest-300 text-sm">Steps taken in nature</div>
-            </div>
-            
-            <div className="text-center">
-              <div className="text-4xl md:text-5xl font-bold text-nature-400 mb-2">435</div>
-              <div className="text-forest-200 text-lg font-medium mb-2">Expert Guides</div>
-              <div className="text-forest-300 text-sm">Certified wilderness professionals</div>
-            </div>
-            
-            <div className="text-center">
-              <div className="text-4xl md:text-5xl font-bold text-nature-400 mb-2">12K+</div>
-              <div className="text-forest-200 text-lg font-medium mb-2">Photos Shared</div>
-              <div className="text-forest-300 text-sm">Memories captured forever</div>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* Featured Trips Section */}
       <section className="py-20 bg-white relative overflow-hidden">
@@ -546,95 +468,6 @@ const Home: React.FC<HomeProps> = ({ user }) => {
         </div>
       </section>
 
-      {/* Testimonials Section */}
-      <section className="py-20 bg-gradient-to-br from-nature-50 to-forest-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-forest-800 mb-6">
-              What 
-              <span className="text-nature-600">Adventurers</span>
-              <span className="text-forest-700"> Say</span>
-            </h2>
-            <p className="text-xl text-forest-600 max-w-3xl mx-auto leading-relaxed">
-              Real stories from real adventurers who found their perfect wilderness experience
-            </p>
-          </div>
-          
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
-              <div className="flex items-center mb-6">
-                <div className="w-16 h-16 bg-gradient-to-br from-forest-400 to-nature-500 rounded-full flex items-center justify-center text-white font-bold text-xl mr-4">
-                  S
-                </div>
-                <div>
-                  <div className="font-bold text-forest-800">Sarah Chen</div>
-                  <div className="text-forest-500 text-sm">Himalayan Trek Adventurer</div>
-                </div>
-              </div>
-              <div className="text-yellow-400 mb-4 text-xl">★★★★★</div>
-              <p className="text-forest-600 leading-relaxed italic">"The Himalayan trek was absolutely life-changing! The group was amazing, the guide was knowledgeable, and the views were breathtaking. I've made friends for life and can't wait for my next adventure with Trekk Tribe!"</p>
-            </div>
-            
-            <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
-              <div className="flex items-center mb-6">
-                <div className="w-16 h-16 bg-gradient-to-br from-earth-400 to-orange-500 rounded-full flex items-center justify-center text-white font-bold text-xl mr-4">
-                  M
-                </div>
-                <div>
-                  <div className="font-bold text-forest-800">Marcus Johnson</div>
-                  <div className="text-forest-500 text-sm">Amazon Expedition Explorer</div>
-                </div>
-              </div>
-              <div className="text-yellow-400 mb-4 text-xl">★★★★★</div>
-              <p className="text-forest-600 leading-relaxed italic">"As a solo traveler, I was nervous about joining a group expedition. But the Amazon trip exceeded all expectations! The community aspect made it so much richer. Highly recommend!"</p>
-            </div>
-            
-            <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
-              <div className="flex items-center mb-6">
-                <div className="w-16 h-16 bg-gradient-to-br from-purple-400 to-blue-500 rounded-full flex items-center justify-center text-white font-bold text-xl mr-4">
-                  E
-                </div>
-                <div>
-                  <div className="font-bold text-forest-800">Emma Rodriguez</div>
-                  <div className="text-forest-500 text-sm">Northern Lights Chaser</div>
-                </div>
-              </div>
-              <div className="text-yellow-400 mb-4 text-xl">★★★★★</div>
-              <p className="text-forest-600 leading-relaxed italic">"Seeing the Aurora Borealis with this incredible group was magical beyond words. The organizer thought of every detail, and the experience was seamless from start to finish!"</p>
-            </div>
-          </div>
-          
-          <div className="grid md:grid-cols-2 gap-8 mt-8">
-            <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
-              <div className="flex items-center mb-6">
-                <div className="w-16 h-16 bg-gradient-to-br from-green-400 to-forest-500 rounded-full flex items-center justify-center text-white font-bold text-xl mr-4">
-                  A
-                </div>
-                <div>
-                  <div className="font-bold text-forest-800">Alex Thompson</div>
-                  <div className="text-forest-500 text-sm">Wildlife Safari Enthusiast</div>
-                </div>
-              </div>
-              <div className="text-yellow-400 mb-4 text-xl">★★★★★</div>
-              <p className="text-forest-600 leading-relaxed italic">"I've been on many wildlife expeditions, but this one stands out. The respect for nature, the small group size, and the expert knowledge of our guide made for an unforgettable experience. The elephants we encountered were just incredible!"</p>
-            </div>
-            
-            <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
-              <div className="flex items-center mb-6">
-                <div className="w-16 h-16 bg-gradient-to-br from-pink-400 to-red-500 rounded-full flex items-center justify-center text-white font-bold text-xl mr-4">
-                  L
-                </div>
-                <div>
-                  <div className="font-bold text-forest-800">Luna Park</div>
-                  <div className="text-forest-500 text-sm">Desert Expedition Adventurer</div>
-                </div>
-              </div>
-              <div className="text-yellow-400 mb-4 text-xl">★★★★★</div>
-              <p className="text-forest-600 leading-relaxed italic">"The desert expedition was transformative. Sleeping under the stars, experiencing the silence of the dunes, and sharing stories around the campfire with fellow adventurers - pure magic! Already planning my next trip."</p>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* Safety & Sustainability Section */}
       <section className="py-20 bg-white">
@@ -694,27 +527,10 @@ const Home: React.FC<HomeProps> = ({ user }) => {
               </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-gradient-to-br from-forest-100 to-forest-200 rounded-2xl p-6 text-center">
-                <div className="text-4xl mb-3">🏅</div>
-                <div className="text-2xl font-bold text-forest-800 mb-1">100%</div>
-                <div className="text-forest-600 text-sm">Safety Record</div>
-              </div>
-              <div className="bg-gradient-to-br from-nature-100 to-nature-200 rounded-2xl p-6 text-center">
-                <div className="text-4xl mb-3">🌳</div>
-                <div className="text-2xl font-bold text-forest-800 mb-1">50K+</div>
-                <div className="text-forest-600 text-sm">Trees Planted</div>
-              </div>
-              <div className="bg-gradient-to-br from-earth-100 to-earth-200 rounded-2xl p-6 text-center">
-                <div className="text-4xl mb-3">🏠</div>
-                <div className="text-2xl font-bold text-forest-800 mb-1">127</div>
-                <div className="text-forest-600 text-sm">Communities Supported</div>
-              </div>
-              <div className="bg-gradient-to-br from-green-100 to-green-200 rounded-2xl p-6 text-center">
-                <div className="text-4xl mb-3">♾️</div>
-                <div className="text-2xl font-bold text-forest-800 mb-1">Zero</div>
-                <div className="text-forest-600 text-sm">Carbon Footprint</div>
-              </div>
+            <div className="text-center">
+              <p className="text-lg text-forest-600">
+                Our commitment to sustainable adventure travel ensures every journey contributes positively to conservation and local communities.
+              </p>
             </div>
           </div>
         </div>
