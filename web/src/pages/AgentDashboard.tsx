@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { 
+import {
   MessageSquare, 
   User, 
   Clock, 
@@ -9,14 +9,11 @@ import {
   Phone,
   Mail,
   Search,
-  Filter,
-  Plus,
   Send,
   Star,
   Loader,
   RefreshCw,
   BarChart3,
-  Users,
   Headphones,
   TrendingUp
 } from 'lucide-react';

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Camera, Upload, X, MapPin, Calendar, Users, Plus, Trash2 } from 'lucide-react';
+// Most icons removed as they're not currently used in the UI
 import { useAuth } from '../contexts/AuthContext';
 import api from '../config/api';
 
