@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 // Most icons removed as they're not currently used in the UI
 import { useAuth } from '../contexts/AuthContext';
 import api from '../config/api';
