@@ -48,25 +48,36 @@ const ProfilePhotoUpload: React.FC<ProfilePhotoUploadProps> = ({
     try {
       setUploading(true);
 
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('type', 'profile');
-
-      const response = await axios.post('/files/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      const responseData = response.data as { url: string };
-      const photoUrl = responseData.url;
-      onPhotoUpdate(photoUrl);
-      setPreviewUrl(null);
+      // Use base64 upload method that works with our API
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const base64Data = (reader.result as string).split(',')[1];
+          const response = await axios.post('/files/upload/base64', {
+            data: base64Data,
+            filename: file.name,
+            mimeType: file.type
+          });
+          const responseData = response.data as { file: { url: string } };
+          onPhotoUpdate(responseData.file.url);
+          setPreviewUrl(null);
+        } catch (error: any) {
+          console.error('Error uploading photo:', error);
+          alert(error.response?.data?.error || 'Failed to upload photo');
+          setPreviewUrl(null);
+        } finally {
+          setUploading(false);
+        }
+      };
+      reader.onerror = () => {
+        alert('Failed to read file');
+        setUploading(false);
+      };
+      reader.readAsDataURL(file);
     } catch (error: any) {
       console.error('Error uploading photo:', error);
       alert(error.response?.data?.error || 'Failed to upload photo');
       setPreviewUrl(null);
-    } finally {
       setUploading(false);
     }
   };

@@ -36,7 +36,7 @@ const AIChatWidget: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
 
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:4000';
+  const API_BASE_URL = process.env.REACT_APP_SOCKET_URL || process.env.REACT_APP_API_URL || 'http://localhost:4000';
 
   useEffect(() => {
     if (isOpen && !socketRef.current) {
@@ -60,13 +60,16 @@ const AIChatWidget: React.FC = () => {
 
   const initializeSocket = () => {
     const socketUrl = API_BASE_URL.replace('/api', '');
+    console.log('Attempting to connect to:', socketUrl);
     
     socketRef.current = io(socketUrl, {
       auth: {
-        token: token || undefined
+        token: token || localStorage.getItem('authToken') || undefined
       },
       path: '/socket.io/',
-      transports: ['websocket', 'polling']
+      transports: ['websocket', 'polling'],
+      timeout: 20000,
+      forceNew: true
     });
 
     const socket = socketRef.current;

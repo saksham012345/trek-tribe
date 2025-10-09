@@ -380,28 +380,41 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       
     } catch (error: any) {
       console.error('Error creating trip:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
       
       // Enhanced error handling
       let errorMessage = 'Failed to create trip';
       
       if (error.message) {
         errorMessage = error.message;
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
       } else if (error.response?.data?.error) {
         if (typeof error.response.data.error === 'string') {
           errorMessage = error.response.data.error;
         } else if (error.response.data.error.fieldErrors) {
           const fieldErrors = error.response.data.error.fieldErrors;
           const firstError = Object.values(fieldErrors)[0];
-          errorMessage = Array.isArray(firstError) ? firstError[0] : firstError;
+          errorMessage = Array.isArray(firstError) ? firstError[0] : String(firstError);
+        } else {
+          errorMessage = JSON.stringify(error.response.data.error);
         }
       } else if (error.response?.status === 401) {
         errorMessage = 'Authentication required. Please log in again.';
       } else if (error.response?.status === 403) {
         errorMessage = 'You do not have permission to create trips. Please ensure you have organizer role.';
+      } else if (error.response?.status === 400) {
+        errorMessage = 'Invalid data provided. Please check all required fields and try again.';
       } else if (error.response?.status >= 500) {
         errorMessage = 'Server error. Please try again later.';
       } else if (error.code === 'NETWORK_ERROR') {
         errorMessage = 'Network error. Please check your connection.';
+      }
+      
+      // Add debug info for development
+      if (process.env.NODE_ENV === 'development') {
+        errorMessage += ` (Debug: ${error.response?.status} - ${JSON.stringify(error.response?.data).substring(0, 200)})`;
       }
       
       setError(errorMessage);

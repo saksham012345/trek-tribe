@@ -32,6 +32,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
   const [stats, setStats] = useState({
     totalTrips: 0,
     totalUsers: 0,
+    totalOrganizers: 0,
     totalBookings: 0,
     countries: 0
   });
@@ -63,11 +64,12 @@ const Home: React.FC<HomeProps> = ({ user }) => {
         const tripsData = tripsRes.data as Trip[];
         setFeaturedTrips(tripsData || []);
         
-        const statsData = statsRes.data as { trips?: { total?: number; totalBookings?: number }; users?: { total?: number } };
+        const statsData = statsRes.data as { trips?: { total?: number; totalBookings?: number }; users?: { total?: number; organizers?: number } };
         if (statsData) {
           setStats({
             totalTrips: statsData.trips?.total || 0,
             totalUsers: statsData.users?.total || 0,
+            totalOrganizers: statsData.users?.organizers || 0,
             totalBookings: statsData.trips?.totalBookings || 0,
             countries: 15 // This could be calculated from trip destinations
           });
@@ -75,7 +77,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
       } catch (error: any) {
         console.error('Error fetching data:', error.message || error);
         // Set minimal default values on error
-        setStats({ totalTrips: 0, totalUsers: 0, totalBookings: 0, countries: 0 });
+        setStats({ totalTrips: 0, totalUsers: 0, totalOrganizers: 0, totalBookings: 0, countries: 0 });
       } finally {
         setLoading(false);
       }
@@ -132,7 +134,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
           </div>
           
           {/* Interactive Stats */}
-          <div className="grid grid-cols-2 gap-8 mb-12 max-w-lg mx-auto">
+          <div className="grid grid-cols-3 gap-6 mb-12 max-w-2xl mx-auto">
             <div className="text-center">
               <div className="text-3xl font-bold text-nature-400 animate-bounce-slow">{stats.totalTrips || 0}</div>
               <div className="text-forest-200 text-sm">Adventures</div>
@@ -140,6 +142,10 @@ const Home: React.FC<HomeProps> = ({ user }) => {
             <div className="text-center">
               <div className="text-3xl font-bold text-nature-400 animate-bounce-slow" style={{animationDelay: '1s'}}>{stats.totalUsers || 0}</div>
               <div className="text-forest-200 text-sm">Explorers</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-nature-400 animate-bounce-slow" style={{animationDelay: '2s'}}>{stats.totalOrganizers || 0}</div>
+              <div className="text-forest-200 text-sm">Organizers</div>
             </div>
           </div>
           
