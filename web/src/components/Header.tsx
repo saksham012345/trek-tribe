@@ -75,6 +75,12 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
             {user ? (
               <div className="hidden md:flex items-center space-x-3">
                 <Link 
+                  to="/my-bookings" 
+                  className="text-forest-700 hover:text-nature-600 hover:bg-forest-50 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2"
+                >
+                  📋 My Bookings
+                </Link>
+                <Link 
                   to="/my-profile" 
                   className="text-forest-700 hover:text-nature-600 hover:bg-forest-50 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2"
                 >
@@ -179,6 +185,13 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
               <div className="border-t border-forest-100 pt-4 mt-4">
                 {user ? (
                   <div className="space-y-2">
+                    <Link 
+                      to="/my-bookings" 
+                      onClick={closeMobileMenu}
+                      className="block text-forest-700 hover:text-nature-600 hover:bg-forest-50 px-4 py-3 rounded-xl text-base font-medium transition-all duration-300"
+                    >
+                      📋 My Bookings
+                    </Link>
                     <Link 
                       to="/my-profile" 
                       onClick={closeMobileMenu}

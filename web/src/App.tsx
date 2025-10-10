@@ -14,6 +14,7 @@ import EnhancedProfile from './pages/EnhancedProfile';
 import ForgotPassword from './components/auth/ForgotPassword';
 import ResetPassword from './components/auth/ResetPassword';
 import AgentDashboard from './pages/AgentDashboard';
+import MyBookings from './pages/MyBookings';
 import AIChatWidget from './components/AIChatWidget';
 import CookieConsent from './components/CookieConsent';
 import CookieSettings from './components/CookieSettings';
@@ -90,6 +91,10 @@ function AppContent() {
             <Route 
               path="/my-profile" 
               element={user ? <EnhancedProfile /> : <Navigate to="/login" />} 
+            />
+            <Route 
+              path="/my-bookings" 
+              element={user ? <MyBookings /> : <Navigate to="/login" />} 
             />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-conditions" element={<TermsConditions />} />
