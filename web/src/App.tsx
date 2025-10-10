@@ -4,25 +4,27 @@ import Header from './components/Header';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import Trips from './pages/Trips';
-import CreateTrip from './pages/CreateTrip';
-import EnhancedEditTrip from './pages/EnhancedEditTrip';
-import Profile from './pages/Profile';
-import TripDetails from './pages/TripDetails';
-import AdminDashboard from './pages/AdminDashboard';
-import EnhancedProfile from './pages/EnhancedProfile';
-import ForgotPassword from './components/auth/ForgotPassword';
-import ResetPassword from './components/auth/ResetPassword';
-import AgentDashboard from './pages/AgentDashboard';
-import MyBookings from './pages/MyBookings';
 import AIChatWidget from './components/AIChatWidget';
 import CookieConsent from './components/CookieConsent';
-import CookieSettings from './components/CookieSettings';
-import PrivacyPolicy from './pages/PrivacyPolicy';
-import TermsConditions from './pages/TermsConditions';
-import AIShowcase from './pages/AIShowcase';
 import { Trip } from './types';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+
+// Lazy load heavy components to reduce initial bundle size
+const Trips = React.lazy(() => import('./pages/Trips'));
+const CreateTrip = React.lazy(() => import('./pages/CreateTrip'));
+const EnhancedEditTrip = React.lazy(() => import('./pages/EnhancedEditTrip'));
+const Profile = React.lazy(() => import('./pages/Profile'));
+const TripDetails = React.lazy(() => import('./pages/TripDetails'));
+const AdminDashboard = React.lazy(() => import('./pages/AdminDashboard'));
+const EnhancedProfile = React.lazy(() => import('./pages/EnhancedProfile'));
+const AgentDashboard = React.lazy(() => import('./pages/AgentDashboard'));
+const MyBookings = React.lazy(() => import('./pages/MyBookings'));
+const ForgotPassword = React.lazy(() => import('./components/auth/ForgotPassword'));
+const ResetPassword = React.lazy(() => import('./components/auth/ResetPassword'));
+const CookieSettings = React.lazy(() => import('./components/CookieSettings'));
+const PrivacyPolicy = React.lazy(() => import('./pages/PrivacyPolicy'));
+const TermsConditions = React.lazy(() => import('./pages/TermsConditions'));
+const AIShowcase = React.lazy(() => import('./pages/AIShowcase'));
 
 function AppContent() {
   const { user, loading, login: handleLogin, logout: handleLogout } = useAuth();
@@ -40,6 +42,14 @@ function AppContent() {
       <div className="min-h-screen bg-forest-50">
         <Header user={user} onLogout={handleLogout} />
         <main className="pt-16">
+          <React.Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-forest-50 to-nature-50">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-nature-600 mx-auto mb-4"></div>
+                <p className="text-forest-700 font-medium">Loading adventure...</p>
+              </div>
+            </div>
+          }>
           <Routes>
             <Route path="/" element={<Home user={user} />} />
             <Route 
@@ -101,6 +111,7 @@ function AppContent() {
             <Route path="/cookie-settings" element={<CookieSettings />} />
             <Route path="/ai-showcase" element={<AIShowcase />} />
           </Routes>
+          </React.Suspense>
         </main>
         
         {/* AI Chat Support Widget */}
