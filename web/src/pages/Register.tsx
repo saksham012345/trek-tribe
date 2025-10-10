@@ -11,6 +11,7 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phoneNumber: '',
     password: '',
     confirmPassword: '',
     role: 'traveler' as 'traveler' | 'organizer'
@@ -40,6 +41,7 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
       const response = await api.post('/auth/register', {
         name: formData.name,
         email: formData.email,
+        phoneNumber: formData.phoneNumber,
         password: formData.password,
         role: formData.role
       });
@@ -148,6 +150,23 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
                   onChange={handleChange}
                   className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
                   placeholder="Enter your email"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="phoneNumber" className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
+                  📱 Phone Number
+                </label>
+                <input
+                  id="phoneNumber"
+                  name="phoneNumber"
+                  type="tel"
+                  autoComplete="tel"
+                  required
+                  value={formData.phoneNumber}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
+                  placeholder="Enter your phone number"
                 />
               </div>
               

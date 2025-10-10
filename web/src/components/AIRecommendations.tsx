@@ -164,11 +164,15 @@ const AIRecommendations: React.FC<AIRecommendationsProps> = ({
                   <span className="font-semibold text-purple-600">₹{rec.trip.price.toLocaleString()}</span>
                 </div>
                 <div className="flex flex-wrap gap-1 mb-2">
-                  {rec.trip.categories.slice(0, 3).map((category) => (
+                  {rec.trip.categories && rec.trip.categories.length > 0 ? rec.trip.categories.slice(0, 3).map((category) => (
                     <span key={category} className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs">
                       {category}
                     </span>
-                  ))}
+                  )) : (
+                    <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">
+                      Adventure
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -177,7 +181,7 @@ const AIRecommendations: React.FC<AIRecommendationsProps> = ({
               <p className="text-sm text-purple-800 font-medium">
                 🎯 {rec.reason}
               </p>
-              {rec.matchingFactors.length > 0 && (
+              {rec.matchingFactors && rec.matchingFactors.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
                   {rec.matchingFactors.map((factor, i) => (
                     <span key={i} className="px-2 py-1 bg-purple-200 text-purple-800 rounded-full text-xs">
