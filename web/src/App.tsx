@@ -51,14 +51,15 @@ function AppContent() {
             </div>
           }>
           <Routes>
-            <Route path="/" element={<Home user={user} />} />
+            <Route path="/" element={user ? <Navigate to="/home" /> : <Register onLogin={handleLogin} />} />
+            <Route path="/home" element={user ? <Home user={user} /> : <Navigate to="/" />} />
             <Route 
               path="/login" 
-              element={user ? <Navigate to="/" /> : <Login onLogin={handleLogin} />} 
+              element={user ? <Navigate to="/home" /> : <Login onLogin={handleLogin} />} 
             />
             <Route 
               path="/register" 
-              element={user ? <Navigate to="/" /> : <Register onLogin={handleLogin} />} 
+              element={user ? <Navigate to="/home" /> : <Register onLogin={handleLogin} />} 
             />
             <Route 
               path="/forgot-password" 
@@ -68,19 +69,19 @@ function AppContent() {
               path="/reset-password" 
               element={user ? <Navigate to="/" /> : <ResetPassword />} 
             />
-            <Route path="/trips" element={<Trips user={user} />} />
-            <Route path="/trip/:id" element={<TripDetails user={user} />} />
+            <Route path="/trips" element={user ? <Trips user={user} /> : <Navigate to="/" />} />
+            <Route path="/trip/:id" element={user ? <TripDetails user={user} /> : <Navigate to="/" />} />
             <Route 
               path="/create-trip" 
               element={
                 !user ? <Navigate to="/login" /> :
                 user.role === 'organizer' || user.role === 'admin' ? <CreateTrip user={user} /> : 
-                <Navigate to="/?error=organizer-required" />
+                <Navigate to="/home?error=organizer-required" />
               } 
             />
             <Route 
               path="/edit-trip/:id" 
-              element={user?.role === 'organizer' ? <EnhancedEditTrip /> : <Navigate to="/" />} 
+              element={user?.role === 'organizer' ? <EnhancedEditTrip /> : <Navigate to="/home" />}
             />
             <Route 
               path="/profile" 
@@ -88,11 +89,11 @@ function AppContent() {
             />
             <Route 
               path="/admin" 
-              element={user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/" />} 
+              element={user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/home" />}
             />
             <Route 
               path="/agent" 
-              element={user?.role === 'agent' || user?.role === 'admin' ? <AgentDashboard /> : <Navigate to="/" />} 
+              element={user?.role === 'agent' || user?.role === 'admin' ? <AgentDashboard /> : <Navigate to="/home" />}
             />
             <Route 
               path="/profile/:userId" 
@@ -109,7 +110,7 @@ function AppContent() {
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-conditions" element={<TermsConditions />} />
             <Route path="/cookie-settings" element={<CookieSettings />} />
-            <Route path="/ai-showcase" element={<AIShowcase />} />
+            <Route path="/ai-showcase" element={user ? <AIShowcase /> : <Navigate to="/" />} />
           </Routes>
           </React.Suspense>
         </main>

@@ -63,8 +63,17 @@ const Home: React.FC<HomeProps> = ({ user }) => {
           axios.get('/admin/stats')
         ]);
         
-        const tripsData = tripsRes.data as Trip[];
-        setFeaturedTrips(tripsData || []);
+        const tripsData = tripsRes.data;
+        // Ensure tripsData is an array to prevent 's.map is not a function' errors
+        if (Array.isArray(tripsData)) {
+          setFeaturedTrips(tripsData);
+        } else if (tripsData && typeof tripsData === 'object' && Array.isArray(tripsData.data)) {
+          // Handle case where trips are nested in a data property
+          setFeaturedTrips(tripsData.data);
+        } else {
+          console.warn('Invalid trips data format received:', tripsData);
+          setFeaturedTrips([]);
+        }
         
         const statsData = statsRes.data as { trips?: { total?: number; totalBookings?: number }; users?: { total?: number; organizers?: number } };
         if (statsData) {
@@ -95,10 +104,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
     return () => clearInterval(interval);
   }, [heroImages.length, currentUser]);
 
-  // Require authentication to access home page
-  if (!currentUser) {
-    return <Navigate to="/login" replace />;
-  }
+  // Home page now requires authentication (handled by routing)
 
   return (
     <div className="min-h-screen bg-forest-50">
@@ -396,20 +402,38 @@ const Home: React.FC<HomeProps> = ({ user }) => {
                   className="group bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2"
                   style={{animationDelay: `${index * 0.1}s`}}
                 >
-                  <div className="relative h-52 bg-gradient-to-br from-forest-400 to-nature-500 overflow-hidden">
-                    <div className="absolute inset-0 bg-black/20"></div>
-                    <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="relative h-52 overflow-hidden">
+                    {trip.images && trip.images.length > 0 ? (
+                      <>
+                        <img
+                          src={trip.images[0]}
+                          alt={trip.title}
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            const fallback = target.parentElement?.querySelector('.fallback-bg') as HTMLElement;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-black/20"></div>
+                      </>
+                    ) : null}
+                    <div className={`fallback-bg absolute inset-0 bg-gradient-to-br from-forest-400 to-nature-500 flex items-center justify-center ${trip.images && trip.images.length > 0 ? 'hidden' : 'flex'}`}>
                       <div className="text-center text-white">
                         <div className="text-6xl mb-2">
                           {(trip.categories && trip.categories.includes('Mountain')) ? '🏔️' : 
-                           (trip.categories && trip.categories.includes('Nature')) ? '🌲' : '🌍'}
+                           (trip.categories && trip.categories.includes('Nature')) ? '🌲' : 
+                           (trip.categories && trip.categories.includes('Beach')) ? '🏖️' : 
+                           (trip.categories && trip.categories.includes('Cultural')) ? '🏛️' : 
+                           (trip.categories && trip.categories.includes('Adventure')) ? '🎒' : '🌍'}
                         </div>
-                        <p className="text-sm opacity-90 font-medium">{trip.categories ? trip.categories.join(' • ') : 'Adventure'}</p>
+                        <p className="text-sm opacity-90 font-medium">{trip.categories && trip.categories.length > 0 ? trip.categories[0] : 'Adventure'}</p>
                       </div>
                     </div>
                     <div className="absolute top-4 right-4">
-                      <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 text-forest-800 text-sm font-semibold">
-                        ₹{trip.price}
+                      <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 text-forest-800 text-sm font-semibold shadow-lg">
+                        ₹{trip.price.toLocaleString()}
                       </div>
                     </div>
                   </div>
