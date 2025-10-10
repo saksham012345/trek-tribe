@@ -5,7 +5,8 @@ WORKDIR /usr/src/app
 COPY package*.json ./
 
 # Install all dependencies (including dev dependencies for build)
-RUN npm ci || npm install
+# Use npm install since this is part of a workspace setup
+RUN npm install
 
 # Install TypeScript globally for build
 RUN npm install -g typescript
