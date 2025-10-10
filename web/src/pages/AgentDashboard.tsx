@@ -101,6 +101,7 @@ const AgentDashboard: React.FC = () => {
       setStats(statsData);
     } catch (error: any) {
       console.error('Error fetching agent stats:', error);
+      setError('Failed to load agent dashboard. Please check your authentication.');
     }
   };
 
@@ -214,9 +215,19 @@ const AgentDashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchAgentStats();
-    fetchTickets();
-    fetchServiceStatus();
+    const initializeDashboard = async () => {
+      try {
+        await fetchAgentStats();
+        await fetchTickets();
+        await fetchServiceStatus();
+      } catch (error) {
+        console.error('Failed to initialize agent dashboard:', error);
+        setError('Failed to load agent dashboard. Please try refreshing the page.');
+        setLoading(false);
+      }
+    };
+    
+    initializeDashboard();
   }, []);
 
   useEffect(() => {
@@ -256,6 +267,39 @@ const AgentDashboard: React.FC = () => {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString();
   };
+
+  // Add early return if there's an error to prevent white screen
+  if (error && !stats) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
+          <div className="text-red-500 mb-4">
+            <AlertTriangle className="mx-auto" size={48} />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Agent Dashboard Error</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <div className="space-y-3">
+            <button
+              onClick={() => {
+                setError('');
+                setLoading(true);
+                fetchAgentStats();
+                fetchTickets();
+                fetchServiceStatus();
+              }}
+              className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <RefreshCw className="inline mr-2" size={16} />
+              Retry Loading Dashboard
+            </button>
+            <p className="text-sm text-gray-500">
+              Make sure you're logged in as an agent or admin.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const renderDashboard = () => (
     <div className="space-y-6">
