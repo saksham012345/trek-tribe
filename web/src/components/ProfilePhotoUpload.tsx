@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Camera, Upload, X, User } from 'lucide-react';
-import axios from 'axios';
+import api from '../config/api';
 
 interface ProfilePhotoUploadProps {
   currentPhoto?: string;
@@ -53,7 +53,7 @@ const ProfilePhotoUpload: React.FC<ProfilePhotoUploadProps> = ({
       reader.onload = async () => {
         try {
           const base64Data = (reader.result as string).split(',')[1];
-          const response = await axios.post('/profile/photo', {
+          const response = await api.post('/profile/photo', {
             photo: `data:${file.type};base64,${base64Data}`
           });
           const responseData = response.data as { profilePhoto: string };
@@ -82,7 +82,7 @@ const ProfilePhotoUpload: React.FC<ProfilePhotoUploadProps> = ({
 
   const removePhoto = async () => {
     try {
-      await axios.post('/profile/photo', {
+      await api.post('/profile/photo', {
         photo: ''
       });
       onPhotoUpdate('');

@@ -1,6 +1,5 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import axios from 'axios';
 import Header from './components/Header';
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -23,7 +22,6 @@ import TermsConditions from './pages/TermsConditions';
 import AIShowcase from './pages/AIShowcase';
 import { Trip } from './types';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:4000';
 
 function AppContent() {
   const { user, loading, login: handleLogin, logout: handleLogout } = useAuth();
@@ -63,7 +61,11 @@ function AppContent() {
             <Route path="/trip/:id" element={<TripDetails user={user} />} />
             <Route 
               path="/create-trip" 
-              element={user?.role === 'organizer' ? <CreateTrip user={user} /> : <Navigate to="/" />} 
+              element={
+                !user ? <Navigate to="/login" /> :
+                user.role === 'organizer' || user.role === 'admin' ? <CreateTrip user={user} /> : 
+                <Navigate to="/?error=organizer-required" />
+              } 
             />
             <Route 
               path="/edit-trip/:id" 
