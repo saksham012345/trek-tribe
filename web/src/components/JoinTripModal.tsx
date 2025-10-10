@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../config/api';
 import { User } from '../types';
 import PaymentUpload from './PaymentUpload';
 
@@ -90,7 +90,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
     }
     
     try {
-      const response = await axios.post('/bookings', {
+      const response = await api.post('/bookings', {
         tripId: trip._id,
         numberOfTravelers: formData.numberOfGuests,
         selectedPackage: formData.selectedPackage ? {

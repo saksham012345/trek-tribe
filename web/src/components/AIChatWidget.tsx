@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import io, { Socket } from 'socket.io-client';
-import axios from 'axios';
+import api from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
 import './AIChatWidget.css';
 
@@ -255,7 +255,7 @@ const AIChatWidget: React.FC = () => {
   // Advanced AI features
   const getSmartRecommendations = async (preferences?: any) => {
     try {
-      const response = await axios.post('/chat/recommendations', {
+      const response = await api.post('/chat/recommendations', {
         preferences: preferences || {
           budget: { min: 2000, max: 15000 },
           difficulty: 'intermediate',
@@ -308,7 +308,7 @@ const AIChatWidget: React.FC = () => {
         return;
       }
 
-      const response = await axios.get(`/chat/trip-availability/${currentTripId}`);
+      const response = await api.get(`/chat/trip-availability/${currentTripId}`);
       
       const aiMessage: ChatMessage = {
         id: `availability_${Date.now()}`,
@@ -350,7 +350,7 @@ const AIChatWidget: React.FC = () => {
         return;
       }
 
-      const response = await axios.get(`/chat/organizer-profile/${currentTripId}`);
+      const response = await api.get(`/chat/organizer-profile/${currentTripId}`);
       
       const aiMessage: ChatMessage = {
         id: `organizer_${Date.now()}`,
@@ -378,7 +378,7 @@ const AIChatWidget: React.FC = () => {
 
   const getUserAnalytics = async () => {
     try {
-      const response = await axios.get('/chat/user-analytics');
+      const response = await api.get('/chat/user-analytics');
       
       const aiMessage: ChatMessage = {
         id: `analytics_${Date.now()}`,
@@ -407,7 +407,7 @@ const AIChatWidget: React.FC = () => {
   const getBookingAssistance = async (step?: string) => {
     try {
       const tripId = getCurrentTripId();
-      const response = await axios.post('/chat/booking-assistance', {
+      const response = await api.post('/chat/booking-assistance', {
         tripId,
         step
       });

@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../config/api';
 
 interface User {
   id: string;
@@ -95,7 +95,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       reader.onload = async () => {
         try {
           const base64Data = (reader.result as string).split(',')[1];
-          const response = await axios.post('/files/upload/base64', {
+          const response = await api.post('/files/upload/base64', {
             data: base64Data,
             filename: file.name,
             mimeType: file.type
@@ -287,7 +287,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       
       // Submit with timeout
       const response = await Promise.race([
-        axios.post('/trips', tripData, {
+        api.post('/trips', tripData, {
           headers: { 'Content-Type': 'application/json' }
         }),
         new Promise((_, reject) => 

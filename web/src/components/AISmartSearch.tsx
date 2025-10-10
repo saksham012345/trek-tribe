@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import axios from 'axios';
+import api from '../config/api';
 
 interface SearchSuggestion {
   text: string;
@@ -77,7 +77,7 @@ const AISmartSearch: React.FC<AISmartSearchProps> = ({
       setIsProcessing(true);
       setError('');
 
-      const response = await axios.post('/chat/smart-search', {
+      const response = await api.post('/chat/smart-search', {
         query: searchQuery,
         context: {
           currentFilters: {},
