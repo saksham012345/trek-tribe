@@ -15,23 +15,33 @@ const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   name: z.string().min(1),
+  phone: z.string().regex(/^[+]?[1-9]\d{1,14}$/).optional(),
   role: z.enum(['traveler', 'organizer']).optional(),
 });
 
 router.post('/register', async (req, res) => {
   const parsed = registerSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  const { email, password, name, role } = parsed.data;
+  const { email, password, name, phone, role } = parsed.data;
   const existing = await User.findOne({ email }).lean();
   if (existing) return res.status(409).json({ error: 'Email already in use' });
   const passwordHash = await bcrypt.hash(password, 10);
-  const user = await User.create({ email, passwordHash, name, role: role ?? 'traveler' });
+  const user = await User.create({ email, passwordHash, name, phone, role: role ?? 'traveler' });
   const jwtSecret = process.env.JWT_SECRET;
   if (!jwtSecret) {
     throw new Error('JWT_SECRET environment variable is required');
   }
   const token = jwt.sign({ userId: String(user._id), role: user.role }, jwtSecret, { expiresIn: '7d' });
-  return res.status(201).json({ token });
+  return res.status(201).json({ 
+    token,
+    user: {
+      id: user._id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      createdAt: user.createdAt
+    }
+  });
 });
 
 const loginSchema = z.object({ email: z.string().email(), password: z.string().min(6) });
@@ -49,7 +59,16 @@ router.post('/login', async (req, res) => {
     throw new Error('JWT_SECRET environment variable is required');
   }
   const token = jwt.sign({ userId: String(user._id), role: user.role }, jwtSecret, { expiresIn: '7d' });
-  return res.json({ token });
+  return res.json({ 
+    token,
+    user: {
+      id: user._id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      createdAt: user.createdAt
+    }
+  });
 });
 
 // Google OAuth login schema

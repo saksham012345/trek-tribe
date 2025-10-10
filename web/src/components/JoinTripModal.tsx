@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { User } from '../types';
+import PaymentUpload from './PaymentUpload';
 
 interface PackageOption {
   id: string;
@@ -62,6 +63,8 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [bookingResult, setBookingResult] = useState<any>(null);
+  const [showPaymentUpload, setShowPaymentUpload] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -87,7 +90,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
     }
     
     try {
-      await axios.post('/bookings', {
+      const response = await axios.post('/bookings', {
         tripId: trip._id,
         numberOfTravelers: formData.numberOfGuests,
         selectedPackage: formData.selectedPackage ? {
@@ -104,17 +107,54 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
           dietary: formData.dietaryRestrictions
         }],
         specialRequests: formData.specialRequests,
-        contactPhone: formData.emergencyContactPhone
+        contactPhone: formData.emergencyContactPhone,
+        emergencyContactName: formData.emergencyContactName,
+        emergencyContactPhone: formData.emergencyContactPhone,
+        experienceLevel: formData.experienceLevel
       });
       
-      onSuccess();
-      onClose();
+      const bookingData = response.data;
+      setBookingResult(bookingData);
+      
+      // If booking requires payment upload, show payment upload modal
+      if (bookingData.booking?.requiresPaymentUpload) {
+        setShowPaymentUpload(true);
+      } else {
+        // Traditional confirmed booking
+        onSuccess();
+        onClose();
+      }
     } catch (error: any) {
       setError(error.response?.data?.error || 'Failed to join trip');
     } finally {
       setLoading(false);
     }
   };
+
+  const handlePaymentUploadSuccess = () => {
+    setShowPaymentUpload(false);
+    onSuccess(); // Refresh the trips list or show success message
+    onClose();
+  };
+
+  const handlePaymentUploadCancel = () => {
+    setShowPaymentUpload(false);
+    // Keep the main modal open so user can try again
+  };
+
+  if (!isOpen && !showPaymentUpload) return null;
+
+  // Show payment upload modal if booking requires it
+  if (showPaymentUpload && bookingResult) {
+    return (
+      <PaymentUpload
+        bookingId={bookingResult.booking.bookingId}
+        totalAmount={bookingResult.booking.totalAmount}
+        onUploadSuccess={handlePaymentUploadSuccess}
+        onCancel={handlePaymentUploadCancel}
+      />
+    );
+  }
 
   if (!isOpen) return null;
 

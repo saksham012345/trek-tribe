@@ -41,6 +41,17 @@ export interface GroupBookingDocument extends Document {
     gatewayTransactionId?: string;
     paymentReference?: string;
   };
+  // Payment screenshot upload
+  paymentScreenshot?: {
+    filename: string;
+    originalName: string;
+    url: string;
+    uploadedAt: Date;
+  };
+  paymentVerificationStatus: 'pending' | 'verified' | 'rejected';
+  paymentVerificationNotes?: string;
+  verifiedBy?: Types.ObjectId; // Admin/Organizer who verified
+  verifiedAt?: Date;
   bookingStatus: 'confirmed' | 'pending' | 'cancelled' | 'completed';
   specialRequests?: string;
   notes?: string;
@@ -125,6 +136,25 @@ const groupBookingSchema = new Schema(
       },
       required: false
     },
+    // Payment screenshot upload
+    paymentScreenshot: {
+      type: {
+        filename: { type: String, required: true },
+        originalName: { type: String, required: true },
+        url: { type: String, required: true },
+        uploadedAt: { type: Date, default: Date.now }
+      },
+      required: false
+    },
+    paymentVerificationStatus: {
+      type: String,
+      enum: ['pending', 'verified', 'rejected'],
+      default: 'pending',
+      index: true
+    },
+    paymentVerificationNotes: { type: String },
+    verifiedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    verifiedAt: { type: Date },
     bookingStatus: { 
       type: String, 
       enum: ['confirmed', 'pending', 'cancelled', 'completed'], 

@@ -390,9 +390,9 @@ const Home: React.FC<HomeProps> = ({ user }) => {
             </div>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {featuredTrips.map((trip, index) => (
+              {featuredTrips && featuredTrips.length > 0 ? featuredTrips.map((trip, index) => (
                 <div 
-                  key={trip._id} 
+                  key={trip._id || index} 
                   className="group bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2"
                   style={{animationDelay: `${index * 0.1}s`}}
                 >
@@ -401,10 +401,10 @@ const Home: React.FC<HomeProps> = ({ user }) => {
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="text-center text-white">
                         <div className="text-6xl mb-2">
-                          {trip.categories.includes('Mountain') ? '🏔️' : 
-                           trip.categories.includes('Nature') ? '🌲' : '🌍'}
+                          {(trip.categories && trip.categories.includes('Mountain')) ? '🏔️' : 
+                           (trip.categories && trip.categories.includes('Nature')) ? '🌲' : '🌍'}
                         </div>
-                        <p className="text-sm opacity-90 font-medium">{trip.categories.join(' • ')}</p>
+                        <p className="text-sm opacity-90 font-medium">{trip.categories ? trip.categories.join(' • ') : 'Adventure'}</p>
                       </div>
                     </div>
                     <div className="absolute top-4 right-4">
@@ -445,11 +445,15 @@ const Home: React.FC<HomeProps> = ({ user }) => {
                     </div>
                     
                     <div className="flex flex-wrap gap-2 mb-4">
-                      {trip.categories.map((category, catIndex) => (
+                      {trip.categories && trip.categories.length > 0 ? trip.categories.map((category, catIndex) => (
                         <span key={catIndex} className="px-2 py-1 bg-forest-100 text-forest-700 text-xs rounded-full font-medium">
                           {category}
                         </span>
-                      ))}
+                      )) : (
+                        <span className="px-2 py-1 bg-forest-100 text-forest-700 text-xs rounded-full font-medium">
+                          Adventure
+                        </span>
+                      )}
                     </div>
                     
                     <button className="w-full bg-gradient-to-r from-forest-600 to-nature-600 hover:from-forest-700 hover:to-nature-700 text-white py-3 rounded-xl font-semibold transition-all duration-300 transform group-hover:scale-105">
@@ -457,7 +461,13 @@ const Home: React.FC<HomeProps> = ({ user }) => {
                     </button>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div className="col-span-full text-center py-12">
+                  <div className="text-6xl mb-4 text-forest-300">🌲</div>
+                  <h3 className="text-xl font-semibold text-forest-600 mb-2">No Adventures Yet</h3>
+                  <p className="text-forest-500">New adventures are being planned. Check back soon!</p>
+                </div>
+              )}
             </div>
           )}
 
