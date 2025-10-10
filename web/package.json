@@ -49,5 +49,6 @@
   "devDependencies": {
     "@types/jest": "^27.5.0",
     "serve": "^14.2.0"
-  }
+  },
+  "proxy": "http://localhost:4000"
 }
