@@ -5,6 +5,7 @@ import JoinTripModal from '../components/JoinTripModal';
 import ReviewModal from '../components/ReviewModal';
 import ReviewsList from '../components/ReviewsList';
 import { User } from '../types';
+import { getTripShareUrl } from '../utils/config';
 
 interface Trip {
   _id: string;
@@ -47,6 +48,7 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   useEffect(() => {
     const fetchTrip = async () => {
@@ -85,6 +87,26 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
   const isOrganizer = trip && user && trip.organizerId === user.id;
   const canJoin = trip && user && !isParticipant && !isOrganizer && trip.participants.length < trip.capacity;
   const canReview = isParticipant && !isOrganizer; // Only participants who are not organizers can review
+
+  const handleShareTrip = async () => {
+    const shareUrl = getTripShareUrl(trip!._id);
+    
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (err) {
+      // Fallback for browsers that don't support clipboard API
+      const textArea = document.createElement('textarea');
+      textArea.value = shareUrl;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    }
+  };
 
   const getDifficultyColor = (level?: string) => {
     switch (level) {
@@ -191,6 +213,23 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
                   </div>
                   <h1 className="text-4xl font-bold mb-2">{trip.title}</h1>
                   <p className="text-xl opacity-90">📍 {trip.destination}</p>
+                </div>
+                <div className="absolute top-6 right-6">
+                  <button
+                    onClick={handleShareTrip}
+                    className="bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white p-3 rounded-full transition-all duration-300 group"
+                    title="Share this adventure"
+                  >
+                    {copySuccess ? (
+                      <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
+                      </svg>
+                    )}
+                  </button>
                 </div>
               </div>
               
@@ -443,6 +482,26 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
                   </div>
                 )}
 
+                <button
+                  onClick={handleShareTrip}
+                  className="w-full mt-2 bg-forest-100 hover:bg-forest-200 text-forest-700 py-2 rounded-lg font-medium transition-all duration-300 flex items-center justify-center space-x-2"
+                >
+                  {copySuccess ? (
+                    <>
+                      <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-green-600">Link Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
+                      </svg>
+                      <span>Share Adventure</span>
+                    </>
+                  )}
+                </button>
                 <div className="text-center text-xs text-forest-500 pt-2">
                   Free cancellation up to 7 days before start date
                 </div>

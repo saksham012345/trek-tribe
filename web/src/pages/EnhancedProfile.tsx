@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import api from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
 import ProfilePhotoUpload from '../components/ProfilePhotoUpload';
+import { getUserProfileShareUrl } from '../utils/config';
 
 interface ProfileStats {
   memberSince: string;
@@ -57,6 +58,7 @@ const EnhancedProfile: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [shareableLink, setShareableLink] = useState('');
+  const [copySuccess, setCopySuccess] = useState(false);
 
   const [editForm, setEditForm] = useState({
     name: '',
@@ -142,6 +144,29 @@ const EnhancedProfile: React.FC = () => {
       setShareableLink(linkData.shareableLink);
     } catch (error) {
       console.error('Error generating shareable link:', error);
+    }
+  };
+
+  const handleShareProfile = async () => {
+    const profileUserId = userId || currentUser?.id;
+    if (!profileUserId) return;
+    
+    const shareUrl = getUserProfileShareUrl(profileUserId);
+    
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (err) {
+      // Fallback for browsers that don't support clipboard API
+      const textArea = document.createElement('textarea');
+      textArea.value = shareUrl;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
     }
   };
 
@@ -565,37 +590,34 @@ const EnhancedProfile: React.FC = () => {
             )}
             
             {/* Share Profile */}
-            {isOwnProfile && (
-              <div className="pt-4 border-t border-gray-200">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Share your profile</span>
-                  <button
-                    onClick={generateShareableLink}
-                    className="bg-nature-600 hover:bg-nature-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
-                  >
-                    🔗 Generate Link
-                  </button>
-                </div>
-                {shareableLink && (
-                  <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={shareableLink}
-                        readOnly
-                        className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded text-sm"
-                      />
-                      <button
-                        onClick={() => copyToClipboard(shareableLink)}
-                        className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded text-sm"
-                      >
-                        📋 Copy
-                      </button>
-                    </div>
-                  </div>
-                )}
+            <div className="pt-4 border-t border-gray-200">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Share this profile</span>
+                <button
+                  onClick={handleShareProfile}
+                  className="bg-nature-600 hover:bg-nature-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
+                >
+                  {copySuccess ? (
+                    <>
+                      <svg className="w-4 h-4 text-green-200" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                      <span>Link Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
+                      </svg>
+                      <span>Share Profile</span>
+                    </>
+                  )}
+                </button>
               </div>
-            )}
+              <p className="text-xs text-gray-500 mt-2">
+                Share your profile with other adventurers on trektribe.in
+              </p>
+            </div>
           </div>
         </div>
         

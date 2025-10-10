@@ -5,6 +5,7 @@ import JoinTripModal from '../components/JoinTripModal';
 import AISmartSearch from '../components/AISmartSearch';
 import AIRecommendations from '../components/AIRecommendations';
 import { User } from '../types';
+import { getTripShareUrl } from '../utils/config';
 
 interface Trip {
   _id: string;
@@ -33,6 +34,7 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const [showJoinModal, setShowJoinModal] = useState(false);
+  const [copySuccess, setCopySuccess] = useState<{[key: string]: boolean}>({});
 
   const categories = ['Adventure', 'Cultural', 'Beach', 'Mountain', 'City', 'Nature'];
 
@@ -88,6 +90,30 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
     const tripsData = response.data as Trip[];
     setTrips(tripsData);
     alert('Successfully joined the trip!');
+  };
+
+  const handleShareTrip = async (tripId: string) => {
+    const shareUrl = getTripShareUrl(tripId);
+    
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopySuccess(prev => ({ ...prev, [tripId]: true }));
+      setTimeout(() => {
+        setCopySuccess(prev => ({ ...prev, [tripId]: false }));
+      }, 2000);
+    } catch (err) {
+      // Fallback for browsers that don't support clipboard API
+      const textArea = document.createElement('textarea');
+      textArea.value = shareUrl;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopySuccess(prev => ({ ...prev, [tripId]: true }));
+      setTimeout(() => {
+        setCopySuccess(prev => ({ ...prev, [tripId]: false }));
+      }, 2000);
+    }
   };
 
   return (
@@ -157,8 +183,37 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {trips.map((trip) => (
               <div key={trip._id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-                <div className="h-48 bg-gray-200 flex items-center justify-center">
-                  <span className="text-gray-500">Trip Image</span>
+                <div className="relative h-48 overflow-hidden">
+                  {trip.images && trip.images.length > 0 ? (
+                    <img
+                      src={trip.images[0]}
+                      alt={trip.title}
+                      className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const fallback = target.nextElementSibling as HTMLElement;
+                        if (fallback) fallback.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div className={`absolute inset-0 bg-gradient-to-br from-forest-400 to-nature-500 flex items-center justify-center ${trip.images && trip.images.length > 0 ? 'hidden' : 'flex'}`}>
+                    <div className="text-center text-white">
+                      <div className="text-6xl mb-2">
+                        {(trip.categories && trip.categories.includes('Mountain')) ? '🏔️' : 
+                         (trip.categories && trip.categories.includes('Nature')) ? '🌲' : 
+                         (trip.categories && trip.categories.includes('Beach')) ? '🏖️' : 
+                         (trip.categories && trip.categories.includes('Cultural')) ? '🏛️' : 
+                         (trip.categories && trip.categories.includes('Adventure')) ? '🎒' : '🌍'}
+                      </div>
+                      <p className="text-sm opacity-90 font-medium">{trip.categories && trip.categories.length > 0 ? trip.categories[0] : 'Adventure'}</p>
+                    </div>
+                  </div>
+                  <div className="absolute top-4 right-4">
+                    <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 text-forest-800 text-sm font-semibold">
+                      ₹{trip.price.toLocaleString()}
+                    </div>
+                  </div>
                 </div>
                 <div className="p-6">
                   <h3 className="text-xl font-semibold mb-2">{trip.title}</h3>
@@ -190,6 +245,21 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
                   <div className="flex justify-between items-center">
                     <span className="text-2xl font-bold text-nature-600">₹{trip.price}</span>
                     <div className="flex gap-2">
+                      <button
+                        onClick={() => handleShareTrip(trip._id)}
+                        className="bg-forest-50 hover:bg-forest-100 text-forest-600 p-2 rounded-lg font-medium text-sm transition-all duration-300 border border-forest-200"
+                        title="Share this adventure"
+                      >
+                        {copySuccess[trip._id] ? (
+                          <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        ) : (
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
+                          </svg>
+                        )}
+                      </button>
                       <Link
                         to={`/trip/${trip._id}`}
                         className="bg-forest-100 hover:bg-forest-200 text-forest-700 px-3 py-2 rounded-lg font-medium text-sm transition-all duration-300 border border-forest-200"
