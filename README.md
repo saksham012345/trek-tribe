@@ -218,37 +218,163 @@ A comprehensive travel platform that connects travelers for group trips and adve
 
 ## 🚀 Environment Setup
 
-### Required Environment Variables
+### Quick Setup
 
-Create a `.env` file in the root directory with:
+1. **Copy environment templates**:
+   ```bash
+   # Root environment (for Docker)
+   cp .env.example .env
+   
+   # Frontend environment
+   cp web/.env.example web/.env
+   ```
+
+2. **Configure essential variables** in `.env`:
+   ```bash
+   # Generate a secure JWT secret (32+ characters)
+   JWT_SECRET=$(openssl rand -hex 32)
+   
+   # MongoDB connection (Docker default)
+   MONGODB_URI=mongodb://mongo:27017/trekktribe
+   
+   # Frontend URL
+   FRONTEND_URL=http://localhost:3000
+   ```
+
+3. **Configure frontend** in `web/.env`:
+   ```bash
+   # API endpoint
+   REACT_APP_API_URL=http://localhost:4000
+   ```
+
+### Advanced Configuration
+
+#### Authentication & Security
+```bash
+# JWT Configuration (REQUIRED)
+JWT_SECRET=your-secure-32-character-secret-key-here
+JWT_EXPIRES_IN=7d
+
+# Google OAuth (Optional)
+GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+```
+
+#### Database
+```bash
+# Local MongoDB (Docker)
+MONGODB_URI=mongodb://mongo:27017/trekktribe
+
+# Local MongoDB (Direct)
+MONGODB_URI_LOCAL=mongodb://127.0.0.1:27017/trekktribe
+
+# MongoDB Atlas (Production)
+MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/trekktribe
+```
+
+#### Email Service (Optional)
+```bash
+# Gmail SMTP
+GMAIL_USER=your-email@gmail.com
+GMAIL_APP_PASSWORD=your-16-character-app-password
+EMAIL_ENABLED=true
+```
+
+#### WhatsApp Integration (Optional)
+```bash
+WHATSAPP_ENABLED=true
+DEFAULT_COUNTRY_CODE=91
+WHATSAPP_SESSION_NAME=trek-tribe-bot
+```
+
+#### Frontend Configuration
+```bash
+# API Configuration (REQUIRED)
+REACT_APP_API_URL=http://localhost:4000
+REACT_APP_SOCKET_URL=http://localhost:4000
+
+# Google OAuth (Optional)
+REACT_APP_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+
+# Feature Flags
+REACT_APP_ENABLE_REAL_TIME_CHAT=true
+REACT_APP_ENABLE_AI_SUPPORT=true
+REACT_APP_ENABLE_QR_PAYMENTS=true
+```
+
+### Environment Variables Guide
+
+📖 **Detailed Documentation**: See [`docs/ENV.md`](docs/ENV.md) for complete environment variable reference
+
+🚀 **Deployment Guide**: See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for production deployment instructions
+
+### Secure Secret Generation
 
 ```bash
-# Database
-MONGO_URI=mongodb://localhost:27017/trek-tribe
+# Generate JWT secret (Unix/Mac)
+openssl rand -hex 32
 
-# JWT
-JWT_SECRET=your-super-secret-jwt-key
+# Generate JWT secret (Node.js)
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
-# Email (Nodemailer)
-EMAIL_USER=your-email@gmail.com
-EMAIL_PASS=your-app-password
+# Online generator
+# Visit: https://generate-secret.vercel.app/32
+```
 
-# Firebase (File Storage)
-FIREBASE_PROJECT_ID=your-project-id
-FIREBASE_PRIVATE_KEY=your-private-key
-FIREBASE_CLIENT_EMAIL=your-service-account-email
-FIREBASE_STORAGE_BUCKET=your-storage-bucket
+### Using process.env Safely
 
-# OpenAI (AI Chat Support)
-OPENAI_API_KEY=your-openai-api-key
+```typescript
+// ✅ Good: Validate required environment variables
+const { MONGODB_URI, JWT_SECRET } = process.env;
 
-# Telegram (Optional)
-TELEGRAM_BOT_TOKEN=your-telegram-bot-token
+if (!MONGODB_URI) {
+  throw new Error('MONGODB_URI environment variable is required');
+}
 
-# Production
-NODE_ENV=development
-PORT=4000
-FRONTEND_URL=http://localhost:3000
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  throw new Error('JWT_SECRET must be at least 32 characters long');
+}
+
+// ✅ Good: Provide fallback values for optional variables
+const PORT = parseInt(process.env.PORT || '4000', 10);
+const NODE_ENV = process.env.NODE_ENV || 'development';
+
+// ✅ Good: Type-safe environment variable access
+interface EnvConfig {
+  mongoUri: string;
+  jwtSecret: string;
+  port: number;
+  nodeEnv: 'development' | 'production' | 'test';
+}
+
+function getConfig(): EnvConfig {
+  return {
+    mongoUri: process.env.MONGODB_URI!,
+    jwtSecret: process.env.JWT_SECRET!,
+    port: parseInt(process.env.PORT || '4000', 10),
+    nodeEnv: (process.env.NODE_ENV as any) || 'development',
+  };
+}
+```
+
+### Environment Validation
+
+The application validates critical environment variables on startup:
+
+```typescript
+// Example validation in services/api/src/index.ts
+function validateEnvironment() {
+  const required = ['MONGODB_URI', 'JWT_SECRET'];
+  const missing = required.filter(key => !process.env[key]);
+  
+  if (missing.length > 0) {
+    console.error('❌ Missing required environment variables:');
+    missing.forEach(key => console.error(`   - ${key}`));
+    process.exit(1);
+  }
+  
+  console.log('✅ Environment variables validated successfully');
+}
 ```
 
 ## 🔧 CLI Administration Tools

@@ -3,6 +3,8 @@ import { Link, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import { User } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import AIRecommendations from '../components/AIRecommendations';
+import AIAnalyticsDashboard from '../components/AIAnalyticsDashboard';
 
 
 interface Trip {
@@ -466,6 +468,46 @@ const Home: React.FC<HomeProps> = ({ user }) => {
             >
               <span>🌲</span>
               Discover All Adventures
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* AI-Powered Features Section */}
+      <section className="py-20 bg-gradient-to-br from-purple-50 to-blue-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-800 mb-6">
+              🤖 AI-Powered 
+              <span className="text-purple-600">Travel Intelligence</span>
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+              Experience the future of travel planning with our advanced AI features
+            </p>
+          </div>
+          
+          <div className="grid lg:grid-cols-2 gap-12">
+            {/* AI Recommendations */}
+            <div className="space-y-6">
+              <AIRecommendations className="w-full" maxRecommendations={3} />
+            </div>
+            
+            {/* AI Analytics */}
+            <div className="space-y-6">
+              <AIAnalyticsDashboard className="w-full" compact={true} />
+            </div>
+          </div>
+          
+          <div className="text-center mt-12">
+            <Link
+              to="/ai-showcase"
+              className="inline-flex items-center gap-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-8 py-3 rounded-full text-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg"
+            >
+              <span>🚀</span>
+              Explore All AI Features
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
               </svg>

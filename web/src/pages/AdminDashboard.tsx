@@ -3,6 +3,25 @@ import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 
+interface UserContact {
+  _id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  role: string;
+  isVerified: boolean;
+  location?: string;
+  dateOfBirth?: string;
+  emergencyContact?: {
+    name: string;
+    relationship: string;
+    phone: string;
+    email?: string;
+  };
+  createdAt: string;
+  lastActive?: string;
+}
+
 interface DashboardStats {
   users: {
     total: number;
@@ -33,6 +52,11 @@ const AdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
+  const [userContacts, setUserContacts] = useState<UserContact[]>([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     fetchDashboardStats();
@@ -74,6 +98,53 @@ const AdminDashboard: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const fetchUserContacts = async () => {
+    setContactsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.append('page', currentPage.toString());
+      params.append('limit', '50');
+      if (searchQuery) params.append('search', searchQuery);
+      if (roleFilter !== 'all') params.append('role', roleFilter);
+
+      const response = await axios.get(`/admin/users/contacts?${params.toString()}`);
+      const responseData = response.data as { users: any[] };
+      setUserContacts(responseData.users);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to fetch user contacts');
+    } finally {
+      setContactsLoading(false);
+    }
+  };
+
+  const exportUserContacts = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (roleFilter !== 'all') params.append('role', roleFilter);
+
+      const response = await axios.get(`/admin/users/export-contacts?${params.toString()}`, {
+        responseType: 'blob'
+      });
+
+      const blob = new Blob([response.data as BlobPart], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `trek-tribe-users-${new Date().toISOString().split('T')[0]}.csv`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to export user contacts');
+    }
+  };
+
+  // Fetch contacts when users tab is active
+  React.useEffect(() => {
+    if (activeTab === 'users') {
+      fetchUserContacts();
+    }
+  }, [activeTab, currentPage, searchQuery, roleFilter]);
 
   const formatBytes = (bytes: number) => {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
@@ -262,6 +333,194 @@ const AdminDashboard: React.FC = () => {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'users' && (
+          <div className="space-y-6">
+            {/* User Contacts Header */}
+            <div className="bg-white p-6 rounded-lg shadow-sm border">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">👥 User Contact Information</h3>
+                  <p className="text-sm text-red-600 font-medium mt-1">
+                    ⚠️ This section contains sensitive user data. All access is logged and monitored.
+                  </p>
+                </div>
+                <button
+                  onClick={exportUserContacts}
+                  className="bg-forest-600 text-white px-4 py-2 rounded-lg hover:bg-forest-700 transition-colors"
+                >
+                  📄 Export CSV
+                </button>
+              </div>
+
+              {/* Search and Filters */}
+              <div className="flex gap-4 mb-4">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    placeholder="Search users by name, email, or phone..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest-500 focus:border-forest-500"
+                  />
+                </div>
+                <select
+                  value={roleFilter}
+                  onChange={(e) => setRoleFilter(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest-500 focus:border-forest-500"
+                >
+                  <option value="all">All Roles</option>
+                  <option value="traveler">Travelers</option>
+                  <option value="organizer">Organizers</option>
+                  <option value="agent">Agents</option>
+                  <option value="admin">Admins</option>
+                </select>
+              </div>
+            </div>
+
+            {/* User Contacts Table */}
+            <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+              {contactsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-forest-600"></div>
+                  <span className="ml-3 text-gray-600">Loading user contacts...</span>
+                </div>
+              ) : userContacts.length === 0 ? (
+                <div className="text-center py-12">
+                  <span className="text-gray-500">No users found matching your criteria.</span>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          User Details
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Contact Information
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Emergency Contact
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {userContacts.map((contact) => (
+                        <tr key={contact._id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0 h-10 w-10">
+                                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-forest-400 to-nature-500 flex items-center justify-center text-white font-bold">
+                                  {contact.name.charAt(0).toUpperCase()}
+                                </div>
+                              </div>
+                              <div className="ml-4">
+                                <div className="text-sm font-medium text-gray-900">{contact.name}</div>
+                                <div className="text-sm text-gray-500 capitalize">
+                                  <span className={`inline-flex px-2 py-1 text-xs rounded-full ${
+                                    contact.role === 'admin' ? 'bg-red-100 text-red-800' :
+                                    contact.role === 'organizer' ? 'bg-blue-100 text-blue-800' :
+                                    contact.role === 'agent' ? 'bg-purple-100 text-purple-800' :
+                                    'bg-gray-100 text-gray-800'
+                                  }`}>
+                                    {contact.role}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="space-y-1">
+                              <div className="text-sm text-gray-900">
+                                📧 {contact.email}
+                              </div>
+                              {contact.phone && (
+                                <div className="text-sm text-gray-900">
+                                  📱 {contact.phone}
+                                </div>
+                              )}
+                              {contact.location && (
+                                <div className="text-sm text-gray-500">
+                                  📍 {contact.location}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            {contact.emergencyContact ? (
+                              <div className="space-y-1">
+                                <div className="text-sm text-gray-900">
+                                  {contact.emergencyContact.name}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  ({contact.emergencyContact.relationship})
+                                </div>
+                                <div className="text-sm text-gray-900">
+                                  📞 {contact.emergencyContact.phone}
+                                </div>
+                                {contact.emergencyContact.email && (
+                                  <div className="text-sm text-gray-500">
+                                    📧 {contact.emergencyContact.email}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-sm text-gray-400">Not provided</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="space-y-2">
+                              <div className={`inline-flex px-2 py-1 text-xs rounded-full ${
+                                contact.isVerified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {contact.isVerified ? '✅ Verified' : '⏳ Unverified'}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                Joined: {new Date(contact.createdAt).toLocaleDateString()}
+                              </div>
+                              {contact.lastActive && (
+                                <div className="text-xs text-gray-500">
+                                  Last active: {new Date(contact.lastActive).toLocaleDateString()}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Security Notice */}
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <span className="text-red-400 text-xl">⚠️</span>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">
+                    Data Privacy Notice
+                  </h3>
+                  <div className="mt-2 text-sm text-red-700">
+                    <p>
+                      This page contains sensitive personal information including phone numbers, email addresses, and emergency contacts. 
+                      Access to this data is restricted to administrators only and all activity is logged for security purposes.
+                    </p>
+                    <p className="mt-2">
+                      Please ensure you comply with data protection regulations and only use this information for legitimate business purposes.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>

@@ -31,11 +31,33 @@ interface PickupDropPoint {
   instructions?: string;
 }
 
+interface PackageOption {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  capacity?: number;
+  inclusions: string[];
+  exclusions: string[];
+  isActive: boolean;
+  sortOrder: number;
+}
+
+interface PaymentConfig {
+  paymentType: 'full' | 'advance';
+  advanceAmount?: number;
+  advancePercentage?: number;
+  dueDate?: Date;
+  refundPolicy: string;
+  paymentMethods: string[];
+  instructions?: string;
+}
+
 const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 5;
+  const totalSteps = 6;
   
   const [formData, setFormData] = useState({
     title: '',
@@ -58,6 +80,14 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
   const [schedule, setSchedule] = useState<ScheduleDay[]>([]);
   const [pickupPoints, setPickupPoints] = useState<PickupDropPoint[]>([]);
   const [dropOffPoints, setDropOffPoints] = useState<PickupDropPoint[]>([]);
+  const [packages, setPackages] = useState<PackageOption[]>([]);
+  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig>({
+    paymentType: 'advance',
+    advancePercentage: 30,
+    refundPolicy: 'moderate',
+    paymentMethods: ['card', 'upi'],
+    instructions: ''
+  });
   const [images, setImages] = useState<File[]>([]);
   const [coverImageIndex, setCoverImageIndex] = useState(0);
   const [itineraryPdf, setItineraryPdf] = useState<File | null>(null);
@@ -208,6 +238,40 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
     setDropOffPoints(dropOffPoints.filter((_, i) => i !== index));
   };
 
+  // Package management
+  const addPackage = () => {
+    const newPackage: PackageOption = {
+      id: `pkg_${Date.now()}`,
+      name: '',
+      description: '',
+      price: 0,
+      capacity: formData.capacity ? parseInt(formData.capacity) : 10,
+      inclusions: [],
+      exclusions: [],
+      isActive: true,
+      sortOrder: packages.length + 1
+    };
+    setPackages([...packages, newPackage]);
+  };
+
+  const updatePackage = (packageId: string, field: keyof PackageOption, value: any) => {
+    setPackages(packages.map(pkg => 
+      pkg.id === packageId ? { ...pkg, [field]: value } : pkg
+    ));
+  };
+
+  const removePackage = (packageId: string) => {
+    setPackages(packages.filter(pkg => pkg.id !== packageId));
+  };
+
+  const updatePackageInclusions = (packageId: string, inclusions: string[]) => {
+    updatePackage(packageId, 'inclusions', inclusions);
+  };
+
+  const updatePackageExclusions = (packageId: string, exclusions: string[]) => {
+    updatePackage(packageId, 'exclusions', exclusions);
+  };
+
   const handleMultipleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     const validImages = files.filter(file => file.type.startsWith('image/'));
@@ -274,16 +338,20 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       case 3:
         return formData.categories.length > 0;
       case 4:
-        return true; // Optional step
+        return true; // Optional step (schedule/itinerary)
       case 5:
-        return true; // Pickup/dropoff points are optional but recommended
+        return true; // Package configuration is optional
+      case 6:
+        return true; // Pickup/dropoff points are optional
       default:
         return false;
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent | React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+    }
     setLoading(true);
     setError('');
     setUploadProgress(0);
@@ -354,7 +422,12 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
         requirements: formData.requirements,
         cancellationPolicy: formData.cancellationPolicy,
         pickupPoints: pickupPoints.filter(point => point.name.trim() && point.address.trim()),
-        dropOffPoints: dropOffPoints.filter(point => point.name.trim() && point.address.trim())
+        dropOffPoints: dropOffPoints.filter(point => point.name.trim() && point.address.trim()),
+        packages: packages.filter(pkg => pkg.name.trim() && pkg.description.trim() && pkg.price > 0),
+        paymentConfig: {
+          ...paymentConfig,
+          dueDate: paymentConfig.dueDate || new Date(new Date(formData.startDate).getTime() - 3 * 24 * 60 * 60 * 1000) // 3 days before trip
+        }
       };
 
       setUploadProgress(90);
@@ -912,6 +985,160 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold text-forest-800 mb-2">🎁 Package Options & Payment</h2>
+              <p className="text-forest-600">Create different package options and configure payment settings</p>
+            </div>
+            
+            {/* Package Options */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <label className="block text-lg font-semibold text-forest-700">
+                  🎁 Package Options
+                </label>
+                <button
+                  type="button"
+                  onClick={addPackage}
+                  className="px-4 py-2 bg-nature-500 text-white text-sm rounded-lg hover:bg-nature-600 transition-colors"
+                >
+                  ➕ Add Package
+                </button>
+              </div>
+              
+              <div className="space-y-4 max-h-64 overflow-y-auto">
+                {packages.map((pkg, index) => (
+                  <div key={pkg.id} className="border border-forest-200 rounded-xl p-4 bg-forest-50/30">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="font-medium text-forest-700">Package {index + 1}</span>
+                      <button
+                        type="button"
+                        onClick={() => removePackage(pkg.id)}
+                        className="text-red-500 hover:text-red-700 text-sm px-2 py-1 rounded hover:bg-red-50"
+                      >
+                        🗑️ Remove
+                      </button>
+                    </div>
+                    
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-forest-700 mb-1">
+                          Package Name *
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Basic, Premium, Luxury, etc."
+                          value={pkg.name}
+                          onChange={(e) => updatePackage(pkg.id, 'name', e.target.value)}
+                          className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-forest-700 mb-1">
+                          Price per Person (₹) *
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="5000"
+                          value={pkg.price || ''}
+                          onChange={(e) => updatePackage(pkg.id, 'price', parseFloat(e.target.value) || 0)}
+                          className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
+                        />
+                      </div>
+                      
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-forest-700 mb-1">
+                          Description *
+                        </label>
+                        <textarea
+                          rows={2}
+                          placeholder="What makes this package special..."
+                          value={pkg.description}
+                          onChange={(e) => updatePackage(pkg.id, 'description', e.target.value)}
+                          className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500 resize-none"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-forest-700 mb-1">
+                          Inclusions (comma separated)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Accommodation, Meals, Guide, etc."
+                          value={pkg.inclusions.join(', ')}
+                          onChange={(e) => updatePackageInclusions(pkg.id, e.target.value.split(',').map(s => s.trim()).filter(s => s))}
+                          className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-forest-700 mb-1">
+                          Exclusions (comma separated)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Personal expenses, Tips, etc."
+                          value={pkg.exclusions.join(', ')}
+                          onChange={(e) => updatePackageExclusions(pkg.id, e.target.value.split(',').map(s => s.trim()).filter(s => s))}
+                          className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                {packages.length === 0 && (
+                  <div className="text-center py-8 text-forest-500">
+                    <p>No packages added yet. Add different package options to give travelers more choices!</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Payment Configuration */}
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+              <h3 className="text-lg font-semibold text-forest-700 mb-4">💳 Payment Configuration</h3>
+              
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-forest-700 mb-1">
+                    Payment Type
+                  </label>
+                  <select
+                    value={paymentConfig.paymentType}
+                    onChange={(e) => setPaymentConfig({...paymentConfig, paymentType: e.target.value as 'full' | 'advance'})}
+                    className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
+                  >
+                    <option value="full">Full Payment Required</option>
+                    <option value="advance">Advance Payment</option>
+                  </select>
+                </div>
+                
+                {paymentConfig.paymentType === 'advance' && (
+                  <div>
+                    <label className="block text-sm font-medium text-forest-700 mb-1">
+                      Advance Percentage
+                    </label>
+                    <input
+                      type="number"
+                      min="10"
+                      max="100"
+                      value={paymentConfig.advancePercentage || 30}
+                      onChange={(e) => setPaymentConfig({...paymentConfig, advancePercentage: parseInt(e.target.value) || 30})}
+                      className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+        
+      case 6:
+        return (
+          <div className="space-y-6">
+            <div className="text-center mb-8">
               <h2 className="text-2xl font-bold text-forest-800 mb-2">🚌 Pickup & Drop-off Points</h2>
               <p className="text-forest-600">Add convenient pickup and drop-off locations for participants</p>
             </div>
@@ -1172,7 +1399,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
           
           {/* Form Content */}
           <div className="p-8">
-            <form onSubmit={handleSubmit}>
+            <div>
               {/* Error Display */}
               {error && (
                 <div className="mb-6 bg-red-50 border-l-4 border-red-500 text-red-700 px-6 py-4 rounded-r-lg flex items-center gap-3 animate-pulse">
@@ -1241,16 +1468,26 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                     </button>
                   ) : (
                     <button
-                      type="submit"
+                      type="button"
+                      onClick={handleSubmit}
                       disabled={loading}
-                      className="px-6 py-2.5 bg-forest-700 text-white rounded-xl hover:bg-forest-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="px-6 py-2.5 bg-forest-700 text-white rounded-xl hover:bg-forest-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                     >
-                      {loading ? 'Creating...' : 'Create Trip'}
+                      {loading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                          Creating Trip...
+                        </>
+                      ) : (
+                        <>
+                          🌟 Create Epic Adventure
+                        </>
+                      )}
                     </button>
                   )}
                 </div>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       </div>

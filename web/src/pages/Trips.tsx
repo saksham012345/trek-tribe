@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../config/api';
 import JoinTripModal from '../components/JoinTripModal';
+import AISmartSearch from '../components/AISmartSearch';
+import AIRecommendations from '../components/AIRecommendations';
 import { User } from '../types';
 
 interface Trip {
@@ -100,7 +102,22 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
             Find your next wilderness adventure and connect with fellow nature lovers
           </p>
           
-          {/* Search and Filter */}
+          {/* AI Smart Search */}
+          <div className="mb-8">
+            <AISmartSearch 
+              onSearch={(query, filters) => {
+                console.log('AI Search:', { query, filters });
+                // Apply filters from AI search
+                if (filters.destination) setSearchTerm(filters.destination);
+                if (filters.category) setSelectedCategory(filters.category);
+                if (!filters.destination && !filters.category) setSearchTerm(query);
+              }}
+              placeholder="Ask me to find your perfect adventure... e.g., 'Show me trekking trips under ₹10,000'"
+              className="mb-6"
+            />
+          </div>
+          
+          {/* Traditional Search and Filter - Backup */}
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-forest-200 mb-8">
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1">
@@ -108,7 +125,7 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
                   <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-forest-500">🔍</span>
                   <input
                     type="text"
-                    placeholder="Search wilderness adventures..."
+                    placeholder="Or use traditional search..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full pl-10 pr-4 py-3 border-2 border-forest-200 rounded-xl focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
@@ -259,6 +276,21 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* AI Recommendations Section */}
+        {!loading && trips.length > 0 && (
+          <div className="mt-16 bg-gradient-to-br from-purple-50 to-blue-50 rounded-2xl p-8">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold text-gray-800 mb-4">
+                🤖 AI Recommended Just for You
+              </h2>
+              <p className="text-gray-600 max-w-2xl mx-auto">
+                Based on your preferences and browsing history, here are some personalized adventure recommendations
+              </p>
+            </div>
+            <AIRecommendations className="w-full" maxRecommendations={6} showPersonalized={true} />
           </div>
         )}
 

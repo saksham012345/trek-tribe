@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
-import { User } from '../types';
 
 interface LoginProps {
-  onLogin: (token: string, user: User) => void;
+  onLogin: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
@@ -28,17 +26,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setError('');
 
     try {
-      const response = await axios.post('/auth/login', formData);
-      const authData = response.data as { token: string };
-      const { token } = authData;
-      
-      // Get user info (you might need to add this endpoint to your API)
-      const userResponse = await axios.get('/auth/me', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      const userData = userResponse.data as { user: User };
-      onLogin(token, userData.user);
+      const result = await onLogin(formData.email, formData.password);
+      if (!result.success && result.error) {
+        setError(result.error);
+      }
     } catch (error: any) {
       setError(error.response?.data?.error || 'Login failed');
     } finally {

@@ -17,6 +17,8 @@ const router = express.Router();
 // Validation schemas
 const createGroupBookingSchema = z.object({
   tripId: z.string(),
+  numberOfGuests: z.number().int().min(1).max(20).optional(), // Optional - will default to participants length
+  selectedPackageId: z.string().optional(),
   participants: z.array(z.object({
     name: z.string().min(2),
     email: z.string().email(),
@@ -66,7 +68,7 @@ router.post('/', auth, async (req: AuthenticatedRequest, res: Response) => {
       });
     }
 
-    const { tripId, participants, paymentMethod, specialRequests, notes } = validation.data;
+    const { tripId, numberOfGuests, selectedPackageId, participants, paymentMethod, specialRequests, notes } = validation.data;
 
     // Find the trip
     const trip = await Trip.findById(tripId).populate('organizerId', 'name email phone');
@@ -77,17 +79,45 @@ router.post('/', auth, async (req: AuthenticatedRequest, res: Response) => {
       });
     }
 
-    // Check trip availability
-    const availableSpots = trip.capacity - trip.participants.length;
-    if (availableSpots < participants.length) {
-      return res.status(400).json({
-        success: false,
-        message: `Not enough spots available. Only ${availableSpots} spots remaining`
-      });
+    // Determine actual number of guests
+    const actualNumberOfGuests = numberOfGuests || participants.length;
+
+    // Determine price and package details
+    let pricePerPerson = trip.price;
+    let packageName = 'Standard';
+    let selectedPackage = null;
+
+    if (selectedPackageId && trip.packages && trip.packages.length > 0) {
+      selectedPackage = trip.packages.find((pkg: any) => pkg.id === selectedPackageId && pkg.isActive);
+      if (!selectedPackage) {
+        return res.status(400).json({
+          success: false,
+          message: 'Selected package not found or inactive'
+        });
+      }
+      pricePerPerson = selectedPackage.price;
+      packageName = selectedPackage.name;
+
+      // Check package availability
+      if (selectedPackage.capacity < actualNumberOfGuests) {
+        return res.status(400).json({
+          success: false,
+          message: `Selected package has only ${selectedPackage.capacity} spots available`
+        });
+      }
+    } else {
+      // Check trip availability for standard booking
+      const availableSpots = trip.capacity - trip.participants.length;
+      if (availableSpots < actualNumberOfGuests) {
+        return res.status(400).json({
+          success: false,
+          message: `Not enough spots available. Only ${availableSpots} spots remaining`
+        });
+      }
     }
 
-    // Calculate group discount
-    const groupDiscount = (GroupBooking as any).calculateGroupDiscount(participants.length);
+    // Calculate group discount based on actual number of guests
+    const groupDiscount = (GroupBooking as any).calculateGroupDiscount(actualNumberOfGuests);
     
     // Mark the first participant as main booker
     const processedParticipants = participants.map((participant, index) => ({
@@ -96,13 +126,34 @@ router.post('/', auth, async (req: AuthenticatedRequest, res: Response) => {
       isMainBooker: index === 0
     }));
 
+    // Get payment configuration from trip
+    const paymentConfig = trip.paymentConfig || { paymentType: 'full', paymentMethods: ['upi'] };
+    const paymentType = paymentConfig.paymentType;
+    let advanceAmount = 0;
+
+    if (paymentType === 'advance') {
+      if (paymentConfig.advanceAmount) {
+        advanceAmount = paymentConfig.advanceAmount * actualNumberOfGuests;
+      } else if (paymentConfig.advancePercentage) {
+        const totalAmount = pricePerPerson * actualNumberOfGuests;
+        const discountAmount = groupDiscount > 0 ? (totalAmount * groupDiscount) / 100 : 0;
+        const finalAmount = totalAmount - discountAmount;
+        advanceAmount = (finalAmount * paymentConfig.advancePercentage) / 100;
+      }
+    }
+
     // Create group booking
     const groupBooking = new GroupBooking({
       tripId: new mongoose.Types.ObjectId(tripId),
       mainBookerId: new mongoose.Types.ObjectId(req.user.id),
+      numberOfGuests: actualNumberOfGuests,
+      selectedPackageId,
+      packageName,
       participants: processedParticipants,
-      pricePerPerson: trip.price,
+      pricePerPerson,
       groupDiscount,
+      paymentType,
+      advanceAmount,
       paymentMethod,
       specialRequests,
       notes
@@ -611,6 +662,45 @@ router.get('/organizer/bookings', auth, async (req: AuthenticatedRequest, res: R
     res.status(500).json({
       success: false,
       message: 'Failed to fetch organizer bookings'
+    });
+  }
+});
+
+/**
+ * @route GET /api/group-bookings/trip/:tripId/packages
+ * @description Get trip packages for booking
+ * @access Public
+ */
+router.get('/trip/:tripId/packages', async (req: Request, res: Response) => {
+  try {
+    const { tripId } = req.params;
+
+    const trip = await Trip.findById(tripId);
+    if (!trip) {
+      return res.status(404).json({
+        success: false,
+        message: 'Trip not found'
+      });
+    }
+
+    const packages = trip.packages
+      .filter((pkg: any) => pkg.isActive)
+      .sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+    res.json({
+      success: true,
+      data: {
+        packages,
+        defaultPrice: trip.price,
+        paymentConfig: trip.paymentConfig
+      }
+    });
+
+  } catch (error: any) {
+    logger.error('Error fetching trip packages', { error: error.message });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch packages'
     });
   }
 });

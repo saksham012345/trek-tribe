@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import { User } from '../types';
 
 interface RegisterProps {
-  onLogin: (token: string, user: User) => void;
+  onLogin: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const Register: React.FC<RegisterProps> = ({ onLogin }) => {
@@ -44,15 +43,11 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
         role: formData.role
       });
       
-      const authData = response.data as { token: string };
-      const { token } = authData;
-      
-      const userResponse = await axios.get('/auth/me', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      const userData = userResponse.data as { user: User };
-      onLogin(token, userData.user);
+      // After successful registration, login with the same credentials
+      const result = await onLogin(formData.email, formData.password);
+      if (!result.success && result.error) {
+        setError(result.error);
+      }
     } catch (error: any) {
       console.log('Registration error details:', error);
       if (error.response?.data?.error) {

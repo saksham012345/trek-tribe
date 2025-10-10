@@ -5,7 +5,7 @@ import { User } from '../types';
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (token: string, userData: User) => void;
+  login: (emailOrCredential: string, passwordOrProvider?: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   updateUser: (userData: Partial<User>) => void;
 }
@@ -55,10 +55,36 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, []);
 
-  const login = (token: string, userData: User) => {
-    localStorage.setItem('token', token);
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    setUser(userData);
+  const login = async (emailOrCredential: string, passwordOrProvider?: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      let response;
+
+      if (passwordOrProvider === 'google') {
+        // Google OAuth login
+        response = await axios.post('/auth/google', {
+          credential: emailOrCredential
+        });
+      } else {
+        // Traditional email/password login
+        response = await axios.post('/auth/login', {
+          email: emailOrCredential,
+          password: passwordOrProvider
+        });
+      }
+
+      const responseData = response.data as { token: string; user: User };
+      const { token, user: userData } = responseData;
+      
+      localStorage.setItem('token', token);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      setUser(userData);
+      
+      return { success: true };
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Login failed';
+      console.error('Login error:', errorMessage);
+      return { success: false, error: errorMessage };
+    }
   };
 
   const logout = () => {

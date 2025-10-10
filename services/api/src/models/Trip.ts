@@ -22,6 +22,30 @@ export interface PickupDropPoint {
   instructions?: string;
 }
 
+// Package variant interface for different booking options
+export interface PackageOption {
+  id: string;
+  name: string; // e.g., "Onwards Price", "2-bed", "3-bed", "Standard", "Premium"
+  description?: string;
+  price: number;
+  capacity: number; // Available spots for this package
+  inclusions?: string[]; // What's included in this package
+  exclusions?: string[];
+  isActive: boolean;
+  sortOrder?: number;
+}
+
+// Payment configuration for organizers
+export interface PaymentConfig {
+  paymentType: 'full' | 'advance'; // Full payment or advance payment
+  advanceAmount?: number; // If advance payment, amount required
+  advancePercentage?: number; // If percentage-based advance
+  dueDate?: Date; // When full payment is due
+  refundPolicy?: string;
+  paymentMethods: string[]; // e.g., ['upi', 'card', 'netbanking']
+  instructions?: string;
+}
+
 export interface TripDocument extends Document {
   organizerId: Types.ObjectId;
   title: string;
@@ -36,6 +60,10 @@ export interface TripDocument extends Document {
   itineraryPdf?: string;
   capacity: number;
   price: number;
+  // Package options for different variants
+  packages: PackageOption[];
+  // Payment configuration
+  paymentConfig: PaymentConfig;
   startDate: Date;
   endDate: Date;
   pickupPoints: PickupDropPoint[];
@@ -72,6 +100,28 @@ const pickupDropPointSchema = new Schema({
   instructions: { type: String }
 });
 
+const packageOptionSchema = new Schema({
+  id: { type: String, required: true },
+  name: { type: String, required: true },
+  description: { type: String },
+  price: { type: Number, required: true, min: 0 },
+  capacity: { type: Number, required: true, min: 1 },
+  inclusions: [{ type: String }],
+  exclusions: [{ type: String }],
+  isActive: { type: Boolean, default: true },
+  sortOrder: { type: Number, default: 0 }
+}, { _id: false });
+
+const paymentConfigSchema = new Schema({
+  paymentType: { type: String, enum: ['full', 'advance'], default: 'full' },
+  advanceAmount: { type: Number, min: 0 },
+  advancePercentage: { type: Number, min: 0, max: 100 },
+  dueDate: { type: Date },
+  refundPolicy: { type: String },
+  paymentMethods: [{ type: String, default: ['upi'] }],
+  instructions: { type: String }
+}, { _id: false });
+
 // Define schema without explicit generic type to avoid union complexity
 const tripSchema = new Schema(
   {
@@ -95,6 +145,10 @@ const tripSchema = new Schema(
     itineraryPdf: { type: String },
     capacity: { type: Number, required: true },
     price: { type: Number, required: true },
+    // Package options for different variants
+    packages: { type: [packageOptionSchema], default: [] },
+    // Payment configuration
+    paymentConfig: { type: paymentConfigSchema, default: () => ({ paymentType: 'full', paymentMethods: ['upi'] }) },
     startDate: { type: Date, required: true, index: true },
     endDate: { type: Date, required: true, index: true },
     pickupPoints: { type: [pickupDropPointSchema], default: [] },

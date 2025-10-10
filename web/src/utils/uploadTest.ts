@@ -148,9 +148,10 @@ export class UploadTester {
   async testAuthStatus(): Promise<{ authenticated: boolean; user?: any; error?: string }> {
     try {
       const response = await axios.get('/profile/me');
+      const responseData = response.data as { user: any };
       return {
         authenticated: true,
-        user: response.data.user
+        user: responseData.user
       };
     } catch (error: any) {
       return {

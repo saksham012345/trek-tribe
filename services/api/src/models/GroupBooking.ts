@@ -19,12 +19,19 @@ export interface GroupBookingDocument extends Document {
   tripId: Types.ObjectId;
   mainBookerId: Types.ObjectId;
   participants: GroupParticipant[];
+  numberOfGuests: number; // Total number of guests (same as totalParticipants but clearer naming)
   totalParticipants: number;
+  selectedPackageId?: string; // Package option selected
+  packageName?: string; // Package name for reference
   totalAmount: number;
   pricePerPerson: number;
   groupDiscount: number;
   discountAmount: number;
   finalAmount: number;
+  // Payment breakdown
+  paymentType: 'full' | 'advance';
+  advanceAmount?: number;
+  remainingAmount?: number;
   paymentStatus: 'pending' | 'partial' | 'completed' | 'failed' | 'refunded';
   paymentMethod: string;
   paymentTransactionId?: string;
@@ -78,17 +85,29 @@ const groupBookingSchema = new Schema(
         message: 'Group must have between 1 and 20 participants'
       }
     },
+    numberOfGuests: { 
+      type: Number, 
+      required: true,
+      min: 1,
+      max: 20
+    },
     totalParticipants: { 
       type: Number, 
       required: true,
       min: 1,
       max: 20
     },
+    selectedPackageId: { type: String },
+    packageName: { type: String },
     totalAmount: { type: Number, required: true, min: 0 },
     pricePerPerson: { type: Number, required: true, min: 0 },
     groupDiscount: { type: Number, default: 0, min: 0, max: 100 }, // Percentage
     discountAmount: { type: Number, default: 0, min: 0 },
     finalAmount: { type: Number, required: true, min: 0 },
+    // Payment breakdown
+    paymentType: { type: String, enum: ['full', 'advance'], default: 'full' },
+    advanceAmount: { type: Number, min: 0 },
+    remainingAmount: { type: Number, min: 0 },
     paymentStatus: { 
       type: String, 
       enum: ['pending', 'partial', 'completed', 'failed', 'refunded'], 
@@ -144,8 +163,13 @@ groupBookingSchema.pre('save', function(next) {
   // Calculate total participants
   this.totalParticipants = this.participants.length;
   
+  // Sync numberOfGuests with totalParticipants if not explicitly set
+  if (!this.numberOfGuests) {
+    this.numberOfGuests = this.totalParticipants;
+  }
+  
   // Calculate total amount before discount
-  this.totalAmount = this.pricePerPerson * this.totalParticipants;
+  this.totalAmount = this.pricePerPerson * this.numberOfGuests;
   
   // Apply group discount
   if (this.groupDiscount > 0) {
@@ -154,6 +178,13 @@ groupBookingSchema.pre('save', function(next) {
   } else {
     this.discountAmount = 0;
     this.finalAmount = this.totalAmount;
+  }
+  
+  // Calculate payment breakdown for advance payments
+  if (this.paymentType === 'advance' && this.advanceAmount) {
+    this.remainingAmount = this.finalAmount - this.advanceAmount;
+  } else {
+    this.remainingAmount = 0;
   }
   
   // Ensure at least one participant is marked as main booker
