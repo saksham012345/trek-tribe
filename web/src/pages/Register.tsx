@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import axios from 'axios';
+import { Link, useNavigate } from 'react-router-dom';
+import api from '../config/api';
 
 interface RegisterProps {
   onLogin: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const Register: React.FC<RegisterProps> = ({ onLogin }) => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -36,33 +37,51 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
     }
 
     try {
-      const response = await axios.post('/auth/register', {
+      const response = await api.post('/auth/register', {
         name: formData.name,
         email: formData.email,
         password: formData.password,
         role: formData.role
       });
       
-      // After successful registration, login with the same credentials
-      const result = await onLogin(formData.email, formData.password);
-      if (!result.success && result.error) {
-        setError(result.error);
+      // Registration now returns both token and user data, so we can login directly
+      const responseData = response.data as { token: string; user: any };
+      if (responseData.token && responseData.user) {
+        localStorage.setItem('token', responseData.token);
+        // Trigger auth context update by calling a login attempt
+        const result = await onLogin(formData.email, formData.password);
+        if (result.success) {
+          // Redirect to home page after successful registration and login
+          navigate('/', { replace: true });
+        } else if (result.error) {
+          setError(result.error);
+        }
+      } else {
+        setError('Registration successful but login failed. Please try logging in manually.');
       }
     } catch (error: any) {
       console.log('Registration error details:', error);
       if (error.response?.data?.error) {
+        let errorMessage = '';
         if (typeof error.response.data.error === 'object') {
           // Handle Zod validation errors
           const validationErrors = error.response.data.error.fieldErrors || error.response.data.error;
           const errorMessages = Object.values(validationErrors).flat();
-          setError(errorMessages.join(', '));
+          errorMessage = errorMessages.join(', ');
         } else {
-          setError(error.response.data.error);
+          errorMessage = error.response.data.error;
+        }
+        
+        // Provide better guidance for common errors
+        if (errorMessage.includes('Email already in use')) {
+          setError('This email is already registered. Try logging in instead, or use a different email address.');
+        } else {
+          setError(errorMessage);
         }
       } else if (error.message) {
-        setError(`Connection error: ${error.message}. Please make sure the server is running.`);
+        setError(`Connection error: ${error.message}. Please make sure you have a stable internet connection.`);
       } else {
-        setError('Registration failed. Please try again.');
+        setError('Registration failed. Please check your information and try again.');
       }
     } finally {
       setLoading(false);
@@ -70,13 +89,13 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-forest-50 to-nature-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-forest-50 to-nature-50 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-6 sm:space-y-8">
         <div className="text-center">
-          <div className="mx-auto h-16 w-16 bg-gradient-to-br from-forest-600 to-nature-600 rounded-2xl flex items-center justify-center shadow-lg">
-            <span className="text-white font-bold text-2xl">🌲</span>
+          <div className="mx-auto h-12 w-12 sm:h-16 sm:w-16 bg-gradient-to-br from-forest-600 to-nature-600 rounded-2xl flex items-center justify-center shadow-lg">
+            <span className="text-white font-bold text-xl sm:text-2xl">🌲</span>
           </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-forest-800">
+          <h2 className="mt-4 sm:mt-6 text-center text-2xl sm:text-3xl font-extrabold text-forest-800">
             Join the 
             <span className="text-nature-600">Adventure</span>
           </h2>
@@ -88,8 +107,8 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
           </p>
         </div>
         
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-forest-200">
-          <form className="space-y-6" onSubmit={handleSubmit}>
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-6 sm:p-8 border border-forest-200">
+          <form className="space-y-4 sm:space-y-6" onSubmit={handleSubmit}>
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2">
                 <span className="text-xl">⚠️</span>
@@ -183,11 +202,11 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
               </div>
             </div>
 
-            <div className="pt-4">
+            <div className="pt-2 sm:pt-4">
               <button
                 type="submit"
                 disabled={loading}
-                className="group relative w-full flex justify-center py-4 px-6 border border-transparent text-lg font-bold rounded-xl text-white bg-gradient-to-r from-nature-600 to-forest-600 hover:from-nature-700 hover:to-forest-700 focus:outline-none focus:ring-4 focus:ring-nature-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                className="group relative w-full flex justify-center py-3 sm:py-4 px-4 sm:px-6 border border-transparent text-base sm:text-lg font-bold rounded-xl text-white bg-gradient-to-r from-nature-600 to-forest-600 hover:from-nature-700 hover:to-forest-700 focus:outline-none focus:ring-4 focus:ring-nature-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
               >
                 {loading ? (
                   <span className="flex items-center gap-2">

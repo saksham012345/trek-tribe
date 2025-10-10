@@ -21,7 +21,7 @@ const api = axios.create({
 // Request interceptor to add auth tokens
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem('token'); // Fixed to match AuthContext
     if (token) {
       config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${token}`;
@@ -40,11 +40,11 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       // Only redirect to login for authentication endpoints or if no token exists
       const isAuthEndpoint = error.config?.url?.includes('/auth/') || error.config?.url?.includes('/login');
-      const hasToken = localStorage.getItem('authToken');
+      const hasToken = localStorage.getItem('token'); // Fixed to match AuthContext
       
       if (!hasToken || isAuthEndpoint) {
         // Clear invalid token and redirect
-        localStorage.removeItem('authToken');
+        localStorage.removeItem('token'); // Fixed to match AuthContext
         window.location.href = '/login';
       } else {
         // For other 401 errors, just log and let the component handle it

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import axios from 'axios';
+import api from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
+import ProfilePhotoUpload from '../components/ProfilePhotoUpload';
 
 interface ProfileStats {
   memberSince: string;
@@ -88,7 +89,7 @@ const EnhancedProfile: React.FC = () => {
   const fetchProfile = async () => {
     try {
       const endpoint = isOwnProfile ? '/profile/me' : `/profile/${userId}`;
-      const response = await axios.get(endpoint);
+      const response = await api.get(endpoint);
       
       const responseData = response.data as { user?: any; profile?: any };
       const userData = isOwnProfile ? responseData.user : responseData.profile;
@@ -126,7 +127,7 @@ const EnhancedProfile: React.FC = () => {
 
   const fetchStats = async () => {
     try {
-      const response = await axios.get('/profile/me/stats');
+      const response = await api.get('/profile/me/stats');
       const statsData = response.data as { stats: any };
       setStats(statsData.stats);
     } catch (error) {
@@ -136,7 +137,7 @@ const EnhancedProfile: React.FC = () => {
 
   const generateShareableLink = async () => {
     try {
-      const response = await axios.post('/profile/me/share');
+      const response = await api.post('/profile/me/share');
       const linkData = response.data as { shareableLink: string };
       setShareableLink(linkData.shareableLink);
     } catch (error) {
@@ -224,7 +225,7 @@ const EnhancedProfile: React.FC = () => {
         };
       }
       
-      const response = await axios.put('/profile/me', cleanedForm);
+      const response = await api.put('/profile/me', cleanedForm);
       const userData = response.data as { user: any };
       setProfile(userData.user);
       setEditing(false);
@@ -295,16 +296,29 @@ const EnhancedProfile: React.FC = () => {
           <div className="bg-gradient-to-r from-forest-600 to-nature-600 h-48 relative">
             <div className="absolute inset-0 bg-black bg-opacity-20"></div>
             <div className="absolute bottom-6 left-6 flex items-end gap-6">
-              <div className="w-32 h-32 rounded-2xl bg-white p-1 shadow-lg">
-                {profile.profilePhoto ? (
-                  <img 
-                    src={profile.profilePhoto} 
-                    alt={profile.name}
-                    className="w-full h-full object-cover rounded-xl"
+              <div className="bg-white p-2 rounded-2xl shadow-lg">
+                {isOwnProfile && editing ? (
+                  <ProfilePhotoUpload
+                    currentPhoto={profile.profilePhoto}
+                    onPhotoUpdate={(photoUrl) => {
+                      setProfile({...profile, profilePhoto: photoUrl});
+                      // The component handles the API call, so we just update the local state
+                    }}
+                    className="scale-75"
                   />
                 ) : (
-                  <div className="w-full h-full bg-gray-200 rounded-xl flex items-center justify-center">
-                    <span className="text-4xl">👤</span>
+                  <div className="w-32 h-32 rounded-xl overflow-hidden bg-gradient-to-br from-forest-400 to-nature-500 flex items-center justify-center">
+                    {profile.profilePhoto ? (
+                      <img 
+                        src={profile.profilePhoto} 
+                        alt={profile.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                        <span className="text-4xl">👤</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -349,13 +363,30 @@ const EnhancedProfile: React.FC = () => {
                     </button>
                   </div>
                 ) : (
-                  <button
-                    onClick={handleEdit}
-                    className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-4 py-2 rounded-lg text-sm font-medium backdrop-blur-sm"
-                  >
-                    ✏️ Edit Profile
-                  </button>
+                  <div className="flex flex-col gap-2">
+                    <button
+                      onClick={handleEdit}
+                      className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-4 py-2 rounded-lg text-sm font-medium backdrop-blur-sm"
+                    >
+                      ✏️ Edit Profile
+                    </button>
+                  </div>
                 )}
+              </div>
+            )}
+            
+            {/* Standalone Upload Photo Button */}
+            {isOwnProfile && !editing && (
+              <div className="absolute bottom-6 right-6">
+                <div className="bg-white p-1 rounded-lg shadow-lg">
+                  <ProfilePhotoUpload
+                    currentPhoto={profile.profilePhoto}
+                    onPhotoUpdate={(photoUrl) => {
+                      setProfile({...profile, profilePhoto: photoUrl});
+                    }}
+                    className="scale-50 origin-center"
+                  />
+                </div>
               </div>
             )}
           </div>

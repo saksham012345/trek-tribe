@@ -1372,15 +1372,15 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-forest-50 to-nature-50 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-forest-50 to-nature-50 py-4 sm:py-8">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white/95 backdrop-blur-lg rounded-3xl shadow-2xl overflow-hidden border border-forest-200">
+        <div className="bg-white/95 backdrop-blur-lg rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden border border-forest-200">
           {/* Header */}
-          <div className="bg-gradient-to-r from-forest-600 to-nature-600 px-8 py-6">
-            <h1 className="text-3xl font-bold text-white mb-2">
+          <div className="bg-gradient-to-r from-forest-600 to-nature-600 px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mb-2">
               🏔️ Create Epic Adventure
             </h1>
-            <p className="text-forest-100">Design an unforgettable journey for fellow adventurers</p>
+            <p className="text-sm sm:text-base text-forest-100">Design an unforgettable journey for fellow adventurers</p>
             
             {/* Progress Bar */}
             <div className="mt-6">
@@ -1398,15 +1398,15 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
           </div>
           
           {/* Form Content */}
-          <div className="p-8">
+          <div className="p-4 sm:p-6 lg:p-8">
             <div>
               {/* Error Display */}
               {error && (
-                <div className="mb-6 bg-red-50 border-l-4 border-red-500 text-red-700 px-6 py-4 rounded-r-lg flex items-center gap-3 animate-pulse">
-                  <span className="text-2xl">⚠️</span>
+                <div className="mb-4 sm:mb-6 bg-red-50 border-l-4 border-red-500 text-red-700 px-4 sm:px-6 py-4 rounded-r-lg flex items-center gap-3 animate-pulse">
+                  <span className="text-xl sm:text-2xl">⚠️</span>
                   <div>
-                    <p className="font-semibold">Oops! Something went wrong</p>
-                    <p className="text-sm">{error}</p>
+                    <p className="font-semibold text-sm sm:text-base">Oops! Something went wrong</p>
+                    <p className="text-xs sm:text-sm">{error}</p>
                   </div>
                 </div>
               )}
@@ -1433,21 +1433,21 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
               </div>
 
               {/* Navigation Buttons */}
-              <div className="mt-8 flex items-center justify-between">
+              <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                 <button
                   type="button"
                   onClick={() => navigate('/trips')}
-                  className="px-5 py-2.5 border-2 border-forest-300 text-forest-700 rounded-xl hover:bg-forest-50 transition-colors"
+                  className="order-2 sm:order-1 px-4 sm:px-5 py-2.5 border-2 border-forest-300 text-forest-700 rounded-xl hover:bg-forest-50 transition-colors text-sm sm:text-base"
                 >
                   ← Cancel
                 </button>
                 
-                <div className="flex items-center gap-3">
+                <div className="order-1 sm:order-2 flex items-center gap-2 sm:gap-3">
                   {currentStep > 1 && (
                     <button
                       type="button"
                       onClick={prevStep}
-                      className="px-5 py-2.5 bg-forest-200 text-forest-800 rounded-xl hover:bg-forest-300 transition-colors"
+                      className="flex-1 sm:flex-none px-4 sm:px-5 py-2.5 bg-forest-200 text-forest-800 rounded-xl hover:bg-forest-300 transition-colors text-sm sm:text-base"
                     >
                       ← Back
                     </button>
@@ -1458,7 +1458,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                       type="button"
                       onClick={nextStep}
                       disabled={!isStepValid(currentStep)}
-                      className={`px-5 py-2.5 rounded-xl text-white transition-colors ${
+                      className={`flex-1 sm:flex-none px-4 sm:px-5 py-2.5 rounded-xl text-white transition-colors text-sm sm:text-base ${
                         isStepValid(currentStep)
                           ? 'bg-nature-600 hover:bg-nature-700'
                           : 'bg-nature-300 cursor-not-allowed'
@@ -1471,16 +1471,18 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                       type="button"
                       onClick={handleSubmit}
                       disabled={loading}
-                      className="px-6 py-2.5 bg-forest-700 text-white rounded-xl hover:bg-forest-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                      className="flex-1 sm:flex-none px-4 sm:px-6 py-2.5 bg-forest-700 text-white rounded-xl hover:bg-forest-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
                     >
                       {loading ? (
                         <>
-                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                          Creating Trip...
+                          <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div>
+                          <span className="hidden sm:inline">Creating Trip...</span>
+                          <span className="sm:hidden">Creating...</span>
                         </>
                       ) : (
                         <>
-                          🌟 Create Epic Adventure
+                          🌟 <span className="hidden sm:inline">Create Epic Adventure</span>
+                          <span className="sm:hidden">Create Trip</span>
                         </>
                       )}
                     </button>
