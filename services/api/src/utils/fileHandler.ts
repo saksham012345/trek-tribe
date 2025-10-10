@@ -59,6 +59,15 @@ export class FileHandler {
     this.initializeUploadDirectory();
   }
 
+  // Helper method to generate complete URL
+  private generateFileUrl(filename: string): string {
+    const baseUrl = process.env.NODE_ENV === 'production' 
+      ? process.env.API_URL || 'https://trek-tribe-38in.onrender.com'
+      : `http://localhost:${process.env.PORT || 4000}`;
+    
+    return `${baseUrl}/files/${filename}`;
+  }
+
   // Node.js Concept: Async directory creation with error handling
   private async initializeUploadDirectory(): Promise<void> {
     try {
@@ -167,7 +176,7 @@ export class FileHandler {
         size: buffer.length,
         mimeType,
         path: relativePath,
-        url: `/uploads/${relativePath.replace(/\\/g, '/')}`, // Normalize path separators
+        url: this.generateFileUrl(filename),
         checksum
       };
 
@@ -248,7 +257,7 @@ export class FileHandler {
         size,
         mimeType,
         path: relativePath,
-        url: `/uploads/${relativePath.replace(/\\/g, '/')}`,
+        url: this.generateFileUrl(filename),
         checksum
       };
 
@@ -270,20 +279,36 @@ export class FileHandler {
   // Node.js Concept: File reading operations
   async readFile(filename: string): Promise<Buffer> {
     try {
-      const fullPath = path.join(this.uploadDir, filename);
+      const relativePath = await this.findFileInSubdirectories(filename);
+      if (!relativePath) {
+        throw new FileError('File not found', 'FILE_NOT_FOUND');
+      }
+      
+      const fullPath = path.join(this.uploadDir, relativePath);
       await this.validateFilePath(fullPath);
       return await fs.readFile(fullPath);
     } catch (error) {
+      if (error instanceof FileError) {
+        throw error;
+      }
       throw new FileError(`Failed to read file: ${error}`);
     }
   }
 
   async readFileAsStream(filename: string): Promise<NodeJS.ReadableStream> {
     try {
-      const fullPath = path.join(this.uploadDir, filename);
+      const relativePath = await this.findFileInSubdirectories(filename);
+      if (!relativePath) {
+        throw new FileError('File not found', 'FILE_NOT_FOUND');
+      }
+      
+      const fullPath = path.join(this.uploadDir, relativePath);
       await this.validateFilePath(fullPath);
       return createReadStream(fullPath);
     } catch (error) {
+      if (error instanceof FileError) {
+        throw error;
+      }
       throw new FileError(`Failed to create file stream: ${error}`);
     }
   }
@@ -291,7 +316,12 @@ export class FileHandler {
   // Node.js Concept: File metadata operations
   async getFileMetadata(filename: string): Promise<FileMetadata> {
     try {
-      const fullPath = path.join(this.uploadDir, filename);
+      const relativePath = await this.findFileInSubdirectories(filename);
+      if (!relativePath) {
+        throw new FileError('File not found', 'FILE_NOT_FOUND');
+      }
+      
+      const fullPath = path.join(this.uploadDir, relativePath);
       await this.validateFilePath(fullPath);
       
       const stats = await fs.stat(fullPath);
@@ -320,8 +350,28 @@ export class FileHandler {
         checksum
       };
     } catch (error) {
+      if (error instanceof FileError) {
+        throw error;
+      }
       throw new FileError(`Failed to get file metadata: ${error}`);
     }
+  }
+
+  // Helper method to find file in subdirectories
+  private async findFileInSubdirectories(filename: string): Promise<string | null> {
+    const subdirs = ['images', 'videos', 'documents', 'temp', ''];
+    
+    for (const subdir of subdirs) {
+      try {
+        const filePath = subdir ? path.join(this.uploadDir, subdir, filename) : path.join(this.uploadDir, filename);
+        await fs.access(filePath);
+        return subdir ? path.join(subdir, filename) : filename;
+      } catch (error) {
+        // Continue searching in other subdirectories
+      }
+    }
+    
+    return null;
   }
 
   // Node.js Concept: Security - Path validation to prevent directory traversal
@@ -343,11 +393,19 @@ export class FileHandler {
   // Node.js Concept: File deletion
   async deleteFile(filename: string): Promise<void> {
     try {
-      const fullPath = path.join(this.uploadDir, filename);
+      const relativePath = await this.findFileInSubdirectories(filename);
+      if (!relativePath) {
+        throw new FileError('File not found', 'FILE_NOT_FOUND');
+      }
+      
+      const fullPath = path.join(this.uploadDir, relativePath);
       await this.validateFilePath(fullPath);
       await fs.unlink(fullPath);
       console.log(`🗑️  Deleted file: ${filename}`);
     } catch (error) {
+      if (error instanceof FileError) {
+        throw error;
+      }
       throw new FileError(`Failed to delete file: ${error}`);
     }
   }

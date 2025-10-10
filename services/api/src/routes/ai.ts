@@ -465,37 +465,137 @@ class TrekTribeAI {
   }
 
   private async handleTripSearchQuery(message: string, context: any) {
-    // Extract search intent from message
+    // Extract search intent from message with enhanced keyword detection
     const query = message.toLowerCase();
     let searchTerms = "";
     let filters: any = {};
+    let searchCategory = [];
 
-    if (query.includes('mountain') || query.includes('trek')) {
-      searchTerms = "mountain trekking";
-    } else if (query.includes('beach') || query.includes('coastal')) {
-      searchTerms = "beach coastal";
-    } else if (query.includes('cultural') || query.includes('heritage')) {
-      searchTerms = "cultural heritage";
+    // Enhanced nature/outdoor detection
+    if (query.includes('nature') || query.includes('natural') || query.includes('wilderness') || 
+        query.includes('outdoor') || query.includes('forest') || query.includes('wildlife')) {
+      searchCategory.push('Nature', 'Wildlife', 'Adventure', 'Mountain');
+      searchTerms = "nature outdoor wilderness";
+    }
+    // Mountain/trekking detection
+    else if (query.includes('mountain') || query.includes('trek') || query.includes('hiking') || 
+             query.includes('peak') || query.includes('altitude')) {
+      searchCategory.push('Mountain', 'Adventure', 'Trekking');
+      searchTerms = "mountain trekking hiking";
+    }
+    // Beach/coastal detection
+    else if (query.includes('beach') || query.includes('coastal') || query.includes('ocean') || 
+             query.includes('sea') || query.includes('island')) {
+      searchCategory.push('Beach', 'Coastal', 'Water');
+      searchTerms = "beach coastal ocean";
+    }
+    // Cultural/heritage detection
+    else if (query.includes('cultural') || query.includes('heritage') || query.includes('temple') ||
+             query.includes('historic') || query.includes('traditional')) {
+      searchCategory.push('Cultural', 'Heritage', 'Historical');
+      searchTerms = "cultural heritage historic";
+    }
+    // Adventure/sports detection
+    else if (query.includes('adventure') || query.includes('extreme') || query.includes('sport') ||
+             query.includes('adrenaline') || query.includes('thrill')) {
+      searchCategory.push('Adventure', 'Sports', 'Extreme');
+      searchTerms = "adventure sports extreme";
+    }
+    // Default broad search for any trip-related query
+    else {
+      searchTerms = query; // Use the full query for broader search
     }
 
     try {
-      const results = await this.generateSmartSearchResults(searchTerms, filters);
-      
+      // First try specific category search
+      let results = [];
+      if (searchCategory.length > 0) {
+        const categoryResults = await Trip.find({
+          categories: { $in: searchCategory },
+          status: 'active'
+        })
+        .populate('organizerId', 'name profilePhoto')
+        .sort({ averageRating: -1, createdAt: -1 })
+        .limit(10);
+        
+        results = categoryResults.map(trip => ({
+          ...trip.toObject(),
+          relevanceScore: 85, // High relevance for category matches
+          aiInsights: {
+            matchReason: `Perfect match for ${searchCategory.join(', ').toLowerCase()} trips`,
+            recommendationStrength: 'high'
+          }
+        }));
+      }
+
+      // If no category matches, try general search
+      if (results.length === 0) {
+        results = await this.generateSmartSearchResults(searchTerms, filters);
+      }
+
+      if (results.length > 0) {
+        return {
+          response: `Great news! I found ${results.length} amazing trips for you. Here are my top recommendations:`,
+          data: results.slice(0, 5), // Show more results
+          suggestions: [
+            "Tell me more about these trips",
+            "Show trips in a specific price range",
+            "Find trips for particular dates",
+            "See all available nature trips"
+          ],
+          requiresHumanAgent: false,
+          searchInsights: {
+            searchType: searchCategory.length > 0 ? 'category_based' : 'keyword_based',
+            categories: searchCategory,
+            totalFound: results.length
+          }
+        };
+      } else {
+        return {
+          response: "I don't see any trips matching your specific criteria right now, but we have many amazing adventures available! Let me show you some popular options that might interest you.",
+          data: await this.getPopularTrips(),
+          suggestions: [
+            "Show me all available trips",
+            "Find trips by destination",
+            "See budget-friendly options",
+            "Connect with support for custom trips"
+          ],
+          requiresHumanAgent: false
+        };
+      }
+    } catch (error) {
+      console.error('Trip search error:', error);
       return {
-        response: `I found ${results.length} trips matching your search! Here are the top recommendations:`,
-        data: results.slice(0, 3),
+        response: "I'm having a small technical hiccup while searching. Let me show you some of our most popular trips instead!",
+        data: await this.getPopularTrips().catch(() => []),
         suggestions: [
-          "Show me more details about these trips",
-          "Filter by price range",
-          "Find trips for specific dates"
+          "Try searching again",
+          "Browse all trips",
+          "Connect with support agent"
         ],
         requiresHumanAgent: false
       };
+    }
+  }
+
+  private async getPopularTrips(limit: number = 3) {
+    try {
+      const popularTrips = await Trip.find({ status: 'active' })
+        .populate('organizerId', 'name profilePhoto')
+        .sort({ averageRating: -1, reviewCount: -1 })
+        .limit(limit);
+      
+      return popularTrips.map(trip => ({
+        ...trip.toObject(),
+        relevanceScore: 75,
+        aiInsights: {
+          matchReason: 'Popular choice among travelers',
+          recommendationStrength: 'medium'
+        }
+      }));
     } catch (error) {
-      return {
-        response: "I'm having trouble searching for trips right now. Let me connect you with a human agent who can help you better.",
-        requiresHumanAgent: true
-      };
+      console.error('Error fetching popular trips:', error);
+      return [];
     }
   }
 

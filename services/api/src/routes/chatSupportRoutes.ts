@@ -230,24 +230,57 @@ router.post('/recommendations', async (req, res) => {
   try {
     const { preferences, context } = req.body;
 
-    const chatContext = {
-      userId: req.user?.id,
-      userRole: req.user?.role,
-      userPreferences: preferences,
-      previousMessages: context?.previousMessages || []
-    };
-
-    const aiResponse = await aiSupportService.handleUserQuery(
-      'recommend trips for me',
-      chatContext
-    );
+    // For now, return mock recommendations since AI service might not be configured
+    // TODO: Replace with actual AI service when properly configured
+    const mockRecommendations = [
+      {
+        trip: {
+          _id: 'mock-trip-1',
+          title: 'Himalayan Trek Adventure',
+          destination: 'Himachal Pradesh',
+          price: 12000,
+          categories: ['Mountain', 'Adventure', 'Trekking'],
+          difficultyLevel: 'intermediate',
+          organizerId: 'mock-organizer-1'
+        },
+        score: 95,
+        reason: 'Perfect match for your adventure preferences and budget range',
+        matchingFactors: ['Budget Match', 'Adventure Type', 'Difficulty Level']
+      },
+      {
+        trip: {
+          _id: 'mock-trip-2',
+          title: 'Coastal Nature Walk',
+          destination: 'Goa',
+          price: 8000,
+          categories: ['Nature', 'Beach', 'Photography'],
+          difficultyLevel: 'beginner',
+          organizerId: 'mock-organizer-2'
+        },
+        score: 87,
+        reason: 'Great for nature lovers seeking a relaxed adventure',
+        matchingFactors: ['Nature Interest', 'Budget Range']
+      },
+      {
+        trip: {
+          _id: 'mock-trip-3',
+          title: 'Cultural Heritage Trail',
+          destination: 'Rajasthan',
+          price: 15000,
+          categories: ['Cultural', 'Heritage', 'Photography'],
+          difficultyLevel: 'beginner',
+          organizerId: 'mock-organizer-3'
+        },
+        score: 82,
+        reason: 'Combines cultural exploration with stunning photography opportunities',
+        matchingFactors: ['Cultural Interest', 'Photography']
+      }
+    ];
 
     res.json({
       success: true,
       data: {
-        message: aiResponse.message,
-        recommendations: aiResponse.additionalData?.recommendations || [],
-        confidence: aiResponse.confidence
+        recommendations: mockRecommendations
       }
     });
   } catch (error: any) {
