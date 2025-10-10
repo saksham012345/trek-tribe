@@ -5,14 +5,14 @@ import axios from 'axios';
 const API_BASE_URL = process.env.REACT_APP_API_URL || 
   (process.env.NODE_ENV === 'production' 
     ? (window.location.hostname.includes('onrender.com') 
-        ? 'https://trek-tribe-api.onrender.com'  // Render deployment
+        ? 'https://trek-tribe-38in.onrender.com'  // Render deployment - corrected URL
         : 'https://your-api-domain.vercel.app')  // Vercel deployment
     : 'http://localhost:4000');  // Local development
 
 // Create axios instance with default configuration
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 15000,
+  timeout: 30000, // Increased to 30 seconds for Render's slower response times
   headers: {
     'Content-Type': 'application/json',
   },
