@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../config/api';
 import { User } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import AIRecommendations from '../components/AIRecommendations';
@@ -59,8 +59,8 @@ const Home: React.FC<HomeProps> = ({ user }) => {
       try {
         setLoading(true);
         const [tripsRes, statsRes] = await Promise.all([
-          axios.get('/trips?limit=6'),
-          axios.get('/admin/stats')
+          api.get('/trips?limit=6'),
+          api.get('/admin/stats')
         ]);
         
         const tripsData = tripsRes.data;

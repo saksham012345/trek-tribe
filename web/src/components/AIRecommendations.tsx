@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
 
 interface Trip {
@@ -49,7 +49,7 @@ const AIRecommendations: React.FC<AIRecommendationsProps> = ({
         interests: ['adventure', 'nature', 'cultural']
       };
 
-      const response = await axios.post('/chat/recommendations', {
+      const response = await api.post('/chat/recommendations', {
         preferences,
         context: {
           currentPage: window.location.pathname,

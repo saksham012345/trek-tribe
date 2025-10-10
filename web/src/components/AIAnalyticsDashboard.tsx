@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
 
 interface TravelAnalytics {
@@ -48,11 +48,7 @@ const AIAnalyticsDashboard: React.FC<AIAnalyticsDashboardProps> = ({
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/chat/user-analytics', {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      const response = await api.get('/chat/user-analytics');
 
       if (response.data.success && response.data.data.analytics) {
         setAnalytics(response.data.data.analytics);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../config/api';
 import { User } from '../types';
 import AIAnalyticsDashboard from '../components/AIAnalyticsDashboard';
 
@@ -30,7 +30,7 @@ const Profile: React.FC<ProfileProps> = ({ user }) => {
   useEffect(() => {
     const fetchUserTrips = async () => {
       try {
-        const response = await axios.get('/trips');
+        const response = await api.get('/trips');
         const allTrips = response.data;
         
         // Filter trips based on user role

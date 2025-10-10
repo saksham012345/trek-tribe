@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../config/api';
 import {
   MessageSquare, 
   User, 
@@ -96,7 +96,7 @@ const AgentDashboard: React.FC = () => {
 
   const fetchAgentStats = async () => {
     try {
-      const response = await axios.get('/agent/stats');
+      const response = await api.get('/agent/stats');
       const statsData = response.data as AgentStats;
       setStats(statsData);
     } catch (error: any) {
@@ -114,7 +114,7 @@ const AgentDashboard: React.FC = () => {
         ...filters
       });
       
-      const response = await axios.get(`/agent/tickets?${params}`);
+      const response = await api.get(`/agent/tickets?${params}`);
       const ticketData = response.data as { tickets: Ticket[]; pagination: { current: number; pages: number } };
       setTickets(ticketData.tickets);
       setCurrentPage(ticketData.pagination.current);
@@ -128,7 +128,7 @@ const AgentDashboard: React.FC = () => {
 
   const fetchTicketDetails = async (ticketId: string) => {
     try {
-      const response = await axios.get(`/agent/tickets/${ticketId}`);
+      const response = await api.get(`/agent/tickets/${ticketId}`);
       const ticketData = response.data as { ticket: Ticket };
       setSelectedTicket(ticketData.ticket);
     } catch (error: any) {
@@ -138,7 +138,7 @@ const AgentDashboard: React.FC = () => {
 
   const assignTicket = async (ticketId: string) => {
     try {
-      await axios.post(`/agent/tickets/${ticketId}/assign`);
+      await api.post(`/agent/tickets/${ticketId}/assign`);
       fetchTickets(currentPage);
       if (selectedTicket?.ticketId === ticketId) {
         fetchTicketDetails(ticketId);
@@ -150,7 +150,7 @@ const AgentDashboard: React.FC = () => {
 
   const updateTicketStatus = async (ticketId: string, status: string) => {
     try {
-      await axios.patch(`/agent/tickets/${ticketId}/status`, { status });
+      await api.patch(`/agent/tickets/${ticketId}/status`, { status });
       fetchTickets(currentPage);
       if (selectedTicket?.ticketId === ticketId) {
         fetchTicketDetails(ticketId);
@@ -165,7 +165,7 @@ const AgentDashboard: React.FC = () => {
     
     try {
       setSendingMessage(true);
-      await axios.post(`/agent/tickets/${selectedTicket.ticketId}/messages`, {
+      await api.post(`/agent/tickets/${selectedTicket.ticketId}/messages`, {
         message: newMessage
       });
       setNewMessage('');
@@ -184,7 +184,7 @@ const AgentDashboard: React.FC = () => {
     }
     
     try {
-      const response = await axios.get(`/agent/customers/search?q=${encodeURIComponent(query)}`);
+      const response = await api.get(`/agent/customers/search?q=${encodeURIComponent(query)}`);
       const customerData = response.data as { customers: Customer[] };
       setCustomerSearchResults(customerData.customers);
     } catch (error: any) {
@@ -196,7 +196,7 @@ const AgentDashboard: React.FC = () => {
     if (!whatsappMessage.phone || !whatsappMessage.message) return;
     
     try {
-      await axios.post('/agent/whatsapp/send', whatsappMessage);
+      await api.post('/agent/whatsapp/send', whatsappMessage);
       setWhatsappMessage({ phone: '', message: '' });
       alert('WhatsApp message sent successfully!');
     } catch (error: any) {
