@@ -123,7 +123,7 @@ router.post('/', authenticateJwt, async (req, res) => {
     const participants = [{
       name: user.name,
       email: user.email,
-      phone: user.phoneNumber || contactPhone,
+      phone: user.phone || contactPhone,
       emergencyContactName: emergencyContactName || user.name,
       emergencyContactPhone: emergencyContactPhone || contactPhone,
       medicalConditions: travelerDetails?.[0]?.medicalConditions || '',
@@ -357,7 +357,7 @@ router.get('/email-status', authenticateJwt, async (req, res) => {
 });
 
 // Upload payment screenshot
-router.post('/:bookingId/payment-screenshot', authenticateJwt, upload.single('paymentScreenshot'), async (req, res) => {
+router.post('/:bookingId/payment-screenshot', authenticateJwt, upload.single('paymentScreenshot') as any, async (req, res) => {
   try {
     const userId = (req as any).auth.userId;
     const { bookingId } = req.params;
@@ -383,7 +383,11 @@ router.post('/:bookingId/payment-screenshot', authenticateJwt, upload.single('pa
     }
 
     // Save the uploaded file
-    const savedFile = await fileHandler.saveImage(req.file.buffer, req.file.originalname);
+    const savedFile = await fileHandler.saveBufferToFile(
+      req.file.buffer, 
+      req.file.originalname,
+      req.file.mimetype
+    );
     
     // Update booking with payment screenshot
     booking.paymentScreenshot = {
@@ -440,7 +444,7 @@ router.get('/:bookingId/payment-verification', authenticateJwt, async (req, res)
     // Find the booking with trip and user details
     const booking = await GroupBooking.findById(bookingId)
       .populate('tripId', 'title destination organizerId')
-      .populate('mainBookerId', 'name email phoneNumber')
+      .populate('mainBookerId', 'name email phone')
       .populate('verifiedBy', 'name email');
       
     if (!booking) {
@@ -467,7 +471,7 @@ router.get('/:bookingId/payment-verification', authenticateJwt, async (req, res)
         mainBooker: {
           name: (booking.mainBookerId as any).name,
           email: (booking.mainBookerId as any).email,
-          phone: (booking.mainBookerId as any).phoneNumber
+          phone: (booking.mainBookerId as any).phone
         },
         participants: booking.participants,
         numberOfGuests: booking.numberOfGuests,
