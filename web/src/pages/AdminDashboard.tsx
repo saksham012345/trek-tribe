@@ -59,13 +59,10 @@ const AdminDashboard: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
-    fetchDashboardStats();
-  }, []);
-
-  // Redirect if not admin
-  if (!user || user.role !== 'admin') {
-    return <Navigate to="/login" replace />;
-  }
+    if (user && user.role === 'admin') {
+      fetchDashboardStats();
+    }
+  }, [user]);
 
   const fetchDashboardStats = async () => {
     try {
@@ -158,6 +155,11 @@ const AdminDashboard: React.FC = () => {
     const minutes = Math.floor((seconds % 3600) / 60);
     return `${hours}h ${minutes}m`;
   };
+
+  // Redirect if not admin (after all hooks)
+  if (!user || user.role !== 'admin') {
+    return <Navigate to="/login" replace />;
+  }
 
   if (loading) {
     return (
