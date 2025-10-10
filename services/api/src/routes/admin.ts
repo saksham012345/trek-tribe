@@ -188,6 +188,172 @@ router.get('/users', async (req, res) => {
   }
 });
 
+// Get user contact information (Admin only - sensitive data)
+router.get('/users/contacts', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const search = req.query.search as string || '';
+    const role = req.query.role as string;
+
+    const query: any = {};
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { phone: { $regex: search, $options: 'i' } }
+      ];
+    }
+    if (role && role !== 'all') {
+      query.role = role;
+    }
+
+    const total = await User.countDocuments(query);
+    const users = await User.find(query, {
+      name: 1,
+      email: 1,
+      phone: 1,
+      role: 1,
+      isVerified: 1,
+      location: 1,
+      dateOfBirth: 1,
+      emergencyContact: 1,
+      createdAt: 1,
+      lastActive: 1
+    })
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    // Log access to sensitive data
+    logger.info('Admin accessed user contact information', {
+      adminId: (req as any).auth.userId,
+      userCount: users.length,
+      searchQuery: search,
+      timestamp: new Date()
+    });
+
+    res.json({
+      users,
+      pagination: {
+        current: page,
+        pages: Math.ceil(total / limit),
+        total
+      },
+      warning: 'This endpoint contains sensitive user data. Access is logged and monitored.'
+    });
+  } catch (error: any) {
+    logger.error('Error fetching user contacts', { 
+      error: error.message, 
+      adminId: (req as any).auth.userId 
+    });
+    res.status(500).json({ error: 'Failed to fetch user contacts' });
+  }
+});
+
+// Get specific user's detailed contact information
+router.get('/users/:id/contact', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const user = await User.findById(id, {
+      name: 1,
+      email: 1,
+      phone: 1,
+      role: 1,
+      location: 1,
+      dateOfBirth: 1,
+      emergencyContact: 1,
+      privacySettings: 1,
+      createdAt: 1,
+      lastActive: 1,
+      isVerified: 1
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Log access to individual user's sensitive data
+    logger.info('Admin accessed individual user contact information', {
+      adminId: (req as any).auth.userId,
+      targetUserId: id,
+      targetUserEmail: user.email,
+      timestamp: new Date()
+    });
+
+    res.json({
+      user,
+      warning: 'This data contains sensitive user information. Access is logged and monitored.'
+    });
+  } catch (error: any) {
+    logger.error('Error fetching user contact details', { 
+      error: error.message, 
+      adminId: (req as any).auth.userId,
+      targetUserId: req.params.id
+    });
+    res.status(500).json({ error: 'Failed to fetch user contact details' });
+  }
+});
+
+// Export user contact data (CSV format)
+router.get('/users/export-contacts', async (req, res) => {
+  try {
+    const role = req.query.role as string;
+    const query: any = {};
+    
+    if (role && role !== 'all') {
+      query.role = role;
+    }
+
+    const users = await User.find(query, {
+      name: 1,
+      email: 1,
+      phone: 1,
+      role: 1,
+      location: 1,
+      createdAt: 1,
+      lastActive: 1,
+      isVerified: 1
+    }).sort({ createdAt: -1 });
+
+    // Generate CSV content
+    const csvHeader = 'Name,Email,Phone,Role,Location,Verified,Created At,Last Active\n';
+    const csvRows = users.map(user => {
+      return [
+        `"${user.name || ''}",`,
+        `"${user.email || ''}",`,
+        `"${user.phone || ''}",`,
+        `"${user.role || ''}",`,
+        `"${user.location || ''}",`,
+        `"${user.isVerified ? 'Yes' : 'No'}",`,
+        `"${user.createdAt ? new Date(user.createdAt).toISOString() : ''}",`,
+        `"${user.lastActive ? new Date(user.lastActive).toISOString() : ''}"`
+      ].join('');
+    }).join('\n');
+
+    const csv = csvHeader + csvRows;
+
+    // Log sensitive data export
+    logger.warn('Admin exported user contact data', {
+      adminId: (req as any).auth.userId,
+      userCount: users.length,
+      roleFilter: role,
+      timestamp: new Date()
+    });
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="trek-tribe-users-${new Date().toISOString().split('T')[0]}.csv"`);
+    res.send(csv);
+  } catch (error: any) {
+    logger.error('Error exporting user contacts', { 
+      error: error.message, 
+      adminId: (req as any).auth.userId 
+    });
+    res.status(500).json({ error: 'Failed to export user contacts' });
+  }
+});
+
 // Get all trips with pagination
 router.get('/trips', async (req, res) => {
   try {

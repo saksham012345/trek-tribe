@@ -20,6 +20,7 @@ import CookieConsent from './components/CookieConsent';
 import CookieSettings from './components/CookieSettings';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsConditions from './pages/TermsConditions';
+import AIShowcase from './pages/AIShowcase';
 import { Trip } from './types';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:4000';
@@ -91,6 +92,7 @@ function AppContent() {
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-conditions" element={<TermsConditions />} />
             <Route path="/cookie-settings" element={<CookieSettings />} />
+            <Route path="/ai-showcase" element={<AIShowcase />} />
           </Routes>
         </main>
         

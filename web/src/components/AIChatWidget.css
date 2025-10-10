@@ -380,27 +380,63 @@
   margin-top: 8px;
 }
 
+.smart-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.smart-action-btn {
+  padding: 6px 8px;
+  background: linear-gradient(135deg, #3B82F6, #1D4ED8);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  text-align: center;
+}
+
+.smart-action-btn:hover {
+  background: linear-gradient(135deg, #1D4ED8, #1E40AF);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.smart-action-btn:active {
+  transform: translateY(0);
+}
+
 .human-agent-request-btn {
   width: 100%;
-  background: transparent;
-  border: 1px solid #d1d5db;
-  color: #6b7280;
+  background: linear-gradient(135deg, #10B981, #059669);
+  border: none;
+  color: white;
   padding: 8px 12px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .human-agent-request-btn:hover:not(:disabled) {
-  background: #f9fafb;
-  border-color: #9ca3af;
-  color: #374151;
+  background: linear-gradient(135deg, #059669, #047857);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
 }
 
 .human-agent-request-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.6;
   cursor: not-allowed;
+  transform: none;
 }
 
 /* Animations */
@@ -518,9 +554,21 @@
     color: #d1d5db;
   }
 
+  .smart-action-btn {
+    background: linear-gradient(135deg, #1e40af, #1e3a8a);
+  }
+
+  .smart-action-btn:hover {
+    background: linear-gradient(135deg, #1e3a8a, #1e1b4b);
+    box-shadow: 0 2px 8px rgba(30, 64, 175, 0.4);
+  }
+
+  .human-agent-request-btn {
+    background: linear-gradient(135deg, #065f46, #047857);
+  }
+
   .human-agent-request-btn:hover:not(:disabled) {
-    background: #4b5563;
-    border-color: #6b7280;
-    color: #f9fafb;
+    background: linear-gradient(135deg, #047857, #064e3b);
+    box-shadow: 0 2px 8px rgba(6, 95, 70, 0.4);
   }
 }

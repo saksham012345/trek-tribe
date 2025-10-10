@@ -2,6 +2,9 @@ import { logger } from '../utils/logger';
 import { Trip } from '../models/Trip';
 import { User } from '../models/User';
 import { SupportTicket } from '../models/SupportTicket';
+import { GroupBooking } from '../models/GroupBooking';
+import { Review } from '../models/Review';
+import mongoose from 'mongoose';
 
 interface AIResponse {
   message: string;
@@ -17,17 +20,83 @@ interface AIResponse {
       value: string;
     }>;
   };
+  additionalData?: {
+    recommendations?: TripRecommendation[];
+    interpretedIntent?: string;
+    suggestions?: Array<{
+      text: string;
+      type: string;
+      confidence: number;
+    }>;
+    extractedFilters?: {
+      destination?: string;
+      category?: string;
+      difficultyLevel?: string;
+      priceRange?: { min: number; max: number };
+    };
+    analytics?: UserAnalytics;
+    availability?: TripAvailability;
+    organizerProfile?: OrganizerProfile;
+  };
 }
 
 interface ChatContext {
   userId?: string;
   userRole?: string;
   tripId?: string;
+  userPreferences?: {
+    budget?: { min: number; max: number };
+    difficulty?: 'beginner' | 'intermediate' | 'advanced';
+    interests?: string[];
+    duration?: number;
+  };
   previousMessages: Array<{
     role: 'user' | 'assistant';
     content: string;
     timestamp: Date;
   }>;
+}
+
+interface TripAvailability {
+  tripId: string;
+  title: string;
+  availableSpots: number;
+  totalCapacity: number;
+  nextDeparture?: Date;
+  upcomingDepartures: Date[];
+  bookingCount: number;
+  isAlmostFull: boolean;
+}
+
+interface OrganizerProfile {
+  id: string;
+  name: string;
+  rating: number;
+  totalTrips: number;
+  experience: string;
+  specialties: string[];
+  languages: string[];
+  certifications: string[];
+  totalReviews: number;
+}
+
+interface TripRecommendation {
+  trip: any;
+  score: number;
+  reason: string;
+  matchingFactors: string[];
+}
+
+interface UserAnalytics {
+  bookingHistory: any[];
+  preferences: {
+    favoriteDestinations: string[];
+    preferredDifficulty: string;
+    averageBudget: number;
+    seasonalPreference: string[];
+  };
+  trendingInterests: string[];
+  recommendedBudget: { min: number; max: number };
 }
 
 interface KnowledgeBase {
@@ -60,10 +129,13 @@ interface KnowledgeBase {
 class TrekTribeAI {
   private knowledgeBase: KnowledgeBase;
   private tripCache: Map<string, any> = new Map();
+  private availabilityCache: Map<string, TripAvailability> = new Map();
+  private organizerCache: Map<string, OrganizerProfile> = new Map();
+  private userAnalyticsCache: Map<string, UserAnalytics> = new Map();
 
   constructor() {
     this.knowledgeBase = this.initializeKnowledgeBase();
-    logger.info('Trek Tribe AI initialized with custom knowledge base');
+    logger.info('Trek Tribe AI initialized with advanced capabilities');
   }
 
   private initializeKnowledgeBase(): KnowledgeBase {
@@ -255,6 +327,51 @@ class TrekTribeAI {
               { id: 'budget5', text: 'Above ₹20,000', value: 'above_20000' }
             ]
           }
+        },
+        {
+          keywords: ['availability', 'available', 'spots left', 'full', 'seats', 'space'],
+          response: "Let me check real-time availability for you!",
+          confidence: 0.9,
+          requiresHuman: false,
+          actions: ['Check Availability', 'View Calendar']
+        },
+        {
+          keywords: ['recommend', 'suggest', 'best trip', 'which trek', 'advice'],
+          response: "I'd love to recommend the perfect adventure for you! Let me analyze your preferences.",
+          confidence: 0.9,
+          requiresHuman: false,
+          actions: ['Get Recommendations', 'Browse Trips'],
+          multipleChoice: {
+            question: "What type of experience are you looking for?",
+            options: [
+              { id: 'adventure', text: 'High Adventure & Thrill', value: 'adventure' },
+              { id: 'scenic', text: 'Scenic & Photography', value: 'scenic' },
+              { id: 'cultural', text: 'Cultural Immersion', value: 'cultural' },
+              { id: 'peaceful', text: 'Peaceful & Meditation', value: 'peaceful' },
+              { id: 'challenge', text: 'Physical Challenge', value: 'challenge' }
+            ]
+          }
+        },
+        {
+          keywords: ['organizer', 'guide', 'leader', 'who leads', 'trek leader'],
+          response: "Great question! Let me tell you about our amazing organizers and trek leaders.",
+          confidence: 0.9,
+          requiresHuman: false,
+          actions: ['View Organizer Profiles', 'Leader Experience']
+        },
+        {
+          keywords: ['book now', 'complete booking', 'help me book', 'guide booking'],
+          response: "I'll guide you through the booking process step by step! Let's get you booked on your perfect adventure.",
+          confidence: 0.95,
+          requiresHuman: false,
+          actions: ['Start Booking', 'Choose Trip']
+        },
+        {
+          keywords: ['my trips', 'my bookings', 'history', 'past trips', 'previous'],
+          response: "Let me pull up your booking history and travel preferences!",
+          confidence: 0.9,
+          requiresHuman: false,
+          actions: ['View History', 'Trip Analytics']
         }
       ],
       contextualResponses: {
@@ -405,18 +522,453 @@ class TrekTribeAI {
     return actionMap[context] || ['Browse Available Trips', 'Contact Support'];
   }
   
+  // Real-time trip availability
+  private async getTripAvailability(tripId: string): Promise<TripAvailability | null> {
+    try {
+      // Check cache first
+      if (this.availabilityCache.has(tripId)) {
+        const cached = this.availabilityCache.get(tripId)!;
+        // Cache valid for 2 minutes for availability data
+        if (Date.now() - cached.bookingCount < 2 * 60 * 1000) {
+          return cached;
+        }
+      }
+
+      // Fetch real-time data
+      const trip = await Trip.findById(tripId).select('title capacity participants startDate endDate');
+      if (!trip) return null;
+
+      const bookingCount = await GroupBooking.countDocuments({ tripId, status: 'confirmed' });
+      const availableSpots = trip.capacity - trip.participants.length;
+      
+      const availability: TripAvailability = {
+        tripId,
+        title: trip.title,
+        availableSpots,
+        totalCapacity: trip.capacity,
+        nextDeparture: trip.startDate,
+        upcomingDepartures: [trip.startDate], // Can be enhanced with multiple dates
+        bookingCount,
+        isAlmostFull: availableSpots <= Math.ceil(trip.capacity * 0.2) // Less than 20% available
+      };
+
+      // Cache for 2 minutes
+      this.availabilityCache.set(tripId, availability);
+      setTimeout(() => this.availabilityCache.delete(tripId), 2 * 60 * 1000);
+
+      return availability;
+    } catch (error) {
+      logger.error('Error fetching trip availability', { error, tripId });
+      return null;
+    }
+  }
+
+  // Organizer profile integration
+  private async getOrganizerProfile(organizerId: string): Promise<OrganizerProfile | null> {
+    try {
+      if (this.organizerCache.has(organizerId)) {
+        return this.organizerCache.get(organizerId)!;
+      }
+
+      const organizer = await User.findById(organizerId).select('name role');
+      if (!organizer) return null;
+
+      // Get organizer stats
+      const totalTrips = await Trip.countDocuments({ organizerId });
+      const reviews = await Review.find({ organizerId }).select('rating');
+      const totalReviews = reviews.length;
+      const avgRating = totalReviews > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews : 0;
+
+      // Get organizer trips to determine specialties
+      const organizerTrips = await Trip.find({ organizerId }).select('categories destination difficultyLevel');
+      const categories = organizerTrips.flatMap(t => t.categories);
+      const destinations = organizerTrips.map(t => t.destination);
+      const difficulties = organizerTrips.map(t => t.categories.find(c => ['beginner', 'intermediate', 'advanced', 'easy', 'moderate', 'difficult'].includes(c.toLowerCase())) || 'intermediate');
+      
+      const specialties = [...new Set(categories)].slice(0, 5);
+      const experience = this.calculateExperience(totalTrips, avgRating);
+
+      const profile: OrganizerProfile = {
+        id: organizerId,
+        name: organizer.name,
+        rating: Math.round(avgRating * 10) / 10,
+        totalTrips,
+        experience,
+        specialties,
+        languages: ['English', 'Hindi'], // Default - can be enhanced
+        certifications: this.getCertifications(totalTrips, avgRating),
+        totalReviews
+      };
+
+      // Cache for 30 minutes
+      this.organizerCache.set(organizerId, profile);
+      setTimeout(() => this.organizerCache.delete(organizerId), 30 * 60 * 1000);
+
+      return profile;
+    } catch (error) {
+      logger.error('Error fetching organizer profile', { error, organizerId });
+      return null;
+    }
+  }
+
+  // Smart trip recommendations
+  private async getSmartRecommendations(context: ChatContext): Promise<TripRecommendation[]> {
+    try {
+      const userAnalytics = context.userId ? await this.getUserAnalytics(context.userId) : null;
+      
+      // Build query based on context and analytics
+      let query: any = { status: 'active' };
+      
+      // Apply filters based on user preferences
+      if (context.userPreferences?.difficulty) {
+        query.difficultyLevel = context.userPreferences.difficulty;
+      }
+      
+      if (context.userPreferences?.budget) {
+        query.price = {
+          $gte: context.userPreferences.budget.min,
+          $lte: context.userPreferences.budget.max
+        };
+      }
+
+      // Fetch trips
+      const trips = await Trip.find(query)
+        .populate('organizerId', 'name')
+        .select('title destination price categories difficultyLevel duration organizerId')
+        .limit(10);
+
+      const recommendations: TripRecommendation[] = [];
+
+      for (const trip of trips) {
+        let score = 0;
+        const matchingFactors: string[] = [];
+        let reason = '';
+
+        // Score based on user analytics
+        if (userAnalytics) {
+          // Destination preference
+          if (userAnalytics.preferences.favoriteDestinations.includes(trip.destination)) {
+            score += 30;
+            matchingFactors.push('Favorite destination');
+          }
+
+          // Difficulty preference
+          const tripDifficulty = trip.categories.find(c => ['beginner', 'intermediate', 'advanced', 'easy', 'moderate', 'difficult'].includes(c.toLowerCase())) || 'intermediate';
+          if (userAnalytics.preferences.preferredDifficulty === tripDifficulty) {
+            score += 25;
+            matchingFactors.push('Preferred difficulty level');
+          }
+
+          // Budget match
+          const budgetMatch = Math.abs(trip.price - userAnalytics.preferences.averageBudget) / userAnalytics.preferences.averageBudget;
+          if (budgetMatch < 0.3) {
+            score += 20;
+            matchingFactors.push('Within preferred budget');
+          }
+        }
+
+        // Score based on context preferences
+        if (context.userPreferences) {
+          if (context.userPreferences.interests) {
+            const categoryMatch = trip.categories.some(cat => 
+              context.userPreferences!.interests!.some(interest => 
+                cat.toLowerCase().includes(interest.toLowerCase())
+              )
+            );
+            if (categoryMatch) {
+              score += 25;
+              matchingFactors.push('Matches interests');
+            }
+          }
+        }
+
+        // Trending bonus
+        const recentBookings = await GroupBooking.countDocuments({
+          tripId: trip._id,
+          createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
+        });
+        if (recentBookings > 5) {
+          score += 15;
+          matchingFactors.push('Trending adventure');
+        }
+
+        // Generate reason
+        if (matchingFactors.length > 0) {
+          reason = `Perfect match! ${matchingFactors.join(', ')}.`;
+        } else {
+          reason = 'Popular adventure with great reviews.';
+        }
+
+        if (score > 0 || matchingFactors.length === 0) {
+          recommendations.push({
+            trip,
+            score: Math.max(score, 10), // Minimum score
+            reason,
+            matchingFactors
+          });
+        }
+      }
+
+      // Sort by score
+      return recommendations.sort((a, b) => b.score - a.score).slice(0, 5);
+    } catch (error) {
+      logger.error('Error getting smart recommendations', { error });
+      return [];
+    }
+  }
+
+  // User analytics integration
+  private async getUserAnalytics(userId: string): Promise<UserAnalytics | null> {
+    try {
+      if (this.userAnalyticsCache.has(userId)) {
+        return this.userAnalyticsCache.get(userId)!;
+      }
+
+      // Fetch user's booking history
+      const bookings = await GroupBooking.find({ mainBookerId: userId })
+        .populate('tripId', 'destination price categories difficultyLevel')
+        .select('tripId createdAt totalAmount')
+        .sort({ createdAt: -1 });
+
+      if (bookings.length === 0) {
+        return null; // New user
+      }
+
+      const trips = bookings.map(b => b.tripId).filter(Boolean);
+      const destinations = trips.map((t: any) => t.destination);
+      const categories = trips.flatMap((t: any) => t.categories);
+      const difficulties = trips.map((t: any) => t.difficultyLevel);
+      const amounts = bookings.map(b => b.totalAmount);
+
+      // Calculate preferences
+      const favoriteDestinations = this.getTopItems(destinations, 3);
+      const preferredDifficulty = this.getMostCommon(difficulties) || 'intermediate';
+      const averageBudget = amounts.reduce((sum, amt) => sum + amt, 0) / amounts.length;
+      
+      // Seasonal preference analysis
+      const bookingMonths = bookings.map(b => new Date(b.createdAt).getMonth());
+      const seasonalPreference = this.getSeasonalPreference(bookingMonths);
+
+      // Trending interests from recent bookings
+      const recentCategories = bookings.slice(0, 3).flatMap(b => (b.tripId as any)?.categories || []);
+      const trendingInterests = this.getTopItems(recentCategories, 5);
+
+      const analytics: UserAnalytics = {
+        bookingHistory: bookings,
+        preferences: {
+          favoriteDestinations,
+          preferredDifficulty,
+          averageBudget,
+          seasonalPreference
+        },
+        trendingInterests,
+        recommendedBudget: {
+          min: Math.floor(averageBudget * 0.7),
+          max: Math.ceil(averageBudget * 1.3)
+        }
+      };
+
+      // Cache for 1 hour
+      this.userAnalyticsCache.set(userId, analytics);
+      setTimeout(() => this.userAnalyticsCache.delete(userId), 60 * 60 * 1000);
+
+      return analytics;
+    } catch (error) {
+      logger.error('Error fetching user analytics', { error, userId });
+      return null;
+    }
+  }
+
+  // Helper methods
+  private calculateExperience(totalTrips: number, avgRating: number): string {
+    if (totalTrips >= 50 && avgRating >= 4.5) return 'Expert Trek Leader';
+    if (totalTrips >= 25 && avgRating >= 4.0) return 'Senior Trek Leader';
+    if (totalTrips >= 10 && avgRating >= 3.5) return 'Experienced Guide';
+    if (totalTrips >= 5) return 'Qualified Guide';
+    return 'New Trek Leader';
+  }
+
+  private getCertifications(totalTrips: number, avgRating: number): string[] {
+    const certs = ['Basic First Aid'];
+    if (totalTrips >= 10) certs.push('Wilderness First Aid');
+    if (totalTrips >= 25) certs.push('Mountain Leadership');
+    if (avgRating >= 4.5) certs.push('Excellence in Service');
+    return certs;
+  }
+
+  private getTopItems<T>(items: T[], count: number): T[] {
+    const frequency = items.reduce((acc, item) => {
+      acc[item as string] = (acc[item as string] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return Object.entries(frequency)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, count)
+      .map(([item]) => item as T);
+  }
+
+  private getMostCommon<T>(items: T[]): T | null {
+    if (items.length === 0) return null;
+    const top = this.getTopItems(items, 1);
+    return top.length > 0 ? top[0] : null;
+  }
+
+  private getSeasonalPreference(months: number[]): string[] {
+    const seasons = months.map(m => {
+      if ([11, 0, 1].includes(m)) return 'Winter';
+      if ([2, 3, 4].includes(m)) return 'Spring';
+      if ([5, 6, 7].includes(m)) return 'Summer';
+      return 'Autumn';
+    });
+    return this.getTopItems(seasons, 2);
+  }
+
   private async enhanceWithTripContext(match: any, context: ChatContext): Promise<AIResponse> {
     let enhancedResponse = match.pattern.response;
+    let additionalData: any = {};
     
-    // If user is viewing a specific trip, add trip-specific information
-    if (context.tripId) {
+    // Handle availability queries
+    if (match.pattern.keywords.some((k: string) => ['availability', 'available', 'spots', 'full'].includes(k))) {
+      if (context.tripId) {
+        const availability = await this.getTripAvailability(context.tripId);
+        if (availability) {
+          if (availability.isAlmostFull) {
+            enhancedResponse = `⚠️ ${availability.title} is almost full! Only ${availability.availableSpots} out of ${availability.totalCapacity} spots remaining. This is a popular adventure with ${availability.bookingCount} confirmed bookings. I'd recommend booking soon to secure your spot!`;
+          } else {
+            enhancedResponse = `✅ Great news! ${availability.title} has ${availability.availableSpots} spots available out of ${availability.totalCapacity} total capacity. With ${availability.bookingCount} adventurers already booked, there's still plenty of room for you to join this amazing journey!`;
+          }
+          
+          if (availability.nextDeparture) {
+            enhancedResponse += ` Next departure: ${availability.nextDeparture.toLocaleDateString()}.`;
+          }
+        }
+      } else {
+        // General availability query - show trending trips
+        const recommendations = await this.getSmartRecommendations(context);
+        if (recommendations.length > 0) {
+          enhancedResponse += ` Here are some trips with great availability:\n\n`;
+          for (const rec of recommendations.slice(0, 3)) {
+            const availability = await this.getTripAvailability(rec.trip._id);
+            const status = availability?.isAlmostFull ? '🔥 Almost Full' : '✅ Available';
+            enhancedResponse += `• ${rec.trip.title} - ₹${rec.trip.price} ${status}\n`;
+          }
+        }
+      }
+    }
+    
+    // Handle organizer/leader queries
+    if (match.pattern.keywords.some((k: string) => ['organizer', 'guide', 'leader'].includes(k))) {
+      if (context.tripId) {
+        const tripInfo = await this.getTripInfo(context.tripId);
+        if (tripInfo?.organizerId) {
+          const organizer = await this.getOrganizerProfile(tripInfo.organizerId);
+          if (organizer) {
+            enhancedResponse = `Meet your trek leader! 🏔️\n\n**${organizer.name}** - ${organizer.experience}\n⭐ ${organizer.rating}/5.0 rating from ${organizer.totalReviews} reviews\n🎯 Led ${organizer.totalTrips} successful adventures\n🏆 Specialties: ${organizer.specialties.join(', ')}\n📜 Certifications: ${organizer.certifications.join(', ')}\n🗣️ Languages: ${organizer.languages.join(', ')}`;
+            
+            if (organizer.rating >= 4.5) {
+              enhancedResponse += '\n\n🌟 This is one of our top-rated organizers with exceptional reviews!';
+            }
+          }
+        }
+      }
+    }
+    
+    // Handle recommendation queries
+    if (match.pattern.keywords.some((k: string) => ['recommend', 'suggest', 'best', 'advice'].includes(k))) {
+      const recommendations = await this.getSmartRecommendations(context);
+      if (recommendations.length > 0) {
+        enhancedResponse = `🎯 Based on your preferences and travel history, here are my top recommendations:\n\n`;
+        
+        for (let i = 0; i < Math.min(3, recommendations.length); i++) {
+          const rec = recommendations[i];
+          const availability = await this.getTripAvailability(rec.trip._id);
+          const organizer = await this.getOrganizerProfile(rec.trip.organizerId);
+          
+          enhancedResponse += `**${i + 1}. ${rec.trip.title}** (₹${rec.trip.price.toLocaleString()})\n`;
+          enhancedResponse += `📍 ${rec.trip.destination} • ${rec.trip.difficultyLevel} level\n`;
+          enhancedResponse += `🎯 ${rec.reason}\n`;
+          
+          if (availability) {
+            enhancedResponse += `💺 ${availability.availableSpots} spots available`;
+            if (availability.isAlmostFull) enhancedResponse += ' (Almost Full!)';
+            enhancedResponse += '\n';
+          }
+          
+          if (organizer && organizer.rating >= 4.0) {
+            enhancedResponse += `👨‍🏫 Led by ${organizer.name} (⭐ ${organizer.rating}/5.0)\n`;
+          }
+          
+          enhancedResponse += '\n';
+        }
+        
+        additionalData.recommendations = recommendations;
+      } else {
+        enhancedResponse += ' Let me know your preferences (budget, difficulty, interests) for personalized suggestions!';
+      }
+    }
+    
+    // Handle user analytics queries
+    if (match.pattern.keywords.some((k: string) => ['my trips', 'history', 'analytics'].includes(k)) && context.userId) {
+      const analytics = await this.getUserAnalytics(context.userId);
+      if (analytics) {
+        enhancedResponse = `📊 Your Trek Tribe Analytics:\n\n`;
+        enhancedResponse += `🎒 Total Adventures: ${analytics.bookingHistory.length}\n`;
+        enhancedResponse += `💰 Average Budget: ₹${analytics.preferences.averageBudget.toLocaleString()}\n`;
+        enhancedResponse += `🎯 Preferred Difficulty: ${analytics.preferences.preferredDifficulty}\n`;
+        enhancedResponse += `📍 Favorite Destinations: ${analytics.preferences.favoriteDestinations.join(', ')}\n`;
+        enhancedResponse += `🌤️ Best Seasons: ${analytics.preferences.seasonalPreference.join(', ')}\n`;
+        
+        if (analytics.trendingInterests.length > 0) {
+          enhancedResponse += `\n🔥 Your Current Interests: ${analytics.trendingInterests.join(', ')}\n`;
+        }
+        
+        enhancedResponse += `\n💡 Recommended Budget Range: ₹${analytics.recommendedBudget.min.toLocaleString()} - ₹${analytics.recommendedBudget.max.toLocaleString()}`;
+        
+        // Get personalized recommendations
+        const recommendations = await this.getSmartRecommendations(context);
+        if (recommendations.length > 0) {
+          enhancedResponse += `\n\n🎯 Perfect for you right now:\n• ${recommendations[0].trip.title} - ${recommendations[0].reason}`;
+        }
+      } else {
+        enhancedResponse = `Welcome to Trek Tribe! 🎒 You haven't booked any adventures yet, but I'm excited to help you plan your first epic journey! Let me know what kind of adventure interests you.`;
+      }
+    }
+    
+    // Handle booking assistance
+    if (match.pattern.keywords.some((k: string) => ['book now', 'help me book', 'guide booking'].includes(k))) {
+      if (context.tripId) {
+        const availability = await this.getTripAvailability(context.tripId);
+        const tripInfo = await this.getTripInfo(context.tripId);
+        
+        if (availability && tripInfo) {
+          enhancedResponse = `🎯 Let's get you booked on ${availability.title}!\n\n`;
+          
+          if (availability.isAlmostFull) {
+            enhancedResponse += `⚡ URGENT: Only ${availability.availableSpots} spots left! This adventure is in high demand.\n\n`;
+          }
+          
+          enhancedResponse += `📋 Here's what you need to complete your booking:\n`;
+          enhancedResponse += `💰 Price: ₹${tripInfo.price.toLocaleString()} per person\n`;
+          enhancedResponse += `📅 Date: ${availability.nextDeparture?.toLocaleDateString()}\n`;
+          enhancedResponse += `👥 Available spots: ${availability.availableSpots}\n\n`;
+          
+          enhancedResponse += `🚀 Ready to book? Click 'Join Trip' on the trip page and I'll guide you through each step!`;
+        }
+      } else {
+        enhancedResponse += ' First, let me help you find the perfect adventure! What type of experience are you looking for?';
+      }
+    }
+    
+    // Original trip context enhancements
+    if (context.tripId && !match.pattern.keywords.some((k: string) => ['availability', 'organizer', 'recommend'].includes(k))) {
       const tripInfo = await this.getTripInfo(context.tripId);
       if (tripInfo) {
         if (match.pattern.keywords.includes('pickup') || match.pattern.keywords.includes('location')) {
           enhancedResponse += ` For ${tripInfo.title}, we have pickup points at ${tripInfo.pickupPoints?.join(', ') || 'multiple locations'}. Drop-off will be at ${tripInfo.dropOffPoints?.join(', ') || 'the same locations'}.`;
         }
         if (match.pattern.keywords.includes('price') || match.pattern.keywords.includes('cost')) {
-          enhancedResponse += ` This specific trek (${tripInfo.title}) is priced at ₹${tripInfo.price} per person.`;
+          enhancedResponse += ` This specific trek (${tripInfo.title}) is priced at ₹${tripInfo.price.toLocaleString()} per person.`;
         }
       }
     }
@@ -427,7 +979,8 @@ class TrekTribeAI {
       suggestedActions: match.pattern.actions || [],
       confidence: match.confidence,
       quickReplies: (match.pattern as any).quickReplies,
-      multipleChoice: (match.pattern as any).multipleChoice
+      multipleChoice: (match.pattern as any).multipleChoice,
+      additionalData
     };
   }
   

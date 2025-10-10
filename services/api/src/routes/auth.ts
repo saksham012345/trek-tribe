@@ -7,6 +7,7 @@ import { authenticateJwt } from '../middleware/auth';
 import { emailService } from '../services/emailService';
 import { logger } from '../utils/logger';
 import crypto from 'crypto';
+import axios from 'axios';
 
 const router = Router();
 
@@ -49,6 +50,103 @@ router.post('/login', async (req, res) => {
   }
   const token = jwt.sign({ userId: String(user._id), role: user.role }, jwtSecret, { expiresIn: '7d' });
   return res.json({ token });
+});
+
+// Google OAuth login schema
+const googleLoginSchema = z.object({
+  credential: z.string(), // Google ID token
+});
+
+// Google OAuth login route
+router.post('/google', async (req, res) => {
+  try {
+    const parsed = googleLoginSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.flatten() });
+    }
+
+    const { credential } = parsed.data;
+
+    // Verify Google ID token
+    let googleUser;
+    try {
+      const response = await axios.get(
+        `https://www.googleapis.com/oauth2/v1/tokeninfo?id_token=${credential}`
+      );
+      googleUser = response.data;
+    } catch (error) {
+      logger.error('Google token verification failed', { error });
+      return res.status(401).json({ error: 'Invalid Google token' });
+    }
+
+    // Extract user information
+    const {
+      email,
+      name,
+      picture,
+      sub: googleId
+    } = googleUser;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email not provided by Google' });
+    }
+
+    // Check if user exists
+    let user = await User.findOne({ email });
+
+    if (user) {
+      // Update user's Google info if needed
+      if (!user.profilePhoto && picture) {
+        user.profilePhoto = picture;
+        await user.save();
+      }
+      user.lastActive = new Date();
+      await user.save();
+    } else {
+      // Create new user with Google information
+      // Generate a random password hash (won't be used but required by schema)
+      const dummyPasswordHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
+      
+      user = await User.create({
+        email,
+        name: name || email.split('@')[0],
+        passwordHash: dummyPasswordHash,
+        role: 'traveler',
+        profilePhoto: picture,
+        isVerified: true, // Google accounts are pre-verified
+        lastActive: new Date()
+      });
+
+      logger.info('New user created via Google OAuth', { email, name });
+    }
+
+    // Generate JWT token
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      throw new Error('JWT_SECRET environment variable is required');
+    }
+
+    const token = jwt.sign(
+      { userId: String(user._id), role: user.role },
+      jwtSecret,
+      { expiresIn: '7d' }
+    );
+
+    res.json({ 
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        profilePhoto: user.profilePhoto
+      }
+    });
+
+  } catch (error: any) {
+    logger.error('Google OAuth error', { error: error.message });
+    res.status(500).json({ error: 'Authentication failed' });
+  }
 });
 
 router.get('/me', authenticateJwt, async (req, res) => {

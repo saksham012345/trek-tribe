@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { User } from '../types';
+import AIAnalyticsDashboard from '../components/AIAnalyticsDashboard';
 
 
 interface Trip {
@@ -153,6 +154,12 @@ const Profile: React.FC<ProfileProps> = ({ user }) => {
                 ))}
               </div>
             )}
+          </div>
+          
+          {/* AI Travel Analytics */}
+          <div className="mt-12">
+            <h2 className="text-xl font-semibold mb-6">🧠 AI Travel Insights</h2>
+            <AIAnalyticsDashboard className="w-full" />
           </div>
         </div>
       </div>

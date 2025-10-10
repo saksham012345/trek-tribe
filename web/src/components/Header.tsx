@@ -28,6 +28,12 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
             >
               🌿 Discover Adventures
             </Link>
+            <Link 
+              to="/ai-showcase" 
+              className="text-purple-700 hover:text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2 border border-purple-200"
+            >
+              🤖 AI Features
+            </Link>
             {user?.role === 'organizer' && (
               <Link 
                 to="/create-trip" 

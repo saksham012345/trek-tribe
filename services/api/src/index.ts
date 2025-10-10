@@ -16,6 +16,7 @@ import agentRoutes from './routes/agent';
 import chatSupportRoutes from './routes/chatSupportRoutes';
 import enhancedProfileRoutes from './routes/enhancedProfile';
 import publicProfileRoutes from './routes/publicProfile';
+import aiRoutes from './routes/ai';
 // Production-ready file upload routes
 import fileUploadRoutes from './routes/fileUploadProd';
 import { whatsappService } from './services/whatsappService';
@@ -170,6 +171,7 @@ async function start() {
     // app.use('/api/review-verification', reviewVerificationRoutes);
     app.use('/agent', agentRoutes);
     app.use('/chat', chatSupportRoutes);
+    app.use('/api/ai', aiRoutes);
     
     // Health check endpoint with detailed info
     app.get('/health', asyncErrorHandler(async (_req: Request, res: Response) => {

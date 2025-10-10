@@ -6,21 +6,21 @@ import { logger } from '../utils/logger';
 
 const presetUsers = [
   {
-    name: 'Admin User',
-    email: 'admin@trekktribe.com',
+    name: 'Root Admin',
+    email: 'trektribe_root@trektribe.in',
     phone: '+91-9999999999',
     role: 'admin',
-    password: 'Admin@123',
-    bio: 'System Administrator for TrekTribe platform',
+    password: 'Rajan123',
+    bio: 'Root Administrator for TrekTribe platform',
     isEmailVerified: true,
     profilePhoto: null
   },
   {
-    name: 'Support Agent',
-    email: 'agent@trekktribe.com',
+    name: 'Saksham Taneja',
+    email: 'tanejasaksham44@gmail.com',
     phone: '+91-9999999998',
     role: 'agent',
-    password: 'Agent@123',
+    password: 'Saksham@4700',
     bio: 'Customer Support Agent for TrekTribe',
     isEmailVerified: true,
     profilePhoto: null
@@ -114,14 +114,14 @@ async function setupPresetUsers() {
     console.log('');
     
     console.log('🔐 ADMIN LOGIN:');
-    console.log('   Email: admin@trekktribe.com');
-    console.log('   Password: Admin@123');
+    console.log('   Email: trektribe_root@trektribe.in');
+    console.log('   Password: Rajan123');
     console.log('   Access: /admin/dashboard');
     console.log('');
     
     console.log('🎧 AGENT LOGIN:');
-    console.log('   Email: agent@trekktribe.com');
-    console.log('   Password: Agent@123');
+    console.log('   Email: tanejasaksham44@gmail.com');
+    console.log('   Password: Saksham@4700');
     console.log('   Access: /agent/dashboard');
     console.log('');
     
