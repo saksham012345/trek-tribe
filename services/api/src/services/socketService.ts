@@ -40,7 +40,7 @@ class SocketService {
   initialize(server: HttpServer) {
     this.io = new SocketIOServer(server, {
       cors: {
-        origin: process.env.FRONTEND_URL || "http://localhost:3000",
+        origin: process.env.SOCKET_ORIGIN || process.env.FRONTEND_URL || "http://localhost:3000",
         methods: ["GET", "POST"],
         credentials: true
       },
@@ -98,13 +98,15 @@ class SocketService {
         isGuest: socket.data.isGuest 
       });
 
-      // Map user to socket for direct messaging
+      // Map user to socket for direct messaging and join user-specific room
       if (!socket.data.isGuest) {
         this.userSocketMap.set(userId, socket.id);
+        socket.join(`user_${userId}`);
         
-        // Map agents separately for routing
+        // Map agents separately for routing and join agent room
         if (userRole === 'agent' || userRole === 'admin') {
           this.agentSocketMap.set(userId, socket.id);
+          socket.join('agent_room');
         }
       }
 
@@ -285,14 +287,40 @@ class SocketService {
         const ticketSubject = `Chat Support Request - ${data.reason || 'General Inquiry'}`;
         const ticketDescription = `User requested human support during chat session.\n\nReason: ${data.reason || 'Not specified'}\n\nChat History:\n${session.messages.map(msg => `${msg.senderName}: ${msg.message}`).join('\n')}`;
         
-        ticketId = await aiSupportService.createSupportTicket(
-          session.userId,
-          ticketSubject,
-          ticketDescription,
-          'chat_escalation'
-        );
+        // Create ticket directly using SupportTicket model
+        const newTicket = await SupportTicket.create({
+          userId: session.userId,
+          subject: ticketSubject,
+          description: ticketDescription,
+          category: 'general',
+          priority: data.urgency === 'high' ? 'high' : data.urgency === 'low' ? 'low' : 'medium',
+          customerEmail: session.userEmail,
+          customerName: session.userName,
+          status: 'open',
+          messages: [{
+            sender: 'customer',
+            senderName: session.userName,
+            senderId: session.userId,
+            message: ticketDescription,
+            timestamp: new Date()
+          }]
+        });
 
+        ticketId = newTicket.ticketId;
         session.ticketId = ticketId;
+
+        // Notify agents about the new ticket
+        this.notifyNewTicket({
+          ticketId: newTicket.ticketId,
+          userId: session.userId,
+          customerName: session.userName,
+          customerEmail: session.userEmail,
+          subject: ticketSubject,
+          priority: newTicket.priority,
+          category: newTicket.category,
+          chatSessionId: sessionId,
+          createdAt: newTicket.createdAt
+        });
       }
 
       // Notify available agents
@@ -657,6 +685,75 @@ class SocketService {
       default:
         return `Your booking status has been updated`;
     }
+  }
+
+  // Notify agents about new tickets
+  notifyNewTicket(ticketData: any) {
+    if (!this.io) return;
+
+    const ticketNotification = {
+      type: 'new_ticket',
+      ticketId: ticketData.ticketId,
+      userId: ticketData.userId,
+      customerName: ticketData.customerName,
+      customerEmail: ticketData.customerEmail,
+      subject: ticketData.subject,
+      priority: ticketData.priority,
+      category: ticketData.category,
+      chatSessionId: ticketData.chatSessionId,
+      createdAt: ticketData.createdAt,
+      timestamp: new Date()
+    };
+
+    // Emit to all agents in agent room
+    this.io.to('agent_room').emit('new_ticket', ticketNotification);
+    
+    logger.info('New ticket notification sent to agents', { 
+      ticketId: ticketData.ticketId,
+      connectedAgents: this.agentSocketMap.size 
+    });
+  }
+
+  // Send agent reply to user
+  sendAgentReply(userId: string, message: any) {
+    if (!this.io) return;
+
+    this.io.to(`user_${userId}`).emit('agent_reply', {
+      ticketId: message.ticketId,
+      agentName: message.agentName,
+      message: message.message,
+      timestamp: message.timestamp
+    });
+
+    logger.info('Agent reply sent to user', { userId, ticketId: message.ticketId });
+  }
+
+  // Update ticket status for all stakeholders
+  updateTicketStatus(ticketData: any, eventType: string) {
+    if (!this.io) return;
+
+    // Notify user
+    this.io.to(`user_${ticketData.userId}`).emit('ticket_update', {
+      type: eventType,
+      ticketId: ticketData.ticketId,
+      status: ticketData.status,
+      timestamp: new Date()
+    });
+
+    // Notify agents
+    this.io.to('agent_room').emit('ticket_update', {
+      type: eventType,
+      ticketId: ticketData.ticketId,
+      status: ticketData.status,
+      userId: ticketData.userId,
+      timestamp: new Date()
+    });
+
+    logger.info('Ticket status update broadcasted', { 
+      ticketId: ticketData.ticketId, 
+      eventType, 
+      status: ticketData.status 
+    });
   }
 
   getServiceStatus() {

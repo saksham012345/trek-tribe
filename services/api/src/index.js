@@ -17,6 +17,7 @@ const organizerRoutes = require('./routes/organizer');
 const bookingRoutes = require('./routes/bookings');
 const adminRoutes = require('./routes/admin');
 const agentRoutes = require('./routes/agent');
+const supportRoutes = require('./routes/support');
 
 const app = express();
 
@@ -59,7 +60,7 @@ app.use(helmet({
 }));
 app.use(cors({ 
   origin: process.env.NODE_ENV === 'production' ? 
-    ['https://your-frontend-domain.com'] : '*',
+    ['https://trek-tribe.vercel.app'] : '*',
   credentials: true 
 }));
 
@@ -173,6 +174,7 @@ async function start() {
     app.use('/api/bookings', bookingRoutes);
     app.use('/api/admin', adminRoutes);
     app.use('/api/agent', agentRoutes);
+    app.use('/api/support', supportRoutes);
     
     // Health check endpoint with detailed info
     app.get('/health', asyncErrorHandler(async (req, res) => {

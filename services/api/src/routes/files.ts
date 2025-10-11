@@ -3,9 +3,27 @@ import { z } from 'zod';
 import { fileHandler, FileError } from '../utils/fileHandler';
 import { authenticateJwt } from '../middleware/auth';
 import { asyncErrorHandler } from '../utils/errors';
+import multer from 'multer';
+import { User } from '../models/User';
 
 // Node.js Concept: Express Router for file operations
 const router = Router();
+
+// Configure multer for multipart/form-data uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (allowedMimeTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  }
+});
 
 // Node.js Concept: Input validation schemas
 const uploadBase64Schema = z.object({
@@ -56,6 +74,52 @@ const validateMimeType = (allowedTypes: string[]) => {
     next();
   };
 };
+
+// POST /files/upload - Upload profile photo via multipart/form-data
+router.post('/upload',
+  authenticateJwt,
+  upload.single('photo'),
+  asyncErrorHandler(async (req: Request, res: Response) => {
+    const file = req.file;
+    const userId = (req as any).auth.userId;
+
+    if (!file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    try {
+      // Save the uploaded file using the fileHandler
+      const result = await fileHandler.saveBufferToFile(
+        file.buffer,
+        `profile_${userId}_${Date.now()}_${file.originalname}`,
+        file.mimetype
+      );
+
+      // Update user's profile photo in database
+      const photoUrl = `${req.protocol}://${req.get('host')}/api/files/${result.filename}`;
+      
+      await User.findByIdAndUpdate(userId, {
+        profilePhoto: photoUrl
+      });
+
+      res.json({
+        success: true,
+        message: 'Profile photo uploaded successfully',
+        photoUrl,
+        file: result
+      });
+
+    } catch (error) {
+      if (error instanceof FileError) {
+        return res.status(400).json({
+          error: error.message,
+          code: error.code
+        });
+      }
+      throw error;
+    }
+  })
+);
 
 // POST /files/upload/base64 - Upload file from base64 data
 // Node.js Concept: Base64 file upload handling
