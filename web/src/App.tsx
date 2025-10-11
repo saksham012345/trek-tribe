@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import AIChatWidget from './components/AIChatWidget';
 import CookieConsent from './components/CookieConsent';
+import APIDebugger from './components/APIDebugger';
 import { Trip } from './types';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
@@ -120,6 +121,9 @@ function AppContent() {
         
         {/* Cookie Consent Banner */}
         <CookieConsent />
+        
+        {/* API Debugger - Remove in production */}
+        {process.env.NODE_ENV === 'development' && <APIDebugger />}
       </div>
     </Router>
   );
