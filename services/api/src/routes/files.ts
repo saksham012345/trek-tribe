@@ -78,7 +78,7 @@ const validateMimeType = (allowedTypes: string[]) => {
 // POST /files/upload - Upload profile photo via multipart/form-data
 router.post('/upload',
   authenticateJwt,
-  upload.single('photo'),
+  upload.single('photo') as any,
   asyncErrorHandler(async (req: Request, res: Response) => {
     const file = req.file;
     const userId = (req as any).auth.userId;
