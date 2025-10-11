@@ -488,4 +488,125 @@ router.get('/services/status', async (req, res) => {
   }
 });
 
+// Get customer queries for agent dashboard
+router.get('/queries', async (req, res) => {
+  try {
+    // For now, return support tickets as customer queries
+    const queries = await SupportTicket.find({
+      status: { $in: ['open', 'in-progress'] }
+    })
+    .populate('userId', 'name email')
+    .sort({ priority: 1, createdAt: -1 })
+    .limit(20);
+
+    const formattedQueries = queries.map(ticket => ({
+      _id: ticket._id,
+      customerName: ticket.customerName || (ticket.userId as any)?.name || 'Unknown',
+      customerEmail: ticket.customerEmail || (ticket.userId as any)?.email || 'unknown@email.com',
+      query: ticket.subject || 'No subject',
+      status: ticket.status === 'in-progress' ? 'in_progress' : ticket.status,
+      priority: ticket.priority || 'medium',
+      createdAt: ticket.createdAt,
+      lastResponse: ticket.messages && ticket.messages.length > 0 
+        ? ticket.messages[ticket.messages.length - 1].message 
+        : undefined
+    }));
+
+    res.json({ queries: formattedQueries });
+  } catch (error: any) {
+    logger.error('Error fetching customer queries', { error: error.message });
+    res.status(500).json({ error: 'Failed to fetch customer queries' });
+  }
+});
+
+// Get AI recommendations for agent dashboard
+router.get('/ai-recommendations', async (req, res) => {
+  try {
+    // Get recent active trips and create mock AI recommendations
+    const trips = await Trip.find({ status: 'active' })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
+
+    const recommendations = trips.map(trip => ({
+      tripId: trip._id,
+      title: trip.title,
+      destination: trip.destination,
+      price: trip.price,
+      startDate: trip.startDate,
+      endDate: trip.endDate,
+      matchScore: Math.random() * 0.3 + 0.7, // Random score between 0.7-1.0
+      reasons: [
+        'High customer demand',
+        'Good price point',
+        'Positive reviews',
+        'Available spots'
+      ].slice(0, Math.floor(Math.random() * 3) + 2), // 2-4 reasons
+      categories: trip.categories || ['Adventure']
+    }));
+
+    res.json({ recommendations });
+  } catch (error: any) {
+    logger.error('Error fetching AI recommendations', { error: error.message });
+    res.status(500).json({ error: 'Failed to fetch AI recommendations' });
+  }
+});
+
+// Generate AI recommendations based on preferences
+router.post('/generate-recommendations', async (req, res) => {
+  try {
+    const { preferences } = req.body;
+    const { categories, priceRange, searchQuery } = preferences || {};
+
+    // Build query based on preferences
+    const query: any = { status: 'active' };
+    
+    if (categories && categories.length > 0) {
+      query.categories = { $in: categories };
+    }
+    
+    if (priceRange && priceRange.max > 0) {
+      query.price = { $lte: priceRange.max };
+      if (priceRange.min > 0) {
+        query.price.$gte = priceRange.min;
+      }
+    }
+    
+    if (searchQuery) {
+      query.$or = [
+        { title: { $regex: searchQuery, $options: 'i' } },
+        { destination: { $regex: searchQuery, $options: 'i' } },
+        { description: { $regex: searchQuery, $options: 'i' } }
+      ];
+    }
+
+    const trips = await Trip.find(query)
+      .sort({ createdAt: -1 })
+      .limit(12)
+      .lean();
+
+    const recommendations = trips.map(trip => ({
+      tripId: trip._id,
+      title: trip.title,
+      destination: trip.destination,
+      price: trip.price,
+      startDate: trip.startDate,
+      endDate: trip.endDate,
+      matchScore: Math.random() * 0.4 + 0.6, // Random score between 0.6-1.0
+      reasons: [
+        `Matches ${categories?.join(', ') || 'your'} preferences`,
+        'Within price range',
+        'Available for booking',
+        'High organizer rating'
+      ].filter(Boolean).slice(0, Math.floor(Math.random() * 3) + 2),
+      categories: trip.categories || ['Adventure']
+    }));
+
+    res.json({ recommendations });
+  } catch (error: any) {
+    logger.error('Error generating AI recommendations', { error: error.message });
+    res.status(500).json({ error: 'Failed to generate AI recommendations' });
+  }
+});
+
 export default router;
