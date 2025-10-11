@@ -46,7 +46,10 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
     includedItems: [] as string[],
     excludedItems: [] as string[],
     requirements: [] as string[],
-    cancellationPolicy: 'moderate'
+    cancellationPolicy: 'moderate',
+    // Payment Configuration
+    paymentType: 'full' as 'full' | 'advance',
+    advanceAmount: '0'
   });
   
   const [schedule, setSchedule] = useState<ScheduleDay[]>([]);
@@ -261,27 +264,62 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       }
 
       // Prepare enhanced trip data - match backend schema exactly
-      const tripData = {
+      const tripData: any = {
         title: formData.title.trim(),
         description: formData.description.trim(),
         destination: formData.destination.trim(),
         price: parseFloat(formData.price),
         capacity: parseInt(formData.capacity),
-        categories: formData.categories.length > 0 ? formData.categories : ['Adventure'], // Ensure at least one category
-        startDate: new Date(formData.startDate).toISOString(), // Convert to ISO string
-        endDate: new Date(formData.endDate).toISOString(), // Convert to ISO string
-        // Optional fields for backend compatibility
-        ...(schedule.filter(day => day.title.trim() && day.activities.some(a => a.trim())).length > 0 && {
-          schedule: schedule.filter(day => day.title.trim() && day.activities.some(a => a.trim()))
-        }),
-        ...(uploadedImageUrls.length > 0 && { images: uploadedImageUrls }),
-        ...(formData.location && { 
-          location: { coordinates: [formData.location.longitude, formData.location.latitude] }
-        })
+        categories: formData.categories.length > 0 ? formData.categories : ['Adventure'],
+        startDate: new Date(formData.startDate).toISOString(),
+        endDate: new Date(formData.endDate).toISOString()
       };
       
+      // Only add optional fields if they have meaningful values
+      if (schedule.length > 0) {
+        const validSchedule = schedule.filter(day => day.title.trim() && day.activities.some(a => a.trim()));
+        if (validSchedule.length > 0) {
+          tripData.schedule = validSchedule;
+        }
+      }
+      
+      if (uploadedImageUrls.length > 0) {
+        tripData.images = uploadedImageUrls;
+      }
+      
+      if (formData.location) {
+        tripData.location = { coordinates: [formData.location.longitude, formData.location.latitude] };
+      }
+      
+      // Only add payment config if there are meaningful values
+      if (formData.paymentType === 'advance' && formData.advanceAmount && parseFloat(formData.advanceAmount) > 0) {
+        tripData.paymentConfig = {
+          paymentType: 'advance',
+          advanceAmount: parseFloat(formData.advanceAmount),
+          paymentMethods: ['upi', 'bank_transfer'],
+          refundPolicy: formData.cancellationPolicy || 'moderate'
+        };
+      } else if (formData.paymentType === 'full') {
+        tripData.paymentConfig = {
+          paymentType: 'full',
+          paymentMethods: ['upi', 'bank_transfer'],
+          refundPolicy: formData.cancellationPolicy || 'moderate'
+        };
+      }
+      
       // Log the data being sent for debugging
-      console.log('Sending trip data:', JSON.stringify(tripData, null, 2));
+      console.log('📤 Sending trip data:', {
+        title: tripData.title,
+        destination: tripData.destination,
+        price: tripData.price,
+        capacity: tripData.capacity,
+        categories: tripData.categories,
+        startDate: tripData.startDate,
+        endDate: tripData.endDate,
+        hasImages: !!tripData.images,
+        hasSchedule: !!tripData.schedule,
+        hasPaymentConfig: !!tripData.paymentConfig
+      });
 
       setUploadProgress(90);
       
@@ -306,22 +344,31 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       }, 1000);
       
     } catch (error: any) {
-      console.error('Error creating trip:', error);
-      console.error('Error response:', error.response?.data);
-      console.error('Error status:', error.response?.status);
+      console.error('❌ Error creating trip:', error.message);
+      console.error('📋 Response data:', error.response?.data);
+      console.error('🔢 Status code:', error.response?.status);
       
       let errorMessage = 'Failed to create trip';
       
-      if (error.message) {
-        errorMessage = error.message;
-      } else if (error.response?.data?.error) {
-        if (typeof error.response.data.error === 'string') {
-          errorMessage = error.response.data.error;
-        } else if (error.response.data.error.fieldErrors) {
-          const fieldErrors = error.response.data.error.fieldErrors;
-          const firstError = Object.values(fieldErrors)[0];
-          errorMessage = Array.isArray(firstError) ? firstError[0] : firstError;
+      if (error.message.includes('timeout')) {
+        errorMessage = 'Request timed out. Please try again with fewer images or check your connection.';
+      } else if (error.response?.data) {
+        const responseData = error.response.data;
+        
+        if (typeof responseData.error === 'string') {
+          errorMessage = responseData.error;
+        } else if (responseData.details) {
+          errorMessage = `Validation Error: ${responseData.details}`;
+        } else if (responseData.fields) {
+          const fieldErrors = Object.entries(responseData.fields)
+            .map(([field, errors]: [string, any]) => `${field}: ${Array.isArray(errors) ? errors.join(', ') : errors}`)
+            .join('; ');
+          errorMessage = `Please fix the following issues: ${fieldErrors}`;
+        } else if (responseData.message) {
+          errorMessage = responseData.message;
         }
+      } else if (error.response?.status === 400) {
+        errorMessage = 'Invalid data provided. Please check all required fields and try again.';
       } else if (error.response?.status === 401) {
         errorMessage = 'Authentication required. Please log in again.';
       } else if (error.response?.status === 403) {
@@ -330,6 +377,8 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
         errorMessage = 'Server error. Please try again later.';
       } else if (error.code === 'NETWORK_ERROR') {
         errorMessage = 'Network error. Please check your connection.';
+      } else if (error.message) {
+        errorMessage = error.message;
       }
       
       setError(errorMessage);
@@ -496,22 +545,63 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
               </div>
             </div>
             
-            <div>
-              <label htmlFor="cancellationPolicy" className="block text-sm font-semibold text-forest-700 mb-3">
-                🔄 Cancellation Policy
-              </label>
-              <select
-                id="cancellationPolicy"
-                name="cancellationPolicy"
-                value={formData.cancellationPolicy}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
-              >
-                <option value="flexible">Flexible - Full refund 24h before</option>
-                <option value="moderate">Moderate - 50% refund 3 days before</option>
-                <option value="strict">Strict - No refund after booking</option>
-              </select>
+            <div className="grid md:grid-cols-2 gap-6">
+              <div>
+                <label htmlFor="cancellationPolicy" className="block text-sm font-semibold text-forest-700 mb-3">
+                  🔄 Cancellation Policy
+                </label>
+                <select
+                  id="cancellationPolicy"
+                  name="cancellationPolicy"
+                  value={formData.cancellationPolicy}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
+                >
+                  <option value="flexible">Flexible - Full refund 24h before</option>
+                  <option value="moderate">Moderate - 50% refund 3 days before</option>
+                  <option value="strict">Strict - No refund after booking</option>
+                </select>
+              </div>
+              
+              <div>
+                <label htmlFor="paymentType" className="block text-sm font-semibold text-forest-700 mb-3">
+                  💰 Payment Type
+                </label>
+                <select
+                  id="paymentType"
+                  name="paymentType"
+                  value={formData.paymentType}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
+                >
+                  <option value="full">Full Payment Required</option>
+                  <option value="advance">Advance Payment Required</option>
+                </select>
+              </div>
             </div>
+            
+            {formData.paymentType === 'advance' && (
+              <div>
+                <label htmlFor="advanceAmount" className="block text-sm font-semibold text-forest-700 mb-3">
+                  💵 Advance Amount Required (₹)
+                </label>
+                <input
+                  type="number"
+                  id="advanceAmount"
+                  name="advanceAmount"
+                  min="0"
+                  max={formData.price ? parseFloat(formData.price) : undefined}
+                  step="1"
+                  value={formData.advanceAmount}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
+                  placeholder="0"
+                />
+                <p className="mt-1 text-sm text-forest-600">
+                  Set to 0 for no advance payment required. Maximum: ₹{formData.price || '0'}
+                </p>
+              </div>
+            )}
           </div>
         );
         
