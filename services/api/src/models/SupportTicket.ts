@@ -4,7 +4,8 @@ export type TicketStatus = 'open' | 'in-progress' | 'waiting-customer' | 'resolv
 export type TicketPriority = 'low' | 'medium' | 'high' | 'urgent';
 export type TicketCategory = 'booking' | 'payment' | 'technical' | 'general' | 'complaint' | 'refund';
 
-interface TicketMessage {
+export interface TicketMessage {
+  _id?: any; // MongoDB auto-generated ID for subdocuments
   sender: 'customer' | 'agent';
   senderName: string;
   senderId?: string;
@@ -15,9 +16,9 @@ interface TicketMessage {
 
 export interface SupportTicketDocument extends Document {
   ticketId: string;
-  userId: string;
-  assignedAgentId?: string;
-  relatedTripId?: string;
+  userId: string | any; // Can be string or populated User object
+  assignedAgentId?: string | any; // Can be string or populated User object
+  relatedTripId?: string | any; // Can be string or populated Trip object
   relatedBookingId?: string;
   
   subject: string;

@@ -36,8 +36,8 @@ router.get('/:ticketId/chats', async (req, res) => {
     }
 
     // Return chat messages from the ticket
-    const chatHistory = ticket.messages.map(msg => ({
-      id: msg._id,
+    const chatHistory = ticket.messages.map((msg: any) => ({
+      id: msg._id || msg.id || Date.now().toString(),
       senderId: msg.senderId || msg.sender,
       senderName: msg.senderName,
       senderRole: msg.sender === 'customer' ? 'user' : 'agent',
