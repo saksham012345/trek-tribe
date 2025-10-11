@@ -260,28 +260,28 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
         setUploadProgress(80);
       }
 
-      // Prepare enhanced trip data
+      // Prepare enhanced trip data - match backend schema exactly
       const tripData = {
         title: formData.title.trim(),
         description: formData.description.trim(),
         destination: formData.destination.trim(),
         price: parseFloat(formData.price),
         capacity: parseInt(formData.capacity),
-        categories: formData.categories,
-        startDate: formData.startDate,
-        endDate: formData.endDate,
-        itinerary: formData.itinerary.trim() || 'Detailed itinerary will be provided upon booking.',
-        schedule: schedule.filter(day => day.title.trim() && day.activities.some(a => a.trim())),
-        images: uploadedImageUrls,
-        coverImage: uploadedImageUrls[coverImageIndex] || uploadedImageUrls[0],
-        itineraryPdf: uploadedPdfUrl,
-        location: formData.location,
-        difficultyLevel: formData.difficultyLevel,
-        includedItems: formData.includedItems,
-        excludedItems: formData.excludedItems,
-        requirements: formData.requirements,
-        cancellationPolicy: formData.cancellationPolicy
+        categories: formData.categories.length > 0 ? formData.categories : ['Adventure'], // Ensure at least one category
+        startDate: new Date(formData.startDate).toISOString(), // Convert to ISO string
+        endDate: new Date(formData.endDate).toISOString(), // Convert to ISO string
+        // Optional fields for backend compatibility
+        ...(schedule.filter(day => day.title.trim() && day.activities.some(a => a.trim())).length > 0 && {
+          schedule: schedule.filter(day => day.title.trim() && day.activities.some(a => a.trim()))
+        }),
+        ...(uploadedImageUrls.length > 0 && { images: uploadedImageUrls }),
+        ...(formData.location && { 
+          location: { coordinates: [formData.location.longitude, formData.location.latitude] }
+        })
       };
+      
+      // Log the data being sent for debugging
+      console.log('Sending trip data:', JSON.stringify(tripData, null, 2));
 
       setUploadProgress(90);
       
@@ -307,6 +307,8 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       
     } catch (error: any) {
       console.error('Error creating trip:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
       
       let errorMessage = 'Failed to create trip';
       

@@ -89,6 +89,12 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
       return;
     }
     
+    if (!formData.emergencyContactPhone || formData.emergencyContactPhone.length < 10) {
+      setError('Please provide a valid emergency contact phone number (minimum 10 digits)');
+      setLoading(false);
+      return;
+    }
+    
     try {
       const response = await api.post('/bookings', {
         tripId: trip._id,
@@ -100,7 +106,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
         } : null,
         travelerDetails: [{
           name: user.name,
-          age: 25,
+          age: 30, // Default age
           phone: formData.emergencyContactPhone,
           emergencyContact: formData.emergencyContactPhone,
           medicalConditions: formData.medicalConditions,
