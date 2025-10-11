@@ -16,6 +16,7 @@ const viewRoutes = require('./routes/views');
 const organizerRoutes = require('./routes/organizer');
 const bookingRoutes = require('./routes/bookings');
 const adminRoutes = require('./routes/admin');
+const agentRoutes = require('./routes/agent');
 
 const app = express();
 
@@ -171,6 +172,7 @@ async function start() {
     app.use('/api/organizer', organizerRoutes);
     app.use('/api/bookings', bookingRoutes);
     app.use('/api/admin', adminRoutes);
+    app.use('/api/agent', agentRoutes);
     
     // Health check endpoint with detailed info
     app.get('/health', asyncErrorHandler(async (req, res) => {

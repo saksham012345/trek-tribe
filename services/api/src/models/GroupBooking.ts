@@ -52,6 +52,8 @@ export interface GroupBookingDocument extends Document {
   paymentVerificationNotes?: string;
   verifiedBy?: Types.ObjectId; // Admin/Organizer who verified
   verifiedAt?: Date;
+  verificationNotes?: string; // Additional verification notes
+  rejectionReason?: string; // Reason for payment rejection
   bookingStatus: 'confirmed' | 'pending' | 'cancelled' | 'completed';
   specialRequests?: string;
   notes?: string;
@@ -155,6 +157,8 @@ const groupBookingSchema = new Schema(
     paymentVerificationNotes: { type: String },
     verifiedBy: { type: Schema.Types.ObjectId, ref: 'User' },
     verifiedAt: { type: Date },
+    verificationNotes: { type: String },
+    rejectionReason: { type: String },
     bookingStatus: { 
       type: String, 
       enum: ['confirmed', 'pending', 'cancelled', 'completed'], 
