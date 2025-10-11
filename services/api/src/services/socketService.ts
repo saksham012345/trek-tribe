@@ -538,6 +538,127 @@ class SocketService {
     return this.agentSocketMap.size;
   }
 
+  // Real-time dashboard updates
+  broadcastTripUpdate(tripData: any, eventType: 'created' | 'updated' | 'deleted' | 'joined' | 'payment_verified') {
+    if (!this.io) return;
+
+    // Broadcast to all connected users
+    this.io.emit('trip_update', {
+      type: eventType,
+      trip: tripData,
+      timestamp: new Date()
+    });
+
+    // Specific notifications for organizers
+    if (tripData.organizerId) {
+      const organizerSocketId = this.userSocketMap.get(tripData.organizerId.toString());
+      if (organizerSocketId) {
+        this.io.to(organizerSocketId).emit('organizer_notification', {
+          type: eventType,
+          message: this.getTripUpdateMessage(eventType, tripData),
+          trip: tripData,
+          timestamp: new Date()
+        });
+      }
+    }
+
+    logger.info('Trip update broadcasted', { tripId: tripData._id, eventType });
+  }
+
+  broadcastBookingUpdate(bookingData: any, eventType: 'created' | 'updated' | 'payment_verified' | 'cancelled') {
+    if (!this.io) return;
+
+    // Notify the specific organizer
+    if (bookingData.organizerId) {
+      const organizerSocketId = this.userSocketMap.get(bookingData.organizerId.toString());
+      if (organizerSocketId) {
+        this.io.to(organizerSocketId).emit('booking_update', {
+          type: eventType,
+          booking: bookingData,
+          message: this.getBookingUpdateMessage(eventType, bookingData),
+          timestamp: new Date()
+        });
+      }
+    }
+
+    // Notify the traveler
+    if (bookingData.userId) {
+      const userSocketId = this.userSocketMap.get(bookingData.userId.toString());
+      if (userSocketId) {
+        this.io.to(userSocketId).emit('user_booking_update', {
+          type: eventType,
+          booking: bookingData,
+          message: this.getBookingUserMessage(eventType, bookingData),
+          timestamp: new Date()
+        });
+      }
+    }
+
+    // Broadcast to agents for monitoring
+    this.agentSocketMap.forEach((socketId) => {
+      this.io?.to(socketId).emit('agent_dashboard_update', {
+        type: 'booking_' + eventType,
+        data: bookingData,
+        timestamp: new Date()
+      });
+    });
+
+    logger.info('Booking update broadcasted', { bookingId: bookingData._id, eventType });
+  }
+
+  broadcastAdminUpdate(data: any, eventType: string) {
+    if (!this.io) return;
+
+    // Notify all admins
+    this.userSocketMap.forEach((socketId, userId) => {
+      // You'd need to check user role from your user cache or make a quick query
+      this.io?.to(socketId).emit('admin_update', {
+        type: eventType,
+        data,
+        timestamp: new Date()
+      });
+    });
+
+    logger.info('Admin update broadcasted', { eventType });
+  }
+
+  private getTripUpdateMessage(eventType: string, tripData: any): string {
+    switch (eventType) {
+      case 'created':
+        return `New trip "${tripData.title}" has been created!`;
+      case 'joined':
+        return `Someone joined your trip "${tripData.title}"`;
+      case 'payment_verified':
+        return `Payment verified for "${tripData.title}"`;
+      default:
+        return `Trip "${tripData.title}" has been updated`;
+    }
+  }
+
+  private getBookingUpdateMessage(eventType: string, bookingData: any): string {
+    switch (eventType) {
+      case 'created':
+        return `New booking received for trip "${bookingData.tripTitle}"`;
+      case 'payment_verified':
+        return `Payment verified for booking #${bookingData.bookingId}`;
+      default:
+        return `Booking #${bookingData.bookingId} has been updated`;
+    }
+  }
+
+  private getBookingUserMessage(eventType: string, bookingData: any): string {
+    switch (eventType) {
+      case 'created':
+        return `Your booking for "${bookingData.tripTitle}" is pending verification`;
+      case 'payment_verified':
+        return `Your payment has been verified! Your booking is confirmed.`;
+      case 'cancelled':
+        return `Your booking has been cancelled.`;
+      default:
+        return `Your booking status has been updated`;
+    }
+  }
+
   getServiceStatus() {
     return {
       isInitialized: this.io !== null,

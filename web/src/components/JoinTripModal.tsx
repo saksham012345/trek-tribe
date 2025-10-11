@@ -40,6 +40,15 @@ interface Trip {
   paymentConfig?: PaymentConfig;
 }
 
+interface TravelerDetails {
+  name: string;
+  age: number;
+  phone: string;
+  emergencyContact?: string;
+  medicalConditions?: string;
+  dietary?: string;
+}
+
 interface JoinTripModalProps {
   trip: Trip;
   user: User;
@@ -58,8 +67,18 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
     dietaryRestrictions: '',
     experienceLevel: 'beginner' as 'beginner' | 'intermediate' | 'advanced',
     specialRequests: '',
-    agreeToTerms: false
+    agreeToTerms: false,
+    paymentScreenshot: null as File | null
   });
+  
+  const [travelerDetails, setTravelerDetails] = useState<TravelerDetails[]>([{
+    name: user.name,
+    age: 30,
+    phone: '',
+    emergencyContact: '',
+    medicalConditions: '',
+    dietary: ''
+  }]);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -71,10 +90,54 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
     const newValue = type === 'checkbox' ? (e.target as HTMLInputElement).checked : 
                      type === 'number' ? Number(value) : value;
     
-    setFormData(prev => ({
-      ...prev,
-      [name]: newValue
-    }));
+    setFormData(prev => {
+      const updated = {
+        ...prev,
+        [name]: newValue
+      };
+      
+      // If numberOfGuests changes, update traveler details array
+      if (name === 'numberOfGuests') {
+        const currentCount = travelerDetails.length;
+        const newCount = Number(value);
+        
+        if (newCount > currentCount) {
+          // Add new travelers
+          const newTravelers = Array.from({ length: newCount - currentCount }, (_, index) => ({
+            name: `Traveler ${currentCount + index + 1}`,
+            age: 25,
+            phone: '',
+            emergencyContact: '',
+            medicalConditions: '',
+            dietary: ''
+          }));
+          setTravelerDetails([...travelerDetails, ...newTravelers]);
+        } else if (newCount < currentCount) {
+          // Remove extra travelers
+          setTravelerDetails(travelerDetails.slice(0, newCount));
+        }
+      }
+      
+      return updated;
+    });
+  };
+  
+  const handleTravelerChange = (index: number, field: keyof TravelerDetails, value: string | number) => {
+    setTravelerDetails(prev => prev.map((traveler, i) => 
+      i === index ? { ...traveler, [field]: value } : traveler
+    ));
+  };
+  
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.type.startsWith('image/')) {
+        setFormData(prev => ({ ...prev, paymentScreenshot: file }));
+        setError('');
+      } else {
+        setError('Please upload a valid image file (PNG, JPG, etc.)');
+      }
+    }
   };
   
 
@@ -85,6 +148,32 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
 
     if (!formData.agreeToTerms) {
       setError('Please agree to the terms and conditions');
+      setLoading(false);
+      return;
+    }
+    
+    // Validate traveler details
+    for (let i = 0; i < travelerDetails.length; i++) {
+      const traveler = travelerDetails[i];
+      if (!traveler.name.trim()) {
+        setError(`Please provide a name for traveler ${i + 1}`);
+        setLoading(false);
+        return;
+      }
+      if (!traveler.phone || traveler.phone.length < 10) {
+        setError(`Please provide a valid phone number for traveler ${i + 1} (minimum 10 digits)`);
+        setLoading(false);
+        return;
+      }
+      if (traveler.age < 1 || traveler.age > 120) {
+        setError(`Please provide a valid age for traveler ${i + 1}`);
+        setLoading(false);
+        return;
+      }
+    }
+    
+    if (!formData.emergencyContactName.trim()) {
+      setError('Please provide an emergency contact name');
       setLoading(false);
       return;
     }
@@ -104,14 +193,14 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
           name: formData.selectedPackage.name,
           price: formData.selectedPackage.price
         } : null,
-        travelerDetails: [{
-          name: user.name,
-          age: 30, // Default age
-          phone: formData.emergencyContactPhone,
-          emergencyContact: formData.emergencyContactPhone,
-          medicalConditions: formData.medicalConditions,
-          dietary: formData.dietaryRestrictions
-        }],
+        travelerDetails: travelerDetails.map(traveler => ({
+          name: traveler.name,
+          age: traveler.age,
+          phone: traveler.phone,
+          emergencyContact: traveler.emergencyContact || formData.emergencyContactPhone,
+          medicalConditions: traveler.medicalConditions || formData.medicalConditions,
+          dietary: traveler.dietary || formData.dietaryRestrictions
+        })),
         specialRequests: formData.specialRequests,
         contactPhone: formData.emergencyContactPhone,
         emergencyContactName: formData.emergencyContactName,
@@ -342,9 +431,95 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                   <p className="text-sm text-blue-600 mt-2">
                     ℹ️ You're booking for {formData.numberOfGuests} people.
                   </p>
-                )})
+                )}
               </div>
             </div>
+
+            {/* Traveler Details */}
+            {formData.numberOfGuests > 0 && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-forest-800 flex items-center gap-2">
+                  👤 Traveler Details
+                </h3>
+                {travelerDetails.map((traveler, index) => (
+                  <div key={index} className="bg-gradient-to-r from-forest-50 to-nature-50 rounded-xl p-4 border border-forest-200">
+                    <h4 className="font-medium text-forest-700 mb-3">
+                      {index === 0 ? '👑 Primary Traveler (You)' : `👤 Traveler ${index + 1}`}
+                    </h4>
+                    <div className="grid md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-forest-700 mb-1">
+                          Full Name *
+                        </label>
+                        <input
+                          type="text"
+                          value={traveler.name}
+                          onChange={(e) => handleTravelerChange(index, 'name', e.target.value)}
+                          className="w-full px-3 py-2 border-2 border-forest-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300"
+                          placeholder="Enter full name"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-forest-700 mb-1">
+                          Age *
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="120"
+                          value={traveler.age}
+                          onChange={(e) => handleTravelerChange(index, 'age', parseInt(e.target.value) || 0)}
+                          className="w-full px-3 py-2 border-2 border-forest-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-forest-700 mb-1">
+                          Phone Number *
+                        </label>
+                        <input
+                          type="tel"
+                          value={traveler.phone}
+                          onChange={(e) => handleTravelerChange(index, 'phone', e.target.value)}
+                          className="w-full px-3 py-2 border-2 border-forest-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300"
+                          placeholder="+91 98765 43210"
+                          required
+                        />
+                      </div>
+                    </div>
+                    {index > 0 && (
+                      <div className="grid md:grid-cols-2 gap-4 mt-3">
+                        <div>
+                          <label className="block text-sm font-medium text-forest-700 mb-1">
+                            Medical Conditions
+                          </label>
+                          <input
+                            type="text"
+                            value={traveler.medicalConditions || ''}
+                            onChange={(e) => handleTravelerChange(index, 'medicalConditions', e.target.value)}
+                            className="w-full px-3 py-2 border-2 border-forest-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300"
+                            placeholder="Any medical conditions"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-forest-700 mb-1">
+                            Dietary Restrictions
+                          </label>
+                          <input
+                            type="text"
+                            value={traveler.dietary || ''}
+                            onChange={(e) => handleTravelerChange(index, 'dietary', e.target.value)}
+                            className="w-full px-3 py-2 border-2 border-forest-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300"
+                            placeholder="Vegetarian, Vegan, etc."
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Emergency Contact */}
             <div className="space-y-4">
@@ -354,13 +529,12 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="emergencyContactName" className="block text-sm font-medium text-forest-700 mb-2">
-                    Contact Name *
+                    Contact Name
                   </label>
                   <input
                     type="text"
                     id="emergencyContactName"
                     name="emergencyContactName"
-                    required
                     value={formData.emergencyContactName}
                     onChange={handleChange}
                     className="w-full px-3 py-2 border-2 border-forest-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300"
@@ -454,6 +628,52 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                 className="w-full px-3 py-2 border-2 border-forest-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300"
                 placeholder="Any special requests, accommodation needs, or additional information..."
               />
+            </div>
+
+            {/* Payment Upload Section */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-forest-800 flex items-center gap-2">
+                💳 Payment Verification
+              </h3>
+              
+              {trip.paymentConfig && (
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200">
+                  <h4 className="font-semibold text-blue-800 mb-2">💰 Payment Information</h4>
+                  <div className="text-sm text-blue-700 space-y-1">
+                    <p><strong>Payment Type:</strong> {trip.paymentConfig.paymentType === 'advance' ? 'Advance Payment Required' : 'Full Payment'}</p>
+                    {trip.paymentConfig.advanceAmount && (
+                      <p><strong>Amount to Pay:</strong> ₹{trip.paymentConfig.advanceAmount.toLocaleString()}</p>
+                    )}
+                    <p><strong>Accepted Methods:</strong> {trip.paymentConfig.paymentMethods?.join(', ') || 'UPI, Bank Transfer'}</p>
+                    {trip.paymentConfig.instructions && (
+                      <p><strong>Instructions:</strong> {trip.paymentConfig.instructions}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              <div>
+                <label htmlFor="paymentScreenshot" className="block text-sm font-medium text-forest-700 mb-2">
+                  Upload Payment Screenshot *
+                </label>
+                <input
+                  type="file"
+                  id="paymentScreenshot"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  className="w-full px-3 py-2 border-2 border-forest-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-nature-50 file:text-nature-700 hover:file:bg-nature-100"
+                  required
+                />
+                {formData.paymentScreenshot && (
+                  <p className="text-sm text-green-600 mt-2 flex items-center gap-2">
+                    <span>✅</span>
+                    Payment screenshot uploaded: {formData.paymentScreenshot.name}
+                  </p>
+                )}
+                <p className="text-xs text-forest-500 mt-1">
+                  Upload a screenshot of your payment transaction. This will be verified by the organizer.
+                </p>
+              </div>
             </div>
 
             {/* Terms and Conditions */}

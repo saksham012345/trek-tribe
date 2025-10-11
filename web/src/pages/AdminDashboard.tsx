@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { io, Socket } from 'socket.io-client';
+import api from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 
@@ -57,17 +58,75 @@ const AdminDashboard: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [notifications, setNotifications] = useState<Array<{ id: string; message: string; type: 'success' | 'info' | 'error'; timestamp: Date }>>([]);
 
   useEffect(() => {
     if (user && user.role === 'admin') {
       fetchDashboardStats();
+      initializeSocket();
     }
+    
+    return () => {
+      if (socket) {
+        socket.disconnect();
+      }
+    };
   }, [user]);
+  
+  const initializeSocket = () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    const newSocket = io(process.env.REACT_APP_API_URL || 'http://localhost:4000', {
+      auth: { token },
+      path: '/socket.io/'
+    });
+
+    newSocket.on('connect', () => {
+      console.log('🔌 Admin dashboard connected to real-time updates');
+    });
+
+    newSocket.on('admin_update', (data) => {
+      console.log('📈 Admin update received:', data);
+      addNotification(`System Update: ${data.type}`, 'info');
+      fetchDashboardStats(); // Refresh stats
+    });
+
+    newSocket.on('trip_update', (data) => {
+      if (data.type === 'created') {
+        addNotification(`New trip created: ${data.trip.title}`, 'success');
+        fetchDashboardStats();
+      }
+    });
+
+    newSocket.on('error', (error) => {
+      console.error('Admin socket error:', error);
+    });
+
+    setSocket(newSocket);
+  };
+  
+  const addNotification = (message: string, type: 'success' | 'info' | 'error') => {
+    const notification = {
+      id: Date.now().toString(),
+      message,
+      type,
+      timestamp: new Date()
+    };
+    
+    setNotifications(prev => [notification, ...prev.slice(0, 4)]); // Keep only 5 most recent
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== notification.id));
+    }, 5000);
+  };
 
   const fetchDashboardStats = async () => {
     try {
       const [statsRes] = await Promise.all([
-        axios.get('/admin/stats')
+        api.get('/admin/stats')
       ]);
 
       const data = statsRes.data as {
@@ -105,7 +164,7 @@ const AdminDashboard: React.FC = () => {
       if (searchQuery) params.append('search', searchQuery);
       if (roleFilter !== 'all') params.append('role', roleFilter);
 
-      const response = await axios.get(`/admin/users/contacts?${params.toString()}`);
+      const response = await api.get(`/admin/users/contacts?${params.toString()}`);
       const responseData = response.data as { users: any[] };
       setUserContacts(responseData.users);
     } catch (err: any) {
@@ -120,7 +179,7 @@ const AdminDashboard: React.FC = () => {
       const params = new URLSearchParams();
       if (roleFilter !== 'all') params.append('role', roleFilter);
 
-      const response = await axios.get(`/admin/users/export-contacts?${params.toString()}`, {
+      const response = await api.get(`/admin/users/export-contacts?${params.toString()}`, {
         responseType: 'blob'
       });
 

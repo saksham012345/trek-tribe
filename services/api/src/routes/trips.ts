@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { Trip } from '../models/Trip';
 import { authenticateJwt, requireRole } from '../middleware/auth';
+import { socketService } from '../services/socketService';
 
 const router = Router();
 
@@ -17,6 +18,14 @@ const createTripSchema = z.object({
   price: z.number().positive(),
   startDate: z.coerce.date(),
   endDate: z.coerce.date(),
+  paymentConfig: z.object({
+    paymentType: z.enum(['full', 'advance']).default('full'),
+    advanceAmount: z.number().positive().optional(),
+    advancePercentage: z.number().min(0).max(100).optional(),
+    paymentMethods: z.array(z.string()).default(['upi']),
+    refundPolicy: z.string().optional(),
+    instructions: z.string().optional()
+  }).optional()
 });
 
 // Async error wrapper
@@ -79,6 +88,9 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), asyncHandl
     const trip = await Promise.race([createPromise, timeoutPromise]) as any;
     
     console.log('Trip created successfully:', trip._id);
+    
+    // Broadcast real-time update
+    socketService.broadcastTripUpdate(trip, 'created');
     
     res.status(201).json({
       message: 'Trip created successfully',

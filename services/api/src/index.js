@@ -5,12 +5,17 @@ const helmet = require('helmet');
 const cors = require('cors');
 const session = require('express-session');
 const mongoose = require('mongoose');
+const { createServer } = require('http');
+const { socketService } = require('./services/socketService');
 const authRoutes = require('./routes/auth');
 const tripRoutes = require('./routes/trips');
 const reviewRoutes = require('./routes/reviews');
 const wishlistRoutes = require('./routes/wishlist');
 const fileRoutes = require('./routes/files');
 const viewRoutes = require('./routes/views');
+const organizerRoutes = require('./routes/organizer');
+const bookingRoutes = require('./routes/bookings');
+const adminRoutes = require('./routes/admin');
 
 const app = express();
 
@@ -163,6 +168,9 @@ async function start() {
     app.use('/api/reviews', reviewRoutes);
     app.use('/api/wishlist', wishlistRoutes);
     app.use('/api/files', fileRoutes);
+    app.use('/api/organizer', organizerRoutes);
+    app.use('/api/bookings', bookingRoutes);
+    app.use('/api/admin', adminRoutes);
     
     // Health check endpoint with detailed info
     app.get('/health', asyncErrorHandler(async (req, res) => {
@@ -211,10 +219,17 @@ async function start() {
     // Apply global error handler
     app.use(globalErrorHandler);
     
+    // Create HTTP server
+    const server = createServer(app);
+    
+    // Initialize Socket.IO
+    socketService.initialize(server);
+    
     // Start server with error handling
-    const server = app.listen(port, () => {
+    server.listen(port, () => {
       console.log(`🚀 API listening on http://localhost:${port}`);
       console.log(`📊 Health check: http://localhost:${port}/health`);
+      console.log(`🔌 Socket.IO initialized at http://localhost:${port}/socket.io/`);
       logMessage('INFO', `Server started on port ${port}`);
     });
     
