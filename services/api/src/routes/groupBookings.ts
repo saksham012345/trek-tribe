@@ -134,11 +134,6 @@ router.post('/', auth, async (req: AuthenticatedRequest, res: Response) => {
     if (paymentType === 'advance') {
       if (paymentConfig.advanceAmount) {
         advanceAmount = paymentConfig.advanceAmount * actualNumberOfGuests;
-      } else if (paymentConfig.advancePercentage) {
-        const totalAmount = pricePerPerson * actualNumberOfGuests;
-        const discountAmount = groupDiscount > 0 ? (totalAmount * groupDiscount) / 100 : 0;
-        const finalAmount = totalAmount - discountAmount;
-        advanceAmount = (finalAmount * paymentConfig.advancePercentage) / 100;
       }
     }
 

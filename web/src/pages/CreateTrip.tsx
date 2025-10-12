@@ -46,7 +46,6 @@ interface PackageOption {
 interface PaymentConfig {
   paymentType: 'full' | 'advance';
   advanceAmount?: number;
-  advancePercentage?: number;
   dueDate?: Date;
   refundPolicy: string;
   paymentMethods: string[];
@@ -83,7 +82,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
   const [packages, setPackages] = useState<PackageOption[]>([]);
   const [paymentConfig, setPaymentConfig] = useState<PaymentConfig>({
     paymentType: 'advance',
-    advancePercentage: 30,
+    advanceAmount: 1000,
     refundPolicy: 'moderate',
     paymentMethods: ['card', 'upi'],
     instructions: ''
@@ -1118,16 +1117,20 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                 {paymentConfig.paymentType === 'advance' && (
                   <div>
                     <label className="block text-sm font-medium text-forest-700 mb-1">
-                      Advance Percentage
+                      💵 Advance Amount Required (₹)
                     </label>
                     <input
                       type="number"
-                      min="10"
-                      max="100"
-                      value={paymentConfig.advancePercentage || 30}
-                      onChange={(e) => setPaymentConfig({...paymentConfig, advancePercentage: parseInt(e.target.value) || 30})}
+                      min="0"
+                      step="1"
+                      value={paymentConfig.advanceAmount || 1000}
+                      onChange={(e) => setPaymentConfig({...paymentConfig, advanceAmount: parseInt(e.target.value) || 1000})}
                       className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
+                      placeholder="1000"
                     />
+                    <p className="mt-1 text-sm text-forest-600">
+                      Set to 0 for no advance payment required. Organizers can set any amount they want.
+                    </p>
                   </div>
                 )}
               </div>
