@@ -169,6 +169,18 @@ router.post('/', authenticateJwt, async (req, res) => {
       });
     }
 
+    // Check minimum age requirement
+    if (trip.minimumAge && travelerDetails) {
+      for (let i = 0; i < travelerDetails.length; i++) {
+        const traveler = travelerDetails[i];
+        if (traveler.age && traveler.age < trip.minimumAge) {
+          return res.status(400).json({
+            error: `Traveler ${i + 1} (${traveler.name || 'Unknown'}) must be at least ${trip.minimumAge} years old to join this trip`
+          });
+        }
+      }
+    }
+
     // Check if user already has a booking for this trip
     const existingBooking = await GroupBooking.findOne({ 
       tripId, 
@@ -315,8 +327,14 @@ router.get('/my-bookings', authenticateJwt, async (req, res) => {
     const groupBookings = await GroupBooking.find({ 
       mainBookerId: userId 
     })
-    .populate('tripId', 'title destination startDate endDate coverImage organizerId status')
-    .populate('tripId.organizerId', 'name phone email')
+    .populate({
+      path: 'tripId',
+      select: 'title destination startDate endDate coverImage organizerId status',
+      populate: {
+        path: 'organizerId',
+        select: 'name phone email'
+      }
+    })
     .sort({ createdAt: -1 });
 
     const bookings = groupBookings.map(booking => {

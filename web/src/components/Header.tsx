@@ -22,9 +22,12 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
 
   const handleQuickSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Quick search triggered:', quickSearchQuery);
     if (quickSearchQuery.trim().length >= 2) {
       navigate(`/search?q=${encodeURIComponent(quickSearchQuery.trim())}`);
       setQuickSearchQuery('');
+    } else {
+      console.log('Search query too short:', quickSearchQuery.trim().length);
     }
   };
 
@@ -36,7 +39,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
             <Link to="/" className="flex items-center group" onClick={closeMobileMenu}>
               <div className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center group-hover:scale-105 transition-all duration-300">
                 <img 
-                  src="/logo.svg" 
+                  src="/logo.svg?v=2" 
                   alt="TrekTribe Logo" 
                   className="w-full h-full object-contain"
                 />
@@ -50,11 +53,14 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
             <div className="hidden md:flex flex-1 max-w-md mx-8">
               <form onSubmit={handleQuickSearch} className="w-full">
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <button 
+                    type="submit"
+                    className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
-                  </div>
+                  </button>
                   <input
                     type="text"
                     value={quickSearchQuery}

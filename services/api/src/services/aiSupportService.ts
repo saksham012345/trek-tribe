@@ -254,11 +254,25 @@ class TrekTribeAI {
           actions: ['Insurance Options', 'Safety Info']
         },
         {
-          keywords: ['contact', 'phone', 'whatsapp', 'call', 'reach'],
-          response: "You can reach us through multiple channels! Use this chat for instant support, WhatsApp us for quick queries, or call our support team during business hours. After booking, you'll get dedicated WhatsApp group access and direct contact with your trek leader.",
+          keywords: ['contact', 'phone', 'whatsapp', 'call', 'reach', 'support', 'help'],
+          response: "You can reach us through multiple channels! Use this chat for instant support, email us at tanejasaksham44@gmail.com, or WhatsApp us at 9876177839 for quick queries. After booking, you'll get dedicated WhatsApp group access and direct contact with your trek leader.",
           confidence: 0.9,
           requiresHuman: false,
           actions: ['Contact Details', 'WhatsApp Support']
+        },
+        {
+          keywords: ['email', 'gmail', 'support email'],
+          response: "For email support, you can reach us at tanejasaksham44@gmail.com. We typically respond within 24 hours during business days.",
+          confidence: 0.95,
+          requiresHuman: false,
+          actions: ['Email Support']
+        },
+        {
+          keywords: ['whatsapp number', 'phone number', 'call support'],
+          response: "You can WhatsApp us at 9876177839 or call us during business hours for immediate assistance.",
+          confidence: 0.95,
+          requiresHuman: false,
+          actions: ['WhatsApp Support', 'Phone Support']
         },
         {
           keywords: ['organizer', 'leader', 'guide', 'who leads'],

@@ -33,6 +33,7 @@ interface Trip {
   destination: string;
   price: number;
   capacity: number;
+  minimumAge?: number;
   participants: string[];
   categories: string[];
   startDate: string;
@@ -74,7 +75,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
   
   const [travelerDetails, setTravelerDetails] = useState<TravelerDetails[]>([{
     name: user.name || '',
-    age: 30,
+    age: '',
     phone: user.phone || '',
     emergencyContact: '',
     medicalConditions: '',
@@ -171,6 +172,13 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
         setLoading(false);
         return;
       }
+      
+      // Check minimum age requirement
+      if (trip.minimumAge && traveler.age < trip.minimumAge) {
+        setError(`Traveler ${i + 1} must be at least ${trip.minimumAge} years old to join this trip`);
+        setLoading(false);
+        return;
+      }
     }
     
     if (!formData.emergencyContactName.trim()) {
@@ -217,7 +225,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
       if (travelerDetails && travelerDetails.length > 0) {
         bookingPayload.travelerDetails = travelerDetails.map((traveler, index) => ({
           name: traveler.name || user.name || `Traveler ${index + 1}`,
-          age: traveler.age || 30,
+          age: traveler.age || '',
           phone: traveler.phone || user.phone || '',
           emergencyContact: traveler.emergencyContact || formData.emergencyContactPhone || user.phone || '',
           medicalConditions: traveler.medicalConditions || formData.medicalConditions || '',
@@ -394,6 +402,14 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                     {trip.categories.join(', ')}
                   </p>
                 </div>
+                {trip.minimumAge && (
+                  <div>
+                    <span className="text-forest-600">🎂 Minimum Age:</span>
+                    <p className="font-medium text-forest-800">
+                      {trip.minimumAge} years old
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
             
@@ -547,7 +563,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                           min="1"
                           max="120"
                           value={traveler.age}
-                          onChange={(e) => handleTravelerChange(index, 'age', parseInt(e.target.value) || 0)}
+                          onChange={(e) => handleTravelerChange(index, 'age', e.target.value ? parseInt(e.target.value) : '')}
                           className="w-full px-3 py-2 border-2 border-forest-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300"
                           required
                         />
