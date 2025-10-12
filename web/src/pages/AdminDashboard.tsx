@@ -23,6 +23,24 @@ interface UserContact {
   lastActive?: string;
 }
 
+interface Trip {
+  _id: string;
+  title: string;
+  destination: string;
+  price: number;
+  status: 'active' | 'cancelled' | 'completed';
+  participants: string[];
+  organizerId: {
+    _id: string;
+    name: string;
+    email: string;
+  };
+  startDate: string;
+  endDate: string;
+  createdAt: string;
+  categories: string[];
+}
+
 interface DashboardStats {
   users: {
     total: number;
@@ -60,6 +78,13 @@ const AdminDashboard: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [notifications, setNotifications] = useState<Array<{ id: string; message: string; type: 'success' | 'info' | 'error'; timestamp: Date }>>([]);
+  
+  // Trips management state
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [tripsLoading, setTripsLoading] = useState(false);
+  const [tripSearchQuery, setTripSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [tripCurrentPage, setTripCurrentPage] = useState(1);
 
   useEffect(() => {
     if (user && user.role === 'admin') {
@@ -195,12 +220,48 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const fetchTrips = async () => {
+    setTripsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.append('page', tripCurrentPage.toString());
+      params.append('limit', '20');
+      if (tripSearchQuery) params.append('search', tripSearchQuery);
+      if (statusFilter !== 'all') params.append('status', statusFilter);
+
+      const response = await api.get(`/admin/trips?${params.toString()}`);
+      const responseData = response.data as { trips: Trip[] };
+      setTrips(responseData.trips);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to fetch trips');
+    } finally {
+      setTripsLoading(false);
+    }
+  };
+
+  const updateTripStatus = async (tripId: string, newStatus: string) => {
+    try {
+      await api.patch(`/admin/trips/${tripId}/status`, { status: newStatus });
+      addNotification(`Trip status updated to ${newStatus}`, 'success');
+      fetchTrips(); // Refresh trips list
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to update trip status');
+    }
+  };
+
   // Fetch contacts when users tab is active
   React.useEffect(() => {
     if (activeTab === 'users') {
       fetchUserContacts();
     }
   }, [activeTab, currentPage, searchQuery, roleFilter]);
+
+  // Fetch trips when trips tab is active
+  React.useEffect(() => {
+    if (activeTab === 'trips') {
+      fetchTrips();
+    }
+  }, [activeTab, tripCurrentPage, tripSearchQuery, statusFilter]);
 
   const formatBytes = (bytes: number) => {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
@@ -214,6 +275,179 @@ const AdminDashboard: React.FC = () => {
     const minutes = Math.floor((seconds % 3600) / 60);
     return `${hours}h ${minutes}m`;
   };
+
+  const TripsManagement = () => (
+    <div className="space-y-6">
+      {/* Trips Header */}
+      <div className="bg-white p-6 rounded-lg shadow-sm border">
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">🗺️ Trips Management</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              Manage all trips across the platform, update status, and view organizer details.
+            </p>
+          </div>
+        </div>
+
+        {/* Search and Filters */}
+        <div className="flex gap-4 mb-4">
+          <div className="flex-1">
+            <input
+              type="text"
+              placeholder="Search trips by title or destination..."
+              value={tripSearchQuery}
+              onChange={(e) => setTripSearchQuery(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest-500 focus:border-forest-500"
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest-500 focus:border-forest-500"
+          >
+            <option value="all">All Status</option>
+            <option value="active">Active</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Trips Table */}
+      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+        {tripsLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-forest-600"></div>
+            <span className="ml-3 text-gray-600">Loading trips...</span>
+          </div>
+        ) : trips.length === 0 ? (
+          <div className="text-center py-12">
+            <span className="text-gray-500">No trips found matching your criteria.</span>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Trip Details
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Organizer
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status & Price
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Participants
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {trips.map((trip) => (
+                  <tr key={trip._id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <div className="flex items-start">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{trip.title}</div>
+                          <div className="text-sm text-gray-500">📍 {trip.destination}</div>
+                          <div className="text-xs text-gray-400 mt-1">
+                            {new Date(trip.startDate).toLocaleDateString()} - {new Date(trip.endDate).toLocaleDateString()}
+                          </div>
+                          {trip.categories && trip.categories.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {trip.categories.slice(0, 3).map((category, idx) => (
+                                <span key={idx} className="inline-flex px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full">
+                                  {category}
+                                </span>
+                              ))}
+                              {trip.categories.length > 3 && (
+                                <span className="text-xs text-gray-400">+{trip.categories.length - 3} more</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-8 w-8">
+                          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-forest-400 to-nature-500 flex items-center justify-center text-white text-sm font-bold">
+                            {trip.organizerId.name.charAt(0).toUpperCase()}
+                          </div>
+                        </div>
+                        <div className="ml-3">
+                          <div className="text-sm font-medium text-gray-900">{trip.organizerId.name}</div>
+                          <div className="text-sm text-gray-500">{trip.organizerId.email}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="space-y-2">
+                        <div className={`inline-flex px-2 py-1 text-xs rounded-full ${
+                          trip.status === 'active' ? 'bg-green-100 text-green-800' :
+                          trip.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                          'bg-blue-100 text-blue-800'
+                        }`}>
+                          {trip.status.toUpperCase()}
+                        </div>
+                        <div className="text-sm font-medium text-gray-900">
+                          ₹{trip.price.toLocaleString()}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-900">
+                        <span className="font-medium">{trip.participants.length}</span> participants
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Revenue: ₹{(trip.participants.length * trip.price).toLocaleString()}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center space-x-2">
+                        {trip.status === 'active' && (
+                          <>
+                            <button
+                              onClick={() => updateTripStatus(trip._id, 'completed')}
+                              className="text-blue-600 hover:text-blue-900 text-sm font-medium"
+                            >
+                              Complete
+                            </button>
+                            <span className="text-gray-300">|</span>
+                            <button
+                              onClick={() => updateTripStatus(trip._id, 'cancelled')}
+                              className="text-red-600 hover:text-red-900 text-sm font-medium"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        )}
+                        {trip.status === 'cancelled' && (
+                          <button
+                            onClick={() => updateTripStatus(trip._id, 'active')}
+                            className="text-green-600 hover:text-green-900 text-sm font-medium"
+                          >
+                            Reactivate
+                          </button>
+                        )}
+                        {trip.status === 'completed' && (
+                          <span className="text-sm text-gray-400">No actions</span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   // Redirect if not admin (after all hooks)
   if (!user || user.role !== 'admin') {
@@ -586,6 +820,10 @@ const AdminDashboard: React.FC = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {activeTab === 'trips' && (
+          <TripsManagement />
         )}
 
         {activeTab === 'system' && (

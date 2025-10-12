@@ -185,28 +185,49 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
     }
     
     try {
-      const response = await api.post('/bookings', {
+      // Prepare booking payload matching backend schema exactly
+      const bookingPayload: any = {
         tripId: trip._id,
         numberOfTravelers: formData.numberOfGuests,
-        selectedPackage: formData.selectedPackage ? {
+        contactPhone: formData.emergencyContactPhone,
+        experienceLevel: formData.experienceLevel
+      };
+
+      // Only add optional fields if they have values
+      if (formData.selectedPackage) {
+        bookingPayload.selectedPackage = {
           id: formData.selectedPackage.id,
           name: formData.selectedPackage.name,
           price: formData.selectedPackage.price
-        } : null,
-        travelerDetails: travelerDetails.map(traveler => ({
+        };
+      }
+
+      if (travelerDetails && travelerDetails.length > 0) {
+        bookingPayload.travelerDetails = travelerDetails.map(traveler => ({
           name: traveler.name,
           age: traveler.age,
           phone: traveler.phone,
           emergencyContact: traveler.emergencyContact || formData.emergencyContactPhone,
-          medicalConditions: traveler.medicalConditions || formData.medicalConditions,
-          dietary: traveler.dietary || formData.dietaryRestrictions
-        })),
-        specialRequests: formData.specialRequests,
-        contactPhone: formData.emergencyContactPhone,
-        emergencyContactName: formData.emergencyContactName,
-        emergencyContactPhone: formData.emergencyContactPhone,
-        experienceLevel: formData.experienceLevel
-      });
+          medicalConditions: traveler.medicalConditions || formData.medicalConditions || '',
+          dietary: traveler.dietary || formData.dietaryRestrictions || ''
+        }));
+      }
+
+      if (formData.specialRequests && formData.specialRequests.trim()) {
+        bookingPayload.specialRequests = formData.specialRequests.trim();
+      }
+
+      if (formData.emergencyContactName && formData.emergencyContactName.trim()) {
+        bookingPayload.emergencyContactName = formData.emergencyContactName.trim();
+      }
+
+      if (formData.emergencyContactPhone && formData.emergencyContactPhone.trim()) {
+        bookingPayload.emergencyContactPhone = formData.emergencyContactPhone.trim();
+      }
+
+      console.log('📤 Sending booking payload:', bookingPayload);
+
+      const response = await api.post('/bookings', bookingPayload);
       
       const bookingData = response.data;
       setBookingResult(bookingData);
@@ -630,51 +651,33 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
               />
             </div>
 
-            {/* Payment Upload Section */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-forest-800 flex items-center gap-2">
-                💳 Payment Verification
-              </h3>
-              
-              {trip.paymentConfig && (
+            {/* Payment Information */}
+            {trip.paymentConfig && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-forest-800 flex items-center gap-2">
+                  💳 Payment Information
+                </h3>
+                
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200">
-                  <h4 className="font-semibold text-blue-800 mb-2">💰 Payment Information</h4>
+                  <h4 className="font-semibold text-blue-800 mb-2">💰 Payment Details</h4>
                   <div className="text-sm text-blue-700 space-y-1">
                     <p><strong>Payment Type:</strong> {trip.paymentConfig.paymentType === 'advance' ? 'Advance Payment Required' : 'Full Payment'}</p>
                     {trip.paymentConfig.advanceAmount && (
-                      <p><strong>Amount to Pay:</strong> ₹{trip.paymentConfig.advanceAmount.toLocaleString()}</p>
+                      <p><strong>Amount to Pay Now:</strong> ₹{trip.paymentConfig.advanceAmount.toLocaleString()}</p>
                     )}
                     <p><strong>Accepted Methods:</strong> {trip.paymentConfig.paymentMethods?.join(', ') || 'UPI, Bank Transfer'}</p>
                     {trip.paymentConfig.instructions && (
                       <p><strong>Instructions:</strong> {trip.paymentConfig.instructions}</p>
                     )}
                   </div>
+                  <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p className="text-sm text-amber-800">
+                      ℹ️ After booking, you'll be prompted to upload payment screenshot for verification.
+                    </p>
+                  </div>
                 </div>
-              )}
-              
-              <div>
-                <label htmlFor="paymentScreenshot" className="block text-sm font-medium text-forest-700 mb-2">
-                  Upload Payment Screenshot *
-                </label>
-                <input
-                  type="file"
-                  id="paymentScreenshot"
-                  accept="image/*"
-                  onChange={handleFileUpload}
-                  className="w-full px-3 py-2 border-2 border-forest-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-nature-50 file:text-nature-700 hover:file:bg-nature-100"
-                  required
-                />
-                {formData.paymentScreenshot && (
-                  <p className="text-sm text-green-600 mt-2 flex items-center gap-2">
-                    <span>✅</span>
-                    Payment screenshot uploaded: {formData.paymentScreenshot.name}
-                  </p>
-                )}
-                <p className="text-xs text-forest-500 mt-1">
-                  Upload a screenshot of your payment transaction. This will be verified by the organizer.
-                </p>
               </div>
-            </div>
+            )}
 
             {/* Terms and Conditions */}
             <div className="space-y-4">
@@ -718,7 +721,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
               </button>
               <button
                 type="submit"
-                disabled={loading || !formData.agreeToTerms || (trip.packages && trip.packages.length > 0 && !formData.selectedPackage)}
+                disabled={loading || !formData.agreeToTerms || (trip.packages && trip.packages.length > 0 && !formData.selectedPackage) || !formData.emergencyContactPhone}
                 className="flex-1 px-6 py-3 bg-gradient-to-r from-forest-600 to-nature-600 hover:from-forest-700 hover:to-nature-700 text-white rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
                 {loading ? (
