@@ -504,6 +504,39 @@ router.post('/:bookingId/payment-screenshot', authenticateJwt, upload.single('pa
     
     await booking.save();
 
+    // Get trip and organizer details for email notification
+    const trip = await Trip.findById(booking.tripId);
+    const traveler = await User.findById(userId);
+    const organizer = trip ? await User.findById(trip.organizerId) : null;
+
+    // Send email notification to organizer
+    if (trip && traveler && organizer && organizer.email) {
+      try {
+        await emailService.sendPaymentScreenshotNotification({
+          travelerName: traveler.name,
+          travelerEmail: traveler.email,
+          tripTitle: trip.title,
+          bookingId: booking._id.toString(),
+          totalAmount: booking.totalAmount,
+          organizerName: organizer.name,
+          organizerEmail: organizer.email,
+          screenshotUrl: savedFile.url
+        });
+        logger.info('Payment screenshot notification email sent to organizer', {
+          organizerEmail: organizer.email,
+          bookingId,
+          tripTitle: trip.title
+        });
+      } catch (emailError: any) {
+        logger.error('Failed to send payment screenshot notification email', {
+          error: emailError.message,
+          organizerEmail: organizer.email,
+          bookingId
+        });
+        // Don't fail the upload if email fails
+      }
+    }
+
     logger.info('Payment screenshot uploaded', {
       bookingId,
       userId,

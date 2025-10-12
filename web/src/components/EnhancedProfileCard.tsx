@@ -11,6 +11,7 @@ interface ProfileUser {
   bio?: string;
   profilePhoto?: string;
   location?: string;
+  uniqueUrl?: string;
   socialLinks?: {
     instagram?: string;
     facebook?: string;
@@ -105,6 +106,39 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
       case 'admin': return 'from-red-500 to-orange-600';
       case 'agent': return 'from-green-500 to-teal-600';
       default: return 'from-gray-500 to-blue-600';
+    }
+  };
+
+  const handleShareProfile = async () => {
+    try {
+      const profileUrl = profile.uniqueUrl 
+        ? `${window.location.origin}/profile/${profile.uniqueUrl}`
+        : `${window.location.origin}/profile/${profile._id}`;
+      
+      if (navigator.share) {
+        // Use native share API if available
+        await navigator.share({
+          title: `${profile.name}'s Profile - TrekTribe`,
+          text: `Check out ${profile.name}'s profile on TrekTribe!`,
+          url: profileUrl,
+        });
+      } else {
+        // Fallback to clipboard
+        await navigator.clipboard.writeText(profileUrl);
+        alert('Profile link copied to clipboard!');
+      }
+    } catch (error) {
+      console.error('Error sharing profile:', error);
+      // Fallback to clipboard
+      try {
+        const profileUrl = profile.uniqueUrl 
+          ? `${window.location.origin}/profile/${profile.uniqueUrl}`
+          : `${window.location.origin}/profile/${profile._id}`;
+        await navigator.clipboard.writeText(profileUrl);
+        alert('Profile link copied to clipboard!');
+      } catch (clipboardError) {
+        alert('Unable to share profile link');
+      }
     }
   };
 
@@ -322,6 +356,27 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
             </div>
           </div>
         )}
+
+        {/* Share Profile */}
+        <div className="pt-4 border-t border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-sm text-gray-600">Share Profile</span>
+              <p className="text-xs text-gray-500 mt-1">
+                {profile.uniqueUrl 
+                  ? `trektribe.com/profile/${profile.uniqueUrl}`
+                  : `trektribe.com/profile/${profile._id}`
+                }
+              </p>
+            </div>
+            <button
+              onClick={handleShareProfile}
+              className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1 px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors"
+            >
+              📤 Share
+            </button>
+          </div>
+        </div>
 
         {/* Member since */}
         <div className="pt-4 border-t border-gray-200">

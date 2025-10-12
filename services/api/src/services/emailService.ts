@@ -31,6 +31,17 @@ interface TripUpdateData {
   organizerName: string;
 }
 
+interface PaymentScreenshotData {
+  travelerName: string;
+  travelerEmail: string;
+  tripTitle: string;
+  bookingId: string;
+  totalAmount: number;
+  organizerName: string;
+  organizerEmail: string;
+  screenshotUrl: string;
+}
+
 class EmailService {
   private transporter: nodemailer.Transporter | null = null;
   private isInitialized: boolean = false;
@@ -281,6 +292,69 @@ class EmailService {
     `;
   }
 
+  private generatePaymentScreenshotHTML(data: PaymentScreenshotData): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Payment Screenshot - TrekTribe</title>
+        <style>
+          body { font-family: 'Arial', sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
+          .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
+          .header { background: linear-gradient(135deg, #2d5a3d, #4a7c59); color: white; padding: 30px; text-align: center; }
+          .content { padding: 30px; }
+          .payment-box { background: #e8f5e8; border-left: 4px solid #4a7c59; padding: 20px; margin: 20px 0; border-radius: 5px; }
+          .screenshot-box { background: #f8f9fa; border: 2px dashed #4a7c59; padding: 20px; margin: 20px 0; border-radius: 8px; text-align: center; }
+          .footer { background: #2d5a3d; color: white; padding: 20px; text-align: center; font-size: 14px; }
+          .btn { display: inline-block; background: #4a7c59; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 10px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🏔️ TrekTribe</h1>
+            <p style="margin: 10px 0 0 0; font-size: 18px;">New Payment Screenshot</p>
+          </div>
+          
+          <div class="content">
+            <h2 style="color: #2d5a3d;">Hello ${data.organizerName}!</h2>
+            <p>A traveler has uploaded a payment screenshot for your trip: <strong>${data.tripTitle}</strong></p>
+            
+            <div class="payment-box">
+              <h3 style="color: #4a7c59; margin-top: 0;">💰 Payment Details:</h3>
+              <p><strong>Traveler:</strong> ${data.travelerName}</p>
+              <p><strong>Email:</strong> ${data.travelerEmail}</p>
+              <p><strong>Booking ID:</strong> ${data.bookingId}</p>
+              <p><strong>Amount:</strong> ₹${data.totalAmount.toLocaleString()}</p>
+            </div>
+            
+            <div class="screenshot-box">
+              <h3 style="color: #4a7c59; margin-top: 0;">📸 Payment Screenshot</h3>
+              <p>The traveler has uploaded a payment screenshot for verification.</p>
+              <p><em>Please check your TrekTribe dashboard to view and verify the payment.</em></p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.FRONTEND_URL || 'https://trektribe.com'}/dashboard/bookings" class="btn">
+                View Booking Dashboard
+              </a>
+            </div>
+            
+            <p>Please verify the payment and update the booking status accordingly. If you have any questions, you can contact the traveler directly.</p>
+          </div>
+          
+          <div class="footer">
+            <p><strong>TrekTribe</strong> - Payment Notification</p>
+            <p style="font-size: 12px;">This is an automated notification message.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
   async sendBookingConfirmation(data: BookingEmailData): Promise<boolean> {
     if (!this.isServiceReady()) {
       logger.warn('Email service not ready, skipping booking confirmation email');
@@ -369,6 +443,38 @@ class EmailService {
       logger.error('Failed to send trip update email', { 
         error: error.message,
         userEmail: data.userEmail 
+      });
+      return false;
+    }
+  }
+
+  async sendPaymentScreenshotNotification(data: PaymentScreenshotData): Promise<boolean> {
+    if (!this.isServiceReady()) {
+      logger.warn('Email service not ready, skipping payment screenshot notification');
+      return false;
+    }
+
+    try {
+      const mailOptions = {
+        from: `"TrekTribe Payment Updates" <${process.env.GMAIL_USER}>`,
+        to: data.organizerEmail,
+        subject: `💰 New Payment Screenshot - ${data.tripTitle}`,
+        html: this.generatePaymentScreenshotHTML(data),
+        text: `Hello ${data.organizerName}!\n\nA new payment screenshot has been uploaded for your trip: ${data.tripTitle}\n\nTraveler: ${data.travelerName} (${data.travelerEmail})\nBooking ID: ${data.bookingId}\nAmount: ₹${data.totalAmount.toLocaleString()}\n\nPlease verify the payment in your TrekTribe dashboard.\n\nTrekTribe Team`
+      };
+
+      await this.transporter!.sendMail(mailOptions);
+      logger.info('Payment screenshot notification sent successfully', { 
+        organizerEmail: data.organizerEmail,
+        tripTitle: data.tripTitle,
+        bookingId: data.bookingId
+      });
+
+      return true;
+    } catch (error: any) {
+      logger.error('Failed to send payment screenshot notification', { 
+        error: error.message,
+        organizerEmail: data.organizerEmail 
       });
       return false;
     }
