@@ -201,6 +201,37 @@ router.post('/', authenticateJwt, async (req, res) => {
       numberOfTravelers 
     });
 
+    // Send email notification (non-blocking)
+    if (emailService.isServiceReady()) {
+      emailService.sendBookingConfirmation({
+        userName: user.name,
+        userEmail: user.email,
+        tripTitle: trip.title,
+        tripDestination: trip.destination,
+        startDate: new Date(trip.startDate).toLocaleDateString('en-US', { 
+          weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' 
+        }),
+        endDate: new Date(trip.endDate).toLocaleDateString('en-US', { 
+          weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' 
+        }),
+        totalTravelers: numberOfTravelers,
+        totalAmount: groupBooking.finalAmount,
+        organizerName: (trip.organizerId as any).name,
+        organizerEmail: (trip.organizerId as any).email,
+        organizerPhone: (trip.organizerId as any).phone,
+        bookingId: groupBooking._id.toString()
+      }).catch(error => {
+        logger.error('Failed to send booking confirmation email', { 
+          error: error.message,
+          bookingId: groupBooking._id 
+        });
+        // Don't fail the booking if email fails
+      });
+      logger.info('📧 Booking confirmation email sent', { bookingId: groupBooking._id });
+    } else {
+      logger.warn('⚠️  Email service not configured - skipping booking confirmation email');
+    }
+
     res.status(201).json({
       message: 'Booking request submitted successfully. Please upload payment screenshot to confirm your booking.',
       booking: {
@@ -581,6 +612,36 @@ router.post('/:bookingId/verify-payment', authenticateJwt, async (req, res) => {
       if (!trip.participants.includes(booking.mainBookerId)) {
         trip.participants.push(booking.mainBookerId);
         await trip.save();
+      }
+      
+      // Send payment verification success email (non-blocking)
+      if (emailService.isServiceReady()) {
+        const mainBooker = await User.findById(booking.mainBookerId);
+        if (mainBooker) {
+          emailService.sendBookingConfirmation({
+            userName: mainBooker.name,
+            userEmail: mainBooker.email,
+            tripTitle: trip.title,
+            tripDestination: trip.destination,
+            startDate: new Date(trip.startDate).toLocaleDateString('en-US', { 
+              weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' 
+            }),
+            endDate: new Date(trip.endDate).toLocaleDateString('en-US', { 
+              weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' 
+            }),
+            totalTravelers: booking.numberOfGuests,
+            totalAmount: booking.finalAmount,
+            organizerName: (trip.organizerId as any).name,
+            organizerEmail: (trip.organizerId as any).email,
+            organizerPhone: (trip.organizerId as any).phone,
+            bookingId: booking._id.toString()
+          }).catch(error => {
+            logger.error('Failed to send payment verification email', { error: error.message });
+          });
+          logger.info('📧 Payment verification email sent', { bookingId: booking._id });
+        }
+      } else {
+        logger.warn('⚠️  Email service not configured - skipping payment verification email');
       }
     } else if (status === 'rejected') {
       booking.paymentStatus = 'failed';

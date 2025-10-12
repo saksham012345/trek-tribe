@@ -4,6 +4,7 @@ import { GroupBooking } from '../models/GroupBooking';
 import { User } from '../models/User';
 import { authenticateJwt, requireRole } from '../middleware/auth';
 import { socketService } from '../services/socketService';
+import { emailService } from '../services/emailService';
 import { logger } from '../utils/logger';
 
 const router = Router();
