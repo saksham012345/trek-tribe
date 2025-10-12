@@ -35,16 +35,35 @@ const asyncHandler = (fn: Function) => (req: any, res: any, next: any) => {
 
 router.post('/', authenticateJwt, requireRole(['organizer','admin']), asyncHandler(async (req: any, res: any) => {
   try {
+    console.log('📥 Received trip creation request:', {
+      title: req.body.title,
+      destination: req.body.destination,
+      price: req.body.price,
+      capacity: req.body.capacity,
+      startDate: req.body.startDate,
+      endDate: req.body.endDate,
+      categories: req.body.categories,
+      hasImages: !!req.body.images,
+      hasSchedule: !!req.body.schedule,
+      hasPaymentConfig: !!req.body.paymentConfig
+    });
+
     // Enhanced validation with better error messages
     const parsed = createTripSchema.safeParse(req.body);
     if (!parsed.success) {
-      const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
+      const fieldErrors = parsed.error.flatten().fieldErrors;
+      const errorMessages = Object.entries(fieldErrors)
         .map(([field, errors]) => `${field}: ${errors?.join(', ')}`)
         .join('; ');
+      
+      console.error('❌ Validation failed:', fieldErrors);
+      
       return res.status(400).json({ 
-        error: 'Validation failed',
+        success: false,
+        error: 'Validation failed - please check all required fields',
         details: errorMessages,
-        fields: parsed.error.flatten().fieldErrors
+        fields: fieldErrors,
+        hint: 'Required fields: title, description, destination, price, capacity, startDate, endDate'
       });
     }
     
@@ -53,14 +72,22 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), asyncHandl
     
     // Additional validation
     if (body.startDate >= body.endDate) {
+      console.error('❌ Date validation failed: End date must be after start date');
       return res.status(400).json({ 
-        error: 'End date must be after start date' 
+        success: false,
+        error: 'End date must be after start date',
+        details: `Start: ${body.startDate}, End: ${body.endDate}`
       });
     }
     
-    if (new Date(body.startDate) < new Date()) {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    if (new Date(body.startDate) < now) {
+      console.error('❌ Date validation failed: Start date is in the past');
       return res.status(400).json({ 
-        error: 'Start date cannot be in the past' 
+        success: false,
+        error: 'Start date cannot be in the past',
+        details: `Provided: ${body.startDate}, Current: ${now.toISOString()}`
       });
     }
     
@@ -87,12 +114,13 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), asyncHandl
     
     const trip = await Promise.race([createPromise, timeoutPromise]) as any;
     
-    console.log('Trip created successfully:', trip._id);
+    console.log('✅ Trip created successfully:', trip._id);
     
     // Broadcast real-time update
     socketService.broadcastTripUpdate(trip, 'created');
     
     res.status(201).json({
+      success: true,
       message: 'Trip created successfully',
       trip: {
         id: trip._id,
@@ -102,7 +130,8 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), asyncHandl
         capacity: trip.capacity,
         startDate: trip.startDate,
         endDate: trip.endDate,
-        categories: trip.categories
+        categories: trip.categories,
+        organizerId: trip.organizerId
       }
     });
     
@@ -111,8 +140,11 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), asyncHandl
     
     // Handle specific MongoDB errors
     if (error.code === 11000) {
+      console.error('❌ Duplicate trip title');
       return res.status(409).json({ 
-        error: 'Trip with this title already exists' 
+        success: false,
+        error: 'Trip with this title already exists',
+        hint: 'Please use a different title for your trip'
       });
     }
     
@@ -120,22 +152,33 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), asyncHandl
       const errorMessages = Object.values(error.errors)
         .map((err: any) => err.message)
         .join(', ');
+      console.error('❌ Database validation error:', errorMessages);
       return res.status(400).json({ 
+        success: false,
         error: 'Database validation failed',
-        details: errorMessages
+        details: errorMessages,
+        hint: 'Please check all required fields are provided correctly'
       });
     }
     
     if (error.message === 'Database operation timeout') {
+      console.error('❌ Database timeout');
       return res.status(503).json({ 
-        error: 'Service temporarily unavailable. Please try again.' 
+        success: false,
+        error: 'Service temporarily unavailable. Please try again.',
+        hint: 'The server is experiencing high load. Please retry in a moment.'
       });
     }
     
     // Generic error
+    console.error('❌ Unexpected error creating trip:', error);
     res.status(500).json({ 
+      success: false,
       error: 'Failed to create trip. Please try again later.',
-      ...(process.env.NODE_ENV !== 'production' && { details: error.message })
+      ...(process.env.NODE_ENV !== 'production' && { 
+        details: error.message,
+        stack: error.stack 
+      })
     });
   }
 }));
