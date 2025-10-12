@@ -39,7 +39,6 @@ export interface PackageOption {
 export interface PaymentConfig {
   paymentType: 'full' | 'advance'; // Full payment or advance payment
   advanceAmount?: number; // If advance payment, amount required
-  advancePercentage?: number; // If percentage-based advance
   dueDate?: Date; // When full payment is due
   refundPolicy?: string;
   paymentMethods: string[]; // e.g., ['upi', 'card', 'netbanking']
@@ -115,7 +114,6 @@ const packageOptionSchema = new Schema({
 const paymentConfigSchema = new Schema({
   paymentType: { type: String, enum: ['full', 'advance'], default: 'full' },
   advanceAmount: { type: Number, min: 0 },
-  advancePercentage: { type: Number, min: 0, max: 100 },
   dueDate: { type: Date },
   refundPolicy: { type: String },
   paymentMethods: { type: [String], default: ['upi'] },
