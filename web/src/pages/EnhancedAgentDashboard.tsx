@@ -120,9 +120,9 @@ const EnhancedAgentDashboard: React.FC<AgentDashboardProps> = ({ user }) => {
         api.get('/agent/ai-recommendations')
       ]);
       
-      setTrips(tripsResponse.data || []);
-      setCustomerQueries(queriesResponse.data.queries || []);
-      setAiRecommendations(aiResponse.data.recommendations || []);
+      setTrips((tripsResponse.data as any) || []);
+      setCustomerQueries((queriesResponse.data as any).queries || []);
+      setAiRecommendations((aiResponse.data as any).recommendations || []);
     } catch (error: any) {
       setError(error.response?.data?.error || 'Failed to load dashboard data');
       console.error('Error fetching dashboard data:', error);
@@ -156,7 +156,7 @@ const EnhancedAgentDashboard: React.FC<AgentDashboardProps> = ({ user }) => {
       }
 
       const response = await api.get(`/trips/${tripId}`);
-      const tripData = response.data;
+      const tripData = response.data as any;
       
       if (!tripData) {
         throw new Error('Trip not found');
@@ -230,7 +230,7 @@ const EnhancedAgentDashboard: React.FC<AgentDashboardProps> = ({ user }) => {
         }
       });
       
-      setAiRecommendations(response.data.recommendations || []);
+      setAiRecommendations((response.data as any).recommendations || []);
       addNotification('AI recommendations updated!', 'success');
     } catch (error: any) {
       console.error('Error generating AI recommendations:', error);

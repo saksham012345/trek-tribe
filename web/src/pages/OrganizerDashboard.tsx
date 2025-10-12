@@ -105,8 +105,8 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
         api.get('/organizer/pending-verifications')
       ]);
       
-      setTrips(tripsResponse.data.trips || []);
-      setPendingBookings(bookingsResponse.data.bookings || []);
+      setTrips((tripsResponse.data as any).trips || []);
+      setPendingBookings((bookingsResponse.data as any).bookings || []);
     } catch (error: any) {
       setError(error.response?.data?.error || 'Failed to load dashboard data');
       console.error('Error fetching dashboard data:', error);

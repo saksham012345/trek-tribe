@@ -270,9 +270,11 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
         destination: formData.destination.trim(),
         price: parseFloat(formData.price),
         capacity: parseInt(formData.capacity),
-        categories: formData.categories.length > 0 ? formData.categories : ['Adventure'],
+        categories: formData.categories && formData.categories.length > 0 ? formData.categories : ['Adventure'],
         startDate: new Date(formData.startDate).toISOString(),
-        endDate: new Date(formData.endDate).toISOString()
+        endDate: new Date(formData.endDate).toISOString(),
+        images: [],
+        schedule: []
       };
       
       // Only add optional fields if they have meaningful values
@@ -292,19 +294,25 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       }
       
       // Only add payment config if there are meaningful values
-      if (formData.paymentType === 'advance' && formData.advanceAmount && parseFloat(formData.advanceAmount) > 0) {
+      const hasPaymentConfig = formData.paymentType === 'advance' 
+        ? (formData.advanceAmount && parseFloat(formData.advanceAmount) > 0)
+        : formData.paymentType === 'full';
+
+      if (hasPaymentConfig) {
         tripData.paymentConfig = {
-          paymentType: 'advance',
-          advanceAmount: parseFloat(formData.advanceAmount),
-          paymentMethods: ['upi', 'bank_transfer'],
-          refundPolicy: formData.cancellationPolicy || 'moderate'
+          paymentType: formData.paymentType,
+          paymentMethods: ['upi', 'bank_transfer']
         };
-      } else if (formData.paymentType === 'full') {
-        tripData.paymentConfig = {
-          paymentType: 'full',
-          paymentMethods: ['upi', 'bank_transfer'],
-          refundPolicy: formData.cancellationPolicy || 'moderate'
-        };
+
+        // Only add advanceAmount if it's actually set and positive
+        if (formData.paymentType === 'advance' && formData.advanceAmount && parseFloat(formData.advanceAmount) > 0) {
+          tripData.paymentConfig.advanceAmount = parseFloat(formData.advanceAmount);
+        }
+
+        // Add refund policy if set
+        if (formData.cancellationPolicy) {
+          tripData.paymentConfig.refundPolicy = formData.cancellationPolicy;
+        }
       }
       
       // Log the data being sent for debugging
