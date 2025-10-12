@@ -216,15 +216,22 @@ router.post('/', authenticateJwt, async (req, res) => {
       }
     }
 
-    // Create the GroupBooking
+    // Calculate amounts before creating booking
+    const totalAmount = pricePerPerson * numberOfTravelers;
+    const finalAmount = totalAmount; // No discount for now, can be added later
+
+    // Create the GroupBooking with all required fields
     const groupBooking = new GroupBooking({
       tripId,
       mainBookerId: userId,
       participants,
       numberOfGuests: numberOfTravelers,
+      totalParticipants: numberOfTravelers,
       selectedPackageId: selectedPackage?.id,
       packageName: selectedPackage?.name,
       pricePerPerson,
+      totalAmount,
+      finalAmount,
       paymentMethod: 'bank_transfer', // Default to bank transfer for screenshot uploads
       bookingStatus: 'pending', // Set to pending until payment is verified
       paymentVerificationStatus: 'pending',

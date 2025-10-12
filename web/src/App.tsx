@@ -18,6 +18,8 @@ const Profile = React.lazy(() => import('./pages/Profile'));
 const TripDetails = React.lazy(() => import('./pages/TripDetails'));
 const AdminDashboard = React.lazy(() => import('./pages/AdminDashboard'));
 const EnhancedProfile = React.lazy(() => import('./pages/EnhancedProfile'));
+const EnhancedProfilePage = React.lazy(() => import('./pages/EnhancedProfilePage'));
+const SearchPage = React.lazy(() => import('./pages/SearchPage'));
 const AgentDashboard = React.lazy(() => import('./pages/AgentDashboard'));
 const MyBookings = React.lazy(() => import('./pages/MyBookings'));
 const ForgotPassword = React.lazy(() => import('./components/auth/ForgotPassword'));
@@ -98,16 +100,17 @@ function AppContent() {
             />
             <Route 
               path="/profile/:userId" 
-              element={<EnhancedProfile />} 
+              element={<EnhancedProfilePage />} 
             />
             <Route 
               path="/my-profile" 
-              element={user ? <EnhancedProfile /> : <Navigate to="/login" />} 
+              element={user ? <EnhancedProfilePage /> : <Navigate to="/login" />} 
             />
             <Route 
               path="/my-bookings" 
               element={user ? <MyBookings /> : <Navigate to="/login" />} 
             />
+            <Route path="/search" element={user ? <SearchPage /> : <Navigate to="/login" />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-conditions" element={<TermsConditions />} />
             <Route path="/cookie-settings" element={<CookieSettings />} />
