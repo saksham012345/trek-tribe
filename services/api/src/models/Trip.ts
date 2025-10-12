@@ -118,7 +118,7 @@ const paymentConfigSchema = new Schema({
   advancePercentage: { type: Number, min: 0, max: 100 },
   dueDate: { type: Date },
   refundPolicy: { type: String },
-  paymentMethods: [{ type: String, default: ['upi'] }],
+  paymentMethods: { type: [String], default: ['upi'] },
   instructions: { type: String }
 }, { _id: false });
 
