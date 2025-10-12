@@ -97,3 +97,4 @@ git push origin main
 - **Result:** Join trip functionality works perfectly
 
 **Deploy and test - the join trip modal should work flawlessly now!** 🚀
+

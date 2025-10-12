@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { User } from '../types';
 
 interface HeaderProps {
@@ -8,7 +8,9 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
+  const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [quickSearchQuery, setQuickSearchQuery] = useState('');
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
@@ -16,6 +18,14 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
 
   const closeMobileMenu = () => {
     setIsMobileMenuOpen(false);
+  };
+
+  const handleQuickSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (quickSearchQuery.trim().length >= 2) {
+      navigate(`/search?q=${encodeURIComponent(quickSearchQuery.trim())}`);
+      setQuickSearchQuery('');
+    }
   };
 
   return (
@@ -31,12 +41,40 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
             </Link>
           </div>
 
+          {/* Quick Search Bar */}
+          {user && (
+            <div className="hidden md:flex flex-1 max-w-md mx-8">
+              <form onSubmit={handleQuickSearch} className="w-full">
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                  <input
+                    type="text"
+                    value={quickSearchQuery}
+                    onChange={(e) => setQuickSearchQuery(e.target.value)}
+                    placeholder="Search profiles..."
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-forest-500 focus:border-forest-500"
+                  />
+                </div>
+              </form>
+            </div>
+          )}
+
           <nav className="hidden md:flex space-x-2">
             <Link 
               to="/trips" 
               className="text-forest-700 hover:text-nature-600 hover:bg-forest-50 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2"
             >
               🌿 Discover Adventures
+            </Link>
+            <Link 
+              to="/search" 
+              className="text-forest-700 hover:text-nature-600 hover:bg-forest-50 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2"
+            >
+              🔍 Search Profiles
             </Link>
             <Link 
               to="/ai-showcase" 
@@ -143,6 +181,13 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
                 className="block text-forest-700 hover:text-nature-600 hover:bg-forest-50 px-4 py-3 rounded-xl text-base font-medium transition-all duration-300"
               >
                 🌿 Discover Adventures
+              </Link>
+              <Link 
+                to="/search" 
+                onClick={closeMobileMenu}
+                className="block text-forest-700 hover:text-nature-600 hover:bg-forest-50 px-4 py-3 rounded-xl text-base font-medium transition-all duration-300"
+              >
+                🔍 Search Profiles
               </Link>
               <Link 
                 to="/ai-showcase" 

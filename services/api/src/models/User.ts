@@ -89,6 +89,11 @@ export interface UserDocument extends Document {
   preferences?: UserPreferences;
   socialLinks?: SocialLinks;
   organizerProfile?: OrganizerProfile;
+  socialStats?: {
+    followersCount: number;
+    followingCount: number;
+    postsCount: number;
+  };
   isVerified?: boolean;
   verificationDocuments?: Array<{
     filename: string;
@@ -240,6 +245,14 @@ const userSchema = new Schema(
         showEmail: { type: Boolean, default: false },
         showPhone: { type: Boolean, default: false },
         showLocation: { type: Boolean, default: true }
+      },
+      required: false
+    },
+    socialStats: {
+      type: {
+        followersCount: { type: Number, default: 0, min: 0 },
+        followingCount: { type: Number, default: 0, min: 0 },
+        postsCount: { type: Number, default: 0, min: 0 }
       },
       required: false
     },
