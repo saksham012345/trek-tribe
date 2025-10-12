@@ -6,6 +6,7 @@ import { Trip } from '../models/Trip';
 import { authenticateJwt } from '../middleware/auth';
 import { whatsappService } from '../services/whatsappService';
 import { emailService } from '../services/emailService';
+import { socketService } from '../services/socketService';
 import { logger } from '../utils/logger';
 
 const router = express.Router();
@@ -606,6 +607,137 @@ router.post('/generate-recommendations', async (req, res) => {
   } catch (error: any) {
     logger.error('Error generating AI recommendations', { error: error.message });
     res.status(500).json({ error: 'Failed to generate AI recommendations' });
+  }
+});
+
+// Check agent availability
+router.get('/availability', async (req, res) => {
+  try {
+    const availability = socketService.getAgentAvailability();
+    
+    res.json({
+      success: true,
+      data: {
+        availableAgents: availability.availableAgents,
+        connectedAgents: availability.connectedAgents,
+        status: availability.availableAgents > 0 ? 'agents_available' : 'no_agents'
+      }
+    });
+  } catch (error: any) {
+    logger.error('Error checking agent availability', { error: error.message });
+    res.status(500).json({ error: 'Failed to check agent availability' });
+  }
+});
+
+// Get pending/unassigned tickets for agents to claim
+router.get('/pending-tickets', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 20;
+    
+    // Get unassigned or waiting-agent tickets
+    const pendingTickets = await SupportTicket.find({
+      $or: [
+        { assignedAgentId: null },
+        { status: 'waiting-agent' }
+      ],
+      status: { $nin: ['closed', 'resolved'] }
+    })
+      .populate('userId', 'name email phone')
+      .populate('relatedTripId', 'title destination')
+      .sort({ priority: 1, createdAt: 1 }) // High priority and oldest first
+      .limit(limit)
+      .select('ticketId subject description status priority category customerName customerEmail customerPhone messages createdAt updatedAt');
+
+    const formattedTickets = pendingTickets.map(ticket => ({
+      ticketId: ticket.ticketId,
+      _id: ticket._id,
+      subject: ticket.subject,
+      description: ticket.description,
+      status: ticket.status,
+      priority: ticket.priority,
+      category: ticket.category,
+      customerName: ticket.customerName || (ticket.userId as any)?.name || 'Unknown',
+      customerEmail: ticket.customerEmail || (ticket.userId as any)?.email,
+      customerPhone: ticket.customerPhone || (ticket.userId as any)?.phone,
+      messageCount: ticket.messages?.length || 0,
+      lastMessage: ticket.messages && ticket.messages.length > 0 
+        ? ticket.messages[ticket.messages.length - 1].message 
+        : ticket.description,
+      relatedTrip: ticket.relatedTripId ? {
+        title: (ticket.relatedTripId as any).title,
+        destination: (ticket.relatedTripId as any).destination
+      } : null,
+      waitingTime: Math.floor((new Date().getTime() - new Date(ticket.createdAt).getTime()) / 60000), // minutes
+      createdAt: ticket.createdAt,
+      updatedAt: ticket.updatedAt
+    }));
+
+    res.json({
+      success: true,
+      tickets: formattedTickets,
+      count: formattedTickets.length
+    });
+
+  } catch (error: any) {
+    logger.error('Error fetching pending tickets', { error: error.message });
+    res.status(500).json({ error: 'Failed to fetch pending tickets' });
+  }
+});
+
+// Assign ticket to agent (claim ticket)
+router.post('/tickets/:ticketId/assign', async (req, res) => {
+  try {
+    const agentId = (req as any).auth.userId;
+    const { ticketId } = req.params;
+
+    const ticket = await SupportTicket.findOne({ ticketId });
+    if (!ticket) {
+      return res.status(404).json({ error: 'Ticket not found' });
+    }
+
+    // Check if already assigned
+    if (ticket.assignedAgentId) {
+      return res.status(400).json({ 
+        error: 'Ticket already assigned',
+        assignedTo: ticket.assignedAgentId 
+      });
+    }
+
+    // Assign to agent
+    ticket.assignedAgentId = agentId as any;
+    ticket.status = 'in-progress';
+    ticket.updatedAt = new Date();
+    
+    // Add system message
+    const agent = await User.findById(agentId);
+    if (agent) {
+      ticket.messages.push({
+        sender: 'agent',
+        senderName: agent.name,
+        senderId: agentId,
+        message: `Agent ${agent.name} has joined to assist you.`,
+        timestamp: new Date(),
+        isSystem: true
+      } as any);
+    }
+
+    await ticket.save();
+
+    logger.info('Ticket assigned to agent', { ticketId, agentId });
+
+    res.json({
+      success: true,
+      message: 'Ticket assigned successfully',
+      ticket: {
+        ticketId: ticket.ticketId,
+        status: ticket.status,
+        assignedAgentId: ticket.assignedAgentId
+      }
+    });
+
+  } catch (error: any) {
+    logger.error('Error assigning ticket', { error: error.message });
+    res.status(500).json({ error: 'Failed to assign ticket' });
   }
 });
 

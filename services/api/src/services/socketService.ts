@@ -548,6 +548,27 @@ class SocketService {
       sessionId: session.sessionId, 
       agentCount: this.agentSocketMap.size 
     });
+
+    // If no agents are available, notify the user
+    if (this.agentSocketMap.size === 0) {
+      const noAgentMessage: ChatMessage = {
+        id: `msg_${Date.now()}`,
+        senderId: 'system',
+        senderName: 'System',
+        senderRole: 'ai',
+        message: `Thank you for your request! I've created a support ticket (#${session.ticketId}) and our agents will contact you through this AI chat widget as soon as they're available. Please check back here shortly.\n\nFor immediate assistance, you can also reach us at:\n📧 Email: tanejasaksham44@gmail.com\n💬 WhatsApp: 9876177839\n\nOur team typically responds within a few hours during business hours.`,
+        timestamp: new Date(),
+        ticketId: session.ticketId
+      };
+
+      session.messages.push(noAgentMessage);
+      this.io?.to(session.sessionId).emit('chat_message', noAgentMessage);
+      
+      logger.info('No agents available, user notified with ticket and contact options', { 
+        sessionId: session.sessionId,
+        ticketId: session.ticketId
+      });
+    }
   }
 
   private setupCleanupInterval() {
@@ -567,6 +588,14 @@ class SocketService {
 
   getActiveSessionsCount(): number {
     return this.activeSessions.size;
+  }
+
+  // Public method to get agent availability
+  getAgentAvailability(): { availableAgents: number; connectedAgents: string[] } {
+    return {
+      availableAgents: this.agentSocketMap.size,
+      connectedAgents: Array.from(this.agentSocketMap.keys())
+    };
   }
 
   getConnectedUsersCount(): number {
