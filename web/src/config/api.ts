@@ -5,9 +5,9 @@ import { apiCache } from '../utils/apiCache';
 // Priority: Environment Variable > Production Detection > Development Default
 const API_BASE_URL = process.env.REACT_APP_API_URL || 
   (process.env.NODE_ENV === 'production' 
-    ? (window.location.hostname.includes('onrender.com') 
-        ? 'https://trek-tribe-38in.onrender.com'  // Render deployment - corrected URL
-        : 'https://your-api-domain.vercel.app')  // Vercel deployment
+    ? (window.location.hostname.includes('trektribe.in') || window.location.hostname.includes('onrender.com')
+        ? 'https://trek-tribe-38in.onrender.com'  // Production API (for trektribe.in and Render)
+        : 'https://trek-tribe-38in.onrender.com')  // Default to production API
     : 'http://localhost:4000');  // Local development
 
 // Create axios instance with default configuration

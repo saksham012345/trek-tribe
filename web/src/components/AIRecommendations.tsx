@@ -42,27 +42,83 @@ const AIRecommendations: React.FC<AIRecommendationsProps> = ({
   const fetchRecommendations = async () => {
     try {
       setLoading(true);
+      setError('');
       
-      const preferences = {
-        budget: user ? { min: 2000, max: 20000 } : { min: 3000, max: 15000 },
-        difficulty: 'intermediate',
-        interests: ['adventure', 'nature', 'cultural']
-      };
-
-      const response = await api.post('/chat/recommendations', {
-        preferences,
-        context: {
-          currentPage: window.location.pathname,
-          previousMessages: []
+      // Check if user is authenticated for personalized recommendations
+      if (!user) {
+        // For non-authenticated users, get popular trips instead
+        const response = await api.get('/trips?limit=6&sort=rating');
+        if (response.data) {
+          const trips = Array.isArray(response.data) ? response.data : response.data.trips || [];
+          const mappedRecommendations = trips.slice(0, maxRecommendations).map((trip: any) => ({
+            trip: {
+              _id: trip._id,
+              title: trip.title,
+              destination: trip.destination,
+              price: trip.price,
+              categories: trip.categories || ['Adventure'],
+              difficultyLevel: trip.difficultyLevel || 'intermediate',
+              organizerId: trip.organizerId
+            },
+            score: 80,
+            reason: 'Popular choice among travelers',
+            matchingFactors: ['Highly rated', 'Popular destination']
+          }));
+          setRecommendations(mappedRecommendations);
         }
-      });
-
-      if (response.data.success && response.data.data.recommendations) {
-        setRecommendations(response.data.data.recommendations.slice(0, maxRecommendations));
+      } else {
+        // For authenticated users, get AI-powered recommendations
+        const response = await api.get(`/ai/recommendations?limit=${maxRecommendations}`);
+        
+        if (response.data.success && response.data.recommendations) {
+          // Map backend response to component format
+          const mappedRecommendations = response.data.recommendations.map((rec: any) => ({
+            trip: {
+              _id: rec._id,
+              title: rec.title,
+              destination: rec.destination,
+              price: rec.price,
+              categories: rec.categories || ['Adventure'],
+              difficultyLevel: rec.difficultyLevel || 'intermediate',
+              organizerId: rec.organizerId
+            },
+            score: rec.recommendationScore || 75,
+            reason: rec.aiInsights?.reason || 'Recommended for you',
+            matchingFactors: rec.aiInsights?.matchedPreferences || []
+          }));
+          setRecommendations(mappedRecommendations);
+        }
       }
     } catch (error: any) {
       console.error('Error fetching AI recommendations:', error);
-      setError('Unable to load personalized recommendations');
+      console.error('Error details:', error.response?.data);
+      
+      // Fallback: Try to get some trips to display
+      try {
+        const fallbackResponse = await api.get('/trips?limit=3');
+        const trips = Array.isArray(fallbackResponse.data) ? fallbackResponse.data : fallbackResponse.data.trips || [];
+        if (trips.length > 0) {
+          const mappedRecommendations = trips.slice(0, maxRecommendations).map((trip: any) => ({
+            trip: {
+              _id: trip._id,
+              title: trip.title,
+              destination: trip.destination,
+              price: trip.price,
+              categories: trip.categories || ['Adventure'],
+              difficultyLevel: trip.difficultyLevel || 'intermediate',
+              organizerId: trip.organizerId
+            },
+            score: 70,
+            reason: 'Featured adventure',
+            matchingFactors: ['Available now']
+          }));
+          setRecommendations(mappedRecommendations);
+        } else {
+          setError('No trips available at the moment');
+        }
+      } catch (fallbackError) {
+        setError('Unable to load recommendations');
+      }
     } finally {
       setLoading(false);
     }

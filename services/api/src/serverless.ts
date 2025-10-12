@@ -37,8 +37,14 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 app.use(cors({ 
-  origin: process.env.NODE_ENV === 'production' ? 
-    [process.env.FRONTEND_URL || 'https://your-frontend-domain.vercel.app'] : '*',
+  origin: process.env.NODE_ENV === 'production' ? [
+    'https://www.trektribe.in',
+    'https://trektribe.in',
+    process.env.FRONTEND_URL || 'https://trek-tribe-web.onrender.com',
+    process.env.CORS_ORIGIN || 'https://trek-tribe-web.onrender.com',
+    'https://trek-tribe-38in.onrender.com',
+    'https://trek-tribe.vercel.app'
+  ] : '*',
   credentials: true 
 }));
 app.use(express.json({ limit: '10mb' }));
