@@ -273,8 +273,8 @@ const ProfileSearch: React.FC<ProfileSearchProps> = ({
 
                     {/* Bio Preview */}
                     {profile.bio && (
-                      <p className="text-xs text-gray-600 mt-1 truncate">
-                        {profile.bio}
+                      <p className="text-xs text-gray-600 mt-1 truncate max-w-full">
+                        {profile.bio.length > 60 ? `${profile.bio.substring(0, 60)}...` : profile.bio}
                       </p>
                     )}
                   </div>

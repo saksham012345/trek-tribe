@@ -11,6 +11,7 @@ interface ProfileSearchResult {
   role: string;
   location?: string;
   bio?: string;
+  uniqueUrl?: string;
   socialStats: {
     followersCount: number;
     followingCount: number;
@@ -79,6 +80,39 @@ const SearchPage: React.FC = () => {
 
   const handleProfileClick = (profile: ProfileSearchResult) => {
     navigate(`/profile/${profile._id}`);
+  };
+
+  const handleShareProfile = async (profile: ProfileSearchResult) => {
+    try {
+      const profileUrl = profile.uniqueUrl 
+        ? `${window.location.origin}/profile/${profile.uniqueUrl}`
+        : `${window.location.origin}/profile/${profile._id}`;
+      
+      if (navigator.share) {
+        // Use native share API if available
+        await navigator.share({
+          title: `${profile.name}'s Profile - TrekTribe`,
+          text: `Check out ${profile.name}'s profile on TrekTribe!`,
+          url: profileUrl,
+        });
+      } else {
+        // Fallback to clipboard
+        await navigator.clipboard.writeText(profileUrl);
+        alert('Profile link copied to clipboard!');
+      }
+    } catch (error) {
+      console.error('Error sharing profile:', error);
+      // Fallback to clipboard
+      try {
+        const profileUrl = profile.uniqueUrl 
+          ? `${window.location.origin}/profile/${profile.uniqueUrl}`
+          : `${window.location.origin}/profile/${profile._id}`;
+        await navigator.clipboard.writeText(profileUrl);
+        alert('Profile link copied to clipboard!');
+      } catch (clipboardError) {
+        alert('Unable to share profile link');
+      }
+    }
   };
 
   const getRoleIcon = (role: string) => {
@@ -163,10 +197,23 @@ const SearchPage: React.FC = () => {
 
           {/* Bio */}
           {profile.bio && (
-            <p className="text-sm text-gray-700 line-clamp-2">
-              {profile.bio}
+            <p className="text-sm text-gray-700 line-clamp-2 overflow-hidden">
+              {profile.bio.length > 100 ? `${profile.bio.substring(0, 100)}...` : profile.bio}
             </p>
           )}
+
+          {/* Share Profile */}
+          <div className="mt-3 pt-3 border-t border-gray-100">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleShareProfile(profile);
+              }}
+              className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+            >
+              📤 Share Profile
+            </button>
+          </div>
         </div>
       </div>
     </div>

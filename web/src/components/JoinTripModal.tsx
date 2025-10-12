@@ -27,6 +27,7 @@ interface PaymentConfig {
 
 interface Trip {
   _id: string;
+  organizerId: string;
   title: string;
   description: string;
   destination: string;
@@ -320,6 +321,8 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
       <PaymentUpload
         bookingId={bookingResult.booking.bookingId}
         totalAmount={bookingResult.booking.totalAmount}
+        organizerId={trip.organizerId}
+        tripTitle={trip.title}
         onUploadSuccess={handlePaymentUploadSuccess}
         onCancel={handlePaymentUploadCancel}
       />

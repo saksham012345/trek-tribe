@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import api from '../config/api';
+import OrganizerQRDisplay from './OrganizerQRDisplay';
 
 interface PaymentUploadProps {
   bookingId: string;
   totalAmount: number;
+  organizerId: string;
+  tripTitle: string;
   onUploadSuccess: () => void;
   onCancel: () => void;
 }
@@ -11,6 +14,8 @@ interface PaymentUploadProps {
 const PaymentUpload: React.FC<PaymentUploadProps> = ({
   bookingId,
   totalAmount,
+  organizerId,
+  tripTitle,
   onUploadSuccess,
   onCancel
 }) => {
@@ -95,12 +100,12 @@ const PaymentUpload: React.FC<PaymentUploadProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-start mb-6">
             <div>
               <h2 className="text-2xl font-bold text-forest-800 mb-2">
-                Upload Payment Screenshot
+                Complete Payment & Upload Screenshot
               </h2>
               <p className="text-forest-600">
                 Total Amount: <span className="font-semibold text-nature-600">₹{totalAmount.toLocaleString()}</span>
@@ -116,6 +121,23 @@ const PaymentUpload: React.FC<PaymentUploadProps> = ({
             </button>
           </div>
 
+          {/* QR Code Display */}
+          <div className="mb-6">
+            <OrganizerQRDisplay
+              organizerId={organizerId}
+              tripTitle={tripTitle}
+              totalAmount={totalAmount}
+              onPaymentComplete={() => {}}
+            />
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-gray-200 my-6">
+            <div className="text-center -mt-3">
+              <span className="bg-white px-4 text-gray-500 text-sm font-medium">Then Upload Screenshot</span>
+            </div>
+          </div>
+
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-4 flex items-center gap-2">
               <span className="text-xl">⚠️</span>
@@ -124,12 +146,11 @@ const PaymentUpload: React.FC<PaymentUploadProps> = ({
           )}
 
           <div className="space-y-6">
-            {/* Payment Instructions */}
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-              <h3 className="font-semibold text-blue-800 mb-2">💳 Payment Instructions</h3>
-              <div className="text-sm text-blue-700 space-y-1">
-                <p>• Transfer ₹{totalAmount.toLocaleString()} to the organizer's bank account</p>
-                <p>• Take a screenshot of your payment confirmation</p>
+            {/* Upload Instructions */}
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+              <h3 className="font-semibold text-green-800 mb-2">📸 Upload Screenshot</h3>
+              <div className="text-sm text-green-700 space-y-1">
+                <p>• After making payment above, take a screenshot of the confirmation</p>
                 <p>• Upload the screenshot below for verification</p>
                 <p>• Your booking will be confirmed once payment is verified</p>
               </div>
