@@ -72,9 +72,9 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
   });
   
   const [travelerDetails, setTravelerDetails] = useState<TravelerDetails[]>([{
-    name: user.name,
+    name: user.name || '',
     age: 30,
-    phone: '',
+    phone: user.phone || '',
     emergencyContact: '',
     medicalConditions: '',
     dietary: ''
@@ -186,12 +186,26 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
     
     try {
       // Prepare booking payload matching backend schema exactly
+      // IMPORTANT: numberOfTravelers MUST be a number, not string
       const bookingPayload: any = {
         tripId: trip._id,
-        numberOfTravelers: formData.numberOfGuests,
-        contactPhone: formData.emergencyContactPhone,
+        numberOfTravelers: Number(formData.numberOfGuests), // Ensure it's a number
+        contactPhone: formData.emergencyContactPhone.trim(),
         experienceLevel: formData.experienceLevel
       };
+
+      // Validate that we have all required fields
+      if (!bookingPayload.tripId) {
+        setError('Trip ID is missing. Please try refreshing the page.');
+        setLoading(false);
+        return;
+      }
+
+      if (!bookingPayload.contactPhone || bookingPayload.contactPhone.length < 10) {
+        setError('Please provide a valid emergency contact phone number (minimum 10 digits)');
+        setLoading(false);
+        return;
+      }
 
       // Only add optional fields if they have values
       if (formData.selectedPackage) {
@@ -204,12 +218,12 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
 
       if (travelerDetails && travelerDetails.length > 0) {
         bookingPayload.travelerDetails = travelerDetails.map(traveler => ({
-          name: traveler.name,
-          age: traveler.age,
-          phone: traveler.phone,
-          emergencyContact: traveler.emergencyContact || formData.emergencyContactPhone,
-          medicalConditions: traveler.medicalConditions || formData.medicalConditions || '',
-          dietary: traveler.dietary || formData.dietaryRestrictions || ''
+          name: traveler.name.trim(),
+          age: Number(traveler.age), // Ensure number
+          phone: traveler.phone.trim(),
+          emergencyContact: (traveler.emergencyContact || formData.emergencyContactPhone).trim(),
+          medicalConditions: (traveler.medicalConditions || formData.medicalConditions || '').trim(),
+          dietary: (traveler.dietary || formData.dietaryRestrictions || '').trim()
         }));
       }
 
@@ -225,23 +239,66 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
         bookingPayload.emergencyContactPhone = formData.emergencyContactPhone.trim();
       }
 
-      console.log('📤 Sending booking payload:', bookingPayload);
+      console.log('📤 Sending booking payload:', {
+        ...bookingPayload,
+        travelerDetailsCount: bookingPayload.travelerDetails?.length,
+        types: {
+          tripId: typeof bookingPayload.tripId,
+          numberOfTravelers: typeof bookingPayload.numberOfTravelers,
+          contactPhone: typeof bookingPayload.contactPhone
+        }
+      });
 
       const response = await api.post('/bookings', bookingPayload);
       
-      const bookingData = response.data;
-      setBookingResult(bookingData);
-      
-      // If booking requires payment upload, show payment upload modal
-      if (bookingData.booking?.requiresPaymentUpload) {
-        setShowPaymentUpload(true);
-      } else {
-        // Traditional confirmed booking
-        onSuccess();
-        onClose();
+      if (response.data) {
+        const bookingData = response.data as any;
+        setBookingResult(bookingData);
+        
+        console.log('✅ Booking successful:', bookingData);
+        
+        // If booking requires payment upload, show payment upload modal
+        if (bookingData.booking?.requiresPaymentUpload) {
+          setShowPaymentUpload(true);
+        } else {
+          // Traditional confirmed booking
+          onSuccess();
+          onClose();
+        }
       }
     } catch (error: any) {
-      setError(error.response?.data?.error || 'Failed to join trip');
+      console.error('❌ Booking error:', error);
+      console.error('📋 Response data:', error.response?.data);
+      console.error('🔢 Status code:', error.response?.status);
+      
+      let errorMessage = 'Failed to join trip';
+      
+      if (error.response?.data) {
+        const responseData = error.response.data;
+        
+        if (typeof responseData.error === 'string') {
+          errorMessage = responseData.error;
+        }
+        
+        // Show detailed field errors if available
+        if (responseData.details && typeof responseData.details === 'string') {
+          errorMessage += `\n\nDetails: ${responseData.details}`;
+        }
+        
+        if (responseData.fields) {
+          const fieldErrors = Object.entries(responseData.fields)
+            .map(([field, errors]: [string, any]) => 
+              `${field}: ${Array.isArray(errors) ? errors.join(', ') : errors}`)
+            .join('\n');
+          errorMessage += `\n\n${fieldErrors}`;
+        }
+        
+        if (responseData.hint) {
+          errorMessage += `\n\n💡 ${responseData.hint}`;
+        }
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -653,11 +710,11 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
 
             {/* Payment Information */}
             {trip.paymentConfig && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-forest-800 flex items-center gap-2">
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-forest-800 flex items-center gap-2">
                   💳 Payment Information
-                </h3>
-                
+              </h3>
+              
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200">
                   <h4 className="font-semibold text-blue-800 mb-2">💰 Payment Details</h4>
                   <div className="text-sm text-blue-700 space-y-1">

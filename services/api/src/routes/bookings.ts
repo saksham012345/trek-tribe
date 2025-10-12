@@ -62,12 +62,37 @@ router.post('/', authenticateJwt, async (req, res) => {
   try {
     const userId = (req as any).auth.userId;
     
+    // Log incoming request for debugging
+    console.log('📥 Received booking request:', {
+      tripId: req.body.tripId,
+      numberOfTravelers: req.body.numberOfTravelers,
+      contactPhone: req.body.contactPhone,
+      hasSelectedPackage: !!req.body.selectedPackage,
+      hasTravelerDetails: !!req.body.travelerDetails,
+      travelerDetailsCount: req.body.travelerDetails?.length
+    });
+    
     // Validate request body
     const parsed = createBookingSchema.safeParse(req.body);
     if (!parsed.success) {
+      const fieldErrors = parsed.error.flatten().fieldErrors;
+      const errorMessages = Object.entries(fieldErrors)
+        .map(([field, errors]) => `${field}: ${errors?.join(', ')}`)
+        .join('; ');
+      
+      console.error('❌ Booking validation failed:', fieldErrors);
+      
       return res.status(400).json({ 
-        error: 'Invalid booking data', 
-        details: parsed.error.flatten() 
+        success: false,
+        error: 'Invalid booking data - please check all required fields', 
+        details: errorMessages,
+        fields: fieldErrors,
+        hint: 'Required: tripId, numberOfTravelers (number), contactPhone (min 10 digits)',
+        receivedData: {
+          tripId: typeof req.body.tripId,
+          numberOfTravelers: typeof req.body.numberOfTravelers,
+          contactPhone: typeof req.body.contactPhone
+        }
       });
     }
 
