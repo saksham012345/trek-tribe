@@ -145,7 +145,7 @@ router.post('/', authenticateJwt, async (req, res) => {
       emergencyContactName,
       emergencyContactPhone,
       experienceLevel 
-    } = parsed.data;
+    } = parsed;
 
     // Find the trip
     const trip = await Trip.findById(tripId).populate('organizerId', 'name phone email');
