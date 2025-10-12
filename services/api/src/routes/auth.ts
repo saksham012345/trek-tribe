@@ -3,7 +3,7 @@ import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
-import { authenticateJwt } from '../middleware/auth';
+import { authenticateJwt, requireRole } from '../middleware/auth';
 import { emailService } from '../services/emailService';
 import { logger } from '../utils/logger';
 import crypto from 'crypto';
@@ -295,6 +295,58 @@ router.post('/reset-password', async (req, res) => {
   } catch (error: any) {
     logger.error('Error in reset password', { error: error.message });
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Create agent user (admin only)
+const createAgentSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+  name: z.string().min(1),
+  phone: z.string().regex(/^[+]?[1-9]\d{1,14}$/).optional(),
+});
+
+router.post('/create-agent', authenticateJwt, requireRole(['admin']), async (req, res) => {
+  try {
+    const parsed = createAgentSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid agent data', details: parsed.error.flatten() });
+    }
+
+    const { email, password, name, phone } = parsed.data;
+
+    // Check if user already exists
+    const existing = await User.findOne({ email });
+    if (existing) {
+      return res.status(409).json({ error: 'Email already in use' });
+    }
+
+    // Create agent user
+    const passwordHash = await bcrypt.hash(password, 10);
+    const agent = await User.create({
+      email,
+      passwordHash,
+      name,
+      phone,
+      role: 'agent'
+    });
+
+    logger.info('Agent user created', { agentId: agent._id, email: agent.email });
+
+    res.status(201).json({
+      message: 'Agent created successfully',
+      agent: {
+        id: agent._id,
+        email: agent.email,
+        name: agent.name,
+        role: agent.role,
+        createdAt: agent.createdAt
+      }
+    });
+
+  } catch (error: any) {
+    logger.error('Error creating agent', { error: error.message });
+    res.status(500).json({ error: 'Failed to create agent' });
   }
 });
 
