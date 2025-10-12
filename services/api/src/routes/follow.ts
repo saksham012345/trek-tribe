@@ -17,10 +17,14 @@ router.post('/:userId', authenticateJwt, async (req, res) => {
       return res.status(400).json({ error: 'Cannot follow yourself' });
     }
 
-    // Check if target user exists
+    // Check if target user exists and is an organizer
     const targetUser = await User.findById(followingId);
     if (!targetUser) {
       return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (targetUser.role !== 'organizer') {
+      return res.status(400).json({ error: 'You can only follow trip organizers' });
     }
 
     // Check if already following

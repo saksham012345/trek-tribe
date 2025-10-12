@@ -34,10 +34,14 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
             <Link to="/" className="flex items-center group" onClick={closeMobileMenu}>
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-forest-600 to-nature-600 rounded-xl flex items-center justify-center group-hover:from-forest-700 group-hover:to-nature-700 transition-all duration-300 transform group-hover:scale-105">
-                <span className="text-white font-bold text-sm sm:text-lg">🌲</span>
+              <div className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center group-hover:scale-105 transition-all duration-300">
+                <img 
+                  src="/logo.svg" 
+                  alt="TrekTribe Logo" 
+                  className="w-full h-full object-contain"
+                />
               </div>
-              <span className="ml-2 sm:ml-3 text-lg sm:text-xl font-bold bg-gradient-to-r from-forest-800 to-nature-600 bg-clip-text text-transparent">Trekk Tribe</span>
+              <span className="ml-2 sm:ml-3 text-lg sm:text-xl font-bold bg-gradient-to-r from-forest-800 to-nature-600 bg-clip-text text-transparent">TrekTribe</span>
             </Link>
           </div>
 
@@ -55,7 +59,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
                     type="text"
                     value={quickSearchQuery}
                     onChange={(e) => setQuickSearchQuery(e.target.value)}
-                    placeholder="Search profiles..."
+                    placeholder="Search organizers..."
                     className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-forest-500 focus:border-forest-500"
                   />
                 </div>
@@ -74,7 +78,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
               to="/search" 
               className="text-forest-700 hover:text-nature-600 hover:bg-forest-50 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2"
             >
-              🔍 Search Profiles
+              🔍 Find Organizers
             </Link>
             <Link 
               to="/ai-showcase" 
@@ -187,7 +191,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
                 onClick={closeMobileMenu}
                 className="block text-forest-700 hover:text-nature-600 hover:bg-forest-50 px-4 py-3 rounded-xl text-base font-medium transition-all duration-300"
               >
-                🔍 Search Profiles
+                🔍 Find Organizers
               </Link>
               <Link 
                 to="/ai-showcase" 
