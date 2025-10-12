@@ -255,29 +255,50 @@ const AIChatWidget: React.FC = () => {
   // Advanced AI features
   const getSmartRecommendations = async (preferences?: any) => {
     try {
-      const response = await api.post('/chat/recommendations', {
-        preferences: preferences || {
-          budget: { min: 2000, max: 15000 },
-          difficulty: 'intermediate',
-          interests: ['adventure', 'nature']
-        },
-        context: {
-          currentPage: window.location.pathname,
-          previousMessages: messages.slice(-5)
+      // Try to get AI recommendations for authenticated users
+      let recommendations = [];
+      let responseMessage = '';
+      
+      if (user) {
+        try {
+          const response = await api.get('/ai/recommendations?limit=3');
+          if (response.data.success && response.data.recommendations) {
+            recommendations = response.data.recommendations;
+            responseMessage = 'Here are some personalized trip recommendations based on your profile:';
+          }
+        } catch (aiError) {
+          console.log('AI recommendations not available, falling back to popular trips');
         }
-      });
+      }
+      
+      // Fallback to popular trips if AI recommendations fail or user not logged in
+      if (recommendations.length === 0) {
+        const response = await api.get('/trips?limit=3');
+        const trips = Array.isArray(response.data) ? response.data : response.data.trips || [];
+        recommendations = trips.map((trip: any) => ({
+          ...trip,
+          recommendationScore: 75,
+          aiInsights: {
+            reason: 'Popular choice among travelers',
+            confidence: 'medium'
+          }
+        }));
+        responseMessage = 'Here are some popular trips that travelers love:';
+      }
 
       const aiMessage: ChatMessage = {
         id: `recommendations_${Date.now()}`,
         senderId: 'ai',
         senderName: 'Trek Tribe Assistant',
         senderRole: 'ai',
-        message: response.data.data.message,
+        message: `${responseMessage}\n\n${recommendations.map((rec: any, idx: number) => 
+          `${idx + 1}. ${rec.title} - ${rec.destination} (₹${rec.price?.toLocaleString()})`
+        ).join('\n')}\n\nClick on any trip to view more details!`,
         timestamp: new Date()
       };
 
       setMessages(prev => [...prev, aiMessage]);
-      return response.data.data.recommendations;
+      return recommendations;
     } catch (error) {
       console.error('Error getting recommendations:', error);
       const errorMessage: ChatMessage = {
@@ -285,7 +306,7 @@ const AIChatWidget: React.FC = () => {
         senderId: 'ai',
         senderName: 'Trek Tribe Assistant',
         senderRole: 'ai',
-        message: 'I apologize, but I\'m having trouble getting personalized recommendations right now. You can browse our amazing trips directly on the trips page!',
+        message: 'I apologize, but I\'m having trouble getting recommendations right now. You can browse our amazing trips directly on the trips page!',
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);

@@ -14,12 +14,17 @@ export const getWebsiteUrl = (): string => {
     return configuredUrl.endsWith('/') ? configuredUrl.slice(0, -1) : configuredUrl;
   }
   
-  // Fallback to current origin for development
+  // In production, use the actual hostname for shareable links
   if (typeof window !== 'undefined') {
+    // If on production domain, use it
+    if (window.location.hostname.includes('trektribe.in')) {
+      return 'https://www.trektribe.in';
+    }
     return window.location.origin;
   }
   
-  return 'https://yourdomain.com';
+  // Default fallback for production builds
+  return 'https://www.trektribe.in';
 };
 
 /**
@@ -51,5 +56,16 @@ export const isDevelopment = (): boolean => {
  * Get the API base URL
  */
 export const getApiUrl = (): string => {
-  return process.env.REACT_APP_API_URL || 'http://localhost:4000';
+  // Use environment variable if set
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL;
+  }
+  
+  // In production, use production API
+  if (process.env.NODE_ENV === 'production') {
+    return 'https://trek-tribe-38in.onrender.com';
+  }
+  
+  // Development default
+  return 'http://localhost:4000';
 };

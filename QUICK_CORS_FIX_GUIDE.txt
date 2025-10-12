@@ -1,0 +1,162 @@
+╔═══════════════════════════════════════════════════════════════╗
+║              🔒 CORS FIX - QUICK DEPLOYMENT GUIDE             ║
+╚═══════════════════════════════════════════════════════════════╝
+
+PROBLEM:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CORS error when connecting frontend (https://www.trektribe.in)
+to Socket.IO backend (https://trek-tribe-38in.onrender.com)
+
+
+SOLUTION:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Added your production domain to CORS allowed origins
+✅ Updated Socket.IO CORS configuration
+✅ Added both www and non-www versions
+
+
+FILES CHANGED:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📝 services/api/src/index.ts
+📝 services/api/src/index.js
+📝 services/api/src/services/socketService.ts
+
+
+DEPLOY NOW:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+OPTION 1: Git Push (Recommended)
+────────────────────────────────────────────────────────────────
+git add services/api/src/index.ts services/api/src/index.js \
+        services/api/src/services/socketService.ts
+
+git commit -m "fix: Add production domain to CORS configuration"
+
+git push origin main
+
+→ Render will auto-deploy
+
+
+OPTION 2: Manual Deploy on Render
+────────────────────────────────────────────────────────────────
+1. Go to https://dashboard.render.com
+2. Find your trek-tribe-38in service
+3. Click "Manual Deploy" → "Deploy latest commit"
+
+
+VERIFY DEPLOYMENT:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Step 1: Check Backend is Running
+────────────────────────────────────────────────────────────────
+Visit: https://trek-tribe-38in.onrender.com/health
+
+Should see: {"status":"ok",...}
+
+
+Step 2: Test Socket.IO Connection
+────────────────────────────────────────────────────────────────
+1. Open https://www.trektribe.in
+2. Open browser DevTools (F12)
+3. Go to Console tab
+4. Look for: "✅ Connected to Socket.IO server!"
+
+
+Step 3: Verify No CORS Errors
+────────────────────────────────────────────────────────────────
+In browser console, you should NOT see:
+❌ "CORS policy: No 'Access-Control-Allow-Origin'"
+❌ "Connection failed"
+
+You SHOULD see:
+✅ "Socket connected"
+✅ "WebSocket connection established"
+
+
+FRONTEND CONNECTION CODE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Make sure your frontend uses this configuration:
+
+const socket = io('https://trek-tribe-38in.onrender.com', {
+  path: '/socket.io/',
+  transports: ['websocket', 'polling'],
+  withCredentials: true,
+  auth: {
+    token: yourAuthToken  // Optional, for authenticated users
+  }
+});
+
+
+TROUBLESHOOTING:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Problem: Still getting CORS error
+Solution: 
+  • Hard refresh: Ctrl+Shift+R (Windows) or Cmd+Shift+R (Mac)
+  • Clear browser cache
+  • Wait 2-3 minutes for Render deployment to complete
+  • Check Render logs for "Socket.IO initialized"
+
+Problem: Connection timeout
+Solution:
+  • Check backend is running: curl https://trek-tribe-38in.onrender.com/health
+  • Check Render service status on dashboard
+  • Try polling transport only: transports: ['polling']
+
+Problem: 401 Unauthorized
+Solution:
+  • Verify auth token is valid
+  • Check JWT_SECRET is set on Render
+  • Make sure token format is: "Bearer <token>"
+
+
+EXPECTED BEHAVIOR:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ Socket.IO connects within 2-3 seconds
+✅ No CORS errors in console
+✅ Real-time notifications work
+✅ Chat messages send/receive instantly
+✅ Dashboard updates in real-time
+
+
+DOMAINS NOW ALLOWED:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ https://www.trektribe.in (YOUR MAIN DOMAIN)
+✅ https://trektribe.in (without www)
+✅ https://trek-tribe-38in.onrender.com (backend)
+✅ Any domain set in FRONTEND_URL env var
+
+
+MONITORING:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Check Render Logs for:
+✅ "Socket.IO service initialized"
+✅ "Connected to MongoDB successfully"
+✅ "Server started on port 10000"
+
+No errors like:
+❌ "CORS error"
+❌ "Connection refused"
+❌ "Unauthorized"
+
+
+NEED HELP?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Check detailed docs: CORS_FIX.md
+2. View Render logs: https://dashboard.render.com
+3. Test with curl commands (see CORS_FIX.md)
+4. Check browser Network tab for failed requests
+
+
+═══════════════════════════════════════════════════════════════
+              ✅ CORS FIX APPLIED - READY TO DEPLOY!
+═══════════════════════════════════════════════════════════════
+
+Time to fix: ~5 minutes (deployment time)
+Expected result: Socket.IO connects successfully! 🎉
+

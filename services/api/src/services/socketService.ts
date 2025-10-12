@@ -38,13 +38,24 @@ class SocketService {
   private sessionCleanupInterval: NodeJS.Timeout | null = null;
 
   initialize(server: HttpServer) {
+    // Configure allowed origins for Socket.IO
+    const allowedOrigins = process.env.NODE_ENV === 'production' ? [
+      'https://www.trektribe.in',
+      'https://trektribe.in',
+      process.env.FRONTEND_URL || 'https://trek-tribe-web.onrender.com',
+      process.env.SOCKET_ORIGIN,
+      'https://trek-tribe-38in.onrender.com'
+    ].filter(Boolean) : ['http://localhost:3000', 'http://localhost:3001'];
+
     this.io = new SocketIOServer(server, {
       cors: {
-        origin: process.env.SOCKET_ORIGIN || process.env.FRONTEND_URL || "http://localhost:3000",
-        methods: ["GET", "POST"],
-        credentials: true
+        origin: allowedOrigins,
+        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        credentials: true,
+        allowedHeaders: ["Content-Type", "Authorization"]
       },
-      path: '/socket.io/'
+      path: '/socket.io/',
+      transports: ['websocket', 'polling']
     });
 
     // Authentication middleware

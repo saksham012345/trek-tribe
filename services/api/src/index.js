@@ -59,8 +59,14 @@ app.use(helmet({
   contentSecurityPolicy: false, // Disable CSP for EJS templates
 }));
 app.use(cors({ 
-  origin: process.env.NODE_ENV === 'production' ? 
-    ['https://trek-tribe.vercel.app'] : '*',
+  origin: process.env.NODE_ENV === 'production' ? [
+    'https://www.trektribe.in',
+    'https://trektribe.in',
+    'https://trek-tribe.vercel.app',
+    process.env.FRONTEND_URL || 'https://trek-tribe-web.onrender.com',
+    process.env.CORS_ORIGIN || 'https://trek-tribe-web.onrender.com',
+    'https://trek-tribe-38in.onrender.com'
+  ] : '*',
   credentials: true 
 }));
 
