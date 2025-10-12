@@ -328,6 +328,9 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
         hasSchedule: !!tripData.schedule,
         hasPaymentConfig: !!tripData.paymentConfig
       });
+      
+      // Log full payload for debugging
+      console.log('📦 Full trip payload:', JSON.stringify(tripData, null, 2));
 
       setUploadProgress(90);
       
@@ -352,9 +355,15 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       }, 1000);
       
     } catch (error: any) {
-      console.error('❌ Error creating trip:', error.message);
-      console.error('📋 Response data:', error.response?.data);
+      console.error('❌ Error creating trip:', error);
+      console.error('📋 Full error object:', JSON.stringify(error.response?.data, null, 2));
       console.error('🔢 Status code:', error.response?.status);
+      console.error('🔍 Error message:', error.message);
+      
+      // Show error details in alert for immediate visibility
+      if (error.response?.data) {
+        console.table(error.response.data);
+      }
       
       let errorMessage = 'Failed to create trip';
       
