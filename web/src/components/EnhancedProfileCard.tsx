@@ -149,8 +149,8 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
           </div>
         </div>
 
-        {/* Follow button for non-own profiles */}
-        {!isOwnProfile && currentUser && (
+        {/* Follow button for non-own profiles - only show for organizers */}
+        {!isOwnProfile && currentUser && profile.role === 'organizer' && (
           <div className="absolute top-6 right-6">
             <button
               onClick={handleFollow}
@@ -174,7 +174,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
               ) : (
                 <span className="flex items-center gap-2">
                   <span>+</span>
-                  Follow
+                  Follow Organizer
                 </span>
               )}
             </button>

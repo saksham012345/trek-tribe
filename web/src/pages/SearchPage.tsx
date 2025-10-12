@@ -39,7 +39,7 @@ const SearchPage: React.FC = () => {
 
   const loadSuggestions = async () => {
     try {
-      const response = await api.get('/api/search/suggestions?limit=12');
+      const response = await api.get('/api/search/suggestions?limit=12&role=organizer');
       setSuggestions(response.data.suggestions);
     } catch (error) {
       console.error('Error loading suggestions:', error);
@@ -57,12 +57,9 @@ const SearchPage: React.FC = () => {
     try {
       const params = new URLSearchParams({
         q: query,
-        limit: '20'
+        limit: '20',
+        role: 'organizer' // Only search for organizers
       });
-      
-      if (selectedRole) {
-        params.append('role', selectedRole);
-      }
 
       const response = await api.get(`/api/search/profiles?${params.toString()}`);
       setResults(response.data.profiles);
@@ -180,8 +177,8 @@ const SearchPage: React.FC = () => {
       <div className="max-w-4xl mx-auto px-4">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Search Profiles</h1>
-          <p className="text-gray-600">Discover amazing travelers and organizers in the TrekTribe community</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Search Organizers</h1>
+          <p className="text-gray-600">Discover amazing trip organizers in the TrekTribe community</p>
         </div>
 
         {/* Search Form */}
@@ -189,23 +186,13 @@ const SearchPage: React.FC = () => {
           <form onSubmit={handleSearch} className="space-y-4">
             <div className="flex gap-4">
               <div className="flex-1">
-                <ProfileSearch
-                  placeholder="Search by name, location, or bio..."
-                  showSuggestions={false}
-                />
-              </div>
-              
-              <div className="w-48">
-                <select
-                  value={selectedRole}
-                  onChange={(e) => setSelectedRole(e.target.value)}
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search organizers by name, location, or bio..."
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">All Roles</option>
-                  <option value="traveler">Travelers</option>
-                  <option value="organizer">Organizers</option>
-                  <option value="agent">Agents</option>
-                </select>
+                />
               </div>
 
               <button
@@ -240,8 +227,7 @@ const SearchPage: React.FC = () => {
               </h2>
               {searchQuery && (
                 <p className="text-gray-600">
-                  Results for "{searchQuery}"
-                  {selectedRole && ` in ${selectedRole}s`}
+              Results for "{searchQuery}"
                 </p>
               )}
             </div>
@@ -264,8 +250,8 @@ const SearchPage: React.FC = () => {
           /* Suggestions */
           <div>
             <div className="mb-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">Popular Profiles</h2>
-              <p className="text-gray-600">Discover some of our most active community members</p>
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">Popular Organizers</h2>
+              <p className="text-gray-600">Discover some of our most popular trip organizers</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

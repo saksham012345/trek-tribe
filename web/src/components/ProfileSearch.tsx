@@ -27,7 +27,7 @@ interface ProfileSearchProps {
 
 const ProfileSearch: React.FC<ProfileSearchProps> = ({ 
   onClose, 
-  placeholder = "Search profiles...",
+  placeholder = "Search organizers...",
   showSuggestions = true 
 }) => {
   const navigate = useNavigate();
@@ -48,6 +48,15 @@ const ProfileSearch: React.FC<ProfileSearchProps> = ({
       loadSuggestions();
     }
   }, [showSuggestions]);
+
+  const loadSuggestions = async () => {
+    try {
+      const response = await api.get('/api/search/suggestions?limit=6&role=organizer');
+      setSuggestions(response.data.suggestions);
+    } catch (error) {
+      console.error('Error loading suggestions:', error);
+    }
+  };
 
   // Handle click outside to close results
   useEffect(() => {
@@ -79,7 +88,7 @@ const ProfileSearch: React.FC<ProfileSearchProps> = ({
 
     setLoading(true);
     try {
-      const response = await api.get(`/api/search/profiles?q=${encodeURIComponent(searchQuery)}&limit=8`);
+      const response = await api.get(`/api/search/profiles?q=${encodeURIComponent(searchQuery)}&limit=8&role=organizer`);
       setResults(response.data.profiles);
       setShowResults(true);
       setSelectedIndex(-1);
@@ -195,13 +204,13 @@ const ProfileSearch: React.FC<ProfileSearchProps> = ({
         <div className="absolute z-50 mt-1 w-full bg-white shadow-lg max-h-96 overflow-auto rounded-lg border border-gray-200">
           {query.trim().length >= 2 && (
             <div className="px-4 py-2 text-sm text-gray-500 border-b border-gray-100">
-              {results.length > 0 ? `${results.length} profile(s) found` : 'No profiles found'}
+              {results.length > 0 ? `${results.length} organizer(s) found` : 'No organizers found'}
             </div>
           )}
           
           {query.trim().length < 2 && showSuggestions && (
             <div className="px-4 py-2 text-sm text-gray-500 border-b border-gray-100">
-              Suggested profiles
+              Popular organizers
             </div>
           )}
 

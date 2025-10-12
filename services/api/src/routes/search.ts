@@ -32,10 +32,15 @@ router.get('/profiles', async (req, res) => {
       searchCriteria.role = role.toString();
     }
 
+    // If no role specified, prioritize organizers
+    if (!role) {
+      searchCriteria.role = 'organizer';
+    }
+
     const profiles = await User.find(searchCriteria)
       .select('name email profilePhoto role location bio socialStats isVerified')
       .limit(searchLimit)
-      .sort({ 'socialStats.followersCount': -1, name: 1 });
+      .sort({ 'socialStats.followersCount': -1, 'socialStats.postsCount': -1, name: 1 });
 
     const formattedProfiles = profiles.map(user => ({
       _id: user._id,
@@ -73,12 +78,9 @@ router.get('/suggestions', async (req, res) => {
     const { limit = 8, role } = req.query;
     const searchLimit = Math.min(parseInt(limit.toString()) || 8, 20);
 
-    const searchCriteria: any = {};
-    
-    // Add role filter if specified
-    if (role && ['traveler', 'organizer', 'admin', 'agent'].includes(role.toString())) {
-      searchCriteria.role = role.toString();
-    }
+    const searchCriteria: any = {
+      role: 'organizer' // Only show organizers in suggestions
+    };
 
     const suggestions = await User.find(searchCriteria)
       .select('name email profilePhoto role location bio socialStats isVerified')
