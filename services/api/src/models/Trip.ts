@@ -59,6 +59,7 @@ export interface TripDocument extends Document {
   itineraryPdf?: string;
   capacity: number;
   price: number;
+  minimumAge?: number; // Minimum age requirement for travelers
   // Package options for different variants
   packages: PackageOption[];
   // Payment configuration
@@ -143,6 +144,7 @@ const tripSchema = new Schema(
     itineraryPdf: { type: String },
     capacity: { type: Number, required: true },
     price: { type: Number, required: true },
+    minimumAge: { type: Number, min: 1, max: 100 }, // Optional minimum age requirement
     // Package options for different variants
     packages: { type: [packageOptionSchema], default: [] },
     // Payment configuration

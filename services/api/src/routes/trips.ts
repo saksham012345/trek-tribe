@@ -58,6 +58,12 @@ const createTripSchema = z.object({
       const num = Number(val || 1000);
       return num > 0 ? num : 1000;
     }),
+  minimumAge: z.union([z.string(), z.number(), z.undefined(), z.null()])
+    .transform(val => {
+      if (val === null || val === undefined || val === '') return undefined;
+      const num = Number(val);
+      return num >= 1 && num <= 100 ? Math.floor(num) : undefined;
+    }).optional(),
   startDate: z.union([z.string(), z.number(), z.date(), z.undefined(), z.null()])
     .transform(val => {
       if (!val) return new Date(Date.now() + 24 * 60 * 60 * 1000); // Tomorrow
@@ -143,6 +149,7 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), asyncHandl
         images: req.body.images || [],
         capacity: req.body.capacity || 10,
         price: req.body.price || 1000,
+        minimumAge: req.body.minimumAge || undefined,
         startDate: req.body.startDate || new Date(Date.now() + 24 * 60 * 60 * 1000),
         endDate: req.body.endDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         paymentConfig: req.body.paymentConfig || {

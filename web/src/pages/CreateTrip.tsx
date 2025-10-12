@@ -64,6 +64,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
     destination: '',
     price: '',
     capacity: '',
+    minimumAge: '',
     categories: [] as string[],
     startDate: '',
     endDate: '',
@@ -405,6 +406,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
         destination: formData.destination.trim(),
         price: parseFloat(formData.price),
         capacity: parseInt(formData.capacity),
+        minimumAge: formData.minimumAge ? parseInt(formData.minimumAge) : undefined,
         categories: formData.categories,
         startDate: formData.startDate,
         endDate: formData.endDate,
@@ -598,7 +600,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                   value={formData.price}
                   onChange={handleChange}
                   className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
-                  placeholder="5000"
+                  placeholder="Enter price"
                 />
               </div>
               
@@ -616,8 +618,28 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                   value={formData.capacity}
                   onChange={handleChange}
                   className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
-                  placeholder="8"
+                  placeholder="Enter capacity"
                 />
+              </div>
+              
+              <div>
+                <label htmlFor="minimumAge" className="block text-sm font-semibold text-forest-700 mb-3">
+                  🎂 Minimum Age Requirement
+                </label>
+                <input
+                  type="number"
+                  id="minimumAge"
+                  name="minimumAge"
+                  min="1"
+                  max="100"
+                  value={formData.minimumAge}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
+                  placeholder="Enter minimum age"
+                />
+                <p className="mt-1 text-sm text-forest-600">
+                  Leave empty if no age restriction. Only travelers meeting this age requirement can join.
+                </p>
               </div>
               
               <div>
@@ -1038,9 +1060,9 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                         <input
                           type="number"
                           min="0"
-                          placeholder="5000"
+                          placeholder="Enter price"
                           value={pkg.price || ''}
-                          onChange={(e) => updatePackage(pkg.id, 'price', parseFloat(e.target.value) || 0)}
+                          onChange={(e) => updatePackage(pkg.id, 'price', e.target.value ? parseFloat(e.target.value) : '')}
                           className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
                         />
                       </div>
@@ -1123,10 +1145,10 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                       type="number"
                       min="0"
                       step="1"
-                      value={paymentConfig.advanceAmount || 1000}
-                      onChange={(e) => setPaymentConfig({...paymentConfig, advanceAmount: parseInt(e.target.value) || 1000})}
+                      value={paymentConfig.advanceAmount || ''}
+                      onChange={(e) => setPaymentConfig({...paymentConfig, advanceAmount: e.target.value ? parseInt(e.target.value) : ''})}
                       className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
-                      placeholder="1000"
+                      placeholder="Enter amount"
                     />
                     <p className="mt-1 text-sm text-forest-600">
                       Set to 0 for no advance payment required. Organizers can set any amount they want.

@@ -265,6 +265,18 @@ const userSchema = new Schema(
 
 userSchema.index({ name: 'text', email: 'text' });
 
+// Pre-save middleware to ensure socialStats are initialized
+userSchema.pre('save', function(next) {
+  if (!this.socialStats) {
+    this.socialStats = {
+      followersCount: 0,
+      followingCount: 0,
+      postsCount: 0
+    };
+  }
+  next();
+});
+
 // Export with proper typing to avoid complex union types
 export const User = (mongoose.models.User || mongoose.model('User', userSchema)) as any as Model<UserDocument>;
 

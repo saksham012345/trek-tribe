@@ -14,6 +14,7 @@ interface Trip {
   destination: string;
   price: number;
   capacity: number;
+  minimumAge?: number;
   participants: string[];
   categories: string[];
   images: string[];
@@ -432,6 +433,12 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
                   <span className="text-forest-600">Available spots:</span>
                   <span className="font-semibold text-forest-800">{trip.capacity - trip.participants.length}/{trip.capacity}</span>
                 </div>
+                {trip.minimumAge && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-forest-600">Minimum age:</span>
+                    <span className="font-semibold text-forest-800">{trip.minimumAge} years</span>
+                  </div>
+                )}
                 <div className="w-full bg-forest-100 rounded-full h-2">
                   <div
                     className="bg-nature-500 h-2 rounded-full transition-all duration-500"
