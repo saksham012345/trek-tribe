@@ -28,9 +28,13 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
             <Link to="/" className="flex items-center group" onClick={closeMobileMenu}>
               <div className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center group-hover:scale-105 transition-all duration-300">
                 <img 
-                  src="/logo.svg" 
+                  src="/logo.svg?v=3" 
                   alt="TrekTribe Logo" 
                   className="w-full h-full object-contain"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                  }}
                 />
               </div>
               <span className="ml-2 sm:ml-3 text-lg sm:text-xl font-bold bg-gradient-to-r from-forest-800 to-nature-600 bg-clip-text text-transparent">TrekTribe</span>

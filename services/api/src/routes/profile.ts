@@ -131,21 +131,18 @@ router.put('/me', authenticateJwt, async (req, res) => {
   }
 });
 
-// Upload profile photo
+// Upload or delete profile photo
 router.post('/photo', authenticateJwt, async (req, res) => {
   try {
     const userId = (req as any).auth.userId;
     const { photo } = req.body;
 
-    if (!photo) {
-      return res.status(400).json({ error: 'Photo data is required' });
-    }
+    // Handle photo deletion (when photo is empty string)
+    const photoValue = photo === '' ? null : photo;
 
-    // Here you would typically upload to a cloud storage service
-    // For now, we'll just store the photo URL/path
     const updatedUser = await User.findByIdAndUpdate(
       userId,
-      { profilePhoto: photo },
+      { profilePhoto: photoValue },
       { new: true }
     ).select('-passwordHash');
 
@@ -153,15 +150,22 @@ router.post('/photo', authenticateJwt, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    logger.info('Profile photo updated', { userId });
-
-    res.json({ 
-      message: 'Profile photo updated successfully',
-      profilePhoto: updatedUser.profilePhoto
-    });
+    if (photo === '') {
+      logger.info('Profile photo deleted', { userId });
+      res.json({ 
+        message: 'Profile photo deleted successfully',
+        profilePhoto: ''
+      });
+    } else {
+      logger.info('Profile photo updated', { userId });
+      res.json({ 
+        message: 'Profile photo updated successfully',
+        profilePhoto: updatedUser.profilePhoto
+      });
+    }
   } catch (error: any) {
-    logger.error('Error uploading profile photo', { error: error.message });
-    res.status(500).json({ error: 'Failed to upload profile photo' });
+    logger.error('Error updating profile photo', { error: error.message });
+    res.status(500).json({ error: 'Failed to update profile photo' });
   }
 });
 

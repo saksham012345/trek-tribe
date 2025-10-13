@@ -90,11 +90,11 @@ const EnhancedProfile: React.FC = () => {
 
   const fetchProfile = async () => {
     try {
-      const endpoint = isOwnProfile ? '/profile/me' : `/profile/${userId}`;
+      const endpoint = isOwnProfile ? '/profile/enhanced' : `/profile/enhanced/${userId}`;
       const response = await api.get(endpoint);
       
-      const responseData = response.data as { user?: any; profile?: any };
-      const userData = isOwnProfile ? responseData.user : responseData.profile;
+      const responseData = response.data as { data: { user: any } };
+      const userData = responseData.data.user;
       setProfile(userData);
       
       // Initialize edit form
@@ -250,9 +250,9 @@ const EnhancedProfile: React.FC = () => {
         };
       }
       
-      const response = await api.put('/profile/me', cleanedForm);
-      const userData = response.data as { user: any };
-      setProfile(userData.user);
+      const response = await api.put('/profile/enhanced', cleanedForm);
+      const userData = response.data as { data: { user: any } };
+      setProfile(userData.data.user);
       setEditing(false);
       alert('Profile updated successfully!');
     } catch (error: any) {
