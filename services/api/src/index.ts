@@ -18,8 +18,10 @@ import enhancedProfileRoutes from './routes/enhancedProfile';
 import publicProfileRoutes from './routes/publicProfile';
 import aiRoutes from './routes/ai';
 import followRoutes from './routes/follow';
+import viewsRoutes from './routes/views';
 import postsRoutes from './routes/posts';
 import searchRoutes from './routes/search';
+import supportRoutes from './routes/support';
 // Production-ready file upload routes
 import fileUploadRoutes from './routes/fileUploadProd';
 import { whatsappService } from './services/whatsappService';
@@ -177,9 +179,11 @@ async function start() {
     app.use('/agent', agentRoutes);
     app.use('/chat', chatSupportRoutes);
     app.use('/api/ai', aiRoutes);
+    app.use('/', viewsRoutes);
     app.use('/api/follow', followRoutes);
     app.use('/api/posts', postsRoutes);
     app.use('/api/search', searchRoutes);
+    app.use('/support', supportRoutes);
     
     // Health check endpoint with detailed info
     app.get('/health', asyncErrorHandler(async (_req: Request, res: Response) => {

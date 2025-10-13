@@ -511,7 +511,7 @@ const AIChatWidget: React.FC = () => {
     }
   };
 
-  const requestHumanAgent = () => {
+  const requestHumanAgent = async () => {
     // Always create a queue message to show the request was received
     const agentRequestMessage: ChatMessage = {
       id: `agent_request_${Date.now()}`,
@@ -523,28 +523,49 @@ const AIChatWidget: React.FC = () => {
     };
     setMessages(prev => [...prev, agentRequestMessage]);
 
-    // Try to emit socket event if available
-    if (socketRef.current && !socketFailed) {
-      if (!chatSession) {
-        // Create a temporary session for human agent request
-        socketRef.current.emit('request_human_agent', {
-          reason: 'Direct human support requested',
-          urgency: 'medium',
-          userInfo: {
-            name: user?.name || 'Guest',
-            email: user?.email,
-            currentPage: window.location.pathname
-          }
-        });
+    // Create support ticket via API (more reliable than socket)
+    try {
+      if (user && token) {
+        // Create ticket for authenticated user
+        const chatHistory = messages.map(msg => `${msg.senderName}: ${msg.message}`).join('\n');
+        const ticketData = {
+          subject: 'Chat Support Request - Human Agent Needed',
+          description: `User requested human support during chat session.\n\nChat History:\n${chatHistory}`,
+          category: 'general',
+          priority: 'medium'
+        };
+
+        await api.post('/support/tickets', ticketData);
+        
+        // Success message
+        setTimeout(() => {
+          const successMessage: ChatMessage = {
+            id: `success_agent_${Date.now()}`,
+            senderId: 'system',
+            senderName: 'System',
+            senderRole: 'ai',
+            message: '✅ Your support ticket has been created successfully! An agent will respond soon.',
+            timestamp: new Date()
+          };
+          setMessages(prev => [...prev, successMessage]);
+        }, 1500);
       } else {
-        socketRef.current.emit('request_human_agent', {
-          sessionId: chatSession.sessionId,
-          reason: 'User requested human support',
-          urgency: 'medium'
-        });
+        // For guest users, show contact information
+        setTimeout(() => {
+          const guestMessage: ChatMessage = {
+            id: `guest_agent_${Date.now()}`,
+            senderId: 'system',
+            senderName: 'System',
+            senderRole: 'ai',
+            message: 'For immediate assistance, please contact us directly at tanejasaksham44@gmail.com or call 9876177839!',
+            timestamp: new Date()
+          };
+          setMessages(prev => [...prev, guestMessage]);
+        }, 1500);
       }
-    } else {
-      // Fallback: Show that request was logged
+    } catch (error) {
+      console.error('Failed to create support ticket:', error);
+      // Fallback message
       setTimeout(() => {
         const fallbackMessage: ChatMessage = {
           id: `fallback_agent_${Date.now()}`,
@@ -555,7 +576,7 @@ const AIChatWidget: React.FC = () => {
           timestamp: new Date()
         };
         setMessages(prev => [...prev, fallbackMessage]);
-      }, 2000);
+      }, 1500);
     }
 
     setShowHumanSupportOption(false);

@@ -156,13 +156,13 @@ const SearchPage: React.FC = () => {
         </div>
 
         {/* Profile Info */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 overflow-hidden">
           <div className="flex items-center gap-2 mb-2">
-            <h3 className="text-lg font-semibold text-gray-900 truncate">
+            <h3 className="text-lg font-semibold text-gray-900 truncate flex-1">
               {profile.name}
             </h3>
             {profile.isVerified && (
-              <span className="text-blue-500" title="Verified Profile">✅</span>
+              <span className="text-blue-500 flex-shrink-0" title="Verified Profile">✅</span>
             )}
           </div>
 
@@ -173,8 +173,8 @@ const SearchPage: React.FC = () => {
             </span>
             
             {profile.location && (
-              <span className="text-sm text-gray-500 flex items-center">
-                📍 {profile.location}
+              <span className="text-sm text-gray-500 flex items-center truncate max-w-[200px]">
+                📍 <span className="truncate">{profile.location}</span>
               </span>
             )}
           </div>
@@ -197,8 +197,8 @@ const SearchPage: React.FC = () => {
 
           {/* Bio */}
           {profile.bio && (
-            <p className="text-sm text-gray-700 line-clamp-2 overflow-hidden">
-              {profile.bio.length > 100 ? `${profile.bio.substring(0, 100)}...` : profile.bio}
+            <p className="text-sm text-gray-700 line-clamp-3 overflow-hidden">
+              {profile.bio.length > 150 ? `${profile.bio.substring(0, 150)}...` : profile.bio}
             </p>
           )}
 

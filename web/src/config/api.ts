@@ -8,7 +8,7 @@ const API_BASE_URL = process.env.REACT_APP_API_URL ||
     ? (window.location.hostname.includes('trektribe.in') || window.location.hostname.includes('onrender.com')
         ? 'https://trek-tribe-38in.onrender.com'  // Production API (for trektribe.in and Render)
         : 'https://trek-tribe-38in.onrender.com')  // Default to production API
-    : 'http://localhost:4000');  // Local development
+    : 'https://trek-tribe-38in.onrender.com');  // Use Render backend for development too
 
 // Create axios instance with default configuration
 const api = axios.create({
