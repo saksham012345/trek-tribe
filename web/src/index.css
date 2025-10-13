@@ -64,7 +64,7 @@ code {
 /* Trek Tribe Custom Scrollbar */
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: #86d4a1 #d9f1e1;
+  scrollbar-color: #64748b #e2e8f0;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -72,15 +72,15 @@ code {
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: #d9f1e1;
+  background: #e2e8f0;
   border-radius: 3px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #86d4a1;
+  background: #64748b;
   border-radius: 3px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #4ade80;
+  background: #475569;
 }
