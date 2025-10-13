@@ -20,6 +20,11 @@ interface AIResponse {
       value: string;
     }>;
   };
+  tripLinks?: Array<{
+    tripId: string;
+    title: string;
+    url: string;
+  }>;
   additionalData?: {
     recommendations?: TripRecommendation[];
     interpretedIntent?: string;
@@ -55,6 +60,13 @@ interface ChatContext {
     content: string;
     timestamp: Date;
   }>;
+  extractedContext?: {
+    priceMax?: number;
+    priceMin?: number;
+    destinations?: string[];
+    categories?: string[];
+    lastRecommendations?: any[];
+  };
 }
 
 interface TripAvailability {
@@ -423,6 +435,9 @@ class TrekTribeAI {
     try {
       const normalizedQuery = query.toLowerCase().trim();
       
+      // Extract context from conversation history
+      context = this.enrichContextFromHistory(query, context);
+      
       // Find best matching pattern
       let bestMatch = this.findBestMatch(normalizedQuery);
       
@@ -444,6 +459,82 @@ class TrekTribeAI {
       logger.error('Error in Trek Tribe AI analysis', { error: error.message, query });
       return this.getGeneralResponse(query);
     }
+  }
+  
+  // Extract context from conversation history for follow-up queries
+  private enrichContextFromHistory(query: string, context: ChatContext): ChatContext {
+    const normalizedQuery = query.toLowerCase();
+    
+    // Initialize extracted context
+    if (!context.extractedContext) {
+      context.extractedContext = {};
+    }
+    
+    // Check if this is a follow-up query about price
+    const priceMatch = normalizedQuery.match(/under|below|less than|cheaper than|within|up to|max(?:imum)?[\s]*(?:₹|rs\.?|rupees?)?[\s]*(\d+(?:,\d+)*(?:k)?)/i);
+    if (priceMatch) {
+      let priceValue = priceMatch[1].replace(/,/g, '');
+      if (priceValue.toLowerCase().endsWith('k')) {
+        priceValue = priceValue.slice(0, -1);
+        context.extractedContext.priceMax = parseInt(priceValue) * 1000;
+      } else {
+        context.extractedContext.priceMax = parseInt(priceValue);
+      }
+    }
+    
+    // Check for minimum price
+    const minPriceMatch = normalizedQuery.match(/above|more than|over|starting from|minimum|min[\s]*(?:₹|rs\.?|rupees?)?[\s]*(\d+(?:,\d+)*(?:k)?)/i);
+    if (minPriceMatch) {
+      let priceValue = minPriceMatch[1].replace(/,/g, '');
+      if (priceValue.toLowerCase().endsWith('k')) {
+        priceValue = priceValue.slice(0, -1);
+        context.extractedContext.priceMin = parseInt(priceValue) * 1000;
+      } else {
+        context.extractedContext.priceMin = parseInt(priceValue);
+      }
+    }
+    
+    // Check for price range
+    const rangeMatch = normalizedQuery.match(/between[\s]*(?:₹|rs\.?|rupees?)?[\s]*(\d+(?:,\d+)*(?:k)?)[\s]*(?:and|to|-|–)[\s]*(?:₹|rs\.?|rupees?)?[\s]*(\d+(?:,\d+)*(?:k)?)/i);
+    if (rangeMatch) {
+      let min = rangeMatch[1].replace(/,/g, '');
+      let max = rangeMatch[2].replace(/,/g, '');
+      
+      if (min.toLowerCase().endsWith('k')) {
+        min = min.slice(0, -1);
+        context.extractedContext.priceMin = parseInt(min) * 1000;
+      } else {
+        context.extractedContext.priceMin = parseInt(min);
+      }
+      
+      if (max.toLowerCase().endsWith('k')) {
+        max = max.slice(0, -1);
+        context.extractedContext.priceMax = parseInt(max) * 1000;
+      } else {
+        context.extractedContext.priceMax = parseInt(max);
+      }
+    }
+    
+    // Extract destinations from query
+    const destinations = ['himalaya', 'manali', 'ladakh', 'goa', 'kashmir', 'rajasthan', 'kerala', 'rishikesh', 'uttarakhand'];
+    context.extractedContext.destinations = destinations.filter(dest => normalizedQuery.includes(dest));
+    
+    // Extract categories from query
+    const categories = ['trekking', 'adventure', 'camping', 'hiking', 'wildlife', 'beach', 'mountain'];
+    context.extractedContext.categories = categories.filter(cat => normalizedQuery.includes(cat));
+    
+    // Apply extracted budget to userPreferences
+    if (context.extractedContext.priceMax || context.extractedContext.priceMin) {
+      if (!context.userPreferences) {
+        context.userPreferences = {};
+      }
+      context.userPreferences.budget = {
+        min: context.extractedContext.priceMin || 0,
+        max: context.extractedContext.priceMax || 999999
+      };
+    }
+    
+    return context;
   }
   
   private findBestMatch(query: string): { pattern: any; confidence: number } | null {
@@ -841,6 +932,7 @@ class TrekTribeAI {
   private async enhanceWithTripContext(match: any, context: ChatContext): Promise<AIResponse> {
     let enhancedResponse = match.pattern.response;
     let additionalData: any = {};
+    let tripLinks: Array<{ tripId: string; title: string; url: string; }> | undefined = undefined;
     
     // Handle availability queries
     if (match.pattern.keywords.some((k: string) => ['availability', 'available', 'spots', 'full'].includes(k))) {
@@ -892,15 +984,17 @@ class TrekTribeAI {
     if (match.pattern.keywords.some((k: string) => ['recommend', 'suggest', 'best', 'advice'].includes(k))) {
       const recommendations = await this.getSmartRecommendations(context);
       if (recommendations.length > 0) {
+        const baseUrl = process.env.FRONTEND_URL || 'https://trektribe.in';
         enhancedResponse = `🎯 Based on your preferences and travel history, here are my top recommendations:\n\n`;
         
         for (let i = 0; i < Math.min(3, recommendations.length); i++) {
           const rec = recommendations[i];
           const availability = await this.getTripAvailability(rec.trip._id);
           const organizer = await this.getOrganizerProfile(rec.trip.organizerId);
+          const tripUrl = `${baseUrl}/trips/${rec.trip._id}`;
           
           enhancedResponse += `**${i + 1}. ${rec.trip.title}** (₹${rec.trip.price.toLocaleString()})\n`;
-          enhancedResponse += `📍 ${rec.trip.destination} • ${rec.trip.difficultyLevel} level\n`;
+          enhancedResponse += `📍 ${rec.trip.destination} • ${rec.trip.difficultyLevel || 'Intermediate'} level\n`;
           enhancedResponse += `🎯 ${rec.reason}\n`;
           
           if (availability) {
@@ -913,8 +1007,10 @@ class TrekTribeAI {
             enhancedResponse += `👨‍🏫 Led by ${organizer.name} (⭐ ${organizer.rating}/5.0)\n`;
           }
           
-          enhancedResponse += '\n';
+          enhancedResponse += `🔗 View Details: ${tripUrl}\n\n`;
         }
+        
+        enhancedResponse += '\n💡 Click any link above to see full trip details and book your adventure!';
         
         additionalData.recommendations = recommendations;
       } else {
@@ -974,19 +1070,57 @@ class TrekTribeAI {
       }
     }
     
-    // Original trip context enhancements
+    // Trip-specific context enhancements
     if (context.tripId && !match.pattern.keywords.some((k: string) => ['availability', 'organizer', 'recommend'].includes(k))) {
       const tripInfo = await this.getTripInfo(context.tripId);
       if (tripInfo) {
+        const baseUrl = process.env.FRONTEND_URL || 'https://trektribe.in';
+        const tripUrl = `${baseUrl}/trips/${context.tripId}`;
+        
+        // Add trip-specific information based on query
         if (match.pattern.keywords.includes('pickup') || match.pattern.keywords.includes('location')) {
           enhancedResponse += ` For ${tripInfo.title}, we have pickup points at ${tripInfo.pickupPoints?.join(', ') || 'multiple locations'}. Drop-off will be at ${tripInfo.dropOffPoints?.join(', ') || 'the same locations'}.`;
         }
         if (match.pattern.keywords.includes('price') || match.pattern.keywords.includes('cost')) {
           enhancedResponse += ` This specific trek (${tripInfo.title}) is priced at ₹${tripInfo.price.toLocaleString()} per person.`;
         }
+        
+        // Provide trip link for any trip-specific query
+        if (!tripLinks || tripLinks.length === 0) {
+          tripLinks = [{
+            tripId: context.tripId,
+            title: tripInfo.title,
+            url: tripUrl
+          }];
+        }
+        
+        // Add helpful context about being on the trip page
+        if (!enhancedResponse.includes(tripInfo.title)) {
+          enhancedResponse += `\n\n📍 I see you're viewing ${tripInfo.title}. I can help you with:
+• Trip availability and booking
+• Organizer information
+• Pickup/drop-off locations
+• What's included
+• Itinerary details
+• Payment options
+
+What would you like to know?`;
+        }
       }
     }
     
+    // Extract trip links if recommendations are present and not already set
+    if (!tripLinks && additionalData.recommendations && additionalData.recommendations.length > 0) {
+      tripLinks = additionalData.recommendations.map((rec: any) => {
+        const baseUrl = process.env.FRONTEND_URL || 'https://trektribe.in';
+        return {
+          tripId: rec.trip._id.toString(),
+          title: rec.trip.title,
+          url: `${baseUrl}/trips/${rec.trip._id}`
+        };
+      });
+    }
+
     return {
       message: enhancedResponse,
       requiresHumanSupport: match.pattern.requiresHuman,
@@ -994,6 +1128,7 @@ class TrekTribeAI {
       confidence: match.confidence,
       quickReplies: (match.pattern as any).quickReplies,
       multipleChoice: (match.pattern as any).multipleChoice,
+      tripLinks,
       additionalData
     };
   }
@@ -1005,8 +1140,11 @@ class TrekTribeAI {
         return this.tripCache.get(tripId);
       }
       
-      // Fetch from database
-      const trip = await Trip.findById(tripId).select('title price pickupPoints dropOffPoints difficulty duration');
+      // Fetch from database - include organizerId for organizer profile
+      const trip = await Trip.findById(tripId)
+        .populate('organizerId', 'name email')
+        .select('title price pickupPoints dropOffPoints difficulty duration organizerId categories destination');
+      
       if (trip) {
         // Cache for 10 minutes
         this.tripCache.set(tripId, trip);

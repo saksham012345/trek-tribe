@@ -251,16 +251,29 @@ class SocketService {
 
       session.messages.push(aiMessage);
 
-      // Send messages to user
+      // Send messages to user (including trip links if available)
       socket.emit('chat_message', userMessage);
-      socket.emit('chat_message', aiMessage);
+      socket.emit('chat_message', {
+        ...aiMessage,
+        tripLinks: aiResponse.tripLinks || []
+      });
 
-      // If AI suggests human support, offer the option
+      // If AI suggests human support, offer the option and notify agents
       if (aiResponse.requiresHumanSupport) {
         socket.emit('human_support_suggested', {
           confidence: aiResponse.confidence,
           suggestedActions: aiResponse.suggestedActions
         });
+        
+        // Auto-create ticket and notify agents proactively
+        if (aiResponse.confidence < 0.5) {
+          logger.info('Low AI confidence detected, proactively notifying agents', { 
+            sessionId, 
+            confidence: aiResponse.confidence 
+          });
+          // Notify agents about potential need for human support
+          this.notifyAvailableAgents(session, 'medium');
+        }
       }
 
       logger.info('AI chat message processed', { 
@@ -539,14 +552,20 @@ class SocketService {
       createdAt: session.createdAt
     };
 
-    // Notify all connected agents
+    // Notify all connected agents via 'agent_room'
+    this.io?.to('agent_room').emit('chat_request', agentNotification);
+    
+    // Also send to individual agent sockets
     this.agentSocketMap.forEach((socketId, agentId) => {
       this.io?.to(socketId).emit('chat_request', agentNotification);
+      // Also emit as 'new_support_request' for backward compatibility
+      this.io?.to(socketId).emit('new_support_request', agentNotification);
     });
 
     logger.info('Notified agents of new chat request', { 
       sessionId: session.sessionId, 
-      agentCount: this.agentSocketMap.size 
+      agentCount: this.agentSocketMap.size,
+      urgency 
     });
 
     // If no agents are available, notify the user
@@ -556,7 +575,7 @@ class SocketService {
         senderId: 'system',
         senderName: 'System',
         senderRole: 'ai',
-        message: `Thank you for your request! I've created a support ticket (#${session.ticketId}) and our agents will contact you through this AI chat widget as soon as they're available. Please check back here shortly.\n\nFor immediate assistance, you can also reach us at:\n📧 Email: tanejasaksham44@gmail.com\n💬 WhatsApp: 9876177839\n\nOur team typically responds within a few hours during business hours.`,
+        message: `Thank you for your request! I've created a support ticket (#${session.ticketId || 'Pending'}) and our agents will contact you through this AI chat widget as soon as they're available. Please check back here shortly.\n\nFor immediate assistance, you can also reach us at:\n📧 Email: tanejasaksham44@gmail.com\n💬 WhatsApp: 9876177839\n\nOur team typically responds within a few hours during business hours.`,
         timestamp: new Date(),
         ticketId: session.ticketId
       };
@@ -568,6 +587,19 @@ class SocketService {
         sessionId: session.sessionId,
         ticketId: session.ticketId
       });
+    } else {
+      // Notify user that their request is being forwarded to agents
+      const forwardedMessage: ChatMessage = {
+        id: `msg_${Date.now()}`,
+        senderId: 'system',
+        senderName: 'System',
+        senderRole: 'ai',
+        message: `✅ Your request has been forwarded to ${this.agentSocketMap.size} available agent${this.agentSocketMap.size > 1 ? 's' : ''}. Someone will join the chat shortly to assist you!`,
+        timestamp: new Date()
+      };
+      
+      session.messages.push(forwardedMessage);
+      this.io?.to(session.sessionId).emit('chat_message', forwardedMessage);
     }
   }
 
