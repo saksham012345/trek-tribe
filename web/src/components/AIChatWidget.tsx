@@ -136,6 +136,11 @@ const AIChatWidget: React.FC = () => {
       setShowHumanSupportOption(true);
     });
 
+    socket.on('request_human_agent', (data) => {
+      // AI detected user wants human support
+      setTimeout(() => requestHumanAgent(), 500);
+    });
+
     socket.on('agent_joined', (data) => {
       setChatSession(prev => prev ? {
         ...prev,
@@ -235,7 +240,16 @@ const AIChatWidget: React.FC = () => {
       return 'Cancellation policies vary by trip. Please check the specific trip details or contact our support team for assistance with cancellations and refunds. 🔄';
     }
     
+    // Check for human agent requests
+    if (lowerMessage.includes('human') || lowerMessage.includes('agent') || lowerMessage.includes('speak to') || 
+        lowerMessage.includes('talk to') || lowerMessage.includes('connect me') || lowerMessage.includes('representative') ||
+        lowerMessage.includes('customer service') || lowerMessage.includes('live person') || lowerMessage.includes('real person')) {
+      setTimeout(() => requestHumanAgent(), 500);
+      return 'I\'ll connect you with our human support team right away! An agent will be with you shortly. 👥';
+    }
+    
     if (lowerMessage.includes('support') || lowerMessage.includes('help') || lowerMessage.includes('contact')) {
+      setShowHumanSupportOption(true);
       return 'For immediate assistance, you can connect with our human support team using the "Talk to a Human Agent" button below, or email us at tanejasaksham44@gmail.com or call 9876177839 👥';
     }
     
@@ -484,6 +498,7 @@ const AIChatWidget: React.FC = () => {
       timestamp: new Date()
     };
     setMessages(prev => [...prev, userMessage]);
+    setShowHumanSupportOption(false); // Hide human support option when user sends new message
 
     // Check if socket is available and connected
     if (socketRef.current && isConnected && !socketFailed) {
@@ -536,7 +551,8 @@ const AIChatWidget: React.FC = () => {
         };
 
         try {
-          await api.post('/support/tickets', ticketData);
+          const ticketResponse = await api.post('/support/tickets', ticketData);
+          console.log('✅ Ticket created successfully:', ticketResponse.data);
           
           // Success message
           setTimeout(() => {
@@ -545,21 +561,21 @@ const AIChatWidget: React.FC = () => {
               senderId: 'system',
               senderName: 'System',
               senderRole: 'ai',
-              message: '✅ Your support ticket has been created successfully! An agent will respond soon.',
+              message: '✅ Your support ticket has been created successfully! Ticket ID: ' + (ticketResponse.data?.ticket?.ticketId || 'N/A') + '. An agent will respond soon.',
               timestamp: new Date()
             };
             setMessages(prev => [...prev, successMessage]);
           }, 1500);
         } catch (ticketError: any) {
-          // If ticket creation fails (endpoint not deployed), show fallback message
-          console.warn('Support endpoint not available, providing fallback response');
+          // If ticket creation fails (endpoint not deployed), show detailed fallback message
+          console.error('❌ Support endpoint error:', ticketError.response?.status, ticketError.response?.data);
           setTimeout(() => {
             const fallbackMessage: ChatMessage = {
               id: `fallback_agent_${Date.now()}`,
               senderId: 'system',
               senderName: 'System',
               senderRole: 'ai',
-              message: 'Your request has been logged in our system. You can also reach out to us directly at tanejasaksham44@gmail.com or call 9876177839!',
+              message: 'I\'ve logged your request in our system. Due to a temporary technical issue, please contact us directly at tanejasaksham44@gmail.com or call 9876177839 for immediate assistance!',
               timestamp: new Date()
             };
             setMessages(prev => [...prev, fallbackMessage]);

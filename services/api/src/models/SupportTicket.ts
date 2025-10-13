@@ -201,8 +201,15 @@ supportTicketSchema.index({
 // Auto-generate ticket ID
 supportTicketSchema.pre('save', async function(next) {
   if (this.isNew && !this.ticketId) {
-    const count = await mongoose.models.SupportTicket.countDocuments();
-    this.ticketId = `TT-${Date.now().toString().slice(-8)}-${(count + 1).toString().padStart(4, '0')}`;
+    try {
+      const SupportTicketModel = mongoose.models.SupportTicket || mongoose.model('SupportTicket', supportTicketSchema);
+      const count = await SupportTicketModel.countDocuments();
+      this.ticketId = `TT-${Date.now().toString().slice(-8)}-${(count + 1).toString().padStart(4, '0')}`;
+    } catch (error) {
+      console.error('Error generating ticket ID:', error);
+      // Fallback to timestamp-based ID
+      this.ticketId = `TT-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+    }
   }
   next();
 });

@@ -1,5 +1,6 @@
 import express from 'express';
 import { SupportTicket } from '../models/SupportTicket';
+import { User } from '../models/User';
 import { ChatSession } from '../models/ChatSession';
 import { authenticateJwt } from '../middleware/auth';
 import { socketService } from '../services/socketService';
@@ -87,7 +88,6 @@ router.post('/tickets', async (req, res) => {
     }
 
     // Get user info for ticket
-    const User = require('../models/User').User;
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -143,8 +143,16 @@ router.post('/tickets', async (req, res) => {
     });
 
   } catch (error: any) {
-    logger.error('Error creating support ticket', { error: error.message });
-    res.status(500).json({ error: 'Failed to create support ticket' });
+    logger.error('Error creating support ticket', { 
+      error: error.message, 
+      stack: error.stack,
+      userId,
+      ticketData: { subject, category, priority }
+    });
+    res.status(500).json({ 
+      error: 'Failed to create support ticket',
+      message: error.message 
+    });
   }
 });
 
