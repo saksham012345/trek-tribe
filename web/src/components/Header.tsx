@@ -39,7 +39,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
             <Link to="/" className="flex items-center group" onClick={closeMobileMenu}>
               <div className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center group-hover:scale-105 transition-all duration-300">
                 <img 
-                  src="/logo.svg?v=2" 
+                  src="/logo.svg" 
                   alt="TrekTribe Logo" 
                   className="w-full h-full object-contain"
                 />
