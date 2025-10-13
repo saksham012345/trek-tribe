@@ -236,7 +236,7 @@ const AIChatWidget: React.FC = () => {
     }
     
     if (lowerMessage.includes('support') || lowerMessage.includes('help') || lowerMessage.includes('contact')) {
-      return 'For immediate assistance, you can connect with our human support team using the "Talk to a Human Agent" button below, or email us at support@trektribe.com 👥';
+      return 'For immediate assistance, you can connect with our human support team using the "Talk to a Human Agent" button below, or email us at tanejasaksham44@gmail.com or call 9876177839 👥';
     }
     
     if (lowerMessage.includes('trip') || lowerMessage.includes('adventure') || lowerMessage.includes('destination')) {
@@ -551,7 +551,7 @@ const AIChatWidget: React.FC = () => {
           senderId: 'system',
           senderName: 'System',
           senderRole: 'ai',
-          message: 'Your request has been logged in our system. You can also reach out to us directly at support@trektribe.com or call us during business hours!',
+          message: 'Your request has been logged in our system. You can also reach out to us directly at tanejasaksham44@gmail.com or call 9876177839!',
           timestamp: new Date()
         };
         setMessages(prev => [...prev, fallbackMessage]);
