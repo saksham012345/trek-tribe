@@ -35,8 +35,17 @@ const OrganizerQRDisplay: React.FC<OrganizerQRDisplayProps> = ({
 
   const fetchOrganizerData = async () => {
     try {
-      const response = await api.get(`/profile/${organizerId}`);
-      setOrganizerData(response.data.profile || response.data.user);
+      // Try multiple endpoints to get organizer data
+      let response;
+      try {
+        // First try the enhanced profile endpoint
+        response = await api.get(`/profile/enhanced/${organizerId}`);
+        setOrganizerData(response.data.profile || response.data.user);
+      } catch (enhancedError) {
+        // Fallback to basic profile endpoint
+        response = await api.get(`/profile/${organizerId}`);
+        setOrganizerData(response.data.profile || response.data.user);
+      }
     } catch (error) {
       console.error('Error fetching organizer data:', error);
       setError('Failed to load organizer information');

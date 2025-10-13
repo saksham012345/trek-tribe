@@ -12,6 +12,11 @@ interface ChatMessage {
   message: string;
   timestamp: Date;
   ticketId?: string;
+  tripLinks?: Array<{
+    tripId: string;
+    title: string;
+    url: string;
+  }>;
 }
 
 interface ChatSession {
@@ -113,8 +118,13 @@ const AIChatWidget: React.FC = () => {
       setMessages([data.message]);
     });
 
-    socket.on('chat_message', (message: ChatMessage) => {
-      setMessages(prev => [...prev, message]);
+    socket.on('chat_message', (message: any) => {
+      // Parse AI response to extract trip links
+      const chatMessage: ChatMessage = {
+        ...message,
+        tripLinks: message.tripLinks || []
+      };
+      setMessages(prev => [...prev, chatMessage]);
       setIsLoading(false);
       
       if (!isOpen && message.senderRole !== 'user') {
@@ -657,6 +667,25 @@ const AIChatWidget: React.FC = () => {
               <div className="message-content">
                 {message.message}
               </div>
+              {message.tripLinks && message.tripLinks.length > 0 && (
+                <div className="trip-links-container">
+                  {message.tripLinks.map((link) => (
+                    <a 
+                      key={link.tripId}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="trip-link-button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        window.location.href = link.url;
+                      }}
+                    >
+                      🔗 {link.title}
+                    </a>
+                  ))}
+                </div>
+              )}
               {message.ticketId && (
                 <div className="message-ticket-info">
                   Ticket: {message.ticketId}

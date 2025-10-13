@@ -75,8 +75,8 @@
 }
 
 .chat-widget {
-  width: 380px;
-  height: 500px;
+  width: 450px;
+  height: 650px;
   background: white;
   border-radius: 16px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
@@ -84,6 +84,16 @@
   flex-direction: column;
   overflow: hidden;
   animation: slideIn 0.3s ease-out;
+}
+
+@media (max-width: 768px) {
+  .chat-widget {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+    bottom: 0;
+    right: 0;
+  }
 }
 
 /* Chat Header */
@@ -213,6 +223,39 @@
   color: #6b7280;
   margin-top: 4px;
   font-style: italic;
+}
+
+/* Trip Links */
+.trip-links-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.trip-link-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 8px;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.trip-link-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.message.assistant .trip-link-button,
+.message.ai .trip-link-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
 /* Typing Indicator */
