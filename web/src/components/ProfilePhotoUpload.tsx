@@ -81,15 +81,22 @@ const ProfilePhotoUpload: React.FC<ProfilePhotoUploadProps> = ({
   };
 
   const removePhoto = async () => {
+    if (!confirm('Are you sure you want to remove your profile photo?')) {
+      return;
+    }
+    
     try {
-      await api.post('/profile/photo', {
+      const response = await api.post('/profile/photo', {
         photo: ''
       });
+      const responseData = response.data as { profilePhoto: string; message: string };
       onPhotoUpdate('');
       setPreviewUrl(null);
-    } catch (error) {
+      alert(responseData.message || 'Profile photo removed successfully!');
+    } catch (error: any) {
       console.error('Error removing photo:', error);
-      alert('Failed to remove photo');
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to remove photo';
+      alert(`Failed to remove photo: ${errorMessage}`);
     }
   };
 

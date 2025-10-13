@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import api from '../config/api';
 
 interface PostCreatorProps {
@@ -12,6 +12,7 @@ const PostCreator: React.FC<PostCreatorProps> = ({ onPostCreated, onClose }) => 
     title: '',
     content: '',
     images: [] as string[],
+    videos: [] as string[],
     links: [] as Array<{ title: string; url: string; description?: string }>,
     tripData: {
       destination: '',
@@ -28,6 +29,8 @@ const PostCreator: React.FC<PostCreatorProps> = ({ onPostCreated, onClose }) => 
   const [newTag, setNewTag] = useState('');
   const [newHighlight, setNewHighlight] = useState('');
   const [loading, setLoading] = useState(false);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,6 +43,7 @@ const PostCreator: React.FC<PostCreatorProps> = ({ onPostCreated, onClose }) => 
         content: formData.content,
         isPublic: formData.isPublic,
         ...(formData.images.length > 0 && { images: formData.images }),
+        ...(formData.videos.length > 0 && { videos: formData.videos }),
         ...(formData.links.length > 0 && { links: formData.links }),
         ...(formData.tags.length > 0 && { tags: formData.tags }),
         ...(postType === 'trip_memory' && {
@@ -117,6 +121,88 @@ const PostCreator: React.FC<PostCreatorProps> = ({ onPostCreated, onClose }) => 
         highlights: formData.tripData.highlights.filter((_, i) => i !== index)
       }
     });
+  };
+
+  // File upload functionality
+  const handleFileUpload = async (files: FileList) => {
+    if (!files || files.length === 0) return;
+    
+    setUploadingFiles(true);
+    
+    try {
+      const uploadPromises = Array.from(files).map(async (file) => {
+        // Check file size (50MB max for any file type)
+        if (file.size > 50 * 1024 * 1024) {
+          throw new Error(`File ${file.name} is too large. Maximum size is 50MB.`);
+        }
+
+        // Convert to base64
+        return new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = async () => {
+            try {
+              const base64Data = (reader.result as string).split(',')[1];
+              const response = await api.post('/files/upload/base64', {
+                data: base64Data,
+                filename: file.name,
+                mimeType: file.type
+              });
+              const responseData = response.data as { file: { url: string } };
+              resolve(responseData.file.url);
+            } catch (error) {
+              reject(error);
+            }
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      });
+
+      const uploadedUrls = await Promise.all(uploadPromises);
+      
+      // Separate images and videos
+      const newImages: string[] = [];
+      const newVideos: string[] = [];
+      
+      Array.from(files).forEach((file, index) => {
+        if (file.type.startsWith('image/')) {
+          newImages.push(uploadedUrls[index]);
+        } else if (file.type.startsWith('video/')) {
+          newVideos.push(uploadedUrls[index]);
+        }
+      });
+
+      // Update form data
+      setFormData({
+        ...formData,
+        images: [...formData.images, ...newImages],
+        videos: [...formData.videos, ...newVideos]
+      });
+
+    } catch (error: any) {
+      console.error('Error uploading files:', error);
+      alert(error.message || 'Failed to upload files');
+    } finally {
+      setUploadingFiles(false);
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setFormData({
+      ...formData,
+      images: formData.images.filter((_, i) => i !== index)
+    });
+  };
+
+  const removeVideo = (index: number) => {
+    setFormData({
+      ...formData,
+      videos: formData.videos.filter((_, i) => i !== index)
+    });
+  };
+
+  const triggerFileSelect = () => {
+    fileInputRef.current?.click();
   };
 
   return (
@@ -381,6 +467,93 @@ const PostCreator: React.FC<PostCreatorProps> = ({ onPostCreated, onClose }) => 
                 ))}
               </div>
             )}
+
+            {/* Media Upload */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                📸 Memories (Photos & Videos)
+              </label>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,video/*,.mp4,.mov,.avi,.mkv,.webm,.jpg,.jpeg,.png,.gif,.webp"
+                  multiple
+                  onChange={(e) => e.target.files && handleFileUpload(e.target.files)}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={triggerFileSelect}
+                  disabled={uploadingFiles}
+                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {uploadingFiles ? (
+                    <>
+                      <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      📷 Choose Photos & Videos
+                    </>
+                  )}
+                </button>
+                <p className="mt-2 text-sm text-gray-600">
+                  Any file type accepted • Max 50MB per file • Unlimited files
+                </p>
+              </div>
+              
+              {/* Images Preview */}
+              {formData.images.length > 0 && (
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">📷 Photos ({formData.images.length})</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {formData.images.map((image, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={image}
+                          alt={`Upload ${index + 1}`}
+                          className="w-full h-32 object-cover rounded-lg"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(index)}
+                          className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Videos Preview */}
+              {formData.videos.length > 0 && (
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">🎥 Videos ({formData.videos.length})</h4>
+                  <div className="space-y-4">
+                    {formData.videos.map((video, index) => (
+                      <div key={index} className="relative group">
+                        <video
+                          src={video}
+                          controls
+                          className="w-full h-48 object-cover rounded-lg"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeVideo(index)}
+                          className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Tags */}
             <div>

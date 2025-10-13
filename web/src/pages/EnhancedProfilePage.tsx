@@ -119,11 +119,11 @@ const EnhancedProfilePage: React.FC = () => {
 
   const fetchProfile = async () => {
     try {
-      const endpoint = isOwnProfile ? '/profile/me' : `/profile/${userId}`;
+      const endpoint = isOwnProfile ? '/profile/enhanced' : `/profile/enhanced/${userId}`;
       const response = await api.get(endpoint);
       
-      const responseData = response.data as { user?: any; profile?: any };
-      const userData = isOwnProfile ? responseData.user : responseData.profile;
+      const responseData = response.data as { data: { user: any } };
+      const userData = responseData.data.user;
       setProfile(userData);
       
       if (isOwnProfile) {
@@ -210,13 +210,15 @@ const EnhancedProfilePage: React.FC = () => {
 
   const handleSave = async () => {
     try {
-      const response = await api.put('/profile/me', editForm);
-      const userData = response.data as { user: any };
-      setProfile(userData.user);
+      const response = await api.put('/profile/enhanced', editForm);
+      const userData = response.data as { data: { user: any } };
+      setProfile(userData.data.user);
       setEditing(false);
+      alert('Profile updated successfully!');
     } catch (error: any) {
       console.error('Profile update error:', error);
-      alert('Failed to update profile');
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to update profile';
+      alert(`Failed to update profile: ${errorMessage}`);
     }
   };
 
