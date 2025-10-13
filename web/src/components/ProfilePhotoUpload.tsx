@@ -81,7 +81,7 @@ const ProfilePhotoUpload: React.FC<ProfilePhotoUploadProps> = ({
   };
 
   const removePhoto = async () => {
-    if (!confirm('Are you sure you want to remove your profile photo?')) {
+    if (!window.confirm('Are you sure you want to remove your profile photo?')) {
       return;
     }
     
