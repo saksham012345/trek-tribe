@@ -13,14 +13,14 @@ const router = Router();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
+    fileSize: 50 * 1024 * 1024 // 50MB limit
   },
   fileFilter: (req, file, cb) => {
-    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml', 'image/bmp', 'image/tiff', 'video/mp4', 'video/avi', 'video/mov', 'video/wmv', 'video/flv', 'video/webm', 'video/mkv', 'application/pdf'];
     if (allowedMimeTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Only image files are allowed'));
+      cb(new Error('File type not allowed'));
     }
   }
 });
@@ -39,7 +39,7 @@ const uploadMetadataSchema = z.object({
 });
 
 // Node.js Concept: File size limit middleware
-const fileSizeLimit = (maxSize: number = 10 * 1024 * 1024) => {
+const fileSizeLimit = (maxSize: number = 50 * 1024 * 1024) => {
   return (req: Request, res: Response, next: NextFunction) => {
     const contentLength = req.headers['content-length'];
     
@@ -126,7 +126,7 @@ router.post('/upload',
 router.post('/upload/base64',
   authenticateJwt,
   fileSizeLimit(),
-  validateMimeType(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'application/pdf']),
+  validateMimeType(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml', 'image/bmp', 'image/tiff', 'video/mp4', 'video/avi', 'video/mov', 'video/wmv', 'video/flv', 'video/webm', 'video/mkv', 'application/pdf', 'text/plain', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']),
   asyncErrorHandler(async (req: Request, res: Response) => {
     const parsed = uploadBase64Schema.safeParse(req.body);
     if (!parsed.success) {
