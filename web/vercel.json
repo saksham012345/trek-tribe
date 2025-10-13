@@ -10,6 +10,28 @@
   ],
   "headers": [
     {
+      "source": "/favicon.(ico|svg|png)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400"
+        },
+        {
+          "key": "Content-Type",
+          "value": "image/x-icon"
+        }
+      ]
+    },
+    {
+      "source": "/(logo|manifest).(png|svg|json)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400"
+        }
+      ]
+    },
+    {
       "source": "/static/(.*)",
       "headers": [
         {
