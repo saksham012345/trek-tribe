@@ -88,7 +88,7 @@ class TelegramService {
       `👨‍💼 ${booking.organizerName}\n` +
       `📞 ${booking.organizerPhone}\n\n` +
       `Thank you for choosing TrekkTribe! Have an amazing journey! 🚀\n\n` +
-      `For support, contact us at support@trekktribe.com`;
+      `For support, contact us at tanejasaksham44@gmail.com or call 9876177839`;
 
     return this.sendMessage(chatId, message);
   }
@@ -151,7 +151,7 @@ class TelegramService {
       `2. Browse our curated trips\n` +
       `3. Book your first adventure\n\n` +
       `Need help? Contact us anytime!\n` +
-      `📧 support@trekktribe.com\n\n` +
+      `📧 tanejasaksham44@gmail.com\n📞 9876177839\n\n` +
       `Happy travels! 🚀`;
 
     return this.sendMessage(chatId, message);

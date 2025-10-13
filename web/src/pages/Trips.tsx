@@ -336,7 +336,7 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
                       } else {
                         // Fallback: scroll to bottom and show contact info
                         window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-                        alert('💬 Chat support will be available soon. For immediate help, please contact us at support@trekkingapp.com');
+                        alert('💬 Chat support will be available soon. For immediate help, please contact us at tanejasaksham44@gmail.com or call 9876177839');
                       }
                     }}
                     className="bg-forest-600 hover:bg-forest-700 text-white px-4 py-2 rounded-lg text-sm transition-colors"
