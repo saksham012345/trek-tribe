@@ -60,7 +60,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
         setLoading(true);
         const [tripsRes, statsRes] = await Promise.all([
           api.get('/trips?limit=6'),
-          api.get('/admin/stats')
+          api.get('/stats')
         ]);
         
         const tripsData = tripsRes.data;
@@ -133,7 +133,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
             <h1 className="text-5xl md:text-7xl font-bold mb-6 text-white leading-tight">
               Discover Nature's
               <br />
-              <span className="text-nature-400 animate-pulse-slow">Hidden Wonders</span>
+              <span className="text-blue-400 animate-pulse-slow">Hidden Wonders</span>
             </h1>
             <p className="text-xl md:text-2xl mb-8 text-forest-100 max-w-3xl mx-auto leading-relaxed">
               Join a community of eco-conscious adventurers. Explore pristine forests, majestic mountains, 
@@ -144,15 +144,15 @@ const Home: React.FC<HomeProps> = ({ user }) => {
           {/* Interactive Stats */}
           <div className="grid grid-cols-3 gap-6 mb-12 max-w-2xl mx-auto">
             <div className="text-center">
-              <div className="text-3xl font-bold text-nature-400 animate-bounce-slow">{stats.totalTrips || 0}</div>
+              <div className="text-3xl font-bold text-blue-400 animate-bounce-slow">{stats.totalTrips || 0}</div>
               <div className="text-forest-200 text-sm">Adventures</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-nature-400 animate-bounce-slow" style={{animationDelay: '1s'}}>{stats.totalUsers || 0}</div>
+              <div className="text-3xl font-bold text-blue-400 animate-bounce-slow" style={{animationDelay: '1s'}}>{stats.totalUsers || 0}</div>
               <div className="text-forest-200 text-sm">Explorers</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-nature-400 animate-bounce-slow" style={{animationDelay: '2s'}}>{stats.totalOrganizers || 0}</div>
+              <div className="text-3xl font-bold text-blue-400 animate-bounce-slow" style={{animationDelay: '2s'}}>{stats.totalOrganizers || 0}</div>
               <div className="text-forest-200 text-sm">Organizers</div>
             </div>
           </div>
@@ -160,7 +160,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
           <div className="flex flex-col sm:flex-row gap-6 justify-center">
             <Link
               to="/trips"
-              className="group relative px-10 py-4 bg-nature-600 hover:bg-nature-700 text-white rounded-full text-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+              className="group relative px-10 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
             >
               <span className="flex items-center justify-center gap-2">
                 🌿 Explore Adventures
@@ -197,7 +197,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold text-forest-800 mb-6">
               Choose Your 
-              <span className="text-nature-600">Adventure Style</span>
+              <span className="text-blue-600">Adventure Style</span>
             </h2>
             <p className="text-xl text-forest-600 max-w-3xl mx-auto leading-relaxed">
               From serene forest walks to adrenaline-pumping mountain climbs, find your perfect wilderness experience
@@ -262,7 +262,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
       <section className="py-20 bg-gradient-to-br from-forest-50 to-nature-50 relative">
         <div className="absolute inset-0 opacity-5">
           <div className="absolute top-10 left-10 text-9xl text-forest-600">🌲</div>
-          <div className="absolute top-20 right-20 text-7xl text-nature-600">🌿</div>
+          <div className="absolute top-20 right-20 text-7xl text-blue-600">🌿</div>
           <div className="absolute bottom-10 left-1/4 text-8xl text-forest-500">🍃</div>
         </div>
         
@@ -270,7 +270,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold text-forest-800 mb-6">
               Why Choose 
-              <span className="text-nature-600">Trekk Tribe?</span>
+              <span className="text-blue-600">Trekk Tribe?</span>
             </h2>
             <p className="text-xl text-forest-600 max-w-3xl mx-auto leading-relaxed">
               Experience sustainable travel like never before with our eco-conscious community platform
@@ -289,7 +289,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
             </div>
             
             <div className="group text-center hover:transform hover:scale-105 transition-all duration-300">
-              <div className="w-20 h-20 bg-gradient-to-br from-nature-400 to-nature-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg group-hover:shadow-xl transition-shadow">
+              <div className="w-20 h-20 bg-gradient-to-br from-nature-400 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg group-hover:shadow-xl transition-shadow">
                 <span className="text-3xl text-white">👥</span>
               </div>
               <h3 className="text-2xl font-bold mb-4 text-forest-800">Nature-Loving Community</h3>
@@ -317,7 +317,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold text-forest-800 mb-6">
               How 
-              <span className="text-nature-600">Adventure</span>
+              <span className="text-blue-600">Adventure</span>
               <span className="text-forest-700"> Works</span>
             </h2>
             <p className="text-xl text-forest-600 max-w-3xl mx-auto leading-relaxed">
@@ -328,10 +328,10 @@ const Home: React.FC<HomeProps> = ({ user }) => {
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             <div className="text-center group">
               <div className="relative mb-6">
-                <div className="w-20 h-20 bg-gradient-to-br from-forest-500 to-nature-500 rounded-full flex items-center justify-center mx-auto shadow-lg group-hover:shadow-xl transition-all duration-300 transform group-hover:scale-110">
+                <div className="w-20 h-20 bg-gradient-to-br from-forest-500 to-blue-500 rounded-full flex items-center justify-center mx-auto shadow-lg group-hover:shadow-xl transition-all duration-300 transform group-hover:scale-110">
                   <span className="text-3xl text-white">👤</span>
                 </div>
-                <div className="absolute -top-2 -right-2 w-8 h-8 bg-nature-400 rounded-full flex items-center justify-center text-white font-bold text-sm">1</div>
+                <div className="absolute -top-2 -right-2 w-8 h-8 bg-blue-400 rounded-full flex items-center justify-center text-white font-bold text-sm">1</div>
               </div>
               <h3 className="text-xl font-bold text-forest-800 mb-3">Create Account</h3>
               <p className="text-forest-600 leading-relaxed">Sign up in seconds and choose whether you want to explore adventures or organize your own expeditions.</p>
@@ -339,10 +339,10 @@ const Home: React.FC<HomeProps> = ({ user }) => {
             
             <div className="text-center group">
               <div className="relative mb-6">
-                <div className="w-20 h-20 bg-gradient-to-br from-forest-500 to-nature-500 rounded-full flex items-center justify-center mx-auto shadow-lg group-hover:shadow-xl transition-all duration-300 transform group-hover:scale-110">
+                <div className="w-20 h-20 bg-gradient-to-br from-forest-500 to-blue-500 rounded-full flex items-center justify-center mx-auto shadow-lg group-hover:shadow-xl transition-all duration-300 transform group-hover:scale-110">
                   <span className="text-3xl text-white">🔍</span>
                 </div>
-                <div className="absolute -top-2 -right-2 w-8 h-8 bg-nature-400 rounded-full flex items-center justify-center text-white font-bold text-sm">2</div>
+                <div className="absolute -top-2 -right-2 w-8 h-8 bg-blue-400 rounded-full flex items-center justify-center text-white font-bold text-sm">2</div>
               </div>
               <h3 className="text-xl font-bold text-forest-800 mb-3">Find Adventure</h3>
               <p className="text-forest-600 leading-relaxed">Browse through hundreds of curated wilderness experiences. Filter by location, difficulty, and adventure type.</p>
@@ -350,10 +350,10 @@ const Home: React.FC<HomeProps> = ({ user }) => {
             
             <div className="text-center group">
               <div className="relative mb-6">
-                <div className="w-20 h-20 bg-gradient-to-br from-forest-500 to-nature-500 rounded-full flex items-center justify-center mx-auto shadow-lg group-hover:shadow-xl transition-all duration-300 transform group-hover:scale-110">
+                <div className="w-20 h-20 bg-gradient-to-br from-forest-500 to-blue-500 rounded-full flex items-center justify-center mx-auto shadow-lg group-hover:shadow-xl transition-all duration-300 transform group-hover:scale-110">
                   <span className="text-3xl text-white">🤝</span>
                 </div>
-                <div className="absolute -top-2 -right-2 w-8 h-8 bg-nature-400 rounded-full flex items-center justify-center text-white font-bold text-sm">3</div>
+                <div className="absolute -top-2 -right-2 w-8 h-8 bg-blue-400 rounded-full flex items-center justify-center text-white font-bold text-sm">3</div>
               </div>
               <h3 className="text-xl font-bold text-forest-800 mb-3">Join & Connect</h3>
               <p className="text-forest-600 leading-relaxed">Book your spot and connect with fellow adventurers. Share excitement and plan together before the journey.</p>
@@ -361,10 +361,10 @@ const Home: React.FC<HomeProps> = ({ user }) => {
             
             <div className="text-center group">
               <div className="relative mb-6">
-                <div className="w-20 h-20 bg-gradient-to-br from-forest-500 to-nature-500 rounded-full flex items-center justify-center mx-auto shadow-lg group-hover:shadow-xl transition-all duration-300 transform group-hover:scale-110">
+                <div className="w-20 h-20 bg-gradient-to-br from-forest-500 to-blue-500 rounded-full flex items-center justify-center mx-auto shadow-lg group-hover:shadow-xl transition-all duration-300 transform group-hover:scale-110">
                   <span className="text-3xl text-white">🏕️</span>
                 </div>
-                <div className="absolute -top-2 -right-2 w-8 h-8 bg-nature-400 rounded-full flex items-center justify-center text-white font-bold text-sm">4</div>
+                <div className="absolute -top-2 -right-2 w-8 h-8 bg-blue-400 rounded-full flex items-center justify-center text-white font-bold text-sm">4</div>
               </div>
               <h3 className="text-xl font-bold text-forest-800 mb-3">Experience Magic</h3>
               <p className="text-forest-600 leading-relaxed">Embark on your wilderness adventure, create lasting memories, and form friendships that last a lifetime.</p>
@@ -382,7 +382,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold text-forest-800 mb-6">
               Epic 
-              <span className="text-nature-600">Adventures</span>
+              <span className="text-blue-600">Adventures</span>
               <span className="text-forest-700"> Await</span>
             </h2>
             <p className="text-xl text-forest-600 max-w-2xl mx-auto leading-relaxed">
@@ -419,7 +419,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
                         <div className="absolute inset-0 bg-black/20"></div>
                       </>
                     ) : null}
-                    <div className={`fallback-bg absolute inset-0 bg-gradient-to-br from-forest-400 to-nature-500 flex items-center justify-center ${trip.images && trip.images.length > 0 ? 'hidden' : 'flex'}`}>
+                    <div className={`fallback-bg absolute inset-0 bg-gradient-to-br from-forest-400 to-blue-500 flex items-center justify-center ${trip.images && trip.images.length > 0 ? 'hidden' : 'flex'}`}>
                       <div className="text-center text-white">
                         <div className="text-6xl mb-2">
                           {(trip.categories && trip.categories.includes('Mountain')) ? '🏔️' : 
@@ -439,7 +439,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
                   </div>
                   
                   <div className="p-6">
-                    <h3 className="text-xl font-bold mb-3 text-forest-800 group-hover:text-nature-600 transition-colors">
+                    <h3 className="text-xl font-bold mb-3 text-forest-800 group-hover:text-blue-600 transition-colors">
                       {trip.title}
                     </h3>
                     <p className="text-forest-600 mb-4 line-clamp-2 leading-relaxed">
@@ -457,7 +457,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
                         <div className="flex-1"></div>
                         <div className="w-16 bg-forest-100 rounded-full h-2">
                           <div 
-                            className="bg-nature-500 h-2 rounded-full transition-all duration-500"
+                            className="bg-blue-500 h-2 rounded-full transition-all duration-500"
                             style={{width: `${(trip.participants.length / trip.capacity) * 100}%`}}
                           ></div>
                         </div>
@@ -480,7 +480,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
                       )}
                     </div>
                     
-                    <button className="w-full bg-gradient-to-r from-forest-600 to-nature-600 hover:from-forest-700 hover:to-nature-700 text-white py-3 rounded-xl font-semibold transition-all duration-300 transform group-hover:scale-105">
+                    <button className="w-full bg-gradient-to-r from-forest-600 to-blue-600 hover:from-forest-700 hover:to-blue-700 text-white py-3 rounded-xl font-semibold transition-all duration-300 transform group-hover:scale-105">
                       Join Adventure 🌿
                     </button>
                   </div>
@@ -498,7 +498,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
           <div className="text-center mt-16">
             <Link
               to="/trips"
-              className="inline-flex items-center gap-3 bg-gradient-to-r from-nature-600 to-forest-600 hover:from-nature-700 hover:to-forest-700 text-white px-10 py-4 rounded-full text-lg font-bold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+              className="inline-flex items-center gap-3 bg-gradient-to-r from-blue-600 to-forest-600 hover:from-blue-700 hover:to-forest-700 text-white px-10 py-4 rounded-full text-lg font-bold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
             >
               <span>🌲</span>
               Discover All Adventures
@@ -557,7 +557,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold text-forest-800 mb-6">
               Safety First, 
-              <span className="text-nature-600">Planet Always</span>
+              <span className="text-blue-600">Planet Always</span>
             </h2>
             <p className="text-xl text-forest-600 max-w-3xl mx-auto leading-relaxed">
               We're committed to responsible adventure tourism that protects both our adventurers and the precious wilderness we explore
@@ -568,7 +568,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
             <div>
               <div className="space-y-8">
                 <div className="flex items-start">
-                  <div className="w-12 h-12 bg-gradient-to-br from-forest-500 to-nature-500 rounded-full flex items-center justify-center mr-4 flex-shrink-0">
+                  <div className="w-12 h-12 bg-gradient-to-br from-forest-500 to-blue-500 rounded-full flex items-center justify-center mr-4 flex-shrink-0">
                     <span className="text-white text-xl">🛡️</span>
                   </div>
                   <div>
@@ -578,7 +578,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
                 </div>
                 
                 <div className="flex items-start">
-                  <div className="w-12 h-12 bg-gradient-to-br from-forest-500 to-nature-500 rounded-full flex items-center justify-center mr-4 flex-shrink-0">
+                  <div className="w-12 h-12 bg-gradient-to-br from-forest-500 to-blue-500 rounded-full flex items-center justify-center mr-4 flex-shrink-0">
                     <span className="text-white text-xl">🌱</span>
                   </div>
                   <div>
@@ -588,7 +588,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
                 </div>
                 
                 <div className="flex items-start">
-                  <div className="w-12 h-12 bg-gradient-to-br from-forest-500 to-nature-500 rounded-full flex items-center justify-center mr-4 flex-shrink-0">
+                  <div className="w-12 h-12 bg-gradient-to-br from-forest-500 to-blue-500 rounded-full flex items-center justify-center mr-4 flex-shrink-0">
                     <span className="text-white text-xl">🌍</span>
                   </div>
                   <div>
@@ -598,7 +598,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
                 </div>
                 
                 <div className="flex items-start">
-                  <div className="w-12 h-12 bg-gradient-to-br from-forest-500 to-nature-500 rounded-full flex items-center justify-center mr-4 flex-shrink-0">
+                  <div className="w-12 h-12 bg-gradient-to-br from-forest-500 to-blue-500 rounded-full flex items-center justify-center mr-4 flex-shrink-0">
                     <span className="text-white text-xl">🐾</span>
                   </div>
                   <div>
@@ -624,7 +624,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold text-forest-800 mb-6">
               Gear Up for 
-              <span className="text-nature-600">Adventure</span>
+              <span className="text-blue-600">Adventure</span>
             </h2>
             <p className="text-xl text-forest-600 max-w-3xl mx-auto leading-relaxed">
               We provide all essential equipment and guide you through preparation for your wilderness experience
@@ -634,7 +634,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
           <div className="grid lg:grid-cols-3 gap-12">
             <div className="bg-white rounded-2xl p-8 shadow-lg">
               <div className="text-center mb-6">
-                <div className="w-16 h-16 bg-gradient-to-br from-forest-500 to-nature-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="w-16 h-16 bg-gradient-to-br from-forest-500 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
                   <span className="text-white text-2xl">🎒</span>
                 </div>
                 <h3 className="text-2xl font-bold text-forest-800">Essential Gear Provided</h3>
@@ -690,14 +690,14 @@ const Home: React.FC<HomeProps> = ({ user }) => {
       <section className="py-20 bg-gradient-to-br from-forest-800 to-nature-800 text-white relative overflow-hidden">
         <div className="absolute inset-0">
           <div className="absolute top-0 left-0 w-full h-full bg-black opacity-20"></div>
-          <div className="absolute -top-10 -left-10 w-40 h-40 bg-nature-400 rounded-full opacity-10 animate-pulse"></div>
+          <div className="absolute -top-10 -left-10 w-40 h-40 bg-blue-400 rounded-full opacity-10 animate-pulse"></div>
           <div className="absolute -bottom-10 -right-10 w-60 h-60 bg-forest-400 rounded-full opacity-10 animate-pulse" style={{animationDelay: '2s'}}></div>
         </div>
         
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
           <h2 className="text-4xl md:text-6xl font-bold mb-6">
             Your Next 
-            <span className="text-nature-400">Adventure</span>
+            <span className="text-blue-400">Adventure</span>
             <br />Starts Here
           </h2>
           <p className="text-xl md:text-2xl text-forest-100 mb-12 leading-relaxed">
@@ -708,7 +708,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
           <div className="flex flex-col sm:flex-row gap-6 justify-center">
             <Link
               to="/register"
-              className="group relative px-12 py-6 bg-nature-500 hover:bg-nature-600 text-white rounded-full text-xl font-bold transition-all duration-300 transform hover:scale-105 shadow-2xl hover:shadow-3xl"
+              className="group relative px-12 py-6 bg-blue-500 hover:bg-blue-600 text-white rounded-full text-xl font-bold transition-all duration-300 transform hover:scale-105 shadow-2xl hover:shadow-3xl"
             >
               <span className="flex items-center justify-center gap-3">
                 🌱 Start Your Journey
@@ -730,15 +730,15 @@ const Home: React.FC<HomeProps> = ({ user }) => {
           
           <div className="mt-16 grid md:grid-cols-3 gap-8 text-center">
             <div>
-              <div className="text-3xl font-bold text-nature-400 mb-2">Join Today</div>
+              <div className="text-3xl font-bold text-blue-400 mb-2">Join Today</div>
               <div className="text-forest-200">Start your first adventure</div>
             </div>
             <div>
-              <div className="text-3xl font-bold text-nature-400 mb-2">Connect</div>
+              <div className="text-3xl font-bold text-blue-400 mb-2">Connect</div>
               <div className="text-forest-200">Meet fellow adventurers</div>
             </div>
             <div>
-              <div className="text-3xl font-bold text-nature-400 mb-2">Explore</div>
+              <div className="text-3xl font-bold text-blue-400 mb-2">Explore</div>
               <div className="text-forest-200">Discover wild places</div>
             </div>
           </div>

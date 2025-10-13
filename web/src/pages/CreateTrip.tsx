@@ -56,7 +56,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 6;
+  const totalSteps = 7;
   
   const [formData, setFormData] = useState({
     title: '',
@@ -74,7 +74,13 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
     includedItems: [] as string[],
     excludedItems: [] as string[],
     requirements: [] as string[],
-    cancellationPolicy: 'moderate'
+    cancellationPolicy: 'moderate',
+    whatsappGroup: {
+      enabled: false,
+      groupName: '',
+      description: '',
+      joinLink: ''
+    }
   });
   
   const [schedule, setSchedule] = useState<ScheduleDay[]>([]);
@@ -343,6 +349,8 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
         return true; // Package configuration is optional
       case 6:
         return true; // Pickup/dropoff points are optional
+      case 7:
+        return true; // WhatsApp group is optional
       default:
         return false;
     }
@@ -428,7 +436,8 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
         paymentConfig: {
           ...paymentConfig,
           dueDate: paymentConfig.dueDate || new Date(new Date(formData.startDate).getTime() - 3 * 24 * 60 * 60 * 1000) // 3 days before trip
-        }
+        },
+        whatsappGroup: formData.whatsappGroup.enabled ? formData.whatsappGroup : null
       };
 
       setUploadProgress(90);
@@ -1388,6 +1397,140 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                 <li>• Drop-off points can be the same as pickup points</li>
               </ul>
             </div>
+          </div>
+        );
+        
+      case 7:
+        return (
+          <div className="space-y-6">
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold text-forest-800 mb-2">💬 WhatsApp Group</h2>
+              <p className="text-forest-600">Create a WhatsApp group for participants to connect before the trip</p>
+            </div>
+            
+            <div className="bg-green-50 border border-green-200 rounded-xl p-6">
+              <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                    <span className="text-2xl">💬</span>
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-green-800 mb-2">Connect Your Participants</h3>
+                  <p className="text-green-700 mb-4">
+                    Create a WhatsApp group to help participants connect, share excitement, and coordinate before the trip. 
+                    This builds community and makes the experience more enjoyable for everyone!
+                  </p>
+                  
+                  <div className="space-y-4">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="whatsappEnabled"
+                        checked={formData.whatsappGroup.enabled}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          whatsappGroup: {
+                            ...prev.whatsappGroup,
+                            enabled: e.target.checked
+                          }
+                        }))}
+                        className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="whatsappEnabled" className="ml-2 text-sm font-medium text-green-800">
+                        Enable WhatsApp group for this trip
+                      </label>
+                    </div>
+                    
+                    {formData.whatsappGroup.enabled && (
+                      <div className="space-y-4 pl-6 border-l-2 border-green-200">
+                        <div>
+                          <label htmlFor="groupName" className="block text-sm font-medium text-green-800 mb-1">
+                            Group Name *
+                          </label>
+                          <input
+                            type="text"
+                            id="groupName"
+                            value={formData.whatsappGroup.groupName}
+                            onChange={(e) => setFormData(prev => ({
+                              ...prev,
+                              whatsappGroup: {
+                                ...prev.whatsappGroup,
+                                groupName: e.target.value
+                              }
+                            }))}
+                            placeholder={`${formData.title} - Adventure Group`}
+                            className="w-full px-3 py-2 border border-green-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label htmlFor="groupDescription" className="block text-sm font-medium text-green-800 mb-1">
+                            Group Description
+                          </label>
+                          <textarea
+                            id="groupDescription"
+                            rows={3}
+                            value={formData.whatsappGroup.description}
+                            onChange={(e) => setFormData(prev => ({
+                              ...prev,
+                              whatsappGroup: {
+                                ...prev.whatsappGroup,
+                                description: e.target.value
+                              }
+                            }))}
+                            placeholder="Welcome to our adventure group! Share your excitement, ask questions, and connect with fellow travelers..."
+                            className="w-full px-3 py-2 border border-green-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label htmlFor="joinLink" className="block text-sm font-medium text-green-800 mb-1">
+                            WhatsApp Group Join Link
+                          </label>
+                          <input
+                            type="url"
+                            id="joinLink"
+                            value={formData.whatsappGroup.joinLink}
+                            onChange={(e) => setFormData(prev => ({
+                              ...prev,
+                              whatsappGroup: {
+                                ...prev.whatsappGroup,
+                                joinLink: e.target.value
+                              }
+                            }))}
+                            placeholder="https://chat.whatsapp.com/..."
+                            className="w-full px-3 py-2 border border-green-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                          />
+                          <p className="text-xs text-green-600 mt-1">
+                            Create a WhatsApp group and paste the invite link here. Participants will receive this link after booking.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+              <h3 className="font-medium text-blue-800 mb-2">💡 Benefits of WhatsApp Groups:</h3>
+              <ul className="text-sm text-blue-700 space-y-1">
+                <li>• Participants can introduce themselves and build connections</li>
+                <li>• Share packing tips, weather updates, and travel advice</li>
+                <li>• Coordinate last-minute details and meetups</li>
+                <li>• Share photos and experiences during the trip</li>
+                <li>• Stay connected even after the adventure ends</li>
+              </ul>
+            </div>
+            
+            {!formData.whatsappGroup.enabled && (
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                <p className="text-sm text-gray-600">
+                  <strong>Note:</strong> You can always create and share the WhatsApp group link later through your trip management dashboard.
+                </p>
+              </div>
+            )}
           </div>
         );
         
