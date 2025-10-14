@@ -465,6 +465,8 @@ router.get('/trip/:tripId', authenticateJwt, async (req, res) => {
       coverImage: trip.coverImage,
       images: trip.images,
       itinerary: trip.itinerary,
+      itineraryPdf: trip.itineraryPdf,
+      schedule: trip.schedule,
       organizer: {
         name: (trip.organizerId as any).name,
         phone: (trip.organizerId as any).phone,
@@ -611,6 +613,102 @@ router.post('/:bookingId/payment-screenshot', authenticateJwt, upload.single('pa
     });
     res.status(500).json({ 
       error: 'Failed to upload payment screenshot', 
+      details: process.env.NODE_ENV !== 'production' ? error.message : undefined
+    });
+  }
+});
+
+// Get specific booking details with trip information
+router.get('/:bookingId/details', authenticateJwt, async (req, res) => {
+  try {
+    const userId = (req as any).auth.userId;
+    const { bookingId } = req.params;
+    
+    // Find the booking with full trip details
+    const booking = await GroupBooking.findById(bookingId)
+      .populate({
+        path: 'tripId',
+        select: 'title description destination startDate endDate price status coverImage images itinerary itineraryPdf schedule organizerId capacity participants',
+        populate: {
+          path: 'organizerId',
+          select: 'name phone email'
+        }
+      })
+      .populate('mainBookerId', 'name email phone');
+      
+    if (!booking) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    // Check if user has permission (booking owner, trip organizer, or admin)
+    const user = await User.findById(userId);
+    const trip = booking.tripId as any;
+    
+    const isBookingOwner = booking.mainBookerId._id.toString() === userId;
+    const isOrganizer = trip.organizerId._id.toString() === userId;
+    const isAdmin = user?.role === 'admin';
+    
+    if (!isBookingOwner && !isOrganizer && !isAdmin) {
+      return res.status(403).json({ error: 'You do not have permission to view this booking' });
+    }
+
+    res.json({
+      booking: {
+        _id: booking._id,
+        tripTitle: trip.title,
+        tripDescription: trip.description,
+        tripDestination: trip.destination,
+        tripStartDate: trip.startDate,
+        tripEndDate: trip.endDate,
+        tripPrice: trip.price,
+        tripStatus: trip.status,
+        tripCoverImage: trip.coverImage,
+        tripImages: trip.images,
+        tripItinerary: trip.itinerary,
+        tripItineraryPdf: trip.itineraryPdf,
+        tripSchedule: trip.schedule,
+        tripCapacity: trip.capacity,
+        tripParticipantCount: trip.participants.length,
+        organizer: {
+          name: trip.organizerId.name,
+          phone: trip.organizerId.phone,
+          email: trip.organizerId.email
+        },
+        mainBooker: {
+          name: (booking.mainBookerId as any).name,
+          email: (booking.mainBookerId as any).email,
+          phone: (booking.mainBookerId as any).phone
+        },
+        participants: booking.participants,
+        numberOfGuests: booking.numberOfGuests,
+        totalAmount: booking.finalAmount,
+        pricePerPerson: booking.pricePerPerson,
+        selectedPackage: booking.packageName,
+        paymentMethod: booking.paymentMethod,
+        paymentStatus: booking.paymentStatus,
+        paymentVerificationStatus: booking.paymentVerificationStatus,
+        paymentVerificationNotes: booking.paymentVerificationNotes,
+        paymentScreenshot: booking.paymentScreenshot,
+        bookingStatus: booking.bookingStatus,
+        specialRequests: booking.specialRequests,
+        createdAt: booking.createdAt,
+        updatedAt: booking.updatedAt
+      },
+      userPermissions: {
+        isBookingOwner,
+        isOrganizer,
+        isAdmin
+      }
+    });
+
+  } catch (error: any) {
+    logger.error('Error fetching booking details', { 
+      error: error.message, 
+      userId: (req as any).auth.userId,
+      bookingId: req.params.bookingId
+    });
+    res.status(500).json({ 
+      error: 'Failed to fetch booking details', 
       details: process.env.NODE_ENV !== 'production' ? error.message : undefined
     });
   }
