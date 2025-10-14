@@ -77,26 +77,17 @@ const Home: React.FC<HomeProps> = ({ user }) => {
         
         const statsData = statsRes.data as { trips?: { total?: number; totalBookings?: number }; users?: { total?: number; organizers?: number } };
         console.log('Stats data received:', statsData);
-        if (statsData && (statsData.trips || statsData.users)) {
-          // Use real data from API
-          setStats({
-            totalTrips: statsData.trips?.total || 0,
-            totalUsers: statsData.users?.total || 0,
-            totalOrganizers: statsData.users?.organizers || 0,
-            totalBookings: statsData.trips?.totalBookings || 0,
-            countries: 15 // This could be calculated from trip destinations
-          });
-        } else {
-          // If stats endpoint returns empty data, use fallback
-          console.log('No stats data, using fallback values');
-          setStats({
-            totalTrips: 12,
-            totalUsers: 156,
-            totalOrganizers: 8,
-            totalBookings: 45,
-            countries: 15
-          });
-        }
+        
+        // Calculate real-time stats from actual data
+        const realTimeStats = {
+          totalTrips: tripsData.length || 0,
+          totalUsers: statsData?.users?.total || 0,
+          totalOrganizers: statsData?.users?.organizers || 0,
+          totalBookings: statsData?.trips?.totalBookings || 0,
+          countries: new Set(tripsData.map((trip: any) => trip.destination?.split(',')[0]?.trim()).filter(Boolean)).size || 15
+        };
+        
+        setStats(realTimeStats);
       } catch (error: any) {
         console.error('Error fetching data:', error.message || error);
         // Set fallback values when stats endpoint is not available

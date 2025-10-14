@@ -230,65 +230,72 @@ router.post('/recommendations', async (req, res) => {
   try {
     const { preferences, context } = req.body;
 
-    // For now, return mock recommendations since AI service might not be configured
-    // TODO: Replace with actual AI service when properly configured
-    const mockRecommendations = [
-      {
-        trip: {
-          _id: 'mock-trip-1',
-          title: 'Himalayan Trek Adventure',
-          destination: 'Himachal Pradesh',
-          price: 12000,
-          categories: ['Mountain', 'Adventure', 'Trekking'],
-          difficultyLevel: 'intermediate',
-          organizerId: 'mock-organizer-1'
-        },
-        score: 95,
-        reason: 'Perfect match for your adventure preferences and budget range',
-        matchingFactors: ['Budget Match', 'Adventure Type', 'Difficulty Level']
-      },
-      {
-        trip: {
-          _id: 'mock-trip-2',
-          title: 'Coastal Nature Walk',
-          destination: 'Goa',
-          price: 8000,
-          categories: ['Nature', 'Beach', 'Photography'],
-          difficultyLevel: 'beginner',
-          organizerId: 'mock-organizer-2'
-        },
-        score: 87,
-        reason: 'Great for nature lovers seeking a relaxed adventure',
-        matchingFactors: ['Nature Interest', 'Budget Range']
-      },
-      {
-        trip: {
-          _id: 'mock-trip-3',
-          title: 'Cultural Heritage Trail',
-          destination: 'Rajasthan',
-          price: 15000,
-          categories: ['Cultural', 'Heritage', 'Photography'],
-          difficultyLevel: 'beginner',
-          organizerId: 'mock-organizer-3'
-        },
-        score: 82,
-        reason: 'Combines cultural exploration with stunning photography opportunities',
-        matchingFactors: ['Cultural Interest', 'Photography']
-      }
-    ];
+    // Use real AI service for recommendations
+    const chatContext = {
+      userId: req.user?.id,
+      userRole: req.user?.role,
+      userPreferences: preferences || {},
+      previousMessages: context?.previousMessages || []
+    };
+
+    const aiResponse = await aiSupportService.handleUserQuery(
+      'recommend trips based on preferences',
+      chatContext
+    );
+
+    // Extract recommendations from AI response
+    const recommendations = aiResponse.additionalData?.recommendations || [];
 
     res.json({
       success: true,
       data: {
-        recommendations: mockRecommendations
+        recommendations,
+        message: aiResponse.message,
+        confidence: aiResponse.confidence
       }
     });
   } catch (error: any) {
     logger.error('Error getting AI recommendations', { error: error.message });
-    res.status(500).json({
-      success: false,
-      message: 'Failed to get recommendations'
-    });
+    
+    // Fallback to real trip data if AI fails
+    try {
+      const { Trip } = require('../models/Trip');
+      const trips = await Trip.find({ status: 'active' })
+        .populate('organizerId', 'name')
+        .select('title destination price categories difficultyLevel organizerId')
+        .limit(5)
+        .sort({ createdAt: -1 });
+
+      const fallbackRecommendations = trips.map((trip: any, index: number) => ({
+        trip: {
+          _id: trip._id,
+          title: trip.title,
+          destination: trip.destination,
+          price: trip.price,
+          categories: trip.categories || ['Adventure'],
+          difficultyLevel: trip.difficultyLevel || 'intermediate',
+          organizerId: trip.organizerId?._id
+        },
+        score: 85 - (index * 5),
+        reason: 'Popular adventure with great reviews',
+        matchingFactors: ['Highly rated', 'Active trip']
+      }));
+
+      res.json({
+        success: true,
+        data: {
+          recommendations: fallbackRecommendations,
+          message: 'Here are some popular adventures for you!',
+          confidence: 0.8
+        }
+      });
+    } catch (fallbackError: any) {
+      logger.error('Fallback recommendations failed', { error: fallbackError.message });
+      res.status(500).json({
+        success: false,
+        message: 'Failed to get recommendations'
+      });
+    }
   }
 });
 

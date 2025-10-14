@@ -22,6 +22,7 @@ import viewsRoutes from './routes/views';
 import postsRoutes from './routes/posts';
 import searchRoutes from './routes/search';
 import supportRoutes from './routes/support';
+import statsRoutes from './routes/stats';
 // Production-ready file upload routes
 import fileUploadRoutes from './routes/fileUploadProd';
 import { whatsappService } from './services/whatsappService';
@@ -184,6 +185,7 @@ async function start() {
     app.use('/api/posts', postsRoutes);
     app.use('/api/search', searchRoutes);
     app.use('/support', supportRoutes);
+    app.use('/stats', statsRoutes);
     
     // Health check endpoint with detailed info
     app.get('/health', asyncErrorHandler(async (_req: Request, res: Response) => {

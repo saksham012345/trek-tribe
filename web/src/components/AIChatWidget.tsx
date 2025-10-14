@@ -551,8 +551,15 @@ const AIChatWidget: React.FC = () => {
         };
 
         try {
-          const ticketResponse = await api.post('/support/tickets', ticketData);
-          console.log('✅ Ticket created successfully:', ticketResponse.data);
+          // Use AI service to create support ticket
+          const ticketResponse = await api.post('/chat/create-ticket', {
+            subject: ticketData.subject,
+            description: ticketData.description,
+            category: ticketData.category,
+            urgency: ticketData.priority
+          });
+          
+          console.log('✅ Ticket created successfully via AI service:', ticketResponse.data);
           
           // Success message
           setTimeout(() => {
@@ -561,25 +568,45 @@ const AIChatWidget: React.FC = () => {
               senderId: 'system',
               senderName: 'System',
               senderRole: 'ai',
-              message: '✅ Your support ticket has been created successfully! Ticket ID: ' + (ticketResponse.data?.ticket?.ticketId || 'N/A') + '. An agent will respond soon.',
+              message: '✅ Your support ticket has been created successfully! Ticket ID: ' + (ticketResponse.data?.data?.ticketId || 'N/A') + '. An agent will respond soon.',
               timestamp: new Date()
             };
             setMessages(prev => [...prev, successMessage]);
           }, 1500);
         } catch (ticketError: any) {
-          // If ticket creation fails (endpoint not deployed), show detailed fallback message
-          console.error('❌ Support endpoint error:', ticketError.response?.status, ticketError.response?.data);
-          setTimeout(() => {
-            const fallbackMessage: ChatMessage = {
-              id: `fallback_agent_${Date.now()}`,
-              senderId: 'system',
-              senderName: 'System',
-              senderRole: 'ai',
-              message: 'I\'ve logged your request in our system. Due to a temporary technical issue, please contact us directly at tanejasaksham44@gmail.com or call 9876177839 for immediate assistance!',
-              timestamp: new Date()
-            };
-            setMessages(prev => [...prev, fallbackMessage]);
-          }, 1500);
+          console.error('❌ AI Support ticket creation error:', ticketError.response?.status, ticketError.response?.data);
+          
+          // Try fallback to direct support endpoint
+          try {
+            const fallbackResponse = await api.post('/support/tickets', ticketData);
+            console.log('✅ Fallback ticket creation successful:', fallbackResponse.data);
+            
+            setTimeout(() => {
+              const successMessage: ChatMessage = {
+                id: `success_agent_${Date.now()}`,
+                senderId: 'system',
+                senderName: 'System',
+                senderRole: 'ai',
+                message: '✅ Your support ticket has been created successfully! Ticket ID: ' + (fallbackResponse.data?.ticket?.ticketId || 'N/A') + '. An agent will respond soon.',
+                timestamp: new Date()
+              };
+              setMessages(prev => [...prev, successMessage]);
+            }, 1500);
+          } catch (fallbackError: any) {
+            console.error('❌ Fallback ticket creation also failed:', fallbackError.response?.status, fallbackError.response?.data);
+            
+            setTimeout(() => {
+              const fallbackMessage: ChatMessage = {
+                id: `fallback_agent_${Date.now()}`,
+                senderId: 'system',
+                senderName: 'System',
+                senderRole: 'ai',
+                message: 'I\'ve logged your request in our system. Due to a temporary technical issue, please contact us directly at tanejasaksham44@gmail.com or call 9876177839 for immediate assistance!',
+                timestamp: new Date()
+              };
+              setMessages(prev => [...prev, fallbackMessage]);
+            }, 1500);
+          }
         }
       } else {
         // For guest users, show contact information

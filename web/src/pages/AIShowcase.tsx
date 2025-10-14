@@ -18,25 +18,78 @@ const AIShowcase: React.FC = () => {
   const [activeSection, setActiveSection] = useState<string>('smart-search');
   const [searchResults, setSearchResults] = useState<any[]>([]);
 
-  const handleSmartSearch = (query: string, filters: any) => {
+  const handleSmartSearch = async (query: string, filters: any) => {
     console.log('Smart search executed:', { query, filters });
-    // In a real implementation, this would trigger actual search
-    setSearchResults([
-      {
-        id: 1,
-        title: 'Himalayan Trek Adventure',
-        destination: 'Himachal Pradesh',
-        price: 8500,
-        match: '95%'
-      },
-      {
-        id: 2,
-        title: 'Kerala Backwater Experience',
-        destination: 'Kerala',
-        price: 6500,
-        match: '88%'
+    
+    try {
+      // Use real AI-powered smart search
+      const response = await api.post('/chat/smart-search', {
+        query,
+        context: {
+          userPreferences: filters,
+          currentFilters: filters
+        }
+      });
+      
+      if (response.data.success) {
+        const searchData = response.data.data;
+        
+        // Fetch actual trip data based on AI-extracted filters
+        const tripResponse = await api.get('/trips', {
+          params: {
+            search: searchData.filters.destination || '',
+            category: searchData.filters.category || '',
+            difficultyLevel: searchData.filters.difficultyLevel || '',
+            minPrice: searchData.filters.priceRange?.min || '',
+            maxPrice: searchData.filters.priceRange?.max || '',
+            limit: 6
+          }
+        });
+        
+        const trips = Array.isArray(tripResponse.data) ? tripResponse.data : tripResponse.data.data || [];
+        
+        const searchResults = trips.map((trip: any, index: number) => ({
+          id: trip._id,
+          title: trip.title,
+          destination: trip.destination,
+          price: trip.price,
+          match: `${Math.max(85 - (index * 5), 70)}%`,
+          categories: trip.categories,
+          difficultyLevel: trip.difficultyLevel
+        }));
+        
+        setSearchResults(searchResults);
       }
-    ]);
+    } catch (error: any) {
+      console.error('Smart search error:', error);
+      
+      // Fallback to basic search
+      try {
+        const fallbackResponse = await api.get('/trips', {
+          params: {
+            search: query,
+            limit: 6
+          }
+        });
+        
+        const trips = Array.isArray(fallbackResponse.data) ? fallbackResponse.data : fallbackResponse.data.data || [];
+        
+        const fallbackResults = trips.map((trip: any, index: number) => ({
+          id: trip._id,
+          title: trip.title,
+          destination: trip.destination,
+          price: trip.price,
+          match: `${Math.max(80 - (index * 5), 60)}%`,
+          categories: trip.categories,
+          difficultyLevel: trip.difficultyLevel
+        }));
+        
+        setSearchResults(fallbackResults);
+      } catch (fallbackError: any) {
+        console.error('Fallback search also failed:', fallbackError);
+        setSearchResults([]);
+      }
+    }
   };
 
   const showcaseSections: ShowcaseSection[] = [
