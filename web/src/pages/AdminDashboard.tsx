@@ -103,7 +103,7 @@ const AdminDashboard: React.FC = () => {
     const token = localStorage.getItem('token');
     if (!token) return;
 
-    const newSocket = io(process.env.REACT_APP_API_URL || 'http://localhost:4000', {
+    const newSocket = io(process.env.REACT_APP_API_URL || 'https://trek-tribe-38in.onrender.com', {
       auth: { token },
       path: '/socket.io/'
     });

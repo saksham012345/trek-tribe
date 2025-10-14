@@ -206,7 +206,7 @@ const AgentDashboard: React.FC = () => {
 
   const fetchServiceStatus = async () => {
     try {
-      const response = await axios.get('/agent/services/status');
+      const response = await api.get('/agent/services/status');
       const statusData = response.data as any;
       setServiceStatus(statusData);
     } catch (error: any) {
