@@ -337,8 +337,10 @@ router.post('/', authenticateJwt, async (req, res) => {
 router.get('/my-bookings', authenticateJwt, async (req, res) => {
   try {
     const userId = (req as any).auth.userId;
+    console.log('🔍 My bookings request:', { userId, auth: (req as any).auth });
     
     // Find all bookings where user is the main booker
+    console.log('🔍 Querying GroupBooking for userId:', userId);
     const groupBookings = await GroupBooking.find({ 
       mainBookerId: userId 
     })
@@ -351,6 +353,8 @@ router.get('/my-bookings', authenticateJwt, async (req, res) => {
       }
     })
     .sort({ createdAt: -1 });
+    
+    console.log('📋 Found bookings:', groupBookings.length);
 
     const bookings = groupBookings.map(booking => {
       const trip = booking.tripId as any;

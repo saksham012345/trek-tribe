@@ -59,6 +59,12 @@ router.post('/query', async (req, res) => {
 router.post('/create-ticket', authenticateToken, async (req, res) => {
   try {
     const { subject, description, category, urgency } = req.body;
+    
+    console.log('🔍 Create ticket request:', {
+      userId: req.user?.id,
+      authUserId: (req as any).auth?.userId,
+      body: req.body
+    });
 
     if (!subject || !description) {
       return res.status(400).json({
@@ -67,8 +73,19 @@ router.post('/create-ticket', authenticateToken, async (req, res) => {
       });
     }
 
+    // Use either req.user.id or req.auth.userId
+    const userId = req.user?.id || (req as any).auth?.userId;
+    if (!userId) {
+      console.log('❌ No user ID found in request');
+      return res.status(401).json({
+        success: false,
+        message: 'User authentication required'
+      });
+    }
+
+    console.log('✅ Creating support ticket for user:', userId);
     const ticketId = await aiSupportService.createSupportTicket(
-      req.user!.id,
+      userId,
       subject,
       description,
       category || 'general'

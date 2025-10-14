@@ -1192,12 +1192,17 @@ class AISupportService {
     category: string = 'general'
   ): Promise<string> {
     try {
+      console.log('🔍 Creating support ticket:', { userId, subject, category });
+      
       const user = await User.findById(userId);
+      console.log('👤 User lookup result:', { userId, found: !!user, userName: user?.name });
+      
       if (!user) {
+        console.log('❌ User not found for ID:', userId);
         throw new Error('User not found');
       }
 
-      const ticket = await SupportTicket.create({
+      const ticketData = {
         userId,
         subject,
         description,
@@ -1213,7 +1218,12 @@ class AISupportService {
           message: description,
           timestamp: new Date()
         }]
-      });
+      };
+      
+      console.log('📝 Creating ticket with data:', ticketData);
+      
+      const ticket = await SupportTicket.create(ticketData);
+      console.log('✅ Ticket created successfully:', { ticketId: ticket.ticketId, _id: ticket._id });
 
       logger.info('Support ticket created by Trek Tribe AI', { 
         ticketId: ticket.ticketId, 
@@ -1222,7 +1232,13 @@ class AISupportService {
 
       return ticket.ticketId;
     } catch (error: any) {
-      logger.error('Error creating support ticket', { error: error.message, userId });
+      console.error('❌ Error creating support ticket:', error);
+      console.error('❌ Error stack:', error.stack);
+      logger.error('Error creating support ticket', { 
+        error: error.message, 
+        stack: error.stack,
+        userId 
+      });
       throw error;
     }
   }
