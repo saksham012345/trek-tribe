@@ -66,6 +66,6 @@ export const getApiUrl = (): string => {
     return 'https://trek-tribe-38in.onrender.com';
   }
   
-  // Development default
-  return 'http://localhost:4000';
+  // Development default - use production API for consistency
+  return 'https://trek-tribe-38in.onrender.com';
 };

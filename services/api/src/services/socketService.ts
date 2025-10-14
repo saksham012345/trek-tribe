@@ -70,9 +70,20 @@ class SocketService {
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
-        const user = await User.findById(decoded.id);
+        console.log('🔍 Socket auth - decoded token:', { id: decoded.id, userId: decoded.userId, role: decoded.role });
+        
+        // Try multiple possible ID fields from the token
+        const userId = decoded.id || decoded.userId || decoded.sub;
+        if (!userId) {
+          console.log('❌ No user ID found in token');
+          return next(new Error('Invalid token - no user ID'));
+        }
+        
+        const user = await User.findById(userId);
+        console.log('👤 Socket auth - user lookup result:', { userId, found: !!user, userName: user?.name });
         
         if (!user) {
+          console.log('❌ User not found in database:', userId);
           return next(new Error('User not found'));
         }
 

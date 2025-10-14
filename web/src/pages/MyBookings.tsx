@@ -21,6 +21,7 @@ interface Booking {
   tripStatus: string;
   createdAt: string;
   organizer: {
+    id: string;
     name: string;
     phone: string;
     email: string;
@@ -274,6 +275,8 @@ const MyBookings: React.FC = () => {
         <PaymentUpload
           bookingId={selectedBookingForPayment.bookingId}
           totalAmount={selectedBookingForPayment.totalAmount}
+          organizerId={selectedBookingForPayment.organizer?.id || ''}
+          tripTitle={selectedBookingForPayment.tripTitle}
           onUploadSuccess={handlePaymentUploadSuccess}
           onCancel={() => setSelectedBookingForPayment(null)}
         />

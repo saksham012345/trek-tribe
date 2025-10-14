@@ -68,7 +68,7 @@ const AIRecommendations: React.FC<AIRecommendationsProps> = ({
         }
       } else {
         // For authenticated users, get AI-powered recommendations
-        const response = await api.get(`/ai/recommendations?limit=${maxRecommendations}`);
+        const response = await api.get(`/api/ai/recommendations?limit=${maxRecommendations}`);
         
         if (response.data.success && response.data.recommendations) {
           // Map backend response to component format

@@ -43,7 +43,7 @@ const AIChatWidget: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
 
-  const API_BASE_URL = process.env.REACT_APP_SOCKET_URL || process.env.REACT_APP_API_URL || 'http://localhost:4000';
+  const API_BASE_URL = process.env.REACT_APP_SOCKET_URL || process.env.REACT_APP_API_URL || 'https://trek-tribe-38in.onrender.com';
 
   useEffect(() => {
     if (isOpen) {
@@ -77,7 +77,7 @@ const AIChatWidget: React.FC = () => {
     
     socketRef.current = io(socketUrl, {
       auth: {
-        token: token || localStorage.getItem('authToken') || undefined
+        token: token || localStorage.getItem('token') || undefined
       },
       path: '/socket.io/',
       transports: ['websocket', 'polling'],
@@ -105,6 +105,12 @@ const AIChatWidget: React.FC = () => {
 
     socket.on('connect_error', (error) => {
       console.error('Socket connection error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        description: error.description,
+        context: error.context,
+        type: error.type
+      });
       setSocketFailed(true);
       setIsLoading(false);
       console.log('Socket connection failed, using fallback AI responses');
@@ -285,7 +291,7 @@ const AIChatWidget: React.FC = () => {
       
       if (user) {
         try {
-          const response = await api.get('/ai/recommendations?limit=3');
+          const response = await api.get('/api/ai/recommendations?limit=3');
           if (response.data.success && response.data.recommendations) {
             recommendations = response.data.recommendations;
             responseMessage = 'Here are some personalized trip recommendations based on your profile:';

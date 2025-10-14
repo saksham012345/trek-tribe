@@ -83,10 +83,25 @@ router.post('/create-ticket', authenticateToken, async (req, res) => {
     });
 
   } catch (error: any) {
-    logger.error('Error creating support ticket', { error: error.message, userId: req.user?.id });
+    logger.error('Error creating support ticket', { 
+      error: error.message, 
+      stack: error.stack,
+      userId: req.user?.id,
+      requestBody: req.body
+    });
+    
+    // Provide more specific error messages
+    let errorMessage = 'Failed to create support ticket';
+    if (error.message === 'User not found') {
+      errorMessage = 'User authentication failed. Please log in again.';
+    } else if (error.message.includes('validation')) {
+      errorMessage = 'Invalid ticket data provided.';
+    }
+    
     res.status(500).json({
       success: false,
-      message: 'Failed to create support ticket'
+      message: errorMessage,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });

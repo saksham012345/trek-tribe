@@ -111,7 +111,8 @@ router.post('/', authenticateJwt, async (req, res) => {
       contactPhone: req.body.contactPhone,
       hasSelectedPackage: !!req.body.selectedPackage,
       hasTravelerDetails: !!req.body.travelerDetails,
-      travelerDetailsCount: req.body.travelerDetails?.length
+      travelerDetailsCount: req.body.travelerDetails?.length,
+      fullBody: req.body
     });
     
     // Ultra-flexible validation - always succeeds with smart defaults
@@ -164,8 +165,15 @@ router.post('/', authenticateJwt, async (req, res) => {
     const availableSpots = trip.capacity - currentParticipants;
     
     if (availableSpots < numberOfTravelers) {
+      console.log('❌ Not enough spots available:', { availableSpots, numberOfTravelers, tripId });
       return res.status(400).json({ 
-        error: `Not enough spots available. Only ${availableSpots} spots remaining` 
+        error: `Not enough spots available. Only ${availableSpots} spots remaining`,
+        details: {
+          requested: numberOfTravelers,
+          available: availableSpots,
+          tripCapacity: trip.capacity,
+          currentParticipants: currentParticipants
+        }
       });
     }
 
@@ -189,7 +197,14 @@ router.post('/', authenticateJwt, async (req, res) => {
     });
     
     if (existingBooking) {
-      return res.status(400).json({ error: 'You already have a booking for this trip' });
+      console.log('❌ User already has booking for this trip:', { userId, tripId, existingBookingId: existingBooking._id });
+      return res.status(400).json({ 
+        error: 'You already have a booking for this trip',
+        details: {
+          existingBookingId: existingBooking._id,
+          existingStatus: existingBooking.bookingStatus
+        }
+      });
     }
 
     // Calculate price per person (use selected package or trip price)
@@ -358,6 +373,7 @@ router.get('/my-bookings', authenticateJwt, async (req, res) => {
         tripStatus: trip.status,
         createdAt: booking.createdAt,
         organizer: {
+          id: trip.organizerId?._id?.toString() || '',
           name: trip.organizerId?.name || 'N/A',
           phone: trip.organizerId?.phone || 'N/A',
           email: trip.organizerId?.email || 'N/A'
@@ -368,8 +384,16 @@ router.get('/my-bookings', authenticateJwt, async (req, res) => {
     res.json({ bookings });
 
   } catch (error: any) {
-    logger.error('Error fetching user bookings', { error: error.message, userId: (req as any).auth.userId });
-    res.status(500).json({ error: 'Failed to fetch bookings' });
+    logger.error('Error fetching user bookings', { 
+      error: error.message, 
+      stack: error.stack,
+      userId: (req as any).auth.userId 
+    });
+    console.error('❌ My bookings error:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch bookings',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
