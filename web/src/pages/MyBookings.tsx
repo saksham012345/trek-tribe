@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../config/api';
 import PaymentUpload from '../components/PaymentUpload';
+import BookingDetailsModal from '../components/BookingDetailsModal';
 
 interface Booking {
   bookingId: string;
@@ -33,6 +34,7 @@ const MyBookings: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedBookingForPayment, setSelectedBookingForPayment] = useState<Booking | null>(null);
+  const [selectedBookingForDetails, setSelectedBookingForDetails] = useState<Booking | null>(null);
 
   useEffect(() => {
     fetchBookings();
@@ -221,18 +223,25 @@ const MyBookings: React.FC = () => {
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 flex-wrap">
+                      <button
+                        onClick={() => setSelectedBookingForDetails(booking)}
+                        className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 font-medium flex-1 min-w-[120px]"
+                      >
+                        📋 View Details
+                      </button>
+                      
                       {canUploadPayment(booking) && (
                         <button
                           onClick={() => setSelectedBookingForPayment(booking)}
-                          className="flex-1 px-4 py-2 bg-gradient-to-r from-nature-600 to-forest-600 text-white rounded-lg hover:from-nature-700 hover:to-forest-700 transition-all duration-300 font-medium"
+                          className="px-4 py-2 bg-gradient-to-r from-nature-600 to-forest-600 text-white rounded-lg hover:from-nature-700 hover:to-forest-700 transition-all duration-300 font-medium flex-1 min-w-[120px]"
                         >
                           📤 Upload Payment
                         </button>
                       )}
                       
                       {booking.bookingStatus === 'pending' && booking.paymentScreenshotUploaded && (
-                        <div className="flex-1 px-4 py-2 bg-blue-50 text-blue-800 rounded-lg text-center font-medium">
+                        <div className="px-4 py-2 bg-blue-50 text-blue-800 rounded-lg text-center font-medium flex-1 min-w-[120px]">
                           ⏳ Payment Under Review
                         </div>
                       )}
@@ -240,7 +249,7 @@ const MyBookings: React.FC = () => {
                       {booking.paymentVerificationStatus === 'rejected' && (
                         <button
                           onClick={() => setSelectedBookingForPayment(booking)}
-                          className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex-1 min-w-[120px]"
                         >
                           🔄 Re-upload Payment
                         </button>
@@ -248,7 +257,7 @@ const MyBookings: React.FC = () => {
                       
                       <a
                         href={`/trips/${booking.tripId}`}
-                        className="px-4 py-2 border-2 border-forest-300 text-forest-700 rounded-lg hover:bg-forest-100 transition-colors font-medium"
+                        className="px-4 py-2 border-2 border-forest-300 text-forest-700 rounded-lg hover:bg-forest-100 transition-colors font-medium flex-1 min-w-[120px] text-center"
                       >
                         View Trip
                       </a>
@@ -279,6 +288,14 @@ const MyBookings: React.FC = () => {
           tripTitle={selectedBookingForPayment.tripTitle}
           onUploadSuccess={handlePaymentUploadSuccess}
           onCancel={() => setSelectedBookingForPayment(null)}
+        />
+      )}
+
+      {/* Booking Details Modal */}
+      {selectedBookingForDetails && (
+        <BookingDetailsModal
+          bookingId={selectedBookingForDetails.bookingId}
+          onClose={() => setSelectedBookingForDetails(null)}
         />
       )}
     </div>
