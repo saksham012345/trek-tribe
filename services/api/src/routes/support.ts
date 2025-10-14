@@ -146,8 +146,12 @@ router.post('/tickets', async (req, res) => {
     logger.error('Error creating support ticket', { 
       error: error.message, 
       stack: error.stack,
-      userId,
-      ticketData: { subject, category, priority }
+      userId: (req as any).auth?.userId,
+      ticketData: { 
+        subject: req.body.subject, 
+        category: req.body.category, 
+        priority: req.body.priority 
+      }
     });
     res.status(500).json({ 
       error: 'Failed to create support ticket',
