@@ -222,6 +222,51 @@ router.get('/health', (req, res) => {
 });
 
 /**
+ * @route POST /api/chat/test-ticket
+ * @description Test support ticket creation (for debugging)
+ * @access Private
+ */
+router.post('/test-ticket', authenticateToken, async (req, res) => {
+  try {
+    const { subject, description, category } = req.body;
+    
+    logger.info('Testing support ticket creation', { 
+      userId: req.user?.id, 
+      subject, 
+      category 
+    });
+
+    const ticketId = await aiSupportService.createSupportTicket(
+      req.user!.id,
+      subject || 'Test Support Ticket',
+      description || 'This is a test support ticket created for debugging purposes.',
+      category || 'general'
+    );
+
+    res.json({
+      success: true,
+      data: {
+        ticketId,
+        message: 'Test support ticket created successfully',
+        userId: req.user?.id,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error: any) {
+    logger.error('Error creating test support ticket', { 
+      error: error.message, 
+      userId: req.user?.id 
+    });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create test support ticket',
+      error: error.message
+    });
+  }
+});
+
+/**
  * @route POST /api/chat/recommendations
  * @description Get AI-powered trip recommendations
  * @access Private (optional)

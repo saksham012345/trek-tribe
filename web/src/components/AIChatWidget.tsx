@@ -551,6 +551,14 @@ const AIChatWidget: React.FC = () => {
         };
 
         try {
+          // Check if user is authenticated
+          const token = localStorage.getItem('token');
+          if (!token) {
+            throw new Error('User not authenticated');
+          }
+          
+          console.log('🔑 User authenticated, creating ticket via AI service...');
+          
           // Use AI service to create support ticket
           const ticketResponse = await api.post('/chat/create-ticket', {
             subject: ticketData.subject,
@@ -574,10 +582,16 @@ const AIChatWidget: React.FC = () => {
             setMessages(prev => [...prev, successMessage]);
           }, 1500);
         } catch (ticketError: any) {
-          console.error('❌ AI Support ticket creation error:', ticketError.response?.status, ticketError.response?.data);
+          console.error('❌ AI Support ticket creation error:', {
+            status: ticketError.response?.status,
+            data: ticketError.response?.data,
+            message: ticketError.message,
+            isAuthError: ticketError.response?.status === 401
+          });
           
           // Try fallback to direct support endpoint
           try {
+            console.log('🔄 Trying fallback support endpoint...');
             const fallbackResponse = await api.post('/support/tickets', ticketData);
             console.log('✅ Fallback ticket creation successful:', fallbackResponse.data);
             
@@ -593,7 +607,23 @@ const AIChatWidget: React.FC = () => {
               setMessages(prev => [...prev, successMessage]);
             }, 1500);
           } catch (fallbackError: any) {
-            console.error('❌ Fallback ticket creation also failed:', fallbackError.response?.status, fallbackError.response?.data);
+            console.error('❌ Fallback ticket creation also failed:', {
+              status: fallbackError.response?.status,
+              data: fallbackError.response?.data,
+              message: fallbackError.message,
+              isAuthError: fallbackError.response?.status === 401
+            });
+            
+            // Provide more specific error message based on the error type
+            let errorMessage = 'I\'ve logged your request in our system. Due to a temporary technical issue, please contact us directly at tanejasaksham44@gmail.com or call 9876177839 for immediate assistance!';
+            
+            if (fallbackError.response?.status === 401) {
+              errorMessage = 'Please log in to create a support ticket. If you\'re already logged in, please refresh the page and try again.';
+            } else if (fallbackError.response?.status === 403) {
+              errorMessage = 'You don\'t have permission to create support tickets. Please contact us directly at tanejasaksham44@gmail.com.';
+            } else if (fallbackError.response?.status === 400) {
+              errorMessage = 'There was an issue with the ticket data. Please contact us directly at tanejasaksham44@gmail.com or call 9876177839.';
+            }
             
             setTimeout(() => {
               const fallbackMessage: ChatMessage = {
@@ -601,7 +631,7 @@ const AIChatWidget: React.FC = () => {
                 senderId: 'system',
                 senderName: 'System',
                 senderRole: 'ai',
-                message: 'I\'ve logged your request in our system. Due to a temporary technical issue, please contact us directly at tanejasaksham44@gmail.com or call 9876177839 for immediate assistance!',
+                message: errorMessage,
                 timestamp: new Date()
               };
               setMessages(prev => [...prev, fallbackMessage]);

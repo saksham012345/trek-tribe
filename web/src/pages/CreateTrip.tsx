@@ -462,9 +462,13 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       }, 1000);
       
     } catch (error: any) {
-      console.error('Error creating trip:', error);
-      console.error('Error response:', error.response?.data);
-      console.error('Error status:', error.response?.status);
+      // Enhanced error logging for debugging
+      console.error('❌ Error creating trip:', error);
+      console.error('📋 Full error object:', JSON.stringify(error, null, 2));
+      console.error('🔢 Status code:', error.response?.status);
+      console.error('🔍 Error message:', error.message);
+      console.error('📦 Response data:', error.response?.data);
+      console.error('📤 Trip data being sent:', JSON.stringify(tripData, null, 2));
       
       // Enhanced error handling
       let errorMessage = 'Failed to create trip';
