@@ -9,12 +9,12 @@ const AuthChecker: React.FC = () => {
   const testAuth = async () => {
     try {
       const response = await api.get('/auth/me');
-      setTestResults(prev => ({
+      setTestResults((prev: any) => ({
         ...prev,
         authMe: { success: true, data: response.data }
       }));
     } catch (error: any) {
-      setTestResults(prev => ({
+      setTestResults((prev: any) => ({
         ...prev,
         authMe: { 
           success: false, 

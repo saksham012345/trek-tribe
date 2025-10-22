@@ -5,6 +5,9 @@ interface OrganizerQRDisplayProps {
   organizerId: string;
   tripTitle: string;
   totalAmount: number;
+  paymentType?: 'full' | 'advance';
+  advanceAmount?: number;
+  remainingAmount?: number;
   onPaymentComplete: () => void;
 }
 
@@ -23,6 +26,9 @@ const OrganizerQRDisplay: React.FC<OrganizerQRDisplayProps> = ({
   organizerId,
   tripTitle,
   totalAmount,
+  paymentType = 'full',
+  advanceAmount,
+  remainingAmount,
   onPaymentComplete
 }) => {
   const [organizerData, setOrganizerData] = useState<any>(null);
@@ -40,11 +46,11 @@ const OrganizerQRDisplay: React.FC<OrganizerQRDisplayProps> = ({
       try {
         // First try the enhanced profile endpoint
         response = await api.get(`/profile/enhanced/${organizerId}`);
-        setOrganizerData(response.data.profile || response.data.user);
+        setOrganizerData((response.data as any).profile || (response.data as any).user);
       } catch (enhancedError) {
         // Fallback to basic profile endpoint
         response = await api.get(`/profile/${organizerId}`);
-        setOrganizerData(response.data.profile || response.data.user);
+        setOrganizerData((response.data as any).profile || (response.data as any).user);
       }
     } catch (error) {
       console.error('Error fetching organizer data:', error);
@@ -72,13 +78,22 @@ const OrganizerQRDisplay: React.FC<OrganizerQRDisplayProps> = ({
 
   const qrCodes = organizerData.organizerProfile?.qrCodes || [];
   const activeQRCodes = qrCodes.filter((qr: QRCode) => qr.isActive);
+  
+  // Calculate current payment amount based on payment type
+  const currentPaymentAmount = paymentType === 'advance' && advanceAmount ? advanceAmount : totalAmount;
+  const isAdvancePayment = paymentType === 'advance' && advanceAmount && remainingAmount;
 
   return (
     <div className="bg-white rounded-2xl shadow-xl p-6">
       <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Instructions</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+          {isAdvancePayment ? 'Advance Payment Required' : 'Payment Instructions'}
+        </h2>
         <p className="text-gray-600">
-          Please make payment to complete your booking for <span className="font-semibold">{tripTitle}</span>
+          {isAdvancePayment 
+            ? `Please make the advance payment to secure your booking for ${tripTitle}` 
+            : `Please make payment to complete your booking for ${tripTitle}`
+          }
         </p>
       </div>
 
@@ -106,8 +121,23 @@ const OrganizerQRDisplay: React.FC<OrganizerQRDisplayProps> = ({
       {/* Payment Amount */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
         <div className="text-center">
-          <p className="text-sm text-blue-600 mb-1">Payment Amount</p>
-          <p className="text-3xl font-bold text-blue-900">₹{totalAmount.toLocaleString()}</p>
+          <p className="text-sm text-blue-600 mb-1">
+            {isAdvancePayment ? 'Advance Payment Amount' : 'Payment Amount'}
+          </p>
+          <p className="text-3xl font-bold text-blue-900">₹{currentPaymentAmount.toLocaleString()}</p>
+          {isAdvancePayment && (
+            <div className="mt-3 space-y-1">
+              <p className="text-xs text-blue-700">
+                Total Trip Amount: ₹{totalAmount.toLocaleString()}
+              </p>
+              <p className="text-xs text-blue-700">
+                Remaining Balance: ₹{remainingAmount!.toLocaleString()}
+              </p>
+              <p className="text-xs text-blue-600 font-medium">
+                (Balance due before trip starts)
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -134,7 +164,8 @@ const OrganizerQRDisplay: React.FC<OrganizerQRDisplayProps> = ({
                     <p className="text-sm text-gray-600">{qrCode.description}</p>
                   )}
                   <p className="text-xs text-gray-500">
-                    Amount: ₹{totalAmount.toLocaleString()}
+                    Amount: ₹{currentPaymentAmount.toLocaleString()}
+                    {isAdvancePayment && <span className="block text-xs text-blue-600">(Advance Payment)</span>}
                   </p>
                 </div>
               </div>
@@ -158,7 +189,10 @@ const OrganizerQRDisplay: React.FC<OrganizerQRDisplayProps> = ({
               alt="Payment QR Code"
               className="w-48 h-48 mx-auto rounded-lg shadow-sm border"
             />
-            <p className="text-sm text-gray-600 mt-3">Amount: ₹{totalAmount.toLocaleString()}</p>
+            <p className="text-sm text-gray-600 mt-3">
+              Amount: ₹{currentPaymentAmount.toLocaleString()}
+              {isAdvancePayment && <span className="block text-xs text-blue-600">(Advance Payment)</span>}
+            </p>
           </div>
         </div>
       ) : (
@@ -181,11 +215,13 @@ const OrganizerQRDisplay: React.FC<OrganizerQRDisplayProps> = ({
         <h4 className="font-semibold text-green-800 mb-2">📋 Payment Instructions</h4>
         <ol className="text-sm text-green-700 space-y-1">
           <li>1. Scan the QR code with your payment app</li>
-          <li>2. Enter the exact amount: <strong>₹{totalAmount.toLocaleString()}</strong></li>
+          <li>2. Enter the exact amount: <strong>₹{currentPaymentAmount.toLocaleString()}</strong>
+            {isAdvancePayment && <span className="block text-xs text-green-600 ml-4">(This is advance payment - balance due later)</span>}
+          </li>
           <li>3. Add your name or booking reference in the payment note</li>
           <li>4. Complete the payment</li>
           <li>5. Take a screenshot of the payment confirmation</li>
-          <li>6. Upload the screenshot below to confirm your booking</li>
+          <li>6. Upload the screenshot below to {isAdvancePayment ? 'secure your booking' : 'confirm your booking'}</li>
         </ol>
       </div>
 

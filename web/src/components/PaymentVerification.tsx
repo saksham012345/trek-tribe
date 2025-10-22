@@ -74,9 +74,9 @@ const PaymentVerification: React.FC<PaymentVerificationProps> = ({
     try {
       setLoading(true);
       const response = await api.get(`/bookings/${bookingId}/payment-verification`);
-      setBooking(response.data.booking);
-      setUserPermissions(response.data.userPermissions);
-      setVerificationNotes(response.data.booking.paymentVerificationNotes || '');
+      setBooking((response.data as any).booking);
+      setUserPermissions((response.data as any).userPermissions);
+      setVerificationNotes((response.data as any).booking.paymentVerificationNotes || '');
     } catch (error: any) {
       setError(error.response?.data?.error || 'Failed to fetch booking details');
     } finally {

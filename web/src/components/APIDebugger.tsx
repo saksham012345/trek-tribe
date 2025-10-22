@@ -27,12 +27,12 @@ const APIDebugger: React.FC = () => {
       // Test auth endpoint
       try {
         const authTest = await api.get('/auth/me');
-        setTestResults(prev => ({
+        setTestResults((prev: any) => ({
           ...prev,
           authTest: { success: true, data: authTest.data }
         }));
       } catch (error: any) {
-        setTestResults(prev => ({
+        setTestResults((prev: any) => ({
           ...prev,
           authTest: { 
             success: false, 
@@ -45,12 +45,12 @@ const APIDebugger: React.FC = () => {
       // Test trips endpoint
       try {
         const tripsTest = await api.get('/trips?limit=1');
-        setTestResults(prev => ({
+        setTestResults((prev: any) => ({
           ...prev,
           tripsTest: { success: true, dataLength: Array.isArray(tripsTest.data) ? tripsTest.data.length : 'not array' }
         }));
       } catch (error: any) {
-        setTestResults(prev => ({
+        setTestResults((prev: any) => ({
           ...prev,
           tripsTest: { 
             success: false, 
@@ -79,12 +79,12 @@ const APIDebugger: React.FC = () => {
 
     try {
       const response = await api.post('/trips', testTripData);
-      setTestResults(prev => ({
+      setTestResults((prev: any) => ({
         ...prev,
         tripCreationTest: { success: true, data: response.data }
       }));
     } catch (error: any) {
-      setTestResults(prev => ({
+      setTestResults((prev: any) => ({
         ...prev,
         tripCreationTest: { 
           success: false, 
@@ -110,12 +110,12 @@ const APIDebugger: React.FC = () => {
 
     try {
       const response = await api.post('/bookings', testBookingData);
-      setTestResults(prev => ({
+      setTestResults((prev: any) => ({
         ...prev,
         bookingCreationTest: { success: true, data: response.data }
       }));
     } catch (error: any) {
-      setTestResults(prev => ({
+      setTestResults((prev: any) => ({
         ...prev,
         bookingCreationTest: { 
           success: false, 

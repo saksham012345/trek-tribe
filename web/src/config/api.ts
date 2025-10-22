@@ -21,7 +21,7 @@ const api = axios.create({
 
 // Request interceptor to add auth tokens and check cache
 api.interceptors.request.use(
-  (config) => {
+  (config: any) => {
     const token = localStorage.getItem('token'); // Fixed to match AuthContext
     if (token) {
       config.headers = config.headers || {};

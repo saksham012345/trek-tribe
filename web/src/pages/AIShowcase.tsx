@@ -4,6 +4,7 @@ import AIRecommendations from '../components/AIRecommendations';
 import AIAnalyticsDashboard from '../components/AIAnalyticsDashboard';
 import AISmartSearch from '../components/AISmartSearch';
 import AIChatWidget from '../components/AIChatWidget';
+import api from '../config/api';
 
 interface ShowcaseSection {
   id: string;
@@ -31,8 +32,8 @@ const AIShowcase: React.FC = () => {
         }
       });
       
-      if (response.data.success) {
-        const searchData = response.data.data;
+      if ((response.data as any).success) {
+        const searchData = (response.data as any).data;
         
         // Fetch actual trip data based on AI-extracted filters
         const tripResponse = await api.get('/trips', {
@@ -46,7 +47,7 @@ const AIShowcase: React.FC = () => {
           }
         });
         
-        const trips = Array.isArray(tripResponse.data) ? tripResponse.data : tripResponse.data.data || [];
+        const trips = Array.isArray(tripResponse.data) ? tripResponse.data : (tripResponse.data as any).data || [];
         
         const searchResults = trips.map((trip: any, index: number) => ({
           id: trip._id,
@@ -72,7 +73,7 @@ const AIShowcase: React.FC = () => {
           }
         });
         
-        const trips = Array.isArray(fallbackResponse.data) ? fallbackResponse.data : fallbackResponse.data.data || [];
+        const trips = Array.isArray(fallbackResponse.data) ? fallbackResponse.data : (fallbackResponse.data as any).data || [];
         
         const fallbackResults = trips.map((trip: any, index: number) => ({
           id: trip._id,

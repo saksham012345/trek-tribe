@@ -85,8 +85,8 @@ const AISmartSearch: React.FC<AISmartSearchProps> = ({
         }
       });
 
-      if (response.data.success && response.data.data) {
-        const result: SmartSearchResult = response.data.data;
+      if ((response.data as any).success && (response.data as any).data) {
+        const result: SmartSearchResult = (response.data as any).data;
         setSearchResult(result);
         
         if (onSuggestionsChange) {

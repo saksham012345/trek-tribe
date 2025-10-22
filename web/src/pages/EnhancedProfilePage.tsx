@@ -161,7 +161,7 @@ const EnhancedProfilePage: React.FC = () => {
       if (!targetUserId) return;
 
       const response = await api.get(`/api/posts?authorId=${targetUserId}`);
-      setPosts(response.data.posts);
+      setPosts((response.data as any).posts);
     } catch (error) {
       console.error('Error fetching posts:', error);
     }
@@ -174,7 +174,7 @@ const EnhancedProfilePage: React.FC = () => {
       const allTrips = response.data;
       
       // Filter for completed trips where user participated
-      const completedTrips = allTrips.filter((trip: any) => 
+      const completedTrips = (allTrips as any[]).filter((trip: any) =>
         trip.status === 'completed' && 
         (trip.organizerId === currentUser?.id || trip.participants.includes(currentUser?.id))
       );
@@ -189,12 +189,12 @@ const EnhancedProfilePage: React.FC = () => {
     try {
       // Fetch user's link posts
       const response = await api.get('/api/posts?type=link_share');
-      const linkPosts = response.data.posts.filter((post: Post) => 
+      const linkPosts = (response.data as any).posts.filter((post: any) =>
         post.authorId._id === currentUser?.id && post.links && post.links.length > 0
       );
       
-      const extractedLinks = linkPosts.flatMap(post => 
-        post.links!.map(link => ({
+      const extractedLinks = linkPosts.flatMap((post: any) =>
+        post.links!.map((link: any) => ({
           ...link,
           postId: post._id,
           postTitle: post.title,

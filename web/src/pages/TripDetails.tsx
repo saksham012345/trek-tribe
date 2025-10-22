@@ -24,6 +24,7 @@ interface Trip {
   startDate: string;
   endDate: string;
   itinerary?: string;
+  itineraryPdf?: string;
   schedule?: Array<{
     day: number;
     title: string;
@@ -368,12 +369,27 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
             )}
 
             {/* Itinerary & Schedule */}
-            {(trip.itinerary || (trip.schedule && trip.schedule.length > 0)) && (
+            {(trip.itinerary || (trip.schedule && trip.schedule.length > 0) || trip.itineraryPdf) && (
               <div className="bg-white rounded-2xl p-8 shadow-lg border border-forest-200">
-                <h3 className="text-lg font-semibold text-forest-800 mb-6 flex items-center">
-                  <span className="mr-2">🗺️</span>
-                  Adventure Itinerary
-                </h3>
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-lg font-semibold text-forest-800 flex items-center">
+                    <span className="mr-2">🗺️</span>
+                    Adventure Itinerary
+                  </h3>
+                  {trip.itineraryPdf && (
+                    <a
+                      href={trip.itineraryPdf}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors duration-200 font-medium"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                      Download PDF Itinerary
+                    </a>
+                  )}
+                </div>
                 
                 {trip.schedule && trip.schedule.length > 0 ? (
                   <div className="space-y-6">

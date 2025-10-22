@@ -49,7 +49,7 @@ const AIRecommendations: React.FC<AIRecommendationsProps> = ({
         // For non-authenticated users, get popular trips instead
         const response = await api.get('/trips?limit=6&sort=rating');
         if (response.data) {
-          const trips = Array.isArray(response.data) ? response.data : response.data.trips || [];
+          const trips = Array.isArray(response.data) ? response.data : (response.data as any).trips || [];
           const mappedRecommendations = trips.slice(0, maxRecommendations).map((trip: any) => ({
             trip: {
               _id: trip._id,
@@ -70,9 +70,9 @@ const AIRecommendations: React.FC<AIRecommendationsProps> = ({
         // For authenticated users, get AI-powered recommendations
         const response = await api.get(`/api/ai/recommendations?limit=${maxRecommendations}`);
         
-        if (response.data.success && response.data.recommendations) {
+        if ((response.data as any).success && (response.data as any).recommendations) {
           // Map backend response to component format
-          const mappedRecommendations = response.data.recommendations.map((rec: any) => ({
+          const mappedRecommendations = (response.data as any).recommendations.map((rec: any) => ({
             trip: {
               _id: rec._id,
               title: rec.title,
@@ -96,7 +96,7 @@ const AIRecommendations: React.FC<AIRecommendationsProps> = ({
       // Fallback: Try to get some trips to display
       try {
         const fallbackResponse = await api.get('/trips?limit=3');
-        const trips = Array.isArray(fallbackResponse.data) ? fallbackResponse.data : fallbackResponse.data.trips || [];
+        const trips = Array.isArray(fallbackResponse.data) ? fallbackResponse.data : (fallbackResponse.data as any).trips || [];
         if (trips.length > 0) {
           const mappedRecommendations = trips.slice(0, maxRecommendations).map((trip: any) => ({
             trip: {
