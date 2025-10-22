@@ -16,6 +16,11 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Clear error when user starts typing (indicates they're trying again)
+    if (error) {
+      setError('');
+    }
+    
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
@@ -25,11 +30,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    // Don't clear error immediately - only clear when user starts typing
 
     try {
       const result = await onLogin(formData.email, formData.password);
       if (result.success) {
+        // Clear error on successful login
+        setError('');
         // Get the intended destination or default to home
         const from = (location.state as any)?.from?.pathname || '/';
         navigate(from, { replace: true });

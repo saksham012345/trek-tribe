@@ -20,6 +20,11 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    // Clear error when user starts typing (indicates they're trying again)
+    if (error) {
+      setError('');
+    }
+    
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
@@ -29,7 +34,7 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    // Don't clear error immediately - only clear when user starts typing
 
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
@@ -50,6 +55,8 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
       const responseData = response.data as { token: string; user: any };
       if (responseData.token && responseData.user) {
         localStorage.setItem('token', responseData.token);
+        // Clear error on successful registration
+        setError('');
         // Trigger auth context update by calling a login attempt
         const result = await onLogin(formData.email, formData.password);
         if (result.success) {

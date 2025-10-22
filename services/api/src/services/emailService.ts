@@ -499,9 +499,10 @@ class EmailService {
     try {
       await this.transporter.verify();
       return true;
-    } catch (error) {
-      logger.error('Email service connection test failed', { error });
-    return false;
+    } catch (error: any) {
+      logger.error('Email service connection test failed', { error: error?.message || error });
+      return false;
+    }
   }
 
   private generateAgentReplyHTML(data: AgentReplyData): string {
@@ -612,7 +613,6 @@ class EmailService {
       lastTest: this.isServiceReady() ? await this.testConnection() : false
     };
   }
-}
 }
 
 // Export singleton instance

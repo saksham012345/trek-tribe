@@ -47,6 +47,12 @@ const ResetPassword: React.FC = () => {
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const password = e.target.value;
+    
+    // Clear error when user starts typing
+    if (error) {
+      setError('');
+    }
+    
     setFormData(prev => ({ ...prev, newPassword: password }));
     
     const errors = validatePassword(password);
@@ -71,7 +77,7 @@ const ResetPassword: React.FC = () => {
       return;
     }
 
-    setError('');
+    // Don't clear error immediately - only clear when user starts typing
     setIsLoading(true);
 
     try {
@@ -207,7 +213,13 @@ const ResetPassword: React.FC = () => {
               type={showConfirmPassword ? 'text' : 'password'}
               id="confirmPassword"
               value={formData.confirmPassword}
-              onChange={(e) => setFormData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+              onChange={(e) => {
+                // Clear error when user starts typing
+                if (error) {
+                  setError('');
+                }
+                setFormData(prev => ({ ...prev, confirmPassword: e.target.value }));
+              }}
               placeholder="Confirm your new password"
               className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
               required

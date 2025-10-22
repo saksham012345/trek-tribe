@@ -14,7 +14,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBack }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    // Don't clear error immediately - only clear when user starts typing
     setIsLoading(true);
 
     try {
@@ -94,7 +94,13 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBack }) => {
             type="email"
             id="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              // Clear error when user starts typing
+              if (error) {
+                setError('');
+              }
+              setEmail(e.target.value);
+            }}
             placeholder="Enter your email address"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
             required
