@@ -292,16 +292,31 @@ router.post('/tickets/:ticketId/messages', async (req, res) => {
     setTimeout(async () => {
       try {
         if (emailService.isServiceReady()) {
-          await emailService.sendTripUpdateEmail({
+          const frontendUrl = process.env.FRONTEND_URL || 'https://www.trektribe.in';
+          const replyUrl = `${frontendUrl}/support/tickets/${ticketId}`;
+          
+          await emailService.sendAgentReplyNotification({
             userName: ticket.customerName,
             userEmail: ticket.customerEmail,
-            tripTitle: `Support Ticket ${ticket.ticketId}`,
-            updateMessage: `New message from ${agent.name}:\n\n${message}`,
-            organizerName: agent.name
+            ticketId: ticket.ticketId,
+            ticketSubject: ticket.subject,
+            agentName: agent.name,
+            agentMessage: message,
+            replyUrl
+          });
+          
+          logger.info('Agent reply email notification sent', {
+            ticketId,
+            userEmail: ticket.customerEmail,
+            agentName: agent.name
           });
         }
-      } catch (error) {
-        logger.error('Failed to send ticket update email', { error, ticketId });
+      } catch (error: any) {
+        logger.error('Failed to send agent reply email notification', { 
+          error: error.message,
+          ticketId,
+          userEmail: ticket.customerEmail
+        });
       }
     }, 1000);
 

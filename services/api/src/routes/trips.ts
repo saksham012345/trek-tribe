@@ -272,15 +272,35 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), asyncHandl
 }));
 
 router.get('/', async (req, res) => {
-  const { q, category, minPrice, maxPrice, dest, from, to } = req.query as Record<string, string>;
-  const filter: any = {};
-  if (q) filter.$text = { $search: q };
-  if (category) filter.categories = category;
-  if (dest) filter.destination = dest;
-  if (minPrice || maxPrice) filter.price = { ...(minPrice ? { $gte: Number(minPrice) } : {}), ...(maxPrice ? { $lte: Number(maxPrice) } : {}) };
-  if (from || to) filter.startDate = { ...(from ? { $gte: new Date(from) } : {}), ...(to ? { $lte: new Date(to) } : {}) };
-  const trips = await Trip.find(filter).lean().limit(50);
-  res.json(trips);
+  try {
+    const { q, category, minPrice, maxPrice, dest, from, to, limit = '50' } = req.query as Record<string, string>;
+    
+    // Build filter
+    const filter: any = {};
+    if (q) filter.$text = { $search: q };
+    if (category) filter.categories = category;
+    if (dest) filter.destination = dest;
+    if (minPrice || maxPrice) filter.price = { ...(minPrice ? { $gte: Number(minPrice) } : {}), ...(maxPrice ? { $lte: Number(maxPrice) } : {}) };
+    if (from || to) filter.startDate = { ...(from ? { $gte: new Date(from) } : {}), ...(to ? { $lte: new Date(to) } : {}) };
+    
+    // Parse limit with a reasonable max
+    const limitNum = Math.min(Number(limit) || 50, 100); 
+    
+    console.log('🔍 GET /trips - Query:', { filter, limit: limitNum });
+    
+    const trips = await Trip.find(filter)
+      .populate('organizerId', 'name email')
+      .lean()
+      .limit(limitNum)
+      .sort({ createdAt: -1 }); // Show newest trips first
+    
+    console.log(`✅ Found ${trips.length} trips`);
+    
+    res.json(trips);
+  } catch (error: any) {
+    console.error('❌ Error fetching trips:', error);
+    res.status(500).json({ error: 'Failed to fetch trips' });
+  }
 });
 
 router.get('/:id', async (req, res) => {
