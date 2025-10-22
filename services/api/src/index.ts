@@ -25,6 +25,8 @@ import supportRoutes from './routes/support';
 import statsRoutes from './routes/stats';
 // Production-ready file upload routes
 import fileUploadRoutes from './routes/fileUploadProd';
+import groupBookingRoutes from './routes/groupBookings';
+import reviewVerificationRoutes from './routes/reviewVerification';
 import { whatsappService } from './services/whatsappService';
 import { socketService } from './services/socketService';
 
@@ -62,14 +64,21 @@ const requestLogger = (req: Request, res: Response, next: NextFunction) => {
 app.use(requestLogger);
 app.use(timeoutMiddleware);
 app.use(helmet());
-app.use(cors({ 
-  origin: process.env.NODE_ENV === 'production' ? [
-    'https://www.trektribe.in',
-    'https://trektribe.in',
-    process.env.FRONTEND_URL || 'https://trek-tribe-web.onrender.com',
-    process.env.CORS_ORIGIN || 'https://trek-tribe-web.onrender.com',
-    'https://trek-tribe-38in.onrender.com'
-  ] : '*',
+const allowedOrigins = process.env.NODE_ENV === 'production'
+  ? [
+      'https://www.trektribe.in',
+      'https://trektribe.in',
+      'https://trek-tribe-38in.onrender.com',
+      'https://trek-tribe-web.onrender.com',
+      'https://trek-tribe.vercel.app',
+      process.env.FRONTEND_URL,
+      process.env.CORS_ORIGIN,
+      process.env.WEB_URL,
+      process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined
+    ].filter(Boolean) as string[]
+  : '*';
+app.use(cors({
+  origin: allowedOrigins as any,
   credentials: true 
 }));
 app.use(express.json({ limit: '10mb' }));
@@ -108,6 +117,11 @@ const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 4000;
 const mongoUri = process.env.MONGODB_URI;
 if (!mongoUri) {
   throw new Error('MONGODB_URI environment variable is required');
+}
+
+const jwtSecret = process.env.JWT_SECRET;
+if (!jwtSecret || jwtSecret.length < 32) {
+  throw new Error('JWT_SECRET must be set and at least 32 characters long');
 }
 
 // Enhanced database connection with retry logic
@@ -149,11 +163,16 @@ async function start() {
     // Connect to database with retry logic
     await connectToDatabase();
     
-    // Initialize WhatsApp service (non-blocking)
-    whatsappService.initialize().catch((error) => {
-      console.error('❌ Failed to initialize WhatsApp service:', error.message);
-      console.log('ℹ️  WhatsApp notifications will be disabled');
-    });
+    // Initialize WhatsApp service (non-blocking; gated by env)
+    const whatsappEnabled = (process.env.WHATSAPP_ENABLED || 'false').toLowerCase() === 'true';
+    if (whatsappEnabled) {
+      whatsappService.initialize().catch((error) => {
+        console.error('❌ Failed to initialize WhatsApp service:', error.message);
+        console.log('ℹ️  WhatsApp notifications will be disabled');
+      });
+    } else {
+      console.log('ℹ️  WhatsApp service disabled (WHATSAPP_ENABLED is not true)');
+    }
     
     // Initialize Socket.IO service
     socketService.initialize(server);
@@ -174,9 +193,11 @@ async function start() {
     // File upload system (production ready)
     app.use('/api/uploads', fileUploadRoutes);
     
-    // TODO: Enable group bookings and review verification after frontend integration
-    // app.use('/api/group-bookings', groupBookingRoutes);
-    // app.use('/api/review-verification', reviewVerificationRoutes);
+    // Group Bookings and Review Verification
+    app.use('/api/group-bookings', groupBookingRoutes);
+    app.use('/group-bookings', groupBookingRoutes);
+    app.use('/api/review-verification', reviewVerificationRoutes);
+    app.use('/review-verification', reviewVerificationRoutes);
     app.use('/agent', agentRoutes);
     app.use('/chat', chatSupportRoutes);
     app.use('/api/ai', aiRoutes);

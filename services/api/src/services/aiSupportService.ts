@@ -6,6 +6,16 @@ import { GroupBooking } from '../models/GroupBooking';
 import { Review } from '../models/Review';
 import mongoose from 'mongoose';
 
+// RAG integration - lazy import to avoid circular dependencies
+let ragService: any = null;
+async function getRagService() {
+  if (!ragService) {
+    const ragModule = await import('./ragService');
+    ragService = ragModule.ragService;
+  }
+  return ragService;
+}
+
 interface AIResponse {
   message: string;
   requiresHumanSupport: boolean;
@@ -42,6 +52,7 @@ interface AIResponse {
     analytics?: UserAnalytics;
     availability?: TripAvailability;
     organizerProfile?: OrganizerProfile;
+    sources?: Array<{ title: string; type: string; confidence: number }>;
   };
 }
 
@@ -438,6 +449,14 @@ class TrekTribeAI {
       // Extract context from conversation history
       context = this.enrichContextFromHistory(query, context);
       
+      // Try RAG-enhanced response first for complex queries
+      if (this.shouldUseRAG(query)) {
+        const ragResponse = await this.getRAGResponse(query, context);
+        if (ragResponse && ragResponse.confidence > 0.3) {
+          return this.formatRAGResponse(ragResponse, context);
+        }
+      }
+      
       // Find best matching pattern
       let bestMatch = this.findBestMatch(normalizedQuery);
       
@@ -459,6 +478,74 @@ class TrekTribeAI {
       logger.error('Error in Trek Tribe AI analysis', { error: error.message, query });
       return this.getGeneralResponse(query);
     }
+  }
+
+  /**
+   * Determine if query should use RAG
+   */
+  private shouldUseRAG(query: string): boolean {
+    const normalizedQuery = query.toLowerCase();
+    
+    // Use RAG for complex informational queries
+    const complexIndicators = [
+      'what is', 'how to', 'tell me about', 'explain', 'difference between',
+      'best way to', 'recommended', 'which trek', 'compare', 'details about',
+      'information about', 'guide to', 'tips for', 'advice on'
+    ];
+    
+    const hasComplexIndicator = complexIndicators.some(indicator => normalizedQuery.includes(indicator));
+    const isLongQuery = query.split(' ').length > 5;
+    const hasQuestionWords = ['what', 'how', 'when', 'where', 'why', 'which'].some(word => normalizedQuery.includes(word));
+    
+    return hasComplexIndicator || (isLongQuery && hasQuestionWords);
+  }
+
+  /**
+   * Get RAG-enhanced response
+   */
+  private async getRAGResponse(query: string, context: ChatContext): Promise<any> {
+    try {
+      const ragService = await getRagService();
+      
+      if (!ragService.isReady()) {
+        return null;
+      }
+      
+      // Build RAG context from chat context
+      const ragContext: any = {
+        userPreferences: context.userPreferences || {},
+        conversationHistory: context.previousMessages?.slice(-5) || []
+      };
+      
+      // Get RAG response
+      return await ragService.generateRAGResponse(query, ragContext);
+      
+    } catch (error: any) {
+      logger.warn('RAG service unavailable, falling back to pattern matching', { error: error.message });
+      return null;
+    }
+  }
+
+  /**
+   * Format RAG response into AI response
+   */
+  private formatRAGResponse(ragResponse: any, context: ChatContext): AIResponse {
+    const { answer, sources, confidence, intent, suggestedActions } = ragResponse;
+    
+    return {
+      message: answer,
+      confidence,
+      requiresHumanSupport: confidence < 0.5,
+      suggestedActions: suggestedActions || ['Ask Another Question', 'Browse Trips'],
+      additionalData: {
+        interpretedIntent: intent,
+        sources: sources?.map((s: any) => ({
+          title: s.title,
+          type: s.type,
+          confidence: s.score
+        }))
+      }
+    };
   }
   
   // Extract context from conversation history for follow-up queries
