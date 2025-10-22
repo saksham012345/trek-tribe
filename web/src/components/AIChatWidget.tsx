@@ -107,9 +107,9 @@ const AIChatWidget: React.FC = () => {
       console.error('Socket connection error:', error);
       console.error('Error details:', {
         message: error.message,
-        description: error.description,
-        context: error.context,
-        type: error.type
+        description: (error as any).description,
+        context: (error as any).context,
+        type: (error as any).type
       });
       setSocketFailed(true);
       setIsLoading(false);
@@ -208,6 +208,41 @@ const AIChatWidget: React.FC = () => {
       return 'Hello! 😊 I\'m here to help you with your Trek Tribe adventure. What would you like to know about our trips?';
     }
     
+    // Handle booking-related queries
+    if (lowerMessage.includes('booking') || lowerMessage.includes('reserve') || lowerMessage.includes('join trip')) {
+      return 'To book a trip: 1) Browse our trips page 2) Click "Join Trip" on your chosen adventure 3) Fill in traveler details 4) Complete payment. Need help with a specific step? Just ask! 🎒';
+    }
+    
+    // Handle payment queries
+    if (lowerMessage.includes('payment') || lowerMessage.includes('advance') || lowerMessage.includes('pay')) {
+      return 'We support both full payment and advance payment options! You\'ll see clear payment instructions with QR codes during checkout. For advance payments, you pay a portion upfront and the rest before your trip starts. 💳';
+    }
+    
+    // Handle cancellation queries
+    if (lowerMessage.includes('cancel') || lowerMessage.includes('refund')) {
+      return 'Cancellation policies vary by trip and timing. Check your booking details or the specific trip page for cancellation terms. For immediate assistance with cancellations, I can connect you with our support team! 🔄';
+    }
+    
+    // Handle what to bring queries
+    if (lowerMessage.includes('bring') || lowerMessage.includes('pack') || lowerMessage.includes('gear')) {
+      return 'Each trip has a detailed packing list on its page! Generally: comfortable trekking shoes, weather-appropriate clothes, water bottle, first-aid kit, and personal medications. Check your specific trip\'s requirements! 🎒';
+    }
+    
+    // Handle weather/season queries
+    if (lowerMessage.includes('weather') || lowerMessage.includes('season') || lowerMessage.includes('temperature')) {
+      return 'Weather conditions are included in each trip description! We\'ll also send you weather updates closer to your trip date. Mountain weather can change quickly, so we always recommend layered clothing! 🌤️';
+    }
+    
+    // Handle group size queries
+    if (lowerMessage.includes('group') || lowerMessage.includes('people') || lowerMessage.includes('participants')) {
+      return 'Our groups typically range from 8-20 people, depending on the trip. You\'ll find the exact capacity on each trip page. Small groups ensure personalized attention and better experiences! 👥';
+    }
+    
+    // Handle safety queries
+    if (lowerMessage.includes('safe') || lowerMessage.includes('security') || lowerMessage.includes('emergency')) {
+      return 'Safety is our top priority! All trips include experienced guides, first-aid kits, emergency contacts, and safety briefings. We\'re also connected to local rescue services in mountain areas. 🛡️';
+    }
+    
     // Advanced features trigger
     if (lowerMessage.includes('recommend') || lowerMessage.includes('suggest') || lowerMessage.includes('best trip')) {
       setTimeout(() => getSmartRecommendations(), 500);
@@ -292,8 +327,8 @@ const AIChatWidget: React.FC = () => {
       if (user) {
         try {
           const response = await api.get('/api/ai/recommendations?limit=3');
-          if (response.data.success && response.data.recommendations) {
-            recommendations = response.data.recommendations;
+          if ((response.data as any).success && (response.data as any).recommendations) {
+            recommendations = (response.data as any).recommendations;
             responseMessage = 'Here are some personalized trip recommendations based on your profile:';
           }
         } catch (aiError) {
@@ -304,7 +339,7 @@ const AIChatWidget: React.FC = () => {
       // Fallback to popular trips if AI recommendations fail or user not logged in
       if (recommendations.length === 0) {
         const response = await api.get('/trips?limit=3');
-        const trips = Array.isArray(response.data) ? response.data : response.data.trips || [];
+        const trips = Array.isArray(response.data) ? response.data : (response.data as any).trips || [];
         recommendations = trips.map((trip: any) => ({
           ...trip,
           recommendationScore: 75,
@@ -366,7 +401,7 @@ const AIChatWidget: React.FC = () => {
         senderId: 'ai',
         senderName: 'Trek Tribe Assistant',
         senderRole: 'ai',
-        message: response.data.data.message,
+        message: (response.data as any).data.message,
         timestamp: new Date()
       };
 
@@ -408,7 +443,7 @@ const AIChatWidget: React.FC = () => {
         senderId: 'ai',
         senderName: 'Trek Tribe Assistant',
         senderRole: 'ai',
-        message: response.data.data.message,
+        message: (response.data as any).data.message,
         timestamp: new Date()
       };
 
@@ -436,7 +471,7 @@ const AIChatWidget: React.FC = () => {
         senderId: 'ai',
         senderName: 'Trek Tribe Assistant',
         senderRole: 'ai',
-        message: response.data.data.message,
+        message: (response.data as any).data.message,
         timestamp: new Date()
       };
 
@@ -468,7 +503,7 @@ const AIChatWidget: React.FC = () => {
         senderId: 'ai',
         senderName: 'Trek Tribe Assistant',
         senderRole: 'ai',
-        message: response.data.data.message,
+        message: (response.data as any).data.message,
         timestamp: new Date()
       };
 
@@ -582,7 +617,7 @@ const AIChatWidget: React.FC = () => {
               senderId: 'system',
               senderName: 'System',
               senderRole: 'ai',
-              message: '✅ Your support ticket has been created successfully! Ticket ID: ' + (ticketResponse.data?.data?.ticketId || 'N/A') + '. An agent will respond soon.',
+              message: '✅ Your support ticket has been created successfully! Ticket ID: ' + ((ticketResponse.data as any)?.data?.ticketId || 'N/A') + '. An agent will respond soon.',
               timestamp: new Date()
             };
             setMessages(prev => [...prev, successMessage]);
@@ -607,7 +642,7 @@ const AIChatWidget: React.FC = () => {
                 senderId: 'system',
                 senderName: 'System',
                 senderRole: 'ai',
-                message: '✅ Your support ticket has been created successfully! Ticket ID: ' + (fallbackResponse.data?.ticket?.ticketId || 'N/A') + '. An agent will respond soon.',
+                message: '✅ Your support ticket has been created successfully! Ticket ID: ' + ((fallbackResponse.data as any)?.ticket?.ticketId || 'N/A') + '. An agent will respond soon.',
                 timestamp: new Date()
               };
               setMessages(prev => [...prev, successMessage]);
@@ -621,14 +656,18 @@ const AIChatWidget: React.FC = () => {
             });
             
             // Provide more specific error message based on the error type
-            let errorMessage = 'I\'ve logged your request in our system. Due to a temporary technical issue, please contact us directly at tanejasaksham44@gmail.com or call 9876177839 for immediate assistance!';
+            const contactInfo = SUPPORT_EMAIL || SUPPORT_PHONE 
+              ? (SUPPORT_EMAIL ? ` at ${SUPPORT_EMAIL}` : '') + (SUPPORT_PHONE ? ` or call ${SUPPORT_PHONE}` : '')
+              : ' at tanejasaksham44@gmail.com or call 9876177839';
+              
+            let errorMessage = `I've logged your request in our system. Due to a temporary technical issue, please contact us directly${contactInfo} for immediate assistance!`;
             
             if (fallbackError.response?.status === 401) {
               errorMessage = 'Please log in to create a support ticket. If you\'re already logged in, please refresh the page and try again.';
             } else if (fallbackError.response?.status === 403) {
-              errorMessage = 'You don\'t have permission to create support tickets. Please contact us directly at tanejasaksham44@gmail.com.';
+              errorMessage = `You don't have permission to create support tickets. Please contact us directly${contactInfo}.`;
             } else if (fallbackError.response?.status === 400) {
-              errorMessage = 'There was an issue with the ticket data. Please contact us directly at tanejasaksham44@gmail.com or call 9876177839.';
+              errorMessage = `There was an issue with the ticket data. Please contact us directly${contactInfo}.`;
             }
             
             setTimeout(() => {
@@ -647,12 +686,16 @@ const AIChatWidget: React.FC = () => {
       } else {
         // For guest users, show contact information
         setTimeout(() => {
+          const contactInfo = SUPPORT_EMAIL || SUPPORT_PHONE 
+            ? (SUPPORT_EMAIL ? ` at ${SUPPORT_EMAIL}` : '') + (SUPPORT_PHONE ? ` or call ${SUPPORT_PHONE}` : '')
+            : ' at tanejasaksham44@gmail.com or call 9876177839';
+            
           const guestMessage: ChatMessage = {
             id: `guest_agent_${Date.now()}`,
             senderId: 'system',
             senderName: 'System',
             senderRole: 'ai',
-            message: 'For immediate assistance, please contact us directly at tanejasaksham44@gmail.com or call 9876177839!',
+            message: `For immediate assistance, please contact us directly${contactInfo}! To create support tickets, please log in to your account.`,
             timestamp: new Date()
           };
           setMessages(prev => [...prev, guestMessage]);
@@ -662,12 +705,16 @@ const AIChatWidget: React.FC = () => {
       console.error('Failed to create support ticket:', error);
       // Fallback message
       setTimeout(() => {
+        const contactInfo = SUPPORT_EMAIL || SUPPORT_PHONE 
+          ? (SUPPORT_EMAIL ? ` at ${SUPPORT_EMAIL}` : '') + (SUPPORT_PHONE ? ` or call ${SUPPORT_PHONE}` : '')
+          : ' at tanejasaksham44@gmail.com or call 9876177839';
+          
         const fallbackMessage: ChatMessage = {
           id: `fallback_agent_${Date.now()}`,
           senderId: 'system',
           senderName: 'System',
           senderRole: 'ai',
-          message: 'Your request has been logged in our system. You can also reach out to us directly at tanejasaksham44@gmail.com or call 9876177839!',
+          message: `Your request has been logged in our system. You can also reach out to us directly${contactInfo}!`,
           timestamp: new Date()
         };
         setMessages(prev => [...prev, fallbackMessage]);

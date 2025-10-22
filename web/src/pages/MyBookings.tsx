@@ -15,6 +15,10 @@ interface Booking {
   totalAmount: number;
   pricePerPerson: number;
   selectedPackage?: string;
+  paymentType?: 'full' | 'advance';
+  advanceAmount?: number;
+  remainingAmount?: number;
+  currentPaymentAmount?: number;
   bookingStatus: 'pending' | 'confirmed' | 'cancelled' | 'completed';
   paymentStatus: 'pending' | 'partial' | 'completed' | 'failed' | 'refunded';
   paymentVerificationStatus: 'pending' | 'verified' | 'rejected';
@@ -44,7 +48,7 @@ const MyBookings: React.FC = () => {
     try {
       setLoading(true);
       const response = await api.get('/bookings/my-bookings');
-      setBookings(response.data.bookings);
+      setBookings((response.data as any).bookings);
     } catch (error: any) {
       setError(error.response?.data?.error || 'Failed to fetch bookings');
     } finally {
@@ -83,7 +87,7 @@ const MyBookings: React.FC = () => {
       } else {
         return (
           <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">
-            📤 Upload Payment Required
+            📤 {booking.paymentType === 'advance' ? 'Upload Advance Payment Required' : 'Upload Payment Required'}
           </span>
         );
       }
@@ -204,13 +208,19 @@ const MyBookings: React.FC = () => {
                       <div>
                         <p className="text-sm text-gray-600">💰 Total Amount</p>
                         <p className="font-semibold text-nature-600 text-lg">₹{booking.totalAmount.toLocaleString()}</p>
+                        {booking.paymentType === 'advance' && booking.advanceAmount && (
+                          <div className="text-xs text-gray-600 mt-1">
+                            <p>Advance: ₹{booking.advanceAmount.toLocaleString()}</p>
+                            <p>Remaining: ₹{booking.remainingAmount?.toLocaleString()}</p>
+                          </div>
+                        )}
                       </div>
                       <div>
                         <p className="text-sm text-gray-600">📦 Package</p>
                         <p className="font-semibold text-forest-800">{booking.selectedPackage || 'Standard'}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-600">🗓️ Booked On</p>
+                        <p className="text-sm text-gray-600">🗺️ Booked On</p>
                         <p className="font-semibold text-forest-800">{new Date(booking.createdAt).toLocaleDateString()}</p>
                       </div>
                     </div>
@@ -236,7 +246,7 @@ const MyBookings: React.FC = () => {
                           onClick={() => setSelectedBookingForPayment(booking)}
                           className="px-4 py-2 bg-gradient-to-r from-nature-600 to-forest-600 text-white rounded-lg hover:from-nature-700 hover:to-forest-700 transition-all duration-300 font-medium flex-1 min-w-[120px]"
                         >
-                          📤 Upload Payment
+                          📤 {booking.paymentType === 'advance' ? 'Upload Advance Payment' : 'Upload Payment'}
                         </button>
                       )}
                       
@@ -286,6 +296,9 @@ const MyBookings: React.FC = () => {
           totalAmount={selectedBookingForPayment.totalAmount}
           organizerId={selectedBookingForPayment.organizer?.id || ''}
           tripTitle={selectedBookingForPayment.tripTitle}
+          paymentType={selectedBookingForPayment.paymentType}
+          advanceAmount={selectedBookingForPayment.advanceAmount}
+          remainingAmount={selectedBookingForPayment.remainingAmount}
           onUploadSuccess={handlePaymentUploadSuccess}
           onCancel={() => setSelectedBookingForPayment(null)}
         />

@@ -119,7 +119,7 @@ const PreviousTripImages: React.FC<PreviousTripImagesProps> = ({
             caption: imageForm.caption,
             location: imageForm.location,
             date: imageForm.date,
-            participants: imageForm.participants ? parseInt(imageForm.participants) : ''
+            participants: imageForm.participants ? parseInt(imageForm.participants) : 0
           }
         : img
     );

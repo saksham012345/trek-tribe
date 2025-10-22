@@ -65,7 +65,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
   const checkFollowStatus = async () => {
     try {
       const response = await api.get(`/api/follow/${profile._id}/status`);
-      setFollowStatus(response.data);
+      setFollowStatus(response.data as any);
     } catch (error) {
       console.error('Error checking follow status:', error);
     }
@@ -437,7 +437,7 @@ const FollowersList: React.FC<{ userId: string }> = ({ userId }) => {
   const fetchFollowers = async () => {
     try {
       const response = await api.get(`/api/follow/${userId}/followers`);
-      setFollowers(response.data.followers);
+      setFollowers((response.data as any).followers);
     } catch (error) {
       console.error('Error fetching followers:', error);
     } finally {
@@ -490,7 +490,7 @@ const FollowingList: React.FC<{ userId: string }> = ({ userId }) => {
   const fetchFollowing = async () => {
     try {
       const response = await api.get(`/api/follow/${userId}/following`);
-      setFollowing(response.data.following);
+      setFollowing((response.data as any).following);
     } catch (error) {
       console.error('Error fetching following:', error);
     } finally {

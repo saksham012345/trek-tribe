@@ -17,6 +17,7 @@ interface Trip {
   participants: string[];
   categories: string[];
   images: string[];
+  coverImage?: string;
   organizerId: string;
   status: string;
   startDate: string;
@@ -45,11 +46,17 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
         if (searchTerm) params.append('search', searchTerm);
         if (selectedCategory) params.append('category', selectedCategory);
         
+        console.log('🔍 Fetching trips with params:', params.toString());
+        
         const response = await api.get(`/trips?${params.toString()}`);
         const tripsData = response.data as Trip[];
+        
+        console.log(`✅ Received ${tripsData.length} trips from API:`, tripsData.map(t => ({ id: t._id, title: t.title })));
+        
         setTrips(tripsData);
-      } catch (error) {
-        console.error('Error fetching trips:', error);
+      } catch (error: any) {
+        console.error('❌ Error fetching trips:', error);
+        console.error('Error details:', error.response?.data || error.message);
       } finally {
         setLoading(false);
       }
@@ -184,9 +191,10 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
             {trips.map((trip) => (
               <div key={trip._id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                 <div className="relative h-48 overflow-hidden">
-                  {trip.images && trip.images.length > 0 ? (
+                  {/* Try to display organizer uploaded images first */}
+                  {(trip.coverImage || (trip.images && trip.images.length > 0)) ? (
                     <img
-                      src={trip.images[0]}
+                      src={trip.coverImage || trip.images[0]}
                       alt={trip.title}
                       className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                       onError={(e) => {
@@ -197,7 +205,7 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
                       }}
                     />
                   ) : null}
-                  <div className={`absolute inset-0 bg-gradient-to-br from-forest-400 to-nature-500 flex items-center justify-center ${trip.images && trip.images.length > 0 ? 'hidden' : 'flex'}`}>
+                  <div className={`absolute inset-0 bg-gradient-to-br from-forest-400 to-nature-500 flex items-center justify-center ${(trip.coverImage || (trip.images && trip.images.length > 0)) ? 'hidden' : 'flex'}`}>
                     <div className="text-center text-white">
                       <div className="text-6xl mb-2">
                         {(trip.categories && trip.categories.includes('Mountain')) ? '🏔️' : 

@@ -75,7 +75,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
   
   const [travelerDetails, setTravelerDetails] = useState<TravelerDetails[]>([{
     name: user.name || '',
-    age: '',
+    age: 25,
     phone: user.phone || '',
     emergencyContact: '',
     medicalConditions: '',
@@ -225,7 +225,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
       if (travelerDetails && travelerDetails.length > 0) {
         bookingPayload.travelerDetails = travelerDetails.map((traveler, index) => ({
           name: traveler.name || user.name || `Traveler ${index + 1}`,
-          age: traveler.age || '',
+          age: traveler.age || 25,
           phone: traveler.phone || user.phone || '',
           emergencyContact: traveler.emergencyContact || formData.emergencyContactPhone || user.phone || '',
           medicalConditions: traveler.medicalConditions || formData.medicalConditions || '',

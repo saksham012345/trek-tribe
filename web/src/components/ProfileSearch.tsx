@@ -52,7 +52,7 @@ const ProfileSearch: React.FC<ProfileSearchProps> = ({
   const loadSuggestions = async () => {
     try {
       const response = await api.get('/api/search/suggestions?limit=6&role=organizer');
-      setSuggestions(response.data.suggestions);
+      setSuggestions((response.data as any).suggestions);
     } catch (error) {
       console.error('Error loading suggestions:', error);
     }
@@ -70,15 +70,6 @@ const ProfileSearch: React.FC<ProfileSearchProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const loadSuggestions = async () => {
-    try {
-      const response = await api.get('/api/search/suggestions?limit=6');
-      setSuggestions(response.data.suggestions);
-    } catch (error) {
-      console.error('Error loading suggestions:', error);
-    }
-  };
-
   const searchProfiles = async (searchQuery: string) => {
     if (!searchQuery.trim() || searchQuery.length < 2) {
       setResults([]);
@@ -89,7 +80,7 @@ const ProfileSearch: React.FC<ProfileSearchProps> = ({
     setLoading(true);
     try {
       const response = await api.get(`/api/search/profiles?q=${encodeURIComponent(searchQuery)}&limit=8&role=organizer`);
-      setResults(response.data.profiles);
+      setResults((response.data as any).profiles);
       setShowResults(true);
       setSelectedIndex(-1);
     } catch (error) {

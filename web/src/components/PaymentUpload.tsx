@@ -7,6 +7,9 @@ interface PaymentUploadProps {
   totalAmount: number;
   organizerId: string;
   tripTitle: string;
+  paymentType?: 'full' | 'advance';
+  advanceAmount?: number;
+  remainingAmount?: number;
   onUploadSuccess: () => void;
   onCancel: () => void;
 }
@@ -16,6 +19,9 @@ const PaymentUpload: React.FC<PaymentUploadProps> = ({
   totalAmount,
   organizerId,
   tripTitle,
+  paymentType = 'full',
+  advanceAmount,
+  remainingAmount,
   onUploadSuccess,
   onCancel
 }) => {
@@ -105,11 +111,22 @@ const PaymentUpload: React.FC<PaymentUploadProps> = ({
           <div className="flex justify-between items-start mb-6">
             <div>
               <h2 className="text-2xl font-bold text-forest-800 mb-2">
-                Complete Payment & Upload Screenshot
+                {paymentType === 'advance' ? 'Complete Advance Payment & Upload Screenshot' : 'Complete Payment & Upload Screenshot'}
               </h2>
-              <p className="text-forest-600">
-                Total Amount: <span className="font-semibold text-nature-600">₹{totalAmount.toLocaleString()}</span>
-              </p>
+              {paymentType === 'advance' ? (
+                <div className="space-y-1">
+                  <p className="text-forest-600">
+                    Advance Payment: <span className="font-semibold text-nature-600">₹{advanceAmount?.toLocaleString()}</span>
+                  </p>
+                  <p className="text-sm text-forest-500">
+                    Total Trip Amount: ₹{totalAmount.toLocaleString()} | Remaining: ₹{remainingAmount?.toLocaleString()}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-forest-600">
+                  Total Amount: <span className="font-semibold text-nature-600">₹{totalAmount.toLocaleString()}</span>
+                </p>
+              )}
             </div>
             <button
               onClick={onCancel}
@@ -127,6 +144,9 @@ const PaymentUpload: React.FC<PaymentUploadProps> = ({
               organizerId={organizerId}
               tripTitle={tripTitle}
               totalAmount={totalAmount}
+              paymentType={paymentType}
+              advanceAmount={advanceAmount}
+              remainingAmount={remainingAmount}
               onPaymentComplete={() => {}}
             />
           </div>
@@ -150,9 +170,16 @@ const PaymentUpload: React.FC<PaymentUploadProps> = ({
             <div className="bg-green-50 border border-green-200 rounded-xl p-4">
               <h3 className="font-semibold text-green-800 mb-2">📸 Upload Screenshot</h3>
               <div className="text-sm text-green-700 space-y-1">
-                <p>• After making payment above, take a screenshot of the confirmation</p>
+                <p>• After making {paymentType === 'advance' ? 'advance ' : ''}payment above, take a screenshot of the confirmation</p>
                 <p>• Upload the screenshot below for verification</p>
-                <p>• Your booking will be confirmed once payment is verified</p>
+                {paymentType === 'advance' ? (
+                  <p>• Your booking will be secured once advance payment is verified</p>
+                ) : (
+                  <p>• Your booking will be confirmed once payment is verified</p>
+                )}
+                {paymentType === 'advance' && (
+                  <p className="text-blue-700">• Remember: Remaining balance (₹{remainingAmount?.toLocaleString()}) is due before trip starts</p>
+                )}
               </div>
             </div>
 

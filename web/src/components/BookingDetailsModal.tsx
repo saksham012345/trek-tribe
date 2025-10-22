@@ -72,7 +72,7 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ bookingId, on
     try {
       setLoading(true);
       const response = await api.get(`/bookings/${bookingId}/details`);
-      setBooking(response.data.booking);
+      setBooking((response.data as any).booking);
     } catch (error: any) {
       console.error('Error fetching booking details:', error);
       setError(error.response?.data?.error || 'Failed to load booking details');

@@ -67,9 +67,9 @@ const Home: React.FC<HomeProps> = ({ user }) => {
         // Ensure tripsData is an array to prevent 's.map is not a function' errors
         if (Array.isArray(tripsData)) {
           setFeaturedTrips(tripsData);
-        } else if (tripsData && typeof tripsData === 'object' && Array.isArray(tripsData.data)) {
+        } else if (tripsData && typeof tripsData === 'object' && Array.isArray((tripsData as any).data)) {
           // Handle case where trips are nested in a data property
-          setFeaturedTrips(tripsData.data);
+          setFeaturedTrips((tripsData as any).data);
         } else {
           console.warn('Invalid trips data format received:', tripsData);
           setFeaturedTrips([]);
@@ -80,11 +80,11 @@ const Home: React.FC<HomeProps> = ({ user }) => {
         
         // Calculate real-time stats from actual data
         const realTimeStats = {
-          totalTrips: tripsData.length || 0,
+          totalTrips: (tripsData as any[]).length || 0,
           totalUsers: statsData?.users?.total || 0,
           totalOrganizers: statsData?.users?.organizers || 0,
           totalBookings: statsData?.trips?.totalBookings || 0,
-          countries: new Set(tripsData.map((trip: any) => trip.destination?.split(',')[0]?.trim()).filter(Boolean)).size || 15
+          countries: new Set((tripsData as any[]).map((trip: any) => trip.destination?.split(',')[0]?.trim()).filter(Boolean)).size || 15
         };
         
         setStats(realTimeStats);

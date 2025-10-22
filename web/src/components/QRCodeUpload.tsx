@@ -80,7 +80,7 @@ const QRCodeUpload: React.FC<QRCodeUploadProps> = ({ qrCodes, onQRCodesUpdate })
       });
 
       const updatedProfile = response.data;
-      onQRCodesUpdate(updatedProfile.user.organizerProfile?.qrCodes || []);
+      onQRCodesUpdate((updatedProfile as any).user.organizerProfile?.qrCodes || []);
       
       // Reset form
       setNewQR({ paymentMethod: '', description: '', file: null });
@@ -101,7 +101,7 @@ const QRCodeUpload: React.FC<QRCodeUploadProps> = ({ qrCodes, onQRCodesUpdate })
       });
       
       const updatedProfile = response.data;
-      onQRCodesUpdate(updatedProfile.user.organizerProfile?.qrCodes || []);
+      onQRCodesUpdate((updatedProfile as any).user.organizerProfile?.qrCodes || []);
     } catch (error: any) {
       console.error('QR update error:', error);
       alert('Failed to update QR code status');
@@ -114,7 +114,7 @@ const QRCodeUpload: React.FC<QRCodeUploadProps> = ({ qrCodes, onQRCodesUpdate })
     try {
       const response = await api.delete(`/profile/me/qr-codes/${qrId}`);
       const updatedProfile = response.data;
-      onQRCodesUpdate(updatedProfile.user.organizerProfile?.qrCodes || []);
+      onQRCodesUpdate((updatedProfile as any).user.organizerProfile?.qrCodes || []);
       alert('QR Code deleted successfully');
     } catch (error: any) {
       console.error('QR delete error:', error);

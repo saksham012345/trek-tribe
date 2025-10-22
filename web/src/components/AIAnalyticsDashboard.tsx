@@ -50,8 +50,8 @@ const AIAnalyticsDashboard: React.FC<AIAnalyticsDashboardProps> = ({
       setLoading(true);
       const response = await api.get('/chat/user-analytics');
 
-      if (response.data.success && response.data.data.analytics) {
-        setAnalytics(response.data.data.analytics);
+      if ((response.data as any).success && (response.data as any).data?.analytics) {
+        setAnalytics((response.data as any).data.analytics);
       }
     } catch (error: any) {
       console.error('Error fetching analytics:', error);

@@ -61,8 +61,8 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLikeUpdate }) => {
     setLoading(true);
     try {
       const response = await api.post(`/api/posts/${post._id}/like`);
-      setIsLiked(response.data.isLiked);
-      setLikesCount(response.data.likesCount);
+      setIsLiked((response.data as any).isLiked);
+      setLikesCount((response.data as any).likesCount);
       onLikeUpdate?.();
     } catch (error) {
       console.error('Error toggling like:', error);
@@ -74,7 +74,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLikeUpdate }) => {
   const fetchComments = async () => {
     try {
       const response = await api.get(`/api/posts/${post._id}/comments`);
-      setComments(response.data.comments);
+      setComments((response.data as any).comments);
     } catch (error) {
       console.error('Error fetching comments:', error);
     }
@@ -88,7 +88,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLikeUpdate }) => {
       const response = await api.post(`/api/posts/${post._id}/comments`, {
         content: newComment.trim()
       });
-      setComments([response.data.comment, ...comments]);
+      setComments([(response.data as any).comment, ...comments]);
       setNewComment('');
     } catch (error) {
       console.error('Error adding comment:', error);

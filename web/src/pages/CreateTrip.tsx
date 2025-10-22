@@ -363,6 +363,8 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
     setLoading(true);
     setError('');
     setUploadProgress(0);
+    
+    let tripData: any = null;
 
     try {
       // Enhanced validation
@@ -408,7 +410,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       }
 
       // Prepare enhanced trip data
-      const tripData = {
+      tripData = {
         title: formData.title.trim(),
         description: formData.description.trim(),
         destination: formData.destination.trim(),
@@ -1159,7 +1161,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                       min="0"
                       step="1"
                       value={paymentConfig.advanceAmount || ''}
-                      onChange={(e) => setPaymentConfig({...paymentConfig, advanceAmount: e.target.value ? parseInt(e.target.value) : ''})}
+                      onChange={(e) => setPaymentConfig({...paymentConfig, advanceAmount: e.target.value ? parseInt(e.target.value) : 0})}
                       className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
                       placeholder="Enter amount"
                     />

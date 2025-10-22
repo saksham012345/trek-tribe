@@ -41,7 +41,7 @@ const SearchPage: React.FC = () => {
   const loadSuggestions = async () => {
     try {
       const response = await api.get('/api/search/suggestions?limit=12&role=organizer');
-      setSuggestions(response.data.suggestions);
+      setSuggestions((response.data as any).suggestions);
     } catch (error) {
       console.error('Error loading suggestions:', error);
     }
@@ -63,7 +63,7 @@ const SearchPage: React.FC = () => {
       });
 
       const response = await api.get(`/api/search/profiles?${params.toString()}`);
-      setResults(response.data.profiles);
+      setResults((response.data as any).profiles);
       setHasSearched(true);
     } catch (error) {
       console.error('Error searching profiles:', error);

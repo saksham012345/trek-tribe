@@ -44,27 +44,54 @@ const Profile: React.FC<ProfileProps> = ({ user: initialUser }) => {
   useEffect(() => {
     const fetchUserTrips = async () => {
       try {
+        if (!user?.id) {
+          console.log('No user ID available, skipping trip fetch');
+          setLoading(false);
+          return;
+        }
+
         const response = await api.get('/trips');
         const allTrips = response.data;
         
+        if (!Array.isArray(allTrips)) {
+          console.warn('Expected array of trips, got:', typeof allTrips);
+          setUserTrips([]);
+          setLoading(false);
+          return;
+        }
+        
         // Filter trips based on user role
-        if (user.role === 'organizer') {
+        if (user?.role === 'organizer') {
           // Show trips created by the user
           const tripsData = allTrips as Trip[];
-          setUserTrips(tripsData.filter((trip: Trip) => trip.organizerId === user.id));
+          const userTrips = tripsData.filter((trip: Trip) => {
+            return trip.organizerId === user.id;
+          });
+          console.log(`Found ${userTrips.length} organized trips`);
+          setUserTrips(userTrips);
         } else {
           // Show trips the user has joined
           const tripsData = allTrips as Trip[];
-          setUserTrips(tripsData.filter((trip: Trip) => trip.participants.includes(user.id)));
+          const joinedTrips = tripsData.filter((trip: Trip) => {
+            return trip.participants && Array.isArray(trip.participants) && trip.participants.includes(user.id);
+          });
+          console.log(`Found ${joinedTrips.length} joined trips`);
+          setUserTrips(joinedTrips);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error fetching user trips:', error);
+        setError('Failed to load your trips. Please try refreshing the page.');
+        setUserTrips([]);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchUserTrips();
+    if (user) {
+      fetchUserTrips();
+    } else {
+      setLoading(false);
+    }
   }, [user]);
 
   // Update form data when user changes
@@ -109,11 +136,11 @@ const Profile: React.FC<ProfileProps> = ({ user: initialUser }) => {
         },
       });
 
-      if (response.data.success && updateUser) {
+      if ((response.data as any).success && updateUser) {
         // Update user context with new photo
         const updatedUser = {
           ...user,
-          profilePhoto: response.data.photoUrl
+          profilePhoto: (response.data as any).photoUrl
         };
         updateUser(updatedUser);
         setSuccess('Profile photo updated successfully!');
@@ -134,12 +161,22 @@ const Profile: React.FC<ProfileProps> = ({ user: initialUser }) => {
     setSuccess('');
 
     try {
+      // Basic validation
+      if (!formData.name.trim()) {
+        setError('Name is required');
+        return;
+      }
+      if (!formData.email.trim()) {
+        setError('Email is required');
+        return;
+      }
+
       const response = await api.patch('/auth/profile', formData);
       
       if (updateUser) {
         const updatedUser = {
           ...user,
-          ...response.data.user
+          ...(response.data as any).user
         };
         updateUser(updatedUser);
       }
@@ -149,7 +186,8 @@ const Profile: React.FC<ProfileProps> = ({ user: initialUser }) => {
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
       console.error('Profile update error:', err);
-      setError(err.response?.data?.error || 'Failed to update profile');
+      const errorMessage = err.response?.data?.error || err.response?.data?.message || 'Failed to update profile';
+      setError(errorMessage);
     }
   };
 
@@ -364,7 +402,7 @@ const Profile: React.FC<ProfileProps> = ({ user: initialUser }) => {
           {/* User Trips */}
           <div>
             <h2 className="text-xl font-semibold mb-4">
-              {user.role === 'organizer' ? 'My Created Trips' : 'My Joined Trips'}
+              {user?.role === 'organizer' ? 'My Created Trips' : 'My Joined Trips'}
             </h2>
             
             {loading ? (
@@ -374,10 +412,10 @@ const Profile: React.FC<ProfileProps> = ({ user: initialUser }) => {
             ) : userTrips.length === 0 ? (
               <div className="text-center py-8">
                 <div className="text-gray-500 text-lg mb-2">
-                  {user.role === 'organizer' ? 'No trips created yet' : 'No trips joined yet'}
+                  {user?.role === 'organizer' ? 'No trips created yet' : 'No trips joined yet'}
                 </div>
                 <p className="text-gray-400">
-                  {user.role === 'organizer' 
+                  {user?.role === 'organizer' 
                     ? 'Create your first trip to get started!' 
                     : 'Join some trips to see them here'
                   }
@@ -421,7 +459,7 @@ const Profile: React.FC<ProfileProps> = ({ user: initialUser }) => {
                       }`}>
                         {trip.status}
                       </span>
-                      {user.role === 'organizer' && (
+                      {user?.role === 'organizer' && (
                         <button 
                           onClick={() => navigate(`/edit-trip/${trip._id}`)}
                           className="text-nature-600 hover:text-forest-700 text-sm font-medium flex items-center gap-1 transition-colors"
