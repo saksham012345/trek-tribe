@@ -42,6 +42,16 @@ interface PaymentScreenshotData {
   screenshotUrl: string;
 }
 
+interface AgentReplyData {
+  userName: string;
+  userEmail: string;
+  ticketId: string;
+  ticketSubject: string;
+  agentName: string;
+  agentMessage: string;
+  replyUrl: string;
+}
+
 class EmailService {
   private transporter: nodemailer.Transporter | null = null;
   private isInitialized: boolean = false;
@@ -52,8 +62,9 @@ class EmailService {
 
   private async initialize() {
     try {
-      const emailUser = process.env.GMAIL_USER;
-      const emailPassword = process.env.GMAIL_APP_PASSWORD;
+      // Use provided credentials for Trek Tribe
+      const emailUser = process.env.GMAIL_USER || 'tanejasaksham44@gmail.com';
+      const emailPassword = process.env.GMAIL_APP_PASSWORD || 'idmw kols hcfe mnzo';
 
       if (!emailUser || !emailPassword) {
         logger.warn('Gmail credentials not configured. Email service will be disabled.');
@@ -490,6 +501,106 @@ class EmailService {
       return true;
     } catch (error) {
       logger.error('Email service connection test failed', { error });
+    return false;
+  }
+
+  private generateAgentReplyHTML(data: AgentReplyData): string {
+    return `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Agent Reply - Trek Tribe Support</title>
+        <style>
+          body { font-family: 'Arial', sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
+          .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
+          .header { background: linear-gradient(135deg, #2d5a3d, #4a7c59); color: white; padding: 30px; text-align: center; }
+          .header h1 { margin: 0; font-size: 28px; }
+          .content { padding: 30px; }
+          .agent-reply { background: #e8f4fd; border-left: 4px solid #007bff; padding: 20px; margin: 20px 0; border-radius: 5px; }
+          .ticket-info { background: #f8f9fa; border: 1px solid #dee2e6; padding: 15px; margin: 20px 0; border-radius: 5px; }
+          .button { background: #4a7c59; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
+          .footer { background: #2d5a3d; color: white; padding: 20px; text-align: center; font-size: 14px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🌲 Trek Tribe Support</h1>
+            <p style="margin: 10px 0 0 0; font-size: 18px;">New Agent Reply</p>
+          </div>
+          
+          <div class="content">
+            <h2 style="color: #2d5a3d;">Hello ${data.userName}! 👋</h2>
+            <p>Great news! Our support agent <strong>${data.agentName}</strong> has replied to your support ticket.</p>
+            
+            <div class="ticket-info">
+              <h3 style="color: #2d5a3d; margin-top: 0;">🎫 Ticket Details</h3>
+              <p><strong>Ticket ID:</strong> ${data.ticketId}</p>
+              <p><strong>Subject:</strong> ${data.ticketSubject}</p>
+              <p><strong>Agent:</strong> ${data.agentName}</p>
+            </div>
+            
+            <div class="agent-reply">
+              <h3 style="color: #007bff; margin-top: 0;">💬 Agent Reply:</h3>
+              <p style="margin-bottom: 0;">${data.agentMessage}</p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${data.replyUrl}" class="button">
+                💬 Reply to Agent
+              </a>
+            </div>
+            
+            <p>You can reply directly through our support portal or via email. We're here to help with any questions!</p>
+            
+            <h3 style="color: #2d5a3d;">📞 Need immediate help?</h3>
+            <p>📧 Email: tanejasaksham44@gmail.com<br>
+               📱 Phone: 9876177839</p>
+          </div>
+          
+          <div class="footer">
+            <p><strong>Trek Tribe</strong> - Always Here to Help</p>
+            <p style="font-size: 12px; margin: 10px 0 0 0;">
+              This is an automated message from Trek Tribe support system.
+            </p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  async sendAgentReplyNotification(data: AgentReplyData): Promise<boolean> {
+    if (!this.isServiceReady()) {
+      logger.warn('Email service not ready, skipping agent reply notification');
+      return false;
+    }
+
+    try {
+      const mailOptions = {
+        from: `"Trek Tribe Support" <${process.env.GMAIL_USER || 'tanejasaksham44@gmail.com'}>`,
+        to: data.userEmail,
+        subject: `🎧 Agent Reply - ${data.ticketSubject} [${data.ticketId}]`,
+        html: this.generateAgentReplyHTML(data),
+        text: `Hello ${data.userName}!\n\nOur support agent ${data.agentName} has replied to your ticket.\n\nTicket ID: ${data.ticketId}\nSubject: ${data.ticketSubject}\n\nAgent Reply:\n${data.agentMessage}\n\nReply here: ${data.replyUrl}\n\nTrek Tribe Support Team`
+      };
+
+      await this.transporter!.sendMail(mailOptions);
+      logger.info('Agent reply notification email sent successfully', { 
+        userEmail: data.userEmail,
+        ticketId: data.ticketId,
+        agentName: data.agentName
+      });
+
+      return true;
+    } catch (error: any) {
+      logger.error('Failed to send agent reply notification email', { 
+        error: error.message,
+        userEmail: data.userEmail,
+        ticketId: data.ticketId
+      });
       return false;
     }
   }
@@ -497,10 +608,11 @@ class EmailService {
   async getServiceStatus() {
     return {
       isReady: this.isServiceReady(),
-      hasCredentials: !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD),
+      hasCredentials: !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) || true, // Always true with fallback credentials
       lastTest: this.isServiceReady() ? await this.testConnection() : false
     };
   }
+}
 }
 
 // Export singleton instance

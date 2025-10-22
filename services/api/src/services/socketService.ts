@@ -3,6 +3,7 @@ import { Server as HttpServer } from 'http';
 import jwt from 'jsonwebtoken';
 import { logger } from '../utils/logger';
 import { aiSupportService } from './aiSupportService';
+import { emailService } from './emailService';
 import { SupportTicket } from '../models/SupportTicket';
 import { User } from '../models/User';
 
@@ -356,6 +357,15 @@ class SocketService {
           chatSessionId: sessionId,
           createdAt: newTicket.createdAt
         });
+        
+        // Also log for monitoring
+        logger.info('Support ticket created from chat request', {
+          ticketId: newTicket.ticketId,
+          sessionId,
+          userId: session.userId,
+          userName: session.userName,
+          subject: ticketSubject
+        });
       }
 
       // Notify available agents
@@ -473,7 +483,7 @@ class SocketService {
     // Update support ticket if it exists
     if (session.ticketId) {
       try {
-        await SupportTicket.findOneAndUpdate(
+        const updatedTicket = await SupportTicket.findOneAndUpdate(
           { ticketId: session.ticketId },
           {
             $push: {
@@ -489,8 +499,39 @@ class SocketService {
               assignedTo: session.agentId,
               updatedAt: new Date()
             }
-          }
+          },
+          { new: true }
         );
+
+        // Send email notification to user about agent reply
+        if (updatedTicket && !socket.data.isGuest && session.userEmail) {
+          try {
+            const frontendUrl = process.env.FRONTEND_URL || 'https://www.trektribe.in';
+            const replyUrl = `${frontendUrl}/support/tickets/${session.ticketId}`;
+            
+            await emailService.sendAgentReplyNotification({
+              userName: session.userName,
+              userEmail: session.userEmail,
+              ticketId: session.ticketId,
+              ticketSubject: updatedTicket.subject,
+              agentName: session.agentName!,
+              agentMessage: data.message,
+              replyUrl
+            });
+            
+            logger.info('Agent reply email notification sent', {
+              ticketId: session.ticketId,
+              userEmail: session.userEmail,
+              agentName: session.agentName
+            });
+          } catch (emailError: any) {
+            logger.error('Failed to send agent reply email notification', {
+              error: emailError.message,
+              ticketId: session.ticketId,
+              userEmail: session.userEmail
+            });
+          }
+        }
       } catch (error: any) {
         logger.error('Error updating support ticket', { 
           error: error.message, 
