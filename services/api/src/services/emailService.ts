@@ -52,6 +52,13 @@ interface AgentReplyData {
   replyUrl: string;
 }
 
+interface EmailVerificationOTPData {
+  userName: string;
+  userEmail: string;
+  otp: string;
+  expiresMinutes: number;
+}
+
 class EmailService {
   private transporter: nodemailer.Transporter | null = null;
   private isInitialized: boolean = false;
@@ -62,12 +69,12 @@ class EmailService {
 
   private async initialize() {
     try {
-      // Use provided credentials for Trek Tribe
-      const emailUser = process.env.GMAIL_USER || 'tanejasaksham44@gmail.com';
-      const emailPassword = process.env.GMAIL_APP_PASSWORD || 'idmw kols hcfe mnzo';
+      // Require credentials from environment
+      const emailUser = process.env.GMAIL_USER;
+      const emailPassword = process.env.GMAIL_APP_PASSWORD;
 
       if (!emailUser || !emailPassword) {
-        logger.warn('Gmail credentials not configured. Email service will be disabled.');
+        logger.warn('Gmail credentials not configured (GMAIL_USER / GMAIL_APP_PASSWORD). Email service will be disabled.');
         return;
       }
 
@@ -83,9 +90,7 @@ class EmailService {
       });
 
       // Verify the connection
-      if (this.transporter) {
-        await this.transporter.verify();
-      }
+      await this.transporter.verify();
       this.isInitialized = true;
       logger.info('Email service initialized successfully with Gmail SMTP');
 
@@ -467,7 +472,7 @@ class EmailService {
 
     try {
       const mailOptions = {
-        from: `"TrekTribe Payment Updates" <${process.env.GMAIL_USER}>`,
+        from: `\"TrekTribe Payment Updates\" <${process.env.GMAIL_USER}>`,
         to: data.organizerEmail,
         subject: `💰 New Payment Screenshot - ${data.tripTitle}`,
         html: this.generatePaymentScreenshotHTML(data),
@@ -487,6 +492,68 @@ class EmailService {
         error: error.message,
         organizerEmail: data.organizerEmail 
       });
+      return false;
+    }
+  }
+
+  private generateEmailVerificationOTPHTML(data: EmailVerificationOTPData): string {
+    return `
+      <!DOCTYPE html>
+      <html lang=\"en\">
+      <head>
+        <meta charset=\"UTF-8\" />
+        <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />
+        <title>Your Verification Code - Trek Tribe</title>
+        <style>
+          body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
+          .container { max-width: 560px; margin: 24px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 24px rgba(0,0,0,0.08); }
+          .header { background: linear-gradient(135deg, #2d5a3d, #4a7c59); color: #fff; padding: 24px; text-align: center; }
+          .content { padding: 24px; color: #333; }
+          .otp { font-size: 32px; letter-spacing: 6px; font-weight: 700; color: #2d5a3d; text-align: center; padding: 16px; border: 2px dashed #4a7c59; border-radius: 8px; margin: 16px 0; }
+          .meta { text-align: center; color: #666; }
+          .footer { background: #2d5a3d; color: #fff; padding: 16px; text-align: center; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class=\"container\">
+          <div class=\"header\">
+            <h1>🌲 Trek Tribe</h1>
+            <p>Email Verification</p>
+          </div>
+          <div class=\"content\">
+            <p>Hi ${data.userName || 'there'},</p>
+            <p>Use the verification code below to verify your email address:</p>
+            <div class=\"otp\">${data.otp}</div>
+            <p class=\"meta\">This code will expire in ${data.expiresMinutes} minutes.</p>
+            <p class=\"meta\">If you did not request this, you can safely ignore this email.</p>
+          </div>
+          <div class=\"footer\">Trek Tribe • Secure Verification</div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  async sendEmailVerificationOTP(data: EmailVerificationOTPData): Promise<boolean> {
+    if (!this.isServiceReady()) {
+      logger.warn('Email service not ready, skipping email verification OTP');
+      return false;
+    }
+
+    try {
+      const mailOptions = {
+        from: `\"Trek Tribe Verification\" <${process.env.GMAIL_USER}>`,
+        to: data.userEmail,
+        subject: 'Your Trek Tribe verification code',
+        html: this.generateEmailVerificationOTPHTML(data),
+        text: `Your Trek Tribe verification code is ${data.otp}. It expires in ${data.expiresMinutes} minutes.`
+      };
+
+      await this.transporter!.sendMail(mailOptions);
+      logger.info('Email verification OTP sent', { userEmail: data.userEmail });
+      return true;
+    } catch (error: any) {
+      logger.error('Failed to send email verification OTP', { error: error.message, userEmail: data.userEmail });
       return false;
     }
   }
@@ -607,9 +674,10 @@ class EmailService {
   }
 
   async getServiceStatus() {
+    const hasCreds = !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
     return {
       isReady: this.isServiceReady(),
-      hasCredentials: !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) || true, // Always true with fallback credentials
+      hasCredentials: hasCreds,
       lastTest: this.isServiceReady() ? await this.testConnection() : false
     };
   }

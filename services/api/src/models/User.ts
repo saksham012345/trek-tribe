@@ -95,6 +95,11 @@ export interface UserDocument extends Document {
     postsCount: number;
   };
   isVerified?: boolean;
+  emailVerified?: boolean;
+  emailVerificationOtpHash?: string;
+  emailVerificationExpires?: Date;
+  emailVerificationAttempts?: number;
+  emailVerificationLastSentAt?: Date;
   verificationDocuments?: Array<{
     filename: string;
     originalName: string;
@@ -230,6 +235,11 @@ const userSchema = new Schema(
       required: false
     },
     isVerified: { type: Boolean, default: false },
+    emailVerified: { type: Boolean, default: false },
+    emailVerificationOtpHash: { type: String },
+    emailVerificationExpires: { type: Date },
+    emailVerificationAttempts: { type: Number, default: 0 },
+    emailVerificationLastSentAt: { type: Date },
     verificationDocuments: [{
       filename: { type: String, required: true },
       originalName: { type: String, required: true },

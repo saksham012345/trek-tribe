@@ -4,6 +4,10 @@ import api from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
 import './AIChatWidget.css';
 
+// Optional support contact info from env
+const SUPPORT_EMAIL = process.env.REACT_APP_SUPPORT_EMAIL || '';
+const SUPPORT_PHONE = process.env.REACT_APP_SUPPORT_PHONE || '';
+
 interface ChatMessage {
   id: string;
   senderId: string;
