@@ -4,6 +4,12 @@ import bcrypt from 'bcryptjs';
 import { User } from '../models/User';
 import { logger } from '../utils/logger';
 
+// Allow overriding preset agent credentials via environment variables (recommended for production)
+const AGENT_NAME = process.env.PRESET_AGENT_NAME || 'Saksham Taneja';
+const AGENT_EMAIL = process.env.PRESET_AGENT_EMAIL || 'tanejasaksham44@gmail.com';
+const AGENT_PHONE = process.env.PRESET_AGENT_PHONE || '+91-9999999998';
+const AGENT_PASSWORD = process.env.PRESET_AGENT_PASSWORD || 'Agent@4700';
+
 const presetUsers = [
   {
     name: 'Root Admin',
@@ -16,11 +22,11 @@ const presetUsers = [
     profilePhoto: null
   },
   {
-    name: 'Saksham Taneja',
-    email: 'tanejasaksham44@gmail.com',
-    phone: '+91-9999999998',
+    name: AGENT_NAME,
+    email: AGENT_EMAIL,
+    phone: AGENT_PHONE,
     role: 'agent',
-    password: 'Saksham@4700',
+    password: AGENT_PASSWORD,
     bio: 'Customer Support Agent for TrekTribe',
     isEmailVerified: true,
     profilePhoto: null
@@ -120,8 +126,8 @@ async function setupPresetUsers() {
     console.log('');
     
     console.log('🎧 AGENT LOGIN:');
-    console.log('   Email: tanejasaksham44@gmail.com');
-    console.log('   Password: Saksham@4700');
+    console.log(`   Email: ${AGENT_EMAIL}`);
+    console.log(`   Password: ${AGENT_PASSWORD}`);
     console.log('   Access: /agent/dashboard');
     console.log('');
     

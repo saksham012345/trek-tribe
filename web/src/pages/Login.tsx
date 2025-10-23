@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import GoogleLoginButton from '../components/GoogleLoginButton';
 
 interface LoginProps {
   onLogin: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
@@ -71,7 +72,29 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         </div>
         
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-6 sm:p-8 border border-forest-200">
-          <form className="space-y-4 sm:space-y-6" onSubmit={handleSubmit}>
+          {/* Google Sign-In */}
+          <div className="space-y-3">
+            <GoogleLoginButton 
+              className="w-full"
+              onError={(msg) => {
+                // Persist error until the next login attempt
+                setError(msg || 'Google login failed');
+              }}
+              onSuccess={() => {
+                // Clear error and navigate like normal login
+                setError('');
+                const from = (location.state as any)?.from?.pathname || '/home';
+                navigate(from, { replace: true });
+              }}
+            />
+            <div className="flex items-center gap-2">
+              <div className="h-px bg-forest-200 flex-1" />
+              <span className="text-forest-500 text-sm">or</span>
+              <div className="h-px bg-forest-200 flex-1" />
+            </div>
+          </div>
+
+          <form className="space-y-4 sm:space-y-6 mt-4" onSubmit={handleSubmit}>
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2">
                 <span className="text-xl">⚠️</span>
