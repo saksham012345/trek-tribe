@@ -20,7 +20,7 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showRoleModal, setShowRoleModal] = useState(true);
+  const [showRoleModal, setShowRoleModal] = useState(false);
   const [organizerDraft, setOrganizerDraft] = useState<{
     experience?: string;
     yearsOfExperience?: number;
@@ -150,7 +150,8 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
               onError={(msg) => setError(msg || 'Google sign-in failed')}
               onSuccess={() => {
                 setError('');
-                navigate('/home', { replace: true });
+                // After Google sign-in, collect role basics
+                setShowRoleModal(true);
               }}
             />
             <div className="flex items-center gap-2">
