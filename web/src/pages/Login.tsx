@@ -17,11 +17,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Clear error when user starts typing (indicates they're trying again)
-    if (error) {
-      setError('');
-    }
-    
+    // Do NOT clear error on typing; persist until next submit attempt
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
@@ -31,7 +27,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Don't clear error immediately - only clear when user starts typing
+    // Clear the previous error only when the user presses the button again
+    setError('');
 
     try {
       const result = await onLogin(formData.email, formData.password);

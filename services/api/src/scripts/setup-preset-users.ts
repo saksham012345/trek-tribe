@@ -86,7 +86,7 @@ async function setupPresetUsers() {
             passwordHash: hashedPassword,
             role: userData.role,
             bio: userData.bio,
-            isEmailVerified: true,
+            emailVerified: true,
             ...(userData.organizerProfile && { organizerProfile: userData.organizerProfile })
           });
           
@@ -103,7 +103,7 @@ async function setupPresetUsers() {
             role: userData.role,
             bio: userData.bio,
             location: userData.location || 'India',
-            isEmailVerified: userData.isEmailVerified,
+            emailVerified: true,
             profilePhoto: userData.profilePhoto,
             ...(userData.organizerProfile && { organizerProfile: userData.organizerProfile })
           });
