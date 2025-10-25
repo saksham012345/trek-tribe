@@ -124,25 +124,36 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-forest-50 to-nature-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-6 sm:space-y-8">
-        <div className="text-center">
-          <div className="mx-auto h-12 w-12 sm:h-16 sm:w-16 bg-gradient-to-br from-forest-600 to-nature-600 rounded-2xl flex items-center justify-center shadow-lg">
-            <span className="text-white font-bold text-xl sm:text-2xl">🌲</span>
+    <div className="min-h-screen bg-gradient-to-b from-forest-50 via-white to-nature-50">
+      {/* Hero */}
+      <div className="bg-gradient-to-r from-forest-700 to-nature-600 text-white">
+        <div className="max-w-6xl mx-auto px-6 py-10 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Join TrekTribe</h1>
+            <p className="text-white/90 mt-1">Create your adventure profile and start exploring curated treks.</p>
           </div>
-          <h2 className="mt-4 sm:mt-6 text-center text-2xl sm:text-3xl font-extrabold text-forest-800">
-            Join the 
-            <span className="text-nature-600">Adventure</span>
-          </h2>
-          <p className="mt-2 text-center text-sm text-forest-600">
-            Already part of the tribe?{' '}
-            <Link to="/login" className="font-medium text-nature-600 hover:text-forest-700 transition-colors">
-              Sign in to your account
-            </Link>
-          </p>
+          <div className="hidden sm:block text-5xl">🏔️</div>
         </div>
-        
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-6 sm:p-8 border border-forest-200">
+      </div>
+
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 pb-12">
+        <div className="grid lg:grid-cols-2 gap-8">
+          {/* Left: Brand card */}
+          <div className="hidden lg:block">
+            <div className="bg-white rounded-2xl shadow-xl p-8 border border-forest-200">
+              <h3 className="text-xl font-bold text-forest-800 mb-4">Why TrekTribe?</h3>
+              <ul className="space-y-3 text-forest-700">
+                <li>• Verified organizers and real reviews</li>
+                <li>• Curated itineraries and transparent pricing</li>
+                <li>• Secure bookings with support from real agents</li>
+                <li>• Build your adventure profile and earn badges</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Right: Form card */}
+          <div className="w-full space-y-6 sm:space-y-8">
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-6 sm:p-8 border border-forest-200">
           {/* Google Sign-Up */}
           <div className="space-y-3 mb-4">
             <GoogleLoginButton 
@@ -299,6 +310,8 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
               </button>
             </div>
           </form>
+            </div>
+          </div>
         </div>
       </div>
     </div>
