@@ -88,7 +88,8 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
   const isParticipant = trip && user && trip.participants.includes(user.id);
   const isOrganizer = trip && user && trip.organizerId === user.id;
   const canJoin = trip && user && !isParticipant && !isOrganizer && trip.participants.length < trip.capacity;
-  const canReview = isParticipant && !isOrganizer; // Only participants who are not organizers can review
+  const hasEnded = trip && new Date(trip.endDate) < new Date();
+  const canReview = isParticipant && !isOrganizer && !!hasEnded; // Only participants after trip end
 
   const handleShareTrip = async () => {
     const shareUrl = getTripShareUrl(trip!._id);

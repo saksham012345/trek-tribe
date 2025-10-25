@@ -3,14 +3,14 @@ import api from '../config/api';
 
 interface Review {
   _id: string;
-  userId: {
+  reviewerId: {
     name: string;
     email: string;
   };
   rating: number;
-  review: string;
-  highlights: string[];
-  wouldRecommend: boolean;
+  title: string;
+  comment: string;
+  tags?: string[];
   createdAt: string;
 }
 
@@ -38,10 +38,19 @@ const ReviewsList: React.FC<ReviewsListProps> = ({
   useEffect(() => {
     const fetchReviews = async () => {
       try {
-        const response = await api.get(`/reviews/trip/${tripId}`);
-        const reviewData = response.data as Review[];
-        setReviews(reviewData);
-        calculateStats(reviewData);
+        const response = await api.get(`/reviews`, { params: { targetId: tripId, reviewType: 'trip', verified: 'true', sortBy: 'createdAt', sortOrder: 'desc', limit: 20 } });
+        const reviewData = (response.data as any).reviews as Review[];
+        setReviews(reviewData || []);
+        // Fetch stats
+        try {
+          const statsRes = await api.get(`/reviews/stats/${tripId}/trip`);
+          const s = statsRes.data as any;
+          setStats({
+            averageRating: s.averageRating || 0,
+            totalReviews: s.totalReviews || 0,
+            ratingDistribution: s.ratingDistribution || { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+          });
+        } catch {}
       } catch (error) {
         console.error('Error fetching reviews:', error);
         setReviews([]);
@@ -103,7 +112,7 @@ const ReviewsList: React.FC<ReviewsListProps> = ({
     });
   };
 
-  const hasUserReviewed = reviews.some(review => review.userId.email === currentUserId);
+  const hasUserReviewed = reviews.some(review => review.reviewerId?.email === currentUserId);
 
   if (loading) {
     return (
@@ -200,11 +209,11 @@ const ReviewsList: React.FC<ReviewsListProps> = ({
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center space-x-3">
                   <div className="w-10 h-10 bg-gradient-to-br from-forest-400 to-nature-500 rounded-full flex items-center justify-center text-white font-bold">
-                    {review.userId.name.charAt(0).toUpperCase()}
+                    {review.reviewerId.name.charAt(0).toUpperCase()}
                   </div>
                   <div>
                     <div className="font-semibold text-forest-800">
-                      {review.userId.name}
+                      {review.reviewerId.name}
                     </div>
                     <div className="text-sm text-forest-500">
                       {formatDate(review.createdAt)}
@@ -214,17 +223,18 @@ const ReviewsList: React.FC<ReviewsListProps> = ({
                 {renderStars(review.rating)}
               </div>
               
+              <h4 className="text-forest-800 font-semibold mb-1">{review.title}</h4>
               <p className="text-forest-700 mb-4 leading-relaxed">
-                {review.review}
+                {review.comment}
               </p>
               
-              {review.highlights.length > 0 && (
+              {review.tags && review.tags.length > 0 && (
                 <div className="mb-4">
                   <div className="text-sm font-semibold text-forest-700 mb-2">
                     Highlights:
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {review.highlights.map((highlight, index) => (
+                    {review.tags.map((highlight, index) => (
                       <span
                         key={index}
                         className="px-2 py-1 bg-nature-100 text-nature-700 text-xs rounded-full"
@@ -236,12 +246,13 @@ const ReviewsList: React.FC<ReviewsListProps> = ({
                 </div>
               )}
               
-              {review.wouldRecommend && (
+              {/* recommendation flag not in new schema; show tag if rating >=4 */}
+              {review.rating >= 4 && (
                 <div className="flex items-center space-x-2 text-sm text-nature-600">
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
-                  <span>Would recommend this adventure</span>
+                  <span>Recommended by travelers</span>
                 </div>
               )}
             </div>
