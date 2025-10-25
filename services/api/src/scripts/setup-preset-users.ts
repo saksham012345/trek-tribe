@@ -10,13 +10,19 @@ const AGENT_EMAIL = process.env.PRESET_AGENT_EMAIL || 'tanejasaksham44@gmail.com
 const AGENT_PHONE = process.env.PRESET_AGENT_PHONE || '+91-9999999998';
 const AGENT_PASSWORD = process.env.PRESET_AGENT_PASSWORD || 'Agent@4700';
 
+// Admin overrides
+const ADMIN_NAME = process.env.PRESET_ADMIN_NAME || 'Root Admin';
+const ADMIN_EMAIL = process.env.PRESET_ADMIN_EMAIL || 'trektribe_root@trektribe.in';
+const ADMIN_PHONE = process.env.PRESET_ADMIN_PHONE || '+91-9999999999';
+const ADMIN_PASSWORD = process.env.PRESET_ADMIN_PASSWORD || 'Admin@4700';
+
 const presetUsers = [
   {
-    name: 'Root Admin',
-    email: 'trektribe_root@trektribe.in',
-    phone: '+91-9999999999',
+    name: ADMIN_NAME,
+    email: ADMIN_EMAIL,
+    phone: ADMIN_PHONE,
     role: 'admin',
-    password: 'Rajan123',
+    password: ADMIN_PASSWORD,
     bio: 'Root Administrator for TrekTribe platform',
     isEmailVerified: true,
     profilePhoto: null
@@ -120,8 +126,8 @@ async function setupPresetUsers() {
     console.log('');
     
     console.log('🔐 ADMIN LOGIN:');
-    console.log('   Email: trektribe_root@trektribe.in');
-    console.log('   Password: Rajan123');
+    console.log(`   Email: ${ADMIN_EMAIL}`);
+    console.log(`   Password: ${ADMIN_PASSWORD}`);
     console.log('   Access: /admin/dashboard');
     console.log('');
     
