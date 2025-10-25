@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../config/api';
+import RoleSelectModal from '../components/RoleSelectModal';
+import GoogleLoginButton from '../components/GoogleLoginButton';
 
 interface RegisterProps {
   onLogin: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
@@ -14,10 +16,18 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
     phoneNumber: '',
     password: '',
     confirmPassword: '',
-    role: 'traveler' as 'traveler' | 'organizer'
+    role: undefined as undefined | 'traveler' | 'organizer'
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showRoleModal, setShowRoleModal] = useState(true);
+  const [organizerDraft, setOrganizerDraft] = useState<{
+    experience?: string;
+    yearsOfExperience?: number;
+    specialties?: string[];
+    languages?: string[];
+    bio?: string;
+  } | undefined>(undefined);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     // Clear error when user starts typing (indicates they're trying again)
@@ -48,25 +58,41 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
         email: formData.email,
         phoneNumber: formData.phoneNumber,
         password: formData.password,
-        role: formData.role
+        role: formData.role || 'traveler'
       });
-      
-      // Registration now returns both token and user data, so we can login directly
-      const responseData = response.data as { token: string; user: any };
+
+      // If backend requires email verification, inform user and send to login
+      if ((response.data as any)?.requiresVerification) {
+        setError('Registered. Please verify your email to continue, then complete your profile.');
+        navigate('/login', { replace: true });
+        return;
+      }
+
+      // If token is returned (some deployments), log in and go to profile completion
+      const responseData = response.data as { token?: string; user?: any };
       if (responseData.token && responseData.user) {
         localStorage.setItem('token', responseData.token);
-        // Clear error on successful registration
         setError('');
-        // Trigger auth context update by calling a login attempt
         const result = await onLogin(formData.email, formData.password);
         if (result.success) {
-          // Redirect to home page after successful registration and login
-          navigate('/', { replace: true });
+          // If organizer, push initial organizer basics
+          if ((formData.role === 'organizer') && organizerDraft) {
+            try {
+              await api.put('/profile/me', {
+                organizerProfile: {
+                  experience: organizerDraft.experience,
+                  yearsOfExperience: organizerDraft.yearsOfExperience,
+                  specialties: organizerDraft.specialties,
+                  languages: organizerDraft.languages,
+                  bio: organizerDraft.bio,
+                }
+              });
+            } catch {}
+          }
+          navigate('/my-profile', { replace: true });
         } else if (result.error) {
           setError(result.error);
         }
-      } else {
-        setError('Registration successful but login failed. Please try logging in manually.');
       }
     } catch (error: any) {
       console.log('Registration error details:', error);
@@ -117,6 +143,32 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
         </div>
         
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-6 sm:p-8 border border-forest-200">
+          {/* Google Sign-Up */}
+          <div className="space-y-3 mb-4">
+            <GoogleLoginButton 
+              className="w-full"
+              onError={(msg) => setError(msg || 'Google sign-in failed')}
+              onSuccess={() => {
+                setError('');
+                navigate('/home', { replace: true });
+              }}
+            />
+            <div className="flex items-center gap-2">
+              <div className="h-px bg-forest-200 flex-1" />
+              <span className="text-forest-500 text-sm">or</span>
+              <div className="h-px bg-forest-200 flex-1" />
+            </div>
+          </div>
+
+          <RoleSelectModal 
+            open={showRoleModal}
+            onClose={() => setShowRoleModal(false)}
+            onSelect={(role, data) => {
+              setFormData(prev => ({ ...prev, role }));
+              setOrganizerDraft(data);
+              setShowRoleModal(false);
+            }}
+          />
           <form className="space-y-4 sm:space-y-6" onSubmit={handleSubmit}>
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2">
@@ -178,19 +230,15 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
               </div>
               
               <div>
-                <label htmlFor="role" className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
-                  🎯 Choose your adventure style
+                <label className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
+                  🎯 Join as
                 </label>
-                <select
-                  id="role"
-                  name="role"
-                  value={formData.role}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50 appearance-none"
-                >
-                  <option value="traveler">🎒 Join adventures as an explorer</option>
-                  <option value="organizer">🗺️ Lead and organize epic journeys</option>
-                </select>
+                <div className="flex gap-3">
+                  <button type="button" onClick={() => setShowRoleModal(true)} className="px-4 py-2 border-2 border-forest-200 rounded-xl hover:border-nature-500 hover:bg-nature-50 transition">Select role</button>
+                  {formData.role && (
+                    <span className="px-3 py-2 bg-forest-100 text-forest-700 rounded-xl text-sm">{formData.role === 'traveler' ? 'Adventurer' : 'Organizer'} selected</span>
+                  )}
+                </div>
               </div>
               
               <div>

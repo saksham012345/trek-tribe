@@ -25,7 +25,8 @@ const ReviewModal: React.FC<ReviewModalProps> = ({
 }) => {
   const [formData, setFormData] = useState({
     rating: 5,
-    review: '',
+    title: '',
+    comment: '',
     wouldRecommend: true,
     highlights: [] as string[],
     improvements: ''
@@ -64,12 +65,12 @@ const ReviewModal: React.FC<ReviewModalProps> = ({
 
     try {
       await api.post(`/reviews`, {
-        tripId,
+        targetId: tripId,
+        reviewType: 'trip',
         rating: formData.rating,
-        review: formData.review,
-        wouldRecommend: formData.wouldRecommend,
-        highlights: formData.highlights,
-        improvements: formData.improvements
+        title: formData.title || `${formData.rating}/5 experience`,
+        comment: formData.comment || formData.improvements || 'Great trip',
+        tags: formData.highlights.map(h => h.toLowerCase().replace(/\s+/g, '-'))
       });
       
       onSuccess();
@@ -159,16 +160,32 @@ const ReviewModal: React.FC<ReviewModalProps> = ({
               </div>
             </div>
 
+            {/* Title */}
+            <div>
+              <label htmlFor="title" className="block text-sm font-semibold text-forest-700 mb-3">
+                Review title
+              </label>
+              <input
+                id="title"
+                name="title"
+                value={formData.title}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300"
+                placeholder="e.g., Incredible views and great guidance!"
+                required
+              />
+            </div>
+
             {/* Written Review */}
             <div>
-              <label htmlFor="review" className="block text-sm font-semibold text-forest-700 mb-3">
+              <label htmlFor="comment" className="block text-sm font-semibold text-forest-700 mb-3">
                 Tell us about your experience
               </label>
               <textarea
-                id="review"
-                name="review"
+                id="comment"
+                name="comment"
                 rows={4}
-                value={formData.review}
+                value={formData.comment}
                 onChange={handleChange}
                 className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 resize-none"
                 placeholder="Share your adventure story, what you loved, memorable moments..."
@@ -242,7 +259,7 @@ const ReviewModal: React.FC<ReviewModalProps> = ({
               </button>
               <button
                 type="submit"
-                disabled={loading || !formData.review.trim()}
+                disabled={loading || !formData.comment.trim() || !formData.title.trim()}
                 className="flex-1 px-6 py-3 bg-gradient-to-r from-forest-600 to-nature-600 hover:from-forest-700 hover:to-nature-700 text-white rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
                 {loading ? (
