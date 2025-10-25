@@ -48,8 +48,8 @@ const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
     const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
     
     if (!clientId) {
-      console.error('Google Client ID not configured');
-      onError?.('Google login is not configured');
+      console.warn('Google Client ID not configured');
+      // Do not bubble error to parent; keep login form usable
       return;
     }
 
