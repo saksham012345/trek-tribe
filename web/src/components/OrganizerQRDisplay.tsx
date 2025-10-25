@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import api from '../config/api';
+import api, { API_BASE_URL } from '../config/api';
 
 interface OrganizerQRDisplayProps {
   organizerId: string;
@@ -83,6 +83,19 @@ const OrganizerQRDisplay: React.FC<OrganizerQRDisplayProps> = ({
   const currentPaymentAmount = paymentType === 'advance' && advanceAmount ? advanceAmount : totalAmount;
   const isAdvancePayment = paymentType === 'advance' && advanceAmount && remainingAmount;
 
+  const apiOrigin = (API_BASE_URL || '').replace(/\/$/, '');
+  const resolveUrl = (p: any): string => {
+    if (!p) return '';
+    let s = typeof p === 'string' ? p : (p.path || p.url || '');
+    if (!s) return '';
+    if (/^https?:\/\//i.test(s)) {
+      // Replace localhost with API origin to avoid mixed content
+      return s.replace(/^http:\/\/(localhost|127\.0\.0\.1):\d+/i, apiOrigin);
+    }
+    if (s.startsWith('/')) return `${apiOrigin}${s}`;
+    return `${apiOrigin}/${s}`;
+  };
+
   return (
     <div className="bg-white rounded-2xl shadow-xl p-6">
       <div className="text-center mb-6">
@@ -151,7 +164,7 @@ const OrganizerQRDisplay: React.FC<OrganizerQRDisplayProps> = ({
               <div key={qrCode._id} className="bg-white border border-gray-200 rounded-lg p-4 text-center">
                 <div className="mb-3">
                   <img
-                    src={qrCode.path}
+                    src={resolveUrl(qrCode.path)}
                     alt={`${qrCode.paymentMethod} QR Code`}
                     className="w-48 h-48 mx-auto rounded-lg shadow-sm border"
                   />
@@ -185,7 +198,7 @@ const OrganizerQRDisplay: React.FC<OrganizerQRDisplayProps> = ({
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Scan QR Code to Pay</h3>
           <div className="bg-white border border-gray-200 rounded-lg p-4 inline-block">
             <img
-              src={organizerData.organizerProfile.paymentQR}
+              src={resolveUrl(organizerData.organizerProfile.paymentQR)}
               alt="Payment QR Code"
               className="w-48 h-48 mx-auto rounded-lg shadow-sm border"
             />

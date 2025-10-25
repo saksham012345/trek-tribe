@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface GoogleLoginButtonProps {
@@ -29,6 +29,7 @@ const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
   const { login } = useAuth();
   const buttonRef = useRef<HTMLDivElement>(null);
   const scriptLoaded = useRef(false);
+  const [gisReady, setGisReady] = useState(false);
 
   const handleGoogleResponse = async (response: { credential: string }) => {
     try {
@@ -70,6 +71,7 @@ const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
         logo_alignment: 'left',
         width: '100%',
       });
+      setGisReady(true);
     }
   };
 
@@ -109,12 +111,31 @@ const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
     }
   }, [buttonRef.current]);
 
+  const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+  const tryPrompt = () => {
+    if (!clientId) return;
+    if (!window.google) return;
+    try {
+      window.google.accounts.id.initialize({ client_id: clientId, callback: handleGoogleResponse });
+      window.google.accounts.id.prompt();
+    } catch {}
+  };
+
   return (
     <div className={className}>
       <div
         ref={buttonRef}
-        className="w-full flex items-center justify-center"
+        className="w-full flex items-center justify-center min-h-[42px]"
       />
+      {!gisReady && clientId && (
+        <button
+          type="button"
+          onClick={tryPrompt}
+          className="w-full mt-2 border border-forest-300 rounded-md py-2 text-forest-700 hover:bg-forest-50"
+        >
+          Continue with Google
+        </button>
+      )}
       <noscript>
         <div className="text-center text-gray-500 text-sm mt-2">
           JavaScript is required for Google Sign-In
