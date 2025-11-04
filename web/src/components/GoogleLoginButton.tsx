@@ -50,7 +50,8 @@ const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
     
     if (!clientId) {
       console.warn('Google Client ID not configured');
-      // Do not bubble error to parent; keep login form usable
+      // Surface a clear, non-blocking indicator in UI; keep login form usable
+      setGisReady(false);
       return;
     }
 
@@ -78,10 +79,15 @@ const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
   const loadGoogleScript = () => {
     if (scriptLoaded.current) return;
 
-    const script = document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.defer = true;
+    // Reuse existing script tag if already present
+    let script = document.querySelector('script[src="https://accounts.google.com/gsi/client"]') as HTMLScriptElement | null;
+    if (!script) {
+      script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
     
     script.onload = () => {
       scriptLoaded.current = true;
@@ -93,10 +99,8 @@ const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
       onError?.('Failed to load Google login');
     };
 
-    document.head.appendChild(script);
-
     return () => {
-      document.head.removeChild(script);
+      // Do not remove the global script to avoid breaking other instances
     };
   };
 
@@ -135,6 +139,21 @@ const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
         >
           Continue with Google
         </button>
+      )}
+      {!clientId && (
+        <div className="w-full mt-2">
+          <button
+            type="button"
+            disabled
+            title="Google Sign-In is not configured"
+            className="w-full border border-red-200 bg-red-50 text-red-600 rounded-md py-2 cursor-not-allowed"
+          >
+            Continue with Google (not configured)
+          </button>
+          <div className="text-xs text-red-600 mt-1">
+            Set REACT_APP_GOOGLE_CLIENT_ID in your environment to enable Google login.
+          </div>
+        </div>
       )}
       <noscript>
         <div className="text-center text-gray-500 text-sm mt-2">

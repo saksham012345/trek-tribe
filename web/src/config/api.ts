@@ -81,17 +81,20 @@ api.interceptors.response.use(
     }
     
     if (error.response?.status === 401) {
-      // Only redirect to login for authentication endpoints or if no token exists
-      const isAuthEndpoint = error.config?.url?.includes('/auth/') || error.config?.url?.includes('/login');
-      const hasToken = localStorage.getItem('token'); // Fixed to match AuthContext
-      
-      if (!hasToken || isAuthEndpoint) {
-        // Clear invalid token and redirect
-        localStorage.removeItem('token'); // Fixed to match AuthContext
-        window.location.href = '/login';
+      // Do not redirect for auth endpoints (e.g., /auth/login). Let the UI handle the error message.
+      const isAuthEndpoint = error.config?.url?.includes('/auth/');
+
+      if (!isAuthEndpoint) {
+        const hasToken = Boolean(localStorage.getItem('token'));
+        if (hasToken) {
+          // Token is invalid/expired: clear and redirect to login
+          localStorage.removeItem('token');
+          window.location.href = '/login';
+        }
+        // If there's no token, just reject so the caller can handle it
       } else {
-        // For other 401 errors, just log and let the component handle it
-        console.warn('API 401 Error:', error.config?.url, error.response?.data);
+        // For auth endpoints, avoid redirecting to prevent clearing UI error states
+        console.warn('Auth 401 (no redirect):', error.config?.url, error.response?.data);
       }
     }
     return Promise.reject(error);

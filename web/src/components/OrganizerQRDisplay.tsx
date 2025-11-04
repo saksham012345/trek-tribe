@@ -44,14 +44,30 @@ const OrganizerQRDisplay: React.FC<OrganizerQRDisplayProps> = ({
       // Try multiple endpoints to get organizer data
       let response;
       try {
-        // First try the enhanced profile endpoint
+        // First try the enhanced profile endpoint (shape: { success, data: { user } })
         response = await api.get(`/profile/enhanced/${organizerId}`);
-        setOrganizerData((response.data as any).profile || (response.data as any).user);
+        const dataUser = (response.data as any)?.data?.user;
+        if (dataUser) {
+          setOrganizerData(dataUser);
+          return;
+        }
       } catch (enhancedError) {
-        // Fallback to basic profile endpoint
-        response = await api.get(`/profile/${organizerId}`);
-        setOrganizerData((response.data as any).profile || (response.data as any).user);
+        // continue to fallback
       }
+
+      // Fallback to organizer by unique URL if available, otherwise basic profile if implemented
+      try {
+        response = await api.get(`/profile/${organizerId}`);
+        const fallbackUser = (response.data as any)?.data?.user || (response.data as any)?.user || (response.data as any)?.profile;
+        if (fallbackUser) {
+          setOrganizerData(fallbackUser);
+          return;
+        }
+      } catch (basicError) {
+        // Ignore here; will handle as failure below
+      }
+
+      throw new Error('Organizer data not found');
     } catch (error) {
       console.error('Error fetching organizer data:', error);
       setError('Failed to load organizer information');
