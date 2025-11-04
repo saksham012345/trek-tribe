@@ -203,105 +203,20 @@ const demoReviews = [
 
 async function seedDatabase() {
   try {
-    console.log('🌱 Starting database seeding...');
-    
-    // Connect to MongoDB
-    await mongoose.connect(MONGODB_URI);
-    console.log('✅ Connected to MongoDB');
-
-    // Clear existing data
-    console.log('🧹 Clearing existing data...');
-    await User.deleteMany({});
-    await Trip.deleteMany({});
-    await Review.deleteMany({});
-
-    // Create users
-    console.log('👥 Creating demo users...');
-    const createdUsers: any[] = [];
-    
-    for (const userData of demoUsers) {
-      const hashedPassword = await bcrypt.hash(userData.password, 10);
-      const { password, ...userDataWithoutPassword } = userData;
-      const user = await User.create({
-        ...userDataWithoutPassword,
-        passwordHash: hashedPassword
-      });
-      createdUsers.push(user);
-      console.log(`   ✅ Created user: ${user.name} (${user.role})`);
-    }
-
-    // Create trips
-    console.log('🏔️ Creating demo trips...');
-    const createdTrips: any[] = [];
-    
-    for (let i = 0; i < demoTrips.length; i++) {
-      const tripData = demoTrips[i];
-      const organizer = createdUsers.find(user => user.role === 'organizer');
-      
-      // Add some participants to trips
-      const participants = [];
-      if (i === 0) { // First trip has 2 participants
-        participants.push(createdUsers[1]._id.toString(), createdUsers[2]._id.toString());
-      } else if (i === 1) { // Second trip has 1 participant
-        participants.push(createdUsers[1]._id.toString());
-      }
-      
-      const trip = await Trip.create({
-        ...tripData,
-        organizerId: organizer!._id,
-        participants,
-        status: 'active',
-        images: [], // Will add default images later
-        createdAt: new Date(),
-        updatedAt: new Date()
-      });
-      
-      createdTrips.push(trip);
-      console.log(`   ✅ Created trip: ${trip.title} (${participants.length} participants)`);
-    }
-
-    // Create reviews for trips with participants
-    console.log('⭐ Creating demo reviews...');
-    let reviewIndex = 0;
-    
-    for (let i = 0; i < 2; i++) { // Only first 2 trips get reviews
-      const trip = createdTrips[i];
-      const participant = createdUsers[1]; // John Explorer reviews both
-      
-      if (reviewIndex < demoReviews.length) {
-        const reviewData = demoReviews[reviewIndex];
-        
-        const review = await Review.create({
-          targetId: trip._id,
-          reviewerId: participant._id,
-          ...reviewData
-        });
-        
-        console.log(`   ✅ Created review for: ${trip.title} (${review.rating} stars)`);
-        reviewIndex++;
-      }
-    }
-
-    console.log('\n🎉 Database seeding completed successfully!');
-    console.log('\n📊 Summary:');
-    console.log(`   👥 Users: ${createdUsers.length}`);
-    console.log(`   🏔️ Trips: ${createdTrips.length}`);
-    console.log(`   ⭐ Reviews: ${reviewIndex}`);
-    
-    console.log('\n🔑 Test Accounts:');
-    console.log('   📧 Organizer: sarah@trekkertribe.com / password123');
-    console.log('   📧 Traveler: john@trekkertribe.com / password123');
-    console.log('   📧 Admin: admin@trekkertribe.com / admin123');
-    
-    console.log('\n🚀 You can now start the application and see demo data!');
+    console.log('⚠️  This script has been disabled to prevent fake data seeding.');
+    console.log('📝 Only preset admin/agent users should be created via setup-preset-users.ts');
+    console.log('🚫 All fake data (demo users, trips, reviews) has been removed.');
+    console.log('\n✅ To set up admin/agent users, run: npm run setup-preset-users');
     
   } catch (error) {
-    console.error('❌ Error seeding database:', error);
+    console.error('❌ Error:', error);
   } finally {
     await mongoose.disconnect();
     console.log('👋 Disconnected from MongoDB');
   }
 }
 
-// Run the seeder
-seedDatabase();
+// Run the seeder (disabled)
+if (require.main === module) {
+  seedDatabase();
+}
