@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { Trip } from '../models/Trip';
+import { User } from '../models/User';
 import { authenticateJwt, requireRole } from '../middleware/auth';
 import { socketService } from '../services/socketService';
 
@@ -162,6 +163,29 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), asyncHandl
     
     const body = parsed;
     const organizerId = req.auth.userId;
+    
+    // Check if organizer has uploaded at least one QR code for payment
+    if (req.auth.role === 'organizer') {
+      const organizer = await User.findById(organizerId);
+      if (!organizer) {
+        return res.status(404).json({
+          success: false,
+          error: 'Organizer not found'
+        });
+      }
+      
+      const qrCodes = organizer.organizerProfile?.qrCodes || [];
+      const activeQRCodes = qrCodes.filter((qr: any) => qr.isActive !== false);
+      
+      if (activeQRCodes.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'Payment QR code required',
+          message: 'Please upload at least one payment QR code before creating a trip. You can upload QR codes from your profile settings.',
+          actionRequired: 'upload_qr_code'
+        });
+      }
+    }
     
     // Smart date validation - fix dates if needed instead of rejecting
     const now = new Date();

@@ -475,7 +475,18 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       // Enhanced error handling
       let errorMessage = 'Failed to create trip';
       
-      if (error.message) {
+      // Handle QR code requirement error specifically
+      if (error.response?.data?.actionRequired === 'upload_qr_code' || 
+          error.response?.data?.error === 'Payment QR code required' ||
+          error.response?.data?.message?.toLowerCase().includes('qr code')) {
+        errorMessage = error.response.data.message || 'Please upload at least one payment QR code before creating a trip. You can upload QR codes from your profile settings.';
+        // Optionally redirect to profile settings
+        setTimeout(() => {
+          if (window.confirm('Would you like to go to your profile settings to upload a QR code?')) {
+            navigate('/profile');
+          }
+        }, 2000);
+      } else if (error.message) {
         errorMessage = error.message;
       } else if (error.response?.data?.message) {
         errorMessage = error.response.data.message;

@@ -7,6 +7,12 @@ import { User } from '../models/User';
 
 async function createSampleTrips() {
   try {
+    console.log('⚠️  This script has been disabled to prevent fake data creation.');
+    console.log('📝 Organizers must create their own trips after uploading QR codes.');
+    console.log('🚫 Sample/fake trips are no longer created automatically.');
+    return;
+    
+    /* DISABLED - Fake data generation removed
     const mongoUri = process.env.MONGODB_URI;
     if (!mongoUri) {
       throw new Error('MONGODB_URI environment variable is required');
@@ -22,6 +28,7 @@ async function createSampleTrips() {
       return;
     }
 
+    /* DISABLED - Code below never executes
     const sampleTrips = [
       // Nature/Wildlife trips
       {
@@ -160,11 +167,15 @@ async function createSampleTrips() {
     console.log('- Cultural queries will find: Rajasthan Heritage Tour');
     console.log('- Adventure queries will find: Multiple adventure trips');
 
+    */
   } catch (error) {
-    console.error('❌ Error creating sample trips:', error);
+    console.error('❌ Error:', error);
   } finally {
-    await mongoose.disconnect();
-    console.log('👋 Disconnected from MongoDB');
+    // No connection made since script is disabled
+    if (mongoose.connection.readyState === 1) {
+      await mongoose.disconnect();
+      console.log('👋 Disconnected from MongoDB');
+    }
   }
 }
 

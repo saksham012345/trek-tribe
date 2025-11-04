@@ -37,25 +37,6 @@ const presetUsers = [
     isEmailVerified: true,
     profilePhoto: null
   },
-  {
-    name: 'Demo Organizer',
-    email: 'organizer@trekktribe.com',
-    phone: '+91-9999999997',
-    role: 'organizer',
-    password: 'Organizer@123',
-    bio: 'Demo Trek Organizer - Ready to create amazing adventures!',
-    location: 'Mumbai, India',
-    isEmailVerified: true,
-    profilePhoto: null,
-    organizerProfile: {
-      companyName: 'Adventure Trails Co.',
-      experience: '5+ years',
-      specialization: ['Himalayan Treks', 'Adventure Sports', 'Wildlife Safaris'],
-      certifications: ['Wilderness First Aid', 'Trek Leader Certification'],
-      languages: ['Hindi', 'English', 'Marathi'],
-      emergencyContact: '+91-9999999997'
-    }
-  }
 ];
 
 async function setupPresetUsers() {
@@ -135,12 +116,6 @@ async function setupPresetUsers() {
     console.log(`   Email: ${AGENT_EMAIL}`);
     console.log(`   Password: ${AGENT_PASSWORD}`);
     console.log('   Access: /agent/dashboard');
-    console.log('');
-    
-    console.log('🏔️  ORGANIZER LOGIN:');
-    console.log('   Email: organizer@trekktribe.com');
-    console.log('   Password: Organizer@123');
-    console.log('   Access: /organizer/dashboard');
     console.log('');
     
     console.log('='.repeat(50));
