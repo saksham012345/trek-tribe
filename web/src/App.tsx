@@ -22,6 +22,7 @@ const EnhancedProfilePage = React.lazy(() => import('./pages/EnhancedProfilePage
 const SearchPage = React.lazy(() => import('./pages/SearchPage'));
 const AgentDashboard = React.lazy(() => import('./pages/AgentDashboard'));
 const MyBookings = React.lazy(() => import('./pages/MyBookings'));
+const Wishlist = React.lazy(() => import('./pages/Wishlist'));
 const ForgotPassword = React.lazy(() => import('./components/auth/ForgotPassword'));
 const ResetPassword = React.lazy(() => import('./components/auth/ResetPassword'));
 const CookieSettings = React.lazy(() => import('./components/CookieSettings'));
@@ -109,6 +110,10 @@ function AppContent() {
             <Route 
               path="/my-bookings" 
               element={user ? <MyBookings /> : <Navigate to="/login" />} 
+            />
+            <Route 
+              path="/wishlist" 
+              element={user ? <Wishlist /> : <Navigate to="/login" />} 
             />
             <Route path="/search" element={user ? <SearchPage /> : <Navigate to="/login" />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
