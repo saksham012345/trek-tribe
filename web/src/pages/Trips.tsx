@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { Slider, Filter, Calendar, MapPin, DollarSign, ArrowUpDown } from 'lucide-react';
 import api from '../config/api';
 import JoinTripModal from '../components/JoinTripModal';
 import AISmartSearch from '../components/AISmartSearch';
 import AIRecommendations from '../components/AIRecommendations';
+import SaveTripButton from '../components/SaveTripButton';
+import SocialShareButtons from '../components/SocialShareButtons';
 import { User } from '../types';
 import { getTripShareUrl } from '../utils/config';
 
@@ -30,14 +33,25 @@ interface TripsProps {
 
 const Trips: React.FC<TripsProps> = ({ user }) => {
   const [trips, setTrips] = useState<Trip[]>([]);
+  const [filteredTrips, setFilteredTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [copySuccess, setCopySuccess] = useState<{[key: string]: boolean}>({});
+  const [showFilters, setShowFilters] = useState(false);
+  
+  // Advanced Filters
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 100000]);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [destination, setDestination] = useState('');
+  const [sortBy, setSortBy] = useState<'price' | 'date' | 'popularity' | 'newest'>('newest');
+  const [difficulty, setDifficulty] = useState<string>('');
 
   const categories = ['Adventure', 'Cultural', 'Beach', 'Mountain', 'City', 'Nature'];
+  const difficulties = ['Easy', 'Moderate', 'Difficult', 'Extreme'];
 
   useEffect(() => {
     const fetchTrips = async () => {
@@ -54,6 +68,13 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
         console.log(`✅ Received ${tripsData.length} trips from API:`, tripsData.map(t => ({ id: t._id, title: t.title })));
         
         setTrips(tripsData);
+        
+        // Calculate price range
+        if (tripsData.length > 0) {
+          const prices = tripsData.map(t => t.price);
+          const maxPrice = Math.max(...prices);
+          setPriceRange([0, Math.ceil(maxPrice / 1000) * 1000]);
+        }
       } catch (error: any) {
         console.error('❌ Error fetching trips:', error);
         console.error('Error details:', error.response?.data || error.message);
@@ -64,6 +85,52 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
 
     fetchTrips();
   }, [searchTerm, selectedCategory]);
+
+  // Apply filters and sorting
+  useEffect(() => {
+    let filtered = [...trips];
+
+    // Price filter
+    filtered = filtered.filter(trip => 
+      trip.price >= priceRange[0] && trip.price <= priceRange[1]
+    );
+
+    // Date filter
+    if (startDate) {
+      filtered = filtered.filter(trip => 
+        new Date(trip.startDate) >= new Date(startDate)
+      );
+    }
+    if (endDate) {
+      filtered = filtered.filter(trip => 
+        new Date(trip.endDate) <= new Date(endDate)
+      );
+    }
+
+    // Destination filter
+    if (destination) {
+      filtered = filtered.filter(trip =>
+        trip.destination.toLowerCase().includes(destination.toLowerCase())
+      );
+    }
+
+    // Sort
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'price':
+          return a.price - b.price;
+        case 'date':
+          return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+        case 'popularity':
+          return b.participants.length - a.participants.length;
+        case 'newest':
+        default:
+          return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
+      }
+    });
+
+    setFilteredTrips(filtered);
+  }, [trips, priceRange, startDate, endDate, destination, sortBy]);
 
   const handleJoinTrip = (trip: Trip) => {
     if (!user) {
@@ -152,32 +219,132 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
           
           {/* Traditional Search and Filter - Backup */}
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-forest-200 mb-8">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-forest-500">🔍</span>
-                  <input
-                    type="text"
-                    placeholder="Or use traditional search..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border-2 border-forest-200 rounded-xl focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
-                  />
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1">
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-forest-500">🔍</span>
+                    <input
+                      type="text"
+                      placeholder="Search trips..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 border-2 border-forest-200 rounded-xl focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
+                    />
+                  </div>
                 </div>
-              </div>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-forest-500">🎯</span>
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="pl-10 pr-8 py-3 border-2 border-forest-200 rounded-xl focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50 appearance-none min-w-[200px]"
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-forest-500">🎯</span>
+                  <select
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    className="pl-10 pr-8 py-3 border-2 border-forest-200 rounded-xl focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50 appearance-none min-w-[200px]"
+                  >
+                    <option value="">All Categories</option>
+                    {categories.map(category => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="flex items-center gap-2 px-4 py-3 bg-nature-600 text-white rounded-xl hover:bg-nature-700 transition-colors font-medium"
                 >
-                  <option value="">All Adventures</option>
-                  {categories.map(category => (
-                    <option key={category} value={category}>{category}</option>
-                  ))}
-                </select>
+                  <Filter className="w-5 h-5" />
+                  <span>Filters</span>
+                </button>
               </div>
+
+              {/* Advanced Filters Panel */}
+              {showFilters && (
+                <div className="border-t border-forest-200 pt-4 mt-4 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Price Range */}
+                    <div>
+                      <label className="block text-sm font-semibold text-forest-700 mb-2 flex items-center gap-2">
+                        <DollarSign className="w-4 h-4" />
+                        Price Range
+                      </label>
+                      <div className="space-y-2">
+                        <input
+                          type="range"
+                          min={0}
+                          max={priceRange[1]}
+                          step={1000}
+                          value={priceRange[1]}
+                          onChange={(e) => setPriceRange([priceRange[0], parseInt(e.target.value)])}
+                          className="w-full"
+                        />
+                        <div className="flex justify-between text-xs text-gray-600">
+                          <span>₹{priceRange[0].toLocaleString()}</span>
+                          <span>₹{priceRange[1].toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Start Date */}
+                    <div>
+                      <label className="block text-sm font-semibold text-forest-700 mb-2 flex items-center gap-2">
+                        <Calendar className="w-4 h-4" />
+                        Start Date
+                      </label>
+                      <input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="w-full px-3 py-2 border-2 border-forest-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-nature-500"
+                      />
+                    </div>
+
+                    {/* End Date */}
+                    <div>
+                      <label className="block text-sm font-semibold text-forest-700 mb-2 flex items-center gap-2">
+                        <Calendar className="w-4 h-4" />
+                        End Date
+                      </label>
+                      <input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="w-full px-3 py-2 border-2 border-forest-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-nature-500"
+                      />
+                    </div>
+
+                    {/* Destination */}
+                    <div>
+                      <label className="block text-sm font-semibold text-forest-700 mb-2 flex items-center gap-2">
+                        <MapPin className="w-4 h-4" />
+                        Destination
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Location..."
+                        value={destination}
+                        onChange={(e) => setDestination(e.target.value)}
+                        className="w-full px-3 py-2 border-2 border-forest-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-nature-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Sort By */}
+                  <div className="flex items-center gap-4">
+                    <label className="text-sm font-semibold text-forest-700 flex items-center gap-2">
+                      <ArrowUpDown className="w-4 h-4" />
+                      Sort By:
+                    </label>
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value as any)}
+                      className="px-4 py-2 border-2 border-forest-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-nature-500"
+                    >
+                      <option value="newest">Newest First</option>
+                      <option value="price">Price: Low to High</option>
+                      <option value="date">Date: Soonest First</option>
+                      <option value="popularity">Most Popular</option>
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -188,7 +355,7 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {trips.map((trip) => (
+            {filteredTrips.map((trip) => (
               <div key={trip._id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                 <div className="relative h-48 overflow-hidden">
                   {/* Try to display organizer uploaded images first */}
@@ -217,7 +384,8 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
                       <p className="text-sm opacity-90 font-medium">{trip.categories && trip.categories.length > 0 ? trip.categories[0] : 'Adventure'}</p>
                     </div>
                   </div>
-                  <div className="absolute top-4 right-4">
+                  <div className="absolute top-4 right-4 flex gap-2">
+                    <SaveTripButton tripId={trip._id} size="md" className="z-10" />
                     <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 text-forest-800 text-sm font-semibold">
                       ₹{trip.price.toLocaleString()}
                     </div>
@@ -250,27 +418,20 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
                     ))}
                   </div>
 
-                  <div className="flex justify-between items-center">
-                    <span className="text-2xl font-bold text-nature-600">₹{trip.price}</span>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-2xl font-bold text-nature-600">₹{trip.price}</span>
+                      <SocialShareButtons
+                        tripId={trip._id}
+                        tripTitle={trip.title}
+                        tripDescription={trip.description}
+                        variant="icon-only"
+                      />
+                    </div>
                     <div className="flex gap-2">
-                      <button
-                        onClick={() => handleShareTrip(trip._id)}
-                        className="bg-forest-50 hover:bg-forest-100 text-forest-600 p-2 rounded-lg font-medium text-sm transition-all duration-300 border border-forest-200"
-                        title="Share this adventure"
-                      >
-                        {copySuccess[trip._id] ? (
-                          <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        ) : (
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
-                          </svg>
-                        )}
-                      </button>
                       <Link
                         to={`/trip/${trip._id}`}
-                        className="bg-forest-100 hover:bg-forest-200 text-forest-700 px-3 py-2 rounded-lg font-medium text-sm transition-all duration-300 border border-forest-200"
+                        className="flex-1 bg-forest-100 hover:bg-forest-200 text-forest-700 px-3 py-2 rounded-lg font-medium text-sm transition-all duration-300 border border-forest-200 text-center"
                       >
                         👁️ View Details
                       </Link>
@@ -304,7 +465,7 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
           </div>
         )}
 
-        {trips.length === 0 && !loading && (
+        {filteredTrips.length === 0 && !loading && (
           <div className="text-center py-16">
             <div className="max-w-md mx-auto">
               <div className="text-6xl mb-6">🏔️</div>
@@ -358,7 +519,7 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
         )}
 
         {/* AI Recommendations Section */}
-        {!loading && trips.length > 0 && (
+        {!loading && filteredTrips.length > 0 && (
           <div className="mt-16 bg-gradient-to-br from-purple-50 to-blue-50 rounded-2xl p-8">
             <div className="text-center mb-8">
               <h2 className="text-3xl font-bold text-gray-800 mb-4">

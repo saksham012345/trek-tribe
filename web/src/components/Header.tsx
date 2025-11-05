@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { User } from '../types';
+import NotificationCenter from './NotificationCenter';
 
 interface HeaderProps {
   user: User | null;
@@ -91,6 +92,15 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
             {/* Desktop user menu */}
             {user ? (
               <div className="hidden md:flex items-center space-x-3">
+                {/* Notification Center */}
+                <NotificationCenter />
+                
+                <Link 
+                  to="/wishlist" 
+                  className="text-forest-700 hover:text-red-600 hover:bg-red-50 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2"
+                >
+                  ❤️ Wishlist
+                </Link>
                 <Link 
                   to="/my-bookings" 
                   className="text-forest-700 hover:text-nature-600 hover:bg-forest-50 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2"
@@ -209,6 +219,17 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
               <div className="border-t border-forest-100 pt-4 mt-4">
                 {user ? (
                   <div className="space-y-2">
+                    <div className="flex items-center gap-2 px-4 py-3">
+                      <NotificationCenter />
+                      <span className="text-forest-700 font-medium">Notifications</span>
+                    </div>
+                    <Link 
+                      to="/wishlist" 
+                      onClick={closeMobileMenu}
+                      className="block text-forest-700 hover:text-red-600 hover:bg-red-50 px-4 py-3 rounded-xl text-base font-medium transition-all duration-300"
+                    >
+                      ❤️ Wishlist
+                    </Link>
                     <Link 
                       to="/my-bookings" 
                       onClick={closeMobileMenu}
