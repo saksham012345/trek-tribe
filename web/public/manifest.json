@@ -1,0 +1,28 @@
+{
+  "short_name": "TrekTribe",
+  "name": "TrekTribe - Travel Together",
+  "description": "Connect with amazing trip organizers and discover incredible adventures",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "logo-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#1a2e05",
+  "background_color": "#ffffff",
+  "categories": ["travel", "lifestyle", "social"]
+}
