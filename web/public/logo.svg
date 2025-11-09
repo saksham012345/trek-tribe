@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 80" width="200" height="80">
+  <defs>
+    <style>
+      .outer-ring { fill: #1a2e05; }
+      .mountains { fill: #ffffff; stroke: #1a2e05; stroke-width: 1; }
+      .compass-n { fill: #1a2e05; font-family: Arial, sans-serif; font-size: 8px; font-weight: bold; text-anchor: middle; }
+      .compass-pointers { fill: #2D5A3D; }
+      .inner-bg { fill: #f8f9fa; }
+      .tent-left { fill: #495057; }
+      .tent-right { fill: #1a2e05; }
+      .campfire-logs { fill: #495057; }
+      .campfire-flames { fill: #ff6b35; }
+      .trekkers { fill: #495057; }
+      .ground { fill: #495057; }
+      .brand-text { fill: #1a2e05; font-family: Arial, sans-serif; font-size: 18px; font-weight: bold; }
+    </style>
+  </defs>
+  
+  <!-- Circular emblem -->
+  <g transform="translate(40, 10)">
+    <!-- Outer ring -->
+    <circle cx="30" cy="30" r="28" class="outer-ring"/>
+    
+    <!-- Mountains breaking the ring -->
+    <path d="M15 30 L20 10 L25 12 L30 8 L35 10 L40 12 L45 30 Z" class="mountains"/>
+    
+    <!-- Compass N -->
+    <text x="30" y="12" class="compass-n">N</text>
+    
+    <!-- Compass pointers -->
+    <path d="M10 30 L18 30 M42 30 L50 30" stroke="#2D5A3D" stroke-width="2"/>
+    <path d="M30 10 L30 18" stroke="#2D5A3D" stroke-width="2"/>
+    
+    <!-- Inner circle background -->
+    <circle cx="30" cy="30" r="22" class="inner-bg"/>
+    
+    <!-- Tent -->
+    <path d="M25 45 L30 25 L35 45 Z" class="tent-left"/>
+    <path d="M30 25 L35 45 L40 45 Z" class="tent-right"/>
+    <line x1="25" y1="45" x2="40" y2="45" stroke="#1a2e05" stroke-width="1"/>
+    
+    <!-- Campfire -->
+    <rect x="28" y="46" width="4" height="2" class="campfire-logs"/>
+    <path d="M28 46 L29 42 L30 46 L31 42 L32 46 Z" class="campfire-flames"/>
+    
+    <!-- Ground line -->
+    <path d="M15 52 Q30 50 45 52" stroke="#495057" stroke-width="2" fill="none"/>
+    
+    <!-- Trekkers -->
+    <circle cx="18" cy="55" r="2" class="trekkers"/>
+    <rect x="17" y="57" width="2" height="4" class="trekkers"/>
+    <rect x="16" y="60" width="4" height="1" class="trekkers"/>
+    
+    <circle cx="25" cy="55" r="2" class="trekkers"/>
+    <rect x="24" y="57" width="2" height="4" class="trekkers"/>
+    <rect x="23" y="60" width="4" height="1" class="trekkers"/>
+    
+    <circle cx="35" cy="55" r="2" class="trekkers"/>
+    <rect x="34" y="57" width="2" height="4" class="trekkers"/>
+    <rect x="33" y="60" width="4" height="1" class="trekkers"/>
+  </g>
+  
+  <!-- Brand text -->
+  <text x="90" y="40" class="brand-text">TREK TRIBE</text>
+</svg>
