@@ -47,7 +47,7 @@ export interface VerificationChecklist {
   backgroundCheck: boolean;
 }
 
-export interface KYCDocument extends Document {
+export interface KYCDocumentInterface extends Document {
   userId: Types.ObjectId;
   userRole: 'organizer' | 'agent';
   
@@ -82,7 +82,7 @@ export interface KYCDocument extends Document {
   bankDetails?: BankDetails;
   
   // Verification Status
-  status: KYCStatus;
+  status: 'pending' | 'under_review' | 'approved' | 'rejected' | 'resubmission_required';
   verificationChecklist: VerificationChecklist;
   
   // Admin Review
@@ -115,6 +115,15 @@ export interface KYCDocument extends Document {
   
   createdAt: Date;
   updatedAt: Date;
+  
+  // Virtuals
+  completionPercentage: number;
+  isFullyVerified: boolean;
+  
+  // Methods
+  approve(adminId: Types.ObjectId, notes?: string): Promise<this>;
+  reject(adminId: Types.ObjectId, reason: string, notes?: string): Promise<this>;
+  requestResubmission(adminId: Types.ObjectId, reason: string): Promise<this>;
 }
 
 const kycDocumentSchema = new Schema({
@@ -351,7 +360,15 @@ kycSchema.pre('save', function(next) {
   
   // Determine verification badge based on trust score
   if (this.status === 'approved') {
-    if (this.trustScore >= 90 && this.isFullyVerified) {
+    const checklist = this.verificationChecklist;
+    const isFullyVerified = (
+      checklist.identityVerified &&
+      checklist.addressVerified &&
+      (this.userRole === 'agent' || checklist.businessVerified) &&
+      checklist.bankVerified
+    );
+    
+    if (this.trustScore >= 90 && isFullyVerified) {
       this.verificationBadge = 'premium';
     } else if (this.trustScore >= 70) {
       this.verificationBadge = 'verified';
@@ -438,4 +455,4 @@ kycSchema.statics.getStats = async function() {
 };
 
 export const KYC = (mongoose.models.KYC || 
-  mongoose.model('KYC', kycSchema)) as Model<KYCDocument>;
+  mongoose.model('KYC', kycSchema)) as Model<KYCDocumentInterface>;
