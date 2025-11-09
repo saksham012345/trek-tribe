@@ -45,6 +45,27 @@ export interface PaymentConfig {
   instructions?: string;
 }
 
+// Live trip photos uploaded during trip by organizer
+export interface LiveTripPhoto {
+  url: string;
+  filename: string;
+  uploadedAt: Date;
+  caption?: string;
+  location?: string;
+  isThumbnail: boolean; // First uploaded photo is thumbnail
+}
+
+// Safety and trust features
+export interface SafetyInfo {
+  hasInsurance: boolean;
+  insuranceDetails?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  medicalFacilitiesNearby?: string;
+  safetyEquipment?: string[];
+  covidProtocol?: string;
+}
+
 export interface TripDocument extends Document {
   organizerId: Types.ObjectId;
   title: string;
@@ -56,7 +77,9 @@ export interface TripDocument extends Document {
   images: string[];
   coverImage?: string;
   itinerary?: string;
-  itineraryPdf?: string;
+  itineraryPdf?: string; // PDF URL - New: secure PDF upload
+  itineraryPdfFilename?: string; // Original filename
+  itineraryPdfUploadedAt?: Date;
   capacity: number;
   price: number;
   minimumAge?: number; // Minimum age requirement for travelers
@@ -74,6 +97,22 @@ export interface TripDocument extends Document {
   // Review and rating fields
   averageRating?: number;
   reviewCount?: number;
+  // NEW: Live trip photos (mandatory - minimum 1 required)
+  livePhotos: LiveTripPhoto[];
+  thumbnail?: string; // Auto-set from first live photo
+  // NEW: Verification and approval
+  verificationStatus: 'pending' | 'approved' | 'rejected';
+  verifiedBy?: Types.ObjectId; // Admin who verified
+  verifiedAt?: Date;
+  rejectionReason?: string;
+  adminNotes?: string;
+  // NEW: Safety and trust
+  safetyInfo?: SafetyInfo;
+  safetyDisclaimer: string; // Mandatory safety disclaimer
+  // NEW: Duplicate detection
+  contentHash?: string; // Hash for duplicate detection
+  isDuplicate: boolean;
+  originalTripId?: Types.ObjectId; // Reference to original if duplicate
   createdAt: Date;
   updatedAt: Date;
 }
@@ -121,6 +160,25 @@ const paymentConfigSchema = new Schema({
   instructions: { type: String }
 }, { _id: false });
 
+const livePhotoSchema = new Schema({
+  url: { type: String, required: true },
+  filename: { type: String, required: true },
+  uploadedAt: { type: Date, default: Date.now },
+  caption: { type: String, maxlength: 200 },
+  location: { type: String },
+  isThumbnail: { type: Boolean, default: false }
+}, { _id: false });
+
+const safetyInfoSchema = new Schema({
+  hasInsurance: { type: Boolean, default: false },
+  insuranceDetails: { type: String },
+  emergencyContactName: { type: String },
+  emergencyContactPhone: { type: String },
+  medicalFacilitiesNearby: { type: String },
+  safetyEquipment: [{ type: String }],
+  covidProtocol: { type: String }
+}, { _id: false });
+
 // Define schema without explicit generic type to avoid union complexity
 const tripSchema = new Schema(
   {
@@ -142,6 +200,8 @@ const tripSchema = new Schema(
     coverImage: { type: String },
     itinerary: { type: String },
     itineraryPdf: { type: String },
+    itineraryPdfFilename: { type: String },
+    itineraryPdfUploadedAt: { type: Date },
     capacity: { type: Number, required: true },
     price: { type: Number, required: true },
     minimumAge: { type: Number, min: 1, max: 100 }, // Optional minimum age requirement
@@ -159,6 +219,45 @@ const tripSchema = new Schema(
     // Review and rating fields
     averageRating: { type: Number, default: 0, min: 0, max: 5 },
     reviewCount: { type: Number, default: 0, min: 0 },
+    // Live trip photos (mandatory)
+    livePhotos: { 
+      type: [livePhotoSchema], 
+      default: [],
+      validate: {
+        validator: function(photos: any[]) {
+          // Only validate if trip has started (past startDate)
+          const trip = this as any;
+          if (trip.startDate && new Date() > new Date(trip.startDate)) {
+            return photos && photos.length > 0;
+          }
+          return true; // No validation before trip starts
+        },
+        message: 'At least one live photo is required after trip starts'
+      }
+    },
+    thumbnail: { type: String },
+    // Verification and approval
+    verificationStatus: { 
+      type: String, 
+      enum: ['pending', 'approved', 'rejected'], 
+      default: 'pending',
+      index: true
+    },
+    verifiedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    verifiedAt: { type: Date },
+    rejectionReason: { type: String },
+    adminNotes: { type: String, maxlength: 1000 },
+    // Safety and trust
+    safetyInfo: { type: safetyInfoSchema },
+    safetyDisclaimer: { 
+      type: String, 
+      required: true,
+      default: 'This trip involves physical activity and potential risks. Participants must be in good health and follow safety guidelines. The organizer is not liable for accidents, injuries, or loss of belongings. Travel insurance is recommended.'
+    },
+    // Duplicate detection
+    contentHash: { type: String, index: true },
+    isDuplicate: { type: Boolean, default: false, index: true },
+    originalTripId: { type: Schema.Types.ObjectId, ref: 'Trip' },
   },
   { timestamps: true }
 );
