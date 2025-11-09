@@ -67,8 +67,7 @@ async function setupPresetUsers() {
             passwordHash: hashedPassword,
             role: userData.role,
             bio: userData.bio,
-            emailVerified: true,
-            ...(userData.organizerProfile && { organizerProfile: userData.organizerProfile })
+            emailVerified: true
           });
           
           console.log(`✅ Updated ${userData.role}: ${userData.email}`);
@@ -83,10 +82,9 @@ async function setupPresetUsers() {
             passwordHash: hashedPassword,
             role: userData.role,
             bio: userData.bio,
-            location: userData.location || 'India',
+            location: 'India',
             emailVerified: true,
-            profilePhoto: userData.profilePhoto,
-            ...(userData.organizerProfile && { organizerProfile: userData.organizerProfile })
+            profilePhoto: userData.profilePhoto
           });
           
           console.log(`✅ Created ${userData.role}: ${userData.email} (ID: ${newUser._id})`);

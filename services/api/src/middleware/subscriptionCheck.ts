@@ -5,11 +5,6 @@ import { Types } from 'mongoose';
 declare global {
   namespace Express {
     interface Request {
-      user?: {
-        id: string;
-        role: string;
-        email: string;
-      };
       subscription?: any;
     }
   }
@@ -32,7 +27,7 @@ export const checkSubscription = async (
     const userId = new Types.ObjectId(req.user.id);
     
     // Check if organizer can create trip
-    const check = await OrganizerSubscription.canCreateTrip(userId);
+    const check = await (OrganizerSubscription as any).canCreateTrip(userId);
     
     if (!check.allowed) {
       return res.status(403).json({
@@ -82,7 +77,7 @@ export const useSubscriptionSlot = async (
     const tripTitle = res.locals.createdTripTitle;
 
     if (tripId && tripTitle) {
-      await subscription.useTripSlot(tripId, tripTitle);
+      await (subscription as any).useTripSlot(tripId, tripTitle);
       console.log(`✅ Used trip slot for organizer ${userId}. ${subscription.tripsRemaining} slots remaining.`);
     }
 
