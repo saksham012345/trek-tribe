@@ -195,6 +195,10 @@ router.post('/google', async (req, res) => {
       { expiresIn: '7d' }
     );
 
+    // Check if profile is incomplete (no phone or default role for new users)
+    const isNewUser = !user.phone;
+    const needsRoleSelection = user.role === 'traveler' && !user.phone; // New Google users need role selection
+
     res.json({ 
       token,
       user: {
@@ -202,8 +206,10 @@ router.post('/google', async (req, res) => {
         email: user.email,
         name: user.name,
         role: user.role,
-        profilePhoto: user.profilePhoto
-      }
+        profilePhoto: user.profilePhoto,
+        phone: user.phone
+      },
+      requiresProfileCompletion: isNewUser || needsRoleSelection
     });
 
   } catch (error: any) {
@@ -510,6 +516,192 @@ router.post('/verify-email/verify-otp', async (req, res) => {
   }
 });
 
-export default router;
+// Phone verification - Send OTP
+const sendPhoneOtpSchema = z.object({
+  phone: z.string().regex(/^[+]?[1-9]\d{1,14}$/)
+});
 
+router.post('/verify-phone/send-otp', authenticateJwt, async (req, res) => {
+  try {
+    const parsed = sendPhoneOtpSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid phone number', details: parsed.error.flatten() });
+    }
+
+    const { phone } = parsed.data;
+    const userId = (req as any).auth.userId;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Throttle resend: 60 seconds between sends
+    const now = new Date();
+    if (user.phoneVerificationLastSentAt && now.getTime() - user.phoneVerificationLastSentAt.getTime() < 60 * 1000) {
+      return res.status(429).json({ error: 'Please wait before requesting another code.' });
+    }
+
+    // Generate 6-digit OTP
+    const otp = String(crypto.randomInt(100000, 999999));
+    const otpHash = await bcrypt.hash(otp, 10);
+
+    user.phoneVerificationOtpHash = otpHash;
+    user.phoneVerificationExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    user.phoneVerificationAttempts = 0;
+    user.phoneVerificationLastSentAt = now;
+    await user.save();
+
+    // TODO: Integrate with SMS service (Twilio, AWS SNS, etc.)
+    // For now, log OTP in development
+    if (process.env.NODE_ENV === 'development') {
+      logger.info('Phone OTP (DEV MODE)', { phone, otp });
+    }
+
+    // In production, send via SMS service
+    // await smsService.sendOTP({ phone, otp });
+
+    return res.json({ 
+      message: 'OTP sent to your phone number',
+      // In dev mode, return OTP for testing
+      ...(process.env.NODE_ENV === 'development' && { otp })
+    });
+  } catch (error: any) {
+    logger.error('Error sending phone OTP', { error: error.message });
+    return res.status(500).json({ error: 'Failed to send OTP' });
+  }
+});
+
+// Phone verification - Verify OTP
+const verifyPhoneOtpSchema = z.object({
+  phone: z.string().regex(/^[+]?[1-9]\d{1,14}$/),
+  otp: z.string().regex(/^\d{6}$/)
+});
+
+router.post('/verify-phone/verify-otp', authenticateJwt, async (req, res) => {
+  try {
+    const parsed = verifyPhoneOtpSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() });
+    }
+
+    const { phone, otp } = parsed.data;
+    const userId = (req as any).auth.userId;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.phoneVerified) {
+      return res.json({ message: 'Phone already verified.' });
+    }
+
+    if (!user.phoneVerificationOtpHash || !user.phoneVerificationExpires) {
+      return res.status(400).json({ error: 'No active verification. Please request a new code.' });
+    }
+
+    if (user.phoneVerificationExpires.getTime() < Date.now()) {
+      user.phoneVerificationOtpHash = undefined;
+      user.phoneVerificationExpires = undefined;
+      await user.save();
+      return res.status(400).json({ error: 'Code expired. Please request a new one.' });
+    }
+
+    // Limit attempts to 5
+    const attempts = user.phoneVerificationAttempts || 0;
+    if (attempts >= 5) {
+      user.phoneVerificationOtpHash = undefined;
+      user.phoneVerificationExpires = undefined;
+      user.phoneVerificationAttempts = 0;
+      await user.save();
+      return res.status(429).json({ error: 'Too many attempts. Request a new code.' });
+    }
+
+    const ok = await bcrypt.compare(otp, user.phoneVerificationOtpHash);
+    if (!ok) {
+      user.phoneVerificationAttempts = attempts + 1;
+      await user.save();
+      return res.status(400).json({ error: 'Invalid code' });
+    }
+
+    // Success: mark verified, set phone, and clear OTP fields
+    user.phoneVerified = true;
+    user.phone = phone;
+    user.phoneVerificationOtpHash = undefined;
+    user.phoneVerificationExpires = undefined;
+    user.phoneVerificationAttempts = 0;
+    await user.save();
+
+    return res.json({ message: 'Phone verified successfully.' });
+  } catch (error: any) {
+    logger.error('Error verifying phone OTP', { error: error.message });
+    return res.status(500).json({ error: 'Verification failed' });
+  }
+});
+
+// Update user role and profile after Google signup
+const completeProfileSchema = z.object({
+  role: z.enum(['traveler', 'organizer']),
+  phone: z.string().regex(/^[+]?[1-9]\d{1,14}$/),
+  organizerProfile: z.object({
+    experience: z.string().optional(),
+    yearsOfExperience: z.number().optional(),
+    specialties: z.array(z.string()).optional(),
+    languages: z.array(z.string()).optional(),
+    bio: z.string().optional()
+  }).optional()
+});
+
+router.post('/complete-profile', authenticateJwt, async (req, res) => {
+  try {
+    const parsed = completeProfileSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid profile data', details: parsed.error.flatten() });
+    }
+
+    const { role, phone, organizerProfile } = parsed.data;
+    const userId = (req as any).auth.userId;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Verify phone is verified before completing profile
+    if (!user.phoneVerified) {
+      return res.status(400).json({ error: 'Please verify your phone number first' });
+    }
+
+    user.role = role;
+    user.phone = phone;
+
+    if (role === 'organizer' && organizerProfile) {
+      user.organizerProfile = {
+        ...user.organizerProfile,
+        ...organizerProfile
+      };
+    }
+
+    await user.save();
+
+    logger.info('Profile completed after Google signup', { userId, role });
+
+    return res.json({ 
+      message: 'Profile completed successfully',
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        phone: user.phone
+      }
+    });
+  } catch (error: any) {
+    logger.error('Error completing profile', { error: error.message });
+    return res.status(500).json({ error: 'Failed to complete profile' });
+  }
+});
+
+export default router;
 

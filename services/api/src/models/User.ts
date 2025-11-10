@@ -100,6 +100,11 @@ export interface UserDocument extends Document {
   emailVerificationExpires?: Date;
   emailVerificationAttempts?: number;
   emailVerificationLastSentAt?: Date;
+  phoneVerified?: boolean;
+  phoneVerificationOtpHash?: string;
+  phoneVerificationExpires?: Date;
+  phoneVerificationAttempts?: number;
+  phoneVerificationLastSentAt?: Date;
   verificationDocuments?: Array<{
     filename: string;
     originalName: string;
@@ -240,6 +245,11 @@ const userSchema = new Schema(
     emailVerificationExpires: { type: Date },
     emailVerificationAttempts: { type: Number, default: 0 },
     emailVerificationLastSentAt: { type: Date },
+    phoneVerified: { type: Boolean, default: false },
+    phoneVerificationOtpHash: { type: String },
+    phoneVerificationExpires: { type: Date },
+    phoneVerificationAttempts: { type: Number, default: 0 },
+    phoneVerificationLastSentAt: { type: Date },
     verificationDocuments: [{
       filename: { type: String, required: true },
       originalName: { type: String, required: true },

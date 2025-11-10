@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import CompleteProfileModal from './CompleteProfileModal';
+import api from '../config/api';
 
 interface GoogleLoginButtonProps {
   onSuccess?: () => void;
@@ -30,18 +32,53 @@ const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
   const buttonRef = useRef<HTMLDivElement>(null);
   const scriptLoaded = useRef(false);
   const [gisReady, setGisReady] = useState(false);
+  const [showCompleteProfile, setShowCompleteProfile] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
 
   const handleGoogleResponse = async (response: { credential: string }) => {
     try {
-      const result = await login(response.credential, 'google');
-      if (result.success) {
-        onSuccess?.();
+      const authResponse = await api.post('/auth/google', {
+        credential: response.credential
+      });
+
+      const { token, user, requiresProfileCompletion } = authResponse.data;
+      
+      // Store token
+      localStorage.setItem('token', token);
+      
+      // Check if profile needs completion
+      if (requiresProfileCompletion) {
+        setUserEmail(user.email);
+        setShowCompleteProfile(true);
       } else {
-        onError?.(result.error || 'Google login failed');
+        // Profile is complete, proceed with normal login
+        const result = await login(response.credential, 'google');
+        if (result.success) {
+          onSuccess?.();
+        } else {
+          onError?.(result.error || 'Google login failed');
+        }
       }
     } catch (error: any) {
       console.error('Google login error:', error);
       onError?.(error.message || 'Google login failed');
+    }
+  };
+
+  const handleProfileComplete = async () => {
+    setShowCompleteProfile(false);
+    
+    // Fetch updated user data
+    try {
+      const userResponse = await api.get('/auth/me');
+      if (userResponse.data?.user) {
+        // Trigger success callback which should refresh the app
+        onSuccess?.();
+      }
+    } catch (error) {
+      console.error('Error fetching user after profile completion:', error);
+      // Still trigger success, the app will handle the refresh
+      onSuccess?.();
     }
   };
 
@@ -126,41 +163,50 @@ const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
   };
 
   return (
-    <div className={className}>
-      <div
-        ref={buttonRef}
-        className="w-full flex items-center justify-center min-h-[42px]"
-      />
-      {!gisReady && clientId && (
-        <button
-          type="button"
-          onClick={tryPrompt}
-          className="w-full mt-2 border border-forest-300 rounded-md py-2 text-forest-700 hover:bg-forest-50"
-        >
-          Continue with Google
-        </button>
-      )}
-      {!clientId && (
-        <div className="w-full mt-2">
+    <>
+      <div className={className}>
+        <div
+          ref={buttonRef}
+          className="w-full flex items-center justify-center min-h-[42px]"
+        />
+        {!gisReady && clientId && (
           <button
             type="button"
-            disabled
-            title="Google Sign-In is not configured"
-            className="w-full border border-red-200 bg-red-50 text-red-600 rounded-md py-2 cursor-not-allowed"
+            onClick={tryPrompt}
+            className="w-full mt-2 border border-forest-300 rounded-md py-2 text-forest-700 hover:bg-forest-50"
           >
-            Continue with Google (not configured)
+            Continue with Google
           </button>
-          <div className="text-xs text-red-600 mt-1">
-            Set REACT_APP_GOOGLE_CLIENT_ID in your environment to enable Google login.
+        )}
+        {!clientId && (
+          <div className="w-full mt-2">
+            <button
+              type="button"
+              disabled
+              title="Google Sign-In is not configured"
+              className="w-full border border-red-200 bg-red-50 text-red-600 rounded-md py-2 cursor-not-allowed"
+            >
+              Continue with Google (not configured)
+            </button>
+            <div className="text-xs text-red-600 mt-1">
+              Set REACT_APP_GOOGLE_CLIENT_ID in your environment to enable Google login.
+            </div>
           </div>
-        </div>
-      )}
-      <noscript>
-        <div className="text-center text-gray-500 text-sm mt-2">
-          JavaScript is required for Google Sign-In
-        </div>
-      </noscript>
-    </div>
+        )}
+        <noscript>
+          <div className="text-center text-gray-500 text-sm mt-2">
+            JavaScript is required for Google Sign-In
+          </div>
+        </noscript>
+      </div>
+      
+      {/* Profile Completion Modal */}
+      <CompleteProfileModal
+        open={showCompleteProfile}
+        onComplete={handleProfileComplete}
+        userEmail={userEmail}
+      />
+    </>
   );
 };
 
