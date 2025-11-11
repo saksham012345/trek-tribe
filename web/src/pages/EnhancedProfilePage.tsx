@@ -266,33 +266,7 @@ const EnhancedProfilePage: React.FC = () => {
     );
   }
 
-  // Restrict enhanced profiles to organizers only
-  if (profile.role !== 'organizer') {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900">Enhanced Profiles for Organizers Only</h2>
-          <p className="text-gray-600 mt-2">
-            Enhanced profiles with social features are only available for trip organizers.
-          </p>
-          <div className="mt-6 flex gap-4 justify-center">
-            <button
-              onClick={() => navigate('/search')}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Find Organizers
-            </button>
-            <button
-              onClick={() => navigate('/home')}
-              className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-            >
-              Go Home
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // All roles can have profiles now
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
@@ -309,13 +283,16 @@ const EnhancedProfilePage: React.FC = () => {
         {/* Action buttons for own profile */}
         {isOwnProfile && (
           <div className="flex gap-4 mb-6">
-            <button
-              onClick={() => setShowPostCreator(true)}
-              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 flex items-center gap-2 shadow-lg"
-            >
-              <span className="text-xl">✍️</span>
-              Create Post
-            </button>
+            {/* Only organizers can create posts */}
+            {profile.role === 'organizer' && (
+              <button
+                onClick={() => setShowPostCreator(true)}
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 flex items-center gap-2 shadow-lg"
+              >
+                <span className="text-xl">✍️</span>
+                Create Post
+              </button>
+            )}
             <button
               onClick={() => setEditing(!editing)}
               className={`px-6 py-3 rounded-lg transition-all duration-200 flex items-center gap-2 ${
@@ -505,16 +482,17 @@ const EnhancedProfilePage: React.FC = () => {
           </div>
         )}
 
-        {/* Content tabs */}
-        <div className="bg-white rounded-2xl shadow-xl">
-          {/* Tab navigation */}
-          <div className="border-b border-gray-200">
-            <nav className="flex space-x-8 px-6">
-              {[
-                { id: 'posts', label: 'Posts', icon: '📝', count: posts.length },
-                { id: 'past-trips', label: 'Past Trips', icon: '🏔️', count: pastTrips.length },
-                { id: 'links', label: 'Links', icon: '🔗', count: userLinks.length }
-              ].map((tab) => (
+        {/* Content tabs - only show for organizers */}
+        {profile.role === 'organizer' ? (
+          <div className="bg-white rounded-2xl shadow-xl">
+            {/* Tab navigation */}
+            <div className="border-b border-gray-200">
+              <nav className="flex space-x-8 px-6">
+                {[
+                  { id: 'posts', label: 'Posts', icon: '📝', count: posts.length, show: true },
+                  { id: 'past-trips', label: 'Past Trips', icon: '🏔️', count: pastTrips.length, show: isOwnProfile },
+                  { id: 'links', label: 'Links', icon: '🔗', count: userLinks.length, show: isOwnProfile }
+                ].filter(tab => tab.show).map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
@@ -545,9 +523,9 @@ const EnhancedProfilePage: React.FC = () => {
                     <div className="text-6xl mb-4">📝</div>
                     <h3 className="text-xl font-semibold text-gray-900 mb-2">No posts yet</h3>
                     <p className="text-gray-600 mb-6">
-                      {isOwnProfile ? 'Start sharing your adventures with the community!' : 'This user hasn\'t posted anything yet.'}
+                      {isOwnProfile ? (profile.role === 'organizer' ? 'Start sharing your adventures with the community!' : 'Posts are only available for organizers') : 'This user hasn\'t posted anything yet.'}
                     </p>
-                    {isOwnProfile && (
+                    {isOwnProfile && profile.role === 'organizer' && (
                       <button
                         onClick={() => setShowPostCreator(true)}
                         className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -645,10 +623,46 @@ const EnhancedProfilePage: React.FC = () => {
             )}
           </div>
         </div>
+        ) : (
+          /* Non-organizer profile - show basic info */
+          <div className="bg-white rounded-2xl shadow-xl p-8">
+            <div className="text-center py-12">
+              <div className="text-6xl mb-4">
+                {profile.role === 'admin' ? '🛠️' : profile.role === 'agent' ? '🎧' : '🎪'}
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                {profile.role === 'admin' ? 'Admin Profile' : profile.role === 'agent' ? 'Agent Profile' : 'Traveler Profile'}
+              </h3>
+              <p className="text-gray-600 max-w-md mx-auto">
+                {profile.role === 'admin' 
+                  ? 'Platform administrator with full system access'
+                  : profile.role === 'agent'
+                  ? 'Customer support agent helping travelers find their perfect adventure'
+                  : 'Adventure seeker exploring amazing destinations'}
+              </p>
+              {profile.bio && (
+                <div className="mt-6 p-4 bg-gray-50 rounded-lg max-w-2xl mx-auto">
+                  <p className="text-gray-700">{profile.bio}</p>
+                </div>
+              )}
+              {profile.location && (
+                <div className="mt-4 flex items-center justify-center gap-2 text-gray-600">
+                  <span>📍</span>
+                  <span>{profile.location}</span>
+                </div>
+              )}
+              <div className="mt-8">
+                <p className="text-sm text-gray-500">
+                  Member since {new Date(profile.createdAt).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Post Creator Modal */}
-      {showPostCreator && (
+      {/* Post Creator Modal - only for organizers */}
+      {showPostCreator && profile.role === 'organizer' && (
         <PostCreator
           onPostCreated={handlePostCreated}
           onClose={() => setShowPostCreator(false)}

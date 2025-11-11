@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import api from '../config/api';
 import RoleSelectModal from '../components/RoleSelectModal';
 import GoogleLoginButton from '../components/GoogleLoginButton';
@@ -11,6 +12,7 @@ interface RegisterProps {
 
 const Register: React.FC<RegisterProps> = ({ onLogin }) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -32,6 +34,13 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
     languages?: string[];
     bio?: string;
   } | undefined>(undefined);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      navigate('/', { replace: true });
+    }
+  }, [user, navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     // Clear error when user starts typing (indicates they're trying again)
@@ -173,23 +182,25 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
           {/* Right: Form card */}
           <div className="w-full space-y-6 sm:space-y-8">
             <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-6 sm:p-8 border border-forest-200">
-          {/* Google Sign-Up */}
-          <div className="space-y-3 mb-4">
-            <GoogleLoginButton 
-              className="w-full"
-              onError={(msg) => setError(msg || 'Google sign-in failed')}
-              onSuccess={() => {
-                setError('');
-                // After Google sign-in, collect role basics
-                setShowRoleModal(true);
-              }}
-            />
-            <div className="flex items-center gap-2">
-              <div className="h-px bg-forest-200 flex-1" />
-              <span className="text-forest-500 text-sm">or</span>
-              <div className="h-px bg-forest-200 flex-1" />
+          {/* Google Sign-Up - only show if not logged in */}
+          {!user && (
+            <div className="space-y-3 mb-4">
+              <GoogleLoginButton 
+                className="w-full"
+                onError={(msg) => setError(msg || 'Google sign-in failed')}
+                onSuccess={() => {
+                  setError('');
+                  // After Google sign-in, collect role basics
+                  setShowRoleModal(true);
+                }}
+              />
+              <div className="flex items-center gap-2">
+                <div className="h-px bg-forest-200 flex-1" />
+                <span className="text-forest-500 text-sm">or</span>
+                <div className="h-px bg-forest-200 flex-1" />
+              </div>
             </div>
-          </div>
+          )}
 
           <RoleSelectModal 
             open={showRoleModal}

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import GoogleLoginButton from '../components/GoogleLoginButton';
 
 interface LoginProps {
@@ -9,6 +10,7 @@ interface LoginProps {
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -16,6 +18,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      navigate('/', { replace: true });
+    }
+  }, [user, navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     // Do NOT clear error on typing; persist until next submit attempt
@@ -81,25 +90,27 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         
         {/* Login Card */}
         <div className="bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl p-6 sm:p-8 md:p-10 border border-white/20 transform transition-all duration-300 hover:shadow-3xl">
-          {/* Google Sign-In */}
-          <div className="space-y-4 mb-6">
-            <GoogleLoginButton 
-              className="w-full"
-              onError={(msg) => {
-                setError(msg || 'Google login failed');
-              }}
-              onSuccess={() => {
-                setError('');
-                const from = (location.state as any)?.from?.pathname || '/home';
-                navigate(from, { replace: true });
-              }}
-            />
-            <div className="flex items-center gap-3 my-6">
-              <div className="h-px bg-gradient-to-r from-transparent via-forest-300 to-transparent flex-1" />
-              <span className="text-forest-500 text-sm font-medium px-2">or continue with email</span>
-              <div className="h-px bg-gradient-to-r from-transparent via-forest-300 to-transparent flex-1" />
+          {/* Google Sign-In - only show if not logged in */}
+          {!user && (
+            <div className="space-y-4 mb-6">
+              <GoogleLoginButton 
+                className="w-full"
+                onError={(msg) => {
+                  setError(msg || 'Google login failed');
+                }}
+                onSuccess={() => {
+                  setError('');
+                  const from = (location.state as any)?.from?.pathname || '/home';
+                  navigate(from, { replace: true });
+                }}
+              />
+              <div className="flex items-center gap-3 my-6">
+                <div className="h-px bg-gradient-to-r from-transparent via-forest-300 to-transparent flex-1" />
+                <span className="text-forest-500 text-sm font-medium px-2">or continue with email</span>
+                <div className="h-px bg-gradient-to-r from-transparent via-forest-300 to-transparent flex-1" />
+              </div>
             </div>
-          </div>
+          )}
 
           <form className="space-y-5" onSubmit={handleSubmit}>
             {/* Error Display */}
