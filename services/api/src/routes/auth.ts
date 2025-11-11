@@ -90,7 +90,8 @@ router.post('/login', async (req, res) => {
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
 
-  if (!user.phoneVerified) {
+  // Admin and agent users don't require phone verification
+  if (!user.phoneVerified && user.role !== 'admin' && user.role !== 'agent') {
     return res.status(403).json({ error: 'Phone not verified. Please verify your phone number with the code sent via SMS.' });
   }
 
@@ -99,6 +100,11 @@ router.post('/login', async (req, res) => {
     throw new Error('JWT_SECRET environment variable is required');
   }
   const token = jwt.sign({ userId: String(user._id), role: user.role }, jwtSecret, { expiresIn: '7d' });
+  
+  // Update last active timestamp
+  user.lastActive = new Date();
+  await user.save();
+  
   return res.json({ 
     token,
     user: {
