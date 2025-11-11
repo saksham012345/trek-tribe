@@ -79,7 +79,7 @@ const supportTicketSchema = new Schema(
   {
     ticketId: {
       type: String,
-      required: true,
+      required: false,
       unique: true,
       index: true
     },

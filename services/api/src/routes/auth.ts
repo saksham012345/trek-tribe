@@ -9,6 +9,7 @@ import { logger } from '../utils/logger';
 import crypto from 'crypto';
 import axios from 'axios';
 import { OAuth2Client } from 'google-auth-library';
+import { smsService } from '../services/smsService';
 
 const router = Router();
 
@@ -23,7 +24,7 @@ const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   name: z.string().min(1),
-  phone: z.string().regex(/^[+]?[1-9]\d{1,14}$/).optional(),
+  phone: z.string().regex(/^[+]?[1-9]\d{1,14}$/),
   role: z.enum(['traveler', 'organizer']).optional(),
 });
 
@@ -35,30 +36,46 @@ router.post('/register', async (req, res) => {
   const existing = await User.findOne({ email });
   if (existing) return res.status(409).json({ error: 'Email already in use' });
 
+  // Check if phone already in use
+  const existingPhone = await User.findOne({ phone });
+  if (existingPhone) return res.status(409).json({ error: 'Phone number already in use' });
+
   const passwordHash = await bcrypt.hash(password, 10);
   const user = await User.create({ email, passwordHash, name, phone, role: role ?? 'traveler' });
 
-  // Generate and store 10-minute OTP for email verification
+  // Generate and store 10-minute OTP for phone verification
   const otp = String(crypto.randomInt(100000, 999999));
   const otpHash = await bcrypt.hash(otp, 10);
-  user.emailVerificationOtpHash = otpHash;
-  user.emailVerificationExpires = new Date(Date.now() + 10 * 60 * 1000);
-  user.emailVerificationAttempts = 0;
-  user.emailVerificationLastSentAt = new Date();
+  user.phoneVerificationOtpHash = otpHash;
+  user.phoneVerificationExpires = new Date(Date.now() + 10 * 60 * 1000);
+  user.phoneVerificationAttempts = 0;
+  user.phoneVerificationLastSentAt = new Date();
   await user.save();
 
-  // Send verification code via Gmail SMTP
-  await emailService.sendEmailVerificationOTP({
-    userName: user.name,
-    userEmail: user.email,
-    otp,
-    expiresMinutes: 10
-  });
+  // Send verification code via SMS
+  const smsResult = await smsService.sendOTP({ phone, otp });
+  
+  if (!smsResult.success) {
+    logger.error('Failed to send registration OTP', { phone, error: smsResult.error });
+    // Still return success but inform about SMS failure
+    return res.status(201).json({ 
+      message: 'Registered successfully, but failed to send verification code. Please request a new code.',
+      requiresVerification: true,
+      userId: user._id,
+      // In dev mode, return OTP
+      ...(process.env.NODE_ENV === 'development' && { otp })
+    });
+  }
 
-  // Do not issue login token until email verified
+  logger.info('Registration OTP sent', { phone, userId: user._id });
+
+  // Do not issue login token until phone verified
   return res.status(201).json({ 
-    message: 'Registered successfully. Verification code sent to your email.',
-    requiresVerification: true
+    message: 'Registered successfully. Verification code sent to your phone.',
+    requiresVerification: true,
+    userId: user._id,
+    // In dev mode, return OTP for testing
+    ...(process.env.NODE_ENV === 'development' && { otp })
   });
 });
 
@@ -73,8 +90,8 @@ router.post('/login', async (req, res) => {
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
 
-  if (!user.emailVerified) {
-    return res.status(403).json({ error: 'Email not verified. Please check your email for the verification code or request a new one.' });
+  if (!user.phoneVerified) {
+    return res.status(403).json({ error: 'Phone not verified. Please verify your phone number with the code sent via SMS.' });
   }
 
   const jwtSecret = process.env.JWT_SECRET;
@@ -400,6 +417,132 @@ router.post('/create-agent', authenticateJwt, requireRole(['admin']), async (req
   }
 });
 
+// Phone verification for registration (without authentication)
+const verifyRegistrationPhoneSchema = z.object({
+  userId: z.string(),
+  phone: z.string().regex(/^[+]?[1-9]\d{1,14}$/),
+  otp: z.string().regex(/^\d{6}$/)
+});
+
+router.post('/verify-registration-phone', async (req, res) => {
+  try {
+    const parsed = verifyRegistrationPhoneSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() });
+    }
+
+    const { userId, phone, otp } = parsed.data;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.phoneVerified) {
+      return res.json({ message: 'Phone already verified.' });
+    }
+
+    if (!user.phoneVerificationOtpHash || !user.phoneVerificationExpires) {
+      return res.status(400).json({ error: 'No active verification. Please request a new code.' });
+    }
+
+    if (user.phoneVerificationExpires.getTime() < Date.now()) {
+      user.phoneVerificationOtpHash = undefined;
+      user.phoneVerificationExpires = undefined;
+      await user.save();
+      return res.status(400).json({ error: 'Code expired. Please request a new one.' });
+    }
+
+    // Limit attempts to 5
+    const attempts = user.phoneVerificationAttempts || 0;
+    if (attempts >= 5) {
+      user.phoneVerificationOtpHash = undefined;
+      user.phoneVerificationExpires = undefined;
+      user.phoneVerificationAttempts = 0;
+      await user.save();
+      return res.status(429).json({ error: 'Too many attempts. Request a new code.' });
+    }
+
+    const ok = await bcrypt.compare(otp, user.phoneVerificationOtpHash);
+    if (!ok) {
+      user.phoneVerificationAttempts = attempts + 1;
+      await user.save();
+      return res.status(400).json({ error: 'Invalid code' });
+    }
+
+    // Success: mark verified and clear OTP fields
+    user.phoneVerified = true;
+    user.phoneVerificationOtpHash = undefined;
+    user.phoneVerificationExpires = undefined;
+    user.phoneVerificationAttempts = 0;
+    await user.save();
+
+    logger.info('Phone verified for new registration', { userId, phone });
+
+    return res.json({ message: 'Phone verified successfully. You can now log in.' });
+  } catch (error: any) {
+    logger.error('Error verifying registration phone', { error: error.message });
+    return res.status(500).json({ error: 'Verification failed' });
+  }
+});
+
+// Resend OTP for registration
+const resendRegistrationOtpSchema = z.object({
+  userId: z.string(),
+  phone: z.string().regex(/^[+]?[1-9]\d{1,14}$/)
+});
+
+router.post('/resend-registration-otp', async (req, res) => {
+  try {
+    const parsed = resendRegistrationOtpSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid data', details: parsed.error.flatten() });
+    }
+
+    const { userId, phone } = parsed.data;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.phoneVerified) {
+      return res.json({ message: 'Phone already verified.' });
+    }
+
+    // Throttle resend: 60 seconds between sends
+    const now = new Date();
+    if (user.phoneVerificationLastSentAt && now.getTime() - user.phoneVerificationLastSentAt.getTime() < 60 * 1000) {
+      return res.status(429).json({ error: 'Please wait before requesting another code.' });
+    }
+
+    // Generate new OTP
+    const otp = String(crypto.randomInt(100000, 999999));
+    const otpHash = await bcrypt.hash(otp, 10);
+
+    user.phoneVerificationOtpHash = otpHash;
+    user.phoneVerificationExpires = new Date(Date.now() + 10 * 60 * 1000);
+    user.phoneVerificationAttempts = 0;
+    user.phoneVerificationLastSentAt = now;
+    await user.save();
+
+    // Send OTP via SMS
+    const smsResult = await smsService.sendOTP({ phone, otp });
+    
+    if (!smsResult.success) {
+      return res.status(500).json({ error: smsResult.error || 'Failed to send OTP' });
+    }
+
+    return res.json({ 
+      message: 'New verification code sent to your phone',
+      ...(process.env.NODE_ENV === 'development' && { otp })
+    });
+  } catch (error: any) {
+    logger.error('Error resending registration OTP', { error: error.message });
+    return res.status(500).json({ error: 'Failed to resend code' });
+  }
+});
+
 // Email verification via OTP
 const sendOtpSchema = z.object({
   email: z.string().email()
@@ -552,14 +695,17 @@ router.post('/verify-phone/send-otp', authenticateJwt, async (req, res) => {
     user.phoneVerificationLastSentAt = now;
     await user.save();
 
-    // TODO: Integrate with SMS service (Twilio, AWS SNS, etc.)
-    // For now, log OTP in development
-    if (process.env.NODE_ENV === 'development') {
-      logger.info('Phone OTP (DEV MODE)', { phone, otp });
+    // Send OTP via Twilio SMS service
+    const smsResult = await smsService.sendOTP({ phone, otp });
+    
+    if (!smsResult.success) {
+      logger.error('Failed to send OTP SMS', { phone, error: smsResult.error });
+      return res.status(500).json({ 
+        error: smsResult.error || 'Failed to send OTP. Please try again.' 
+      });
     }
 
-    // In production, send via SMS service
-    // await smsService.sendOTP({ phone, otp });
+    logger.info('OTP sent successfully', { phone, messageId: smsResult.messageId });
 
     return res.json({ 
       message: 'OTP sent to your phone number',
