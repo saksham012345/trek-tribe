@@ -2,15 +2,16 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface ICRMSubscription extends Document {
   organizerId: mongoose.Types.ObjectId;
-  planType: 'trip_package' | 'crm_bundle' | 'trial';
+  planType: 'trip_package_5' | 'trip_package_10' | 'trip_package_20' | 'trip_package_50' | 'crm_bundle' | 'trial';
   status: 'active' | 'expired' | 'cancelled' | 'pending_payment';
   
   // Trip Package Details
   tripPackage?: {
-    totalTrips: number; // 5 trips for ₹1499
+    packageType: '5_trips' | '10_trips' | '20_trips' | '50_trips';
+    totalTrips: number; // 5, 10, 20, or 50
     usedTrips: number;
     remainingTrips: number;
-    pricePerPackage: number; // ₹1499
+    pricePerPackage: number; // ₹1499, ₹2499, ₹4499, ₹9999
   };
   
   // CRM Access Bundle
@@ -29,6 +30,9 @@ export interface ICRMSubscription extends Document {
   };
   
   payments: {
+    razorpayOrderId?: string;
+    razorpayPaymentId?: string;
+    razorpaySignature?: string;
     transactionId: string;
     amount: number;
     currency: string;
@@ -37,6 +41,15 @@ export interface ICRMSubscription extends Document {
     paidAt?: Date;
     metadata?: any;
   }[];
+  
+  // Trial notification tracking
+  notifications: {
+    trialEndingIn7Days: boolean;
+    trialEndingIn1Day: boolean;
+    trialExpired: boolean;
+    paymentReminder: boolean;
+    lastReminderSentAt?: Date;
+  };
   
   startDate: Date;
   endDate?: Date;
@@ -62,7 +75,7 @@ const CRMSubscriptionSchema: Schema = new Schema(
     organizerId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     planType: {
       type: String,
-      enum: ['trip_package', 'crm_bundle', 'trial'],
+      enum: ['trip_package_5', 'trip_package_10', 'trip_package_20', 'trip_package_50', 'crm_bundle', 'trial'],
       required: true,
     },
     status: {
@@ -72,6 +85,11 @@ const CRMSubscriptionSchema: Schema = new Schema(
     },
     
     tripPackage: {
+      packageType: { 
+        type: String, 
+        enum: ['5_trips', '10_trips', '20_trips', '50_trips'],
+        default: '5_trips'
+      },
       totalTrips: { type: Number, default: 5 },
       usedTrips: { type: Number, default: 0 },
       remainingTrips: { type: Number, default: 5 },
@@ -93,6 +111,9 @@ const CRMSubscriptionSchema: Schema = new Schema(
     
     payments: [
       {
+        razorpayOrderId: { type: String },
+        razorpayPaymentId: { type: String },
+        razorpaySignature: { type: String },
         transactionId: { type: String, required: true },
         amount: { type: Number, required: true },
         currency: { type: String, default: 'INR' },
@@ -106,6 +127,14 @@ const CRMSubscriptionSchema: Schema = new Schema(
         metadata: { type: Schema.Types.Mixed },
       },
     ],
+    
+    notifications: {
+      trialEndingIn7Days: { type: Boolean, default: false },
+      trialEndingIn1Day: { type: Boolean, default: false },
+      trialExpired: { type: Boolean, default: false },
+      paymentReminder: { type: Boolean, default: false },
+      lastReminderSentAt: { type: Date },
+    },
     
     startDate: { type: Date, default: Date.now },
     endDate: { type: Date },
