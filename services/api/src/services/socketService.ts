@@ -889,6 +889,11 @@ class SocketService {
     };
   }
 
+  // Get Socket.IO instance for CRM integration
+  getIO() {
+    return this.io;
+  }
+
   shutdown() {
     if (this.sessionCleanupInterval) {
       clearInterval(this.sessionCleanupInterval);
