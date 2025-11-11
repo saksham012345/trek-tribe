@@ -29,6 +29,9 @@ import groupBookingRoutes from './routes/groupBookings';
 import reviewVerificationRoutes from './routes/reviewVerification';
 import { whatsappService } from './services/whatsappService';
 import { socketService } from './services/socketService';
+// CRM System Routes
+import crmRoutes from './routes/crm';
+import chatService from './services/chatService';
 
 const app = express();
 const server = createServer(app);
@@ -179,6 +182,13 @@ async function start() {
     console.log('✅ Socket.IO service initialized');
     logMessage('INFO', 'Socket.IO service initialized');
     
+    // Initialize CRM Chat Service (integrates with existing Socket.IO)
+    if (socketService.getIO()) {
+      chatService.initializeSocketIO(socketService.getIO());
+      console.log('✅ CRM Chat service initialized');
+      logMessage('INFO', 'CRM Chat service initialized');
+    }
+    
     // Routes
     app.use('/auth', authRoutes);
     app.use('/trips', tripRoutes);
@@ -207,6 +217,11 @@ async function start() {
     app.use('/api/search', searchRoutes);
     app.use('/support', supportRoutes);
     app.use('/stats', statsRoutes);
+    
+    // CRM System Routes
+    app.use('/api/crm', crmRoutes);
+    console.log('✅ CRM routes mounted at /api/crm');
+    logMessage('INFO', 'CRM routes registered');
     
     // Health check endpoint with detailed info
     app.get('/health', asyncErrorHandler(async (_req: Request, res: Response) => {
