@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import api from '../config/api';
 import RoleSelectModal from '../components/RoleSelectModal';
 import GoogleLoginButton from '../components/GoogleLoginButton';
+import PhoneVerificationModal from '../components/PhoneVerificationModal';
 
 interface RegisterProps {
   onLogin: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
@@ -21,6 +22,9 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
+  const [showPhoneVerification, setShowPhoneVerification] = useState(false);
+  const [userId, setUserId] = useState('');
+  const [devOtp, setDevOtp] = useState('');
   const [organizerDraft, setOrganizerDraft] = useState<{
     experience?: string;
     yearsOfExperience?: number;
@@ -56,43 +60,26 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
       const response = await api.post('/auth/register', {
         name: formData.name,
         email: formData.email,
-        phoneNumber: formData.phoneNumber,
+        phone: formData.phoneNumber,
         password: formData.password,
         role: formData.role || 'traveler'
       });
 
-      // If backend requires email verification, inform user and send to login
-      if ((response.data as any)?.requiresVerification) {
-        setError('Registered. Please verify your email to continue, then complete your profile.');
-        navigate('/login', { replace: true });
-        return;
-      }
-
-      // If token is returned (some deployments), log in and go to profile completion
-      const responseData = response.data as { token?: string; user?: any };
-      if (responseData.token && responseData.user) {
-        localStorage.setItem('token', responseData.token);
-        setError('');
-        const result = await onLogin(formData.email, formData.password);
-        if (result.success) {
-          // If organizer, push initial organizer basics
-          if ((formData.role === 'organizer') && organizerDraft) {
-            try {
-              await api.put('/profile/me', {
-                organizerProfile: {
-                  experience: organizerDraft.experience,
-                  yearsOfExperience: organizerDraft.yearsOfExperience,
-                  specialties: organizerDraft.specialties,
-                  languages: organizerDraft.languages,
-                  bio: organizerDraft.bio,
-                }
-              });
-            } catch {}
-          }
-          navigate('/my-profile', { replace: true });
-        } else if (result.error) {
-          setError(result.error);
+      const responseData = response.data as any;
+      
+      // Registration successful, now verify phone
+      if (responseData.requiresVerification && responseData.userId) {
+        setUserId(responseData.userId);
+        
+        // Show dev OTP if available
+        if (responseData.otp) {
+          setDevOtp(responseData.otp);
         }
+        
+        // Show phone verification modal
+        setShowPhoneVerification(true);
+        setError('');
+        return;
       }
     } catch (error: any) {
       console.log('Registration error details:', error);
@@ -120,6 +107,38 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePhoneVerified = async () => {
+    setShowPhoneVerification(false);
+    
+    // Phone verified, now login
+    try {
+      const result = await onLogin(formData.email, formData.password);
+      if (result.success) {
+        // If organizer, push initial organizer basics
+        if ((formData.role === 'organizer') && organizerDraft) {
+          try {
+            await api.put('/profile/me', {
+              organizerProfile: {
+                experience: organizerDraft.experience,
+                yearsOfExperience: organizerDraft.yearsOfExperience,
+                specialties: organizerDraft.specialties,
+                languages: organizerDraft.languages,
+                bio: organizerDraft.bio,
+              }
+            });
+          } catch {}
+        }
+        navigate('/my-profile', { replace: true });
+      } else if (result.error) {
+        setError(result.error);
+        navigate('/login', { replace: true });
+      }
+    } catch (error) {
+      setError('Login failed after verification. Please try logging in.');
+      navigate('/login', { replace: true });
     }
   };
 
@@ -181,6 +200,18 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
               setShowRoleModal(false);
             }}
           />
+          
+          <PhoneVerificationModal
+            open={showPhoneVerification}
+            phone={formData.phoneNumber}
+            userId={userId}
+            onVerified={handlePhoneVerified}
+            onClose={() => {
+              setShowPhoneVerification(false);
+              setError('Registration cancelled. Please try again.');
+            }}
+            initialDevOtp={devOtp}
+          />
           <form className="space-y-4 sm:space-y-6" onSubmit={handleSubmit}>
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2">
@@ -237,8 +268,9 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
                   value={formData.phoneNumber}
                   onChange={handleChange}
                   className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
-                  placeholder="Enter your phone number"
+                  placeholder="+1234567890 (include country code)"
                 />
+                <p className="text-xs text-forest-600 mt-1">You'll receive an SMS verification code</p>
               </div>
               
               <div>
