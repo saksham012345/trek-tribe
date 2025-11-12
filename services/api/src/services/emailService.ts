@@ -558,6 +558,33 @@ class EmailService {
     }
   }
 
+  /**
+   * Generic email sending method
+   */
+  async sendEmail(options: { to: string; subject: string; html: string; text?: string }): Promise<boolean> {
+    if (!this.isServiceReady()) {
+      logger.warn('Email service not ready, skipping email send');
+      return false;
+    }
+
+    try {
+      const mailOptions = {
+        from: `"Trek Tribe" <${process.env.GMAIL_USER}>`,
+        to: options.to,
+        subject: options.subject,
+        html: options.html,
+        text: options.text || options.html.replace(/<[^>]*>/g, '') // Strip HTML if no text provided
+      };
+
+      await this.transporter!.sendMail(mailOptions);
+      logger.info('Generic email sent successfully', { to: options.to, subject: options.subject });
+      return true;
+    } catch (error: any) {
+      logger.error('Failed to send generic email', { error: error.message, to: options.to });
+      return false;
+    }
+  }
+
   async testConnection(): Promise<boolean> {
     if (!this.transporter) {
       return false;
