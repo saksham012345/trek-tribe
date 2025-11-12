@@ -1,0 +1,244 @@
+{
+  "conversations": [
+    {
+      "input": "I want to go trekking in the Himalayas",
+      "output": "That sounds amazing! 🏔️ The Himalayas offer incredible trekking experiences. I'd recommend checking out our Himalayan treks! We have options ranging from beginner-friendly routes like Valley of Flowers to challenging expeditions like Everest Base Camp. What's your experience level, and how many days do you have?"
+    },
+    {
+      "input": "What's the best time to visit Ladakh?",
+      "output": "Great question! The best time to visit Ladakh is between May and September when the weather is pleasant and roads are accessible. June to August is peak season with clear skies, while September offers fewer crowds. Would you like to see our Ladakh adventure packages?"
+    },
+    {
+      "input": "I'm a beginner, which trek should I choose?",
+      "output": "Perfect! For beginners, I'd suggest starting with treks like Triund, Nag Tibba, or Har Ki Dun. These are 2-4 day treks with moderate difficulty, stunning views, and proper support. Our organizers provide experienced guides and safety equipment. Shall I show you some beginner-friendly options?"
+    },
+    {
+      "input": "How much does a typical trek cost?",
+      "output": "Trek costs vary based on duration, location, and inclusions! Generally: Weekend treks (₹2,000-5,000), Week-long treks (₹8,000-15,000), and Premium expeditions (₹20,000+). All our trips include accommodation, meals, guides, and permits. Want to filter by your budget?"
+    },
+    {
+      "input": "What should I pack for a trek?",
+      "output": "Great thinking! 🎒 Essential items include: sturdy trekking shoes, warm layers, rain gear, water bottle, headlamp, sunscreen, first-aid kit, and trekking poles. Our organizers provide a detailed packing list after booking. Each trip page also has specific gear recommendations!"
+    },
+    {
+      "input": "Are solo travelers welcome?",
+      "output": "Absolutely! 🙌 Many of our trekkers are solo adventurers. It's a great way to meet like-minded people! Our group trips create a friendly community atmosphere, and our organizers ensure everyone feels included and safe. Would you like to see trips popular with solo travelers?"
+    },
+    {
+      "input": "Tell me about camping trips",
+      "output": "Camping trips are incredible! ⛺ We offer riverside camps, mountain camps, and beach camps with activities like bonfires, stargazing, and adventure sports. Packages include tents, meals, and guided activities. Popular spots include Rishikesh, Spiti Valley, and Goa. What kind of camping experience interests you?"
+    },
+    {
+      "input": "I want a beach trip",
+      "output": "Beach vibes! 🏖️ We have amazing coastal adventures in Goa, Gokarna, Andaman, and Kerala. Options include water sports, island hopping, snorkeling, and beach camping. Whether you want party vibes or peaceful retreats, we've got you covered! What's your preferred beach destination?"
+    },
+    {
+      "input": "What safety measures do you have?",
+      "output": "Safety is our top priority! 🛡️ All our verified organizers: provide first-aid trained guides, carry emergency equipment, maintain group size limits, have proper insurance, and follow COVID-19 protocols. Each trip listing shows the organizer's safety rating and certifications."
+    },
+    {
+      "input": "Can I customize a trip?",
+      "output": "Yes! Many of our organizers offer customizable trips. You can contact them directly through the trip page to discuss dates, group size, activities, and specific requirements. For private groups, most organizers provide flexible itineraries. Want help finding customizable options?"
+    },
+    {
+      "input": "How do I book a trip?",
+      "output": "Booking is super easy! 1️⃣ Browse trips and find your perfect adventure, 2️⃣ Click 'Join Trip' and fill in details, 3️⃣ Make payment (secure via Razorpay), 4️⃣ Receive confirmation and trip details via email. You can also chat with the organizer before booking. Ready to explore?"
+    },
+    {
+      "input": "What if I need to cancel?",
+      "output": "Each trip has its own cancellation policy (shown on the trip page). Generally: 15+ days before: 80-90% refund, 7-14 days: 50% refund, Less than 7 days: No refund. Some organizers offer flexible policies. Always check the specific trip's terms before booking!"
+    },
+    {
+      "input": "Show me weekend getaways",
+      "output": "Weekend escapes are perfect for a quick adventure! 🚗 Popular options include: Rishikesh (rafting & camping), Manali (nature & adventure), Lonavala (hiking & forts), Pondicherry (beaches & culture). Most are 2-3 days starting Friday evening. What's your nearest city?"
+    },
+    {
+      "input": "I have a budget of 5000 rupees",
+      "output": "Great! With ₹5,000, you can enjoy wonderful weekend trips! Options include: Camping in Rishikesh (₹2,500-4,000), Trekking in Himachal (₹3,000-5,000), Beach camping in Goa (₹4,000-5,000). These include accommodation, meals, and activities. Want me to show you specific trips in this range?"
+    },
+    {
+      "input": "What's included in the trip price?",
+      "output": "Good question! Typically included: 🏨 Accommodation, 🍽️ Meals (usually breakfast & dinner), 🚐 Transportation from meetup point, 🎫 Entry fees & permits, 👥 Experienced guides. Exclusions: Travel to meetup point, lunch (sometimes), personal expenses. Each trip clearly lists inclusions!"
+    },
+    {
+      "input": "Are your organizers verified?",
+      "output": "Yes! All our organizers go through verification ✅ We check: business licenses, past experience, safety certifications, and user reviews. Verified organizers get a badge on their profile. You can see ratings, completed trips, and traveler reviews before booking!"
+    },
+    {
+      "input": "I want an adventure with friends",
+      "output": "Perfect for group bonding! 👥 We have group-friendly trips: Rafting & camping (4-12 people), Bike trips to Leh-Ladakh, Scuba diving in Andaman, Trekking expeditions. Many organizers offer group discounts for 6+ people. How many friends are joining you?"
+    },
+    {
+      "input": "Show me monsoon treks",
+      "output": "Monsoon treks are magical! 🌧️ Recommended: Valley of Flowers (July-Aug), Rajmachi Fort (June-Sep), Western Ghats treks. These routes come alive with waterfalls, lush greenery, and blooming flowers. Note: Some high-altitude treks close during monsoon. Want to see available options?"
+    },
+    {
+      "input": "I'm looking for wildlife safaris",
+      "output": "Wildlife adventures await! 🐅 Popular safaris: Jim Corbett (tigers), Ranthambore (wildlife photography), Kaziranga (rhinos), Bandhavgarh (dense tiger population). Packages include jeep safaris, nature walks, and expert guides. Best season: October to April. Interested in a specific park?"
+    },
+    {
+      "input": "What about winter trips?",
+      "output": "Winter wonderland! ❄️ Amazing options: Skiing in Auli/Gulmarg, Snow trekking in Kedarkantha, Chadar Trek (frozen river), Desert camping in Rajasthan, Rann of Kutch (white desert). Winter (Dec-Feb) is perfect for snow adventures and desert festivals. What excites you most?"
+    },
+    {
+      "input": "I want a spiritual journey",
+      "output": "Spiritual travel is transformative! 🙏 We offer: Rishikesh yoga retreats, Varanasi spiritual tours, Char Dham yatra, Buddhist circuit (Bodh Gaya, Sarnath), Meditation retreats in Himalayas. These include guided sessions, temple visits, and peaceful environments. Seeking inner peace or cultural exploration?"
+    },
+    {
+      "input": "Tell me about bike trips",
+      "output": "Bike trips are epic! 🏍️ Popular routes: Leh-Ladakh (the classic!), Spiti Valley, Northeast circuit, Rajasthan heritage ride. Packages include Royal Enfield rentals, support vehicles, fuel, and mechanics. Trips range from 7-15 days. Experience level: intermediate to advanced. Rev up for adventure?"
+    },
+    {
+      "input": "What's your most popular trip?",
+      "output": "Our most loved trips include: 1️⃣ Manali-Leh bike expedition, 2️⃣ Rishikesh rafting & camping, 3️⃣ Goa beach camping, 4️⃣ Triund trek, 5️⃣ Andaman island hopping. These have 4.5+ ratings and hundreds of happy travelers! Want details on any of these?"
+    },
+    {
+      "input": "I need travel insurance",
+      "output": "Smart move! 🛡️ While our organizers have basic coverage, we recommend: Comprehensive travel insurance for adventure activities, Coverage for medical emergencies & evacuation, Trip cancellation protection. Popular providers: ICICI Lombard, HDFC Ergo, Bajaj Allianz. Some premium trips include insurance!"
+    },
+    {
+      "input": "Can I bring my pet?",
+      "output": "Pet policies vary by trip! 🐕 Some camping and trekking trips welcome pets, but most have restrictions for safety reasons. Best to: check the trip's specific policy, contact the organizer directly, consider pet-friendly camps (we have a few!). Want me to find pet-friendly adventures?"
+    },
+    {
+      "input": "I'm traveling with kids",
+      "output": "Family adventures! 👨‍👩‍👧‍👦 We have kid-friendly trips: Easy treks (suitable for 8+), Beach resorts, Wildlife safaris, Hill station retreats, Cultural tours. These have shorter distances, flexible schedules, and child-appropriate activities. Age of your kids? I'll find perfect family trips!"
+    },
+    {
+      "input": "What photography trips do you have?",
+      "output": "Capture stunning moments! 📸 Photography-focused trips: Wildlife photography safaris, Landscape photography in Spiti/Ladakh, Heritage photography tours, Astrophotography camps (dark sky locations). Many include photo workshops with pro photographers. Bring your camera and creativity!"
+    },
+    {
+      "input": "I want to learn rock climbing",
+      "output": "Awesome! 🧗 We offer rock climbing courses in Badami, Hampi, and Shey Rock (Ladakh). Beginner courses include: safety training, equipment usage, belaying techniques, and guided climbs. Duration: 2-5 days. No prior experience needed! Ready to conquer those cliffs?"
+    },
+    {
+      "input": "Tell me about food on trips",
+      "output": "Delicious adventures! 🍛 Most trips include: Traditional local cuisine, Vegetarian & non-veg options, Campfire meals, Packed lunches for treks. Our organizers accommodate: dietary restrictions (vegan, gluten-free, etc.), food allergies, regional preferences. Mention your needs while booking!"
+    },
+    {
+      "input": "What's the fitness level required?",
+      "output": "It depends on the trip! 💪 We categorize as: Easy (anyone can join), Moderate (basic fitness, walking 4-6 hrs), Challenging (good stamina, 6-8 hrs daily), Expert (high altitude, technical skills). Each trip page shows fitness requirements. Honest assessment ensures you enjoy the journey!"
+    },
+    {
+      "input": "How do I contact the organizer?",
+      "output": "Easy to connect! 💬 Once you view a trip: Click 'Chat with Organizer' for instant messaging, or Call directly (number on trip page), or Email through our platform. Organizers typically respond within 2-3 hours. Feel free to ask anything before booking!"
+    },
+    {
+      "input": "What if weather is bad?",
+      "output": "Weather safety first! ⛈️ Organizers monitor conditions and may: Postpone the trip, Modify the itinerary, or Cancel with full refund. You'll be notified 24-48 hours before departure. For ongoing trips, guides make on-spot decisions prioritizing safety. Your safety > sticking to plans!"
+    },
+    {
+      "input": "Do you have international trips?",
+      "output": "Yes! 🌍 We're expanding internationally! Current destinations: Nepal (Everest Base Camp, Annapurna), Bhutan (cultural tours), Sri Lanka (beaches & temples), Thailand (islands & adventures). More coming soon! These need passport/visa. Interested in a specific country?"
+    },
+    {
+      "input": "I want a luxury experience",
+      "output": "Premium adventures! ✨ Luxury offerings: 5-star resort stays, Glamping (luxury camping), Private guided tours, Helicopter rides, Yacht experiences, Spa & wellness retreats. Higher budget (₹15,000-50,000+) but worth every penny! Ready for a lavish escape?"
+    },
+    {
+      "input": "What about COVID safety?",
+      "output": "Health & safety protocols: 😷 Vaccination verification, Regular sanitization, Small group sizes, Social distancing measures, Masks in shared spaces, Temperature checks. All organizers follow government guidelines. We update policies regularly. Your health matters!"
+    },
+    {
+      "input": "Can I become an organizer?",
+      "output": "Great initiative! 🌟 To become an organizer: Sign up as 'Organizer', Complete profile with experience & certifications, Submit verification documents, Pay subscription (₹1,499 for 5 trips, first 2 months free), Start posting trips! We help you grow your adventure business!"
+    },
+    {
+      "input": "What's your refund policy?",
+      "output": "Refunds depend on: Trip's cancellation policy (organizer-set), Reason for cancellation, Timing of cancellation. Process: Request through your dashboard, Review within 2-3 days, Refund in 7-10 working days. For emergencies, we assist with organizer negotiations. Fair for all!"
+    },
+    {
+      "input": "I have a medical condition",
+      "output": "Thanks for sharing! ⚕️ Important steps: Consult your doctor before booking adventure trips, Inform the organizer about your condition, Carry necessary medications & prescriptions, Check if trip involves high altitude (not suitable for some conditions). Your safety is paramount. What's your concern?"
+    },
+    {
+      "input": "Show me couples' getaways",
+      "output": "Romantic escapes! ❤️ Perfect for couples: Coorg coffee estates, Udaipur royal experience, Goa beach resorts, Shimla-Manali honeymoon packages, Munnar tea gardens, Andaman islands. These offer privacy, scenic beauty, and couple activities. Planning something special?"
+    },
+    {
+      "input": "I want adrenaline rush activities",
+      "output": "Thrill-seeker! 🤘 Extreme adventures: Paragliding in Bir-Billing, Bungee jumping in Rishikesh, Scuba diving in Andaman, White-water rafting, Skydiving in Mysore, Zip-lining, Rock climbing. These need courage and basic fitness. Ready for an adrenaline overdose?"
+    }
+  ],
+  "trip_categories": [
+    "Trekking & Hiking",
+    "Beach & Coastal",
+    "Mountain & Hill Stations",
+    "Wildlife & Safari",
+    "Adventure Sports",
+    "Cultural & Heritage",
+    "Spiritual & Wellness",
+    "Camping & Backpacking",
+    "Road Trips & Bike Tours",
+    "Weekend Getaways",
+    "International Tours"
+  ],
+  "popular_destinations": [
+    "Manali",
+    "Leh-Ladakh",
+    "Rishikesh",
+    "Goa",
+    "Himachal Pradesh",
+    "Uttarakhand",
+    "Kerala",
+    "Rajasthan",
+    "Sikkim",
+    "Andaman Islands",
+    "Spiti Valley",
+    "Meghalaya",
+    "Kashmir"
+  ],
+  "faqs": [
+    {
+      "question": "How do I create an account?",
+      "answer": "Click 'Sign Up', enter your email, create password, verify email via OTP, and you're all set!"
+    },
+    {
+      "question": "Can I change my booking dates?",
+      "answer": "Date changes depend on the organizer's policy and availability. Contact them through the chat feature."
+    },
+    {
+      "question": "What payment methods do you accept?",
+      "answer": "We accept credit cards, debit cards, UPI, net banking, and wallets through secure Razorpay gateway."
+    },
+    {
+      "question": "How do I contact customer support?",
+      "answer": "Use the chat icon (bottom right), email support@trektribe.com, or call our helpline shown in your dashboard."
+    },
+    {
+      "question": "Are there group discounts?",
+      "answer": "Many organizers offer discounts for groups of 6+. Check the trip page or ask the organizer directly!"
+    }
+  ],
+  "organizer_info": {
+    "subscription_plans": [
+      {
+        "name": "Basic Plan",
+        "price": 1499,
+        "trips": 5,
+        "features": ["Post 5 trips", "Basic support", "Payment integration"],
+        "trial": "2 months free for new organizers"
+      },
+      {
+        "name": "Premium Plan",
+        "price": 2100,
+        "trips": 10,
+        "features": ["Post 10 trips", "CRM access", "AI tools", "Priority verification", "Analytics dashboard", "24/7 support"]
+      }
+    ],
+    "verification_process": "Submit business documents → Admin reviews within 48 hours → Verification badge displayed on profile"
+  },
+  "system_capabilities": [
+    "Search and filter trips by destination, price, duration, difficulty",
+    "Book trips securely with multiple payment options",
+    "Chat with organizers before booking",
+    "Read reviews and ratings from past travelers",
+    "Track booking status and trip updates",
+    "Manage profile and travel preferences",
+    "Join community forums and groups",
+    "Get personalized trip recommendations based on preferences",
+    "Receive email and in-app notifications",
+    "Access CRM dashboard (for organizers)"
+  ]
+}
