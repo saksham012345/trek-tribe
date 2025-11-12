@@ -47,6 +47,20 @@ A comprehensive travel platform that connects travelers for group trips and adve
 - **Health Monitoring**: Built-in health check endpoints
 - **CLI Administration**: Command-line tools for database management
 
+### Enterprise CRM System
+- **Lead Management**: Track and score potential customers
+- **Support Ticketing**: Full-featured support ticket system
+- **Analytics Dashboard**: Comprehensive business insights
+- **Trip Verification**: Admin workflow for trip approval
+- **Real-time Chat**: Socket.io powered support chat
+
+### Organizer Subscriptions (Razorpay)
+- **2-Month Free Trial**: New organizers get 60 days free
+- **4 Subscription Tiers**: From ₹1,499 (5 trips) to ₹9,999 (50 trips)
+- **Automated Reminders**: Email notifications 7 days and 1 day before trial expiry
+- **Secure Payments**: Razorpay integration with signature verification
+- **Auto-notification System**: Daily cron job checks trial status
+
 ## 🛠 Tech Stack
 
 ### Frontend

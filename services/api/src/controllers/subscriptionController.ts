@@ -44,10 +44,17 @@ class SubscriptionController {
           monthsRemaining: 2,
         },
         tripPackage: {
+          packageType: '5_trips',
           totalTrips: 5,
           usedTrips: 0,
           remainingTrips: 5,
           pricePerPackage: 1499,
+        },
+        notifications: {
+          trialEndingIn7Days: false,
+          trialEndingIn1Day: false,
+          trialExpired: false,
+          paymentReminder: false,
         },
       });
 
@@ -89,19 +96,27 @@ class SubscriptionController {
       if (!subscription) {
         subscription = new CRMSubscription({
           organizerId: req.user.id,
-          planType: 'trip_package',
+          planType: 'trip_package_5',
           status: 'active',
           tripPackage: {
+            packageType: '5_trips',
             totalTrips: 5,
             usedTrips: 0,
             remainingTrips: 5,
             pricePerPackage: 1499,
+          },
+          notifications: {
+            trialEndingIn7Days: false,
+            trialEndingIn1Day: false,
+            trialExpired: false,
+            paymentReminder: false,
           },
         });
       } else {
         // Add more trips to existing package
         if (!subscription.tripPackage) {
           subscription.tripPackage = {
+            packageType: '5_trips',
             totalTrips: 5,
             usedTrips: 0,
             remainingTrips: 5,
