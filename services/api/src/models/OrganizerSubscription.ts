@@ -54,6 +54,10 @@ export interface OrganizerSubscriptionDocument extends Document {
   lastPaymentDate?: Date;
   nextPaymentDue?: Date;
   
+  // Razorpay integration
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+  
   // Auto-renewal
   autoRenew: boolean;
   paymentMethodId?: string;
@@ -166,6 +170,10 @@ const organizerSubscriptionSchema = new Schema(
     totalPaid: { type: Number, default: 0, min: 0 },
     lastPaymentDate: { type: Date },
     nextPaymentDue: { type: Date },
+    
+    // Razorpay integration
+    razorpayOrderId: { type: String },
+    razorpayPaymentId: { type: String },
     
     // Auto-renewal
     autoRenew: { type: Boolean, default: false },

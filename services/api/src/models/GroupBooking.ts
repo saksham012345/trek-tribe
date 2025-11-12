@@ -35,6 +35,8 @@ export interface GroupBookingDocument extends Document {
   paymentStatus: 'pending' | 'partial' | 'completed' | 'failed' | 'refunded';
   paymentMethod: string;
   paymentTransactionId?: string;
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
   paymentDetails?: {
     transactionDate?: Date;
     paymentGateway?: string;
@@ -129,6 +131,8 @@ const groupBookingSchema = new Schema(
     },
     paymentMethod: { type: String, required: true },
     paymentTransactionId: { type: String },
+    razorpayOrderId: { type: String },
+    razorpayPaymentId: { type: String },
     paymentDetails: {
       type: {
         transactionDate: { type: Date },

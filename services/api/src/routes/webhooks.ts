@@ -151,10 +151,10 @@ async function handlePaymentCaptured(payment: any) {
         // Audit log
         await auditLogService.log({
           userId: subscription.organizerId._id.toString(),
-          action: 'subscription.payment_captured',
-          resource: 'subscription',
+          action: 'PAYMENT',
+          resource: 'Subscription',
           resourceId: subscription._id.toString(),
-          details: { paymentId, orderId, amount: amount / 100 }
+          metadata: { type: 'subscription.payment_captured', paymentId, orderId, amount: amount / 100 }
         });
       }
     }
@@ -209,10 +209,10 @@ async function handlePaymentCaptured(payment: any) {
         // Audit log
         await auditLogService.log({
           userId: (booking.mainBookerId as any)._id.toString(),
-          action: 'booking.payment_captured',
-          resource: 'booking',
+          action: 'PAYMENT',
+          resource: 'Booking',
           resourceId: booking._id.toString(),
-          details: { paymentId, orderId, amount: amount / 100 }
+          metadata: { type: 'booking.payment_captured', paymentId, orderId, amount: amount / 100 }
         });
       }
     }
@@ -242,7 +242,7 @@ async function handlePaymentFailed(payment: any) {
       });
 
       if (subscription) {
-        subscription.status = 'payment_failed';
+        subscription.status = 'expired'; // Set to expired instead of invalid 'payment_failed'
         await subscription.save();
 
         logger.info('Subscription payment failed', { subscriptionId: subscription._id });
@@ -250,10 +250,12 @@ async function handlePaymentFailed(payment: any) {
         // Audit log
         await auditLogService.log({
           userId: subscription.organizerId.toString(),
-          action: 'subscription.payment_failed',
-          resource: 'subscription',
+          action: 'PAYMENT',
+          resource: 'Subscription',
           resourceId: subscription._id.toString(),
-          details: { paymentId, orderId, error: error_description }
+          metadata: { type: 'subscription.payment_failed', paymentId, orderId, error: error_description },
+          status: 'FAILURE',
+          errorMessage: error_description
         });
       }
     }
@@ -274,10 +276,12 @@ async function handlePaymentFailed(payment: any) {
         // Audit log
         await auditLogService.log({
           userId: booking.mainBookerId.toString(),
-          action: 'booking.payment_failed',
-          resource: 'booking',
+          action: 'PAYMENT',
+          resource: 'Booking',
           resourceId: booking._id.toString(),
-          details: { paymentId, orderId, error: error_description }
+          metadata: { type: 'booking.payment_failed', paymentId, orderId, error: error_description },
+          status: 'FAILURE',
+          errorMessage: error_description
         });
       }
     }
@@ -353,10 +357,10 @@ async function handleRefundProcessed(refund: any) {
       // Audit log
       await auditLogService.log({
         userId: (booking.mainBookerId as any)._id.toString(),
-        action: 'booking.refund_processed',
-        resource: 'booking',
+        action: 'PAYMENT',
+        resource: 'Booking',
         resourceId: booking._id.toString(),
-        details: { refundId, paymentId, amount: amount / 100 }
+        metadata: { type: 'booking.refund_processed', refundId, paymentId, amount: amount / 100 }
       });
     }
   } catch (error: any) {
