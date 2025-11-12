@@ -9,11 +9,21 @@ import { auditLogService } from '../services/auditLogService';
 
 const router = Router();
 
-// Initialize Razorpay
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID || '',
-  key_secret: process.env.RAZORPAY_KEY_SECRET || '',
-});
+// Initialize Razorpay (optional - will be null if credentials not provided)
+let razorpay: Razorpay | null = null;
+try {
+  if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+    razorpay = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    });
+    console.log('✅ Razorpay initialized for subscriptions');
+  } else {
+    console.warn('⚠️  Razorpay credentials not configured - subscription payments will be unavailable');
+  }
+} catch (error: any) {
+  console.error('❌ Failed to initialize Razorpay:', error.message);
+}
 
 // Subscription plans
 const SUBSCRIPTION_PLANS = {
@@ -215,6 +225,14 @@ router.post('/create-order', authenticateJwt, requireRole(['organizer']), async 
       });
     }
 
+    // Check if Razorpay is configured
+    if (!razorpay) {
+      return res.status(503).json({
+        error: 'Payment service unavailable',
+        message: 'Razorpay is not configured. Please contact support.'
+      });
+    }
+
     // Create Razorpay order for paid subscription
     const order = await razorpay.orders.create({
       amount,
@@ -283,6 +301,14 @@ router.post('/verify-payment', authenticateJwt, requireRole(['organizer']), asyn
     if (generatedSignature !== razorpay_signature) {
       console.error('❌ Payment signature verification failed');
       return res.status(400).json({ error: 'Invalid payment signature' });
+    }
+
+    // Check if Razorpay is configured
+    if (!razorpay) {
+      return res.status(503).json({
+        error: 'Payment service unavailable',
+        message: 'Razorpay is not configured. Please contact support.'
+      });
     }
 
     // Fetch payment details from Razorpay
