@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import GoogleLoginButton from '../components/GoogleLoginButton';
+import { useToast, ToastContainer } from '../components/Toast';
 
 interface LoginProps {
   onLogin: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
@@ -11,6 +12,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const { toasts, success, error: showErrorToast, removeToast } = useToast();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -18,6 +20,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<{
+    email?: string;
+    password?: string;
+  }>({});
 
   // Redirect if already logged in
   useEffect(() => {
@@ -27,15 +33,47 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   }, [user, navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Do NOT clear error on typing; persist until next submit attempt
+    const { name, value } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: value
     });
+    
+    // Clear validation error for this field when user starts typing
+    if (validationErrors[name as keyof typeof validationErrors]) {
+      setValidationErrors(prev => ({ ...prev, [name]: undefined }));
+    }
+  };
+
+  const validateForm = (): boolean => {
+    const errors: typeof validationErrors = {};
+    
+    // Email validation
+    if (!formData.email) {
+      errors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = 'Please enter a valid email address';
+    }
+    
+    // Password validation
+    if (!formData.password) {
+      errors.password = 'Password is required';
+    } else if (formData.password.length < 6) {
+      errors.password = 'Password must be at least 6 characters';
+    }
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate form before submitting
+    if (!validateForm()) {
+      return;
+    }
+    
     setLoading(true);
     // Clear the previous error only when the user presses the button again
     setError('');
@@ -45,21 +83,31 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       if (result.success) {
         // Clear error on successful login
         setError('');
-        // Get the intended destination or default to home
-        const from = (location.state as any)?.from?.pathname || '/';
-        navigate(from, { replace: true });
+        success('Welcome back! Redirecting...');
+        
+        // Small delay to show success toast before navigation
+        setTimeout(() => {
+          // Get the intended destination or default to home
+          const from = (location.state as any)?.from?.pathname || '/';
+          navigate(from, { replace: true });
+        }, 800);
       } else if (result.error) {
         setError(result.error);
+        showErrorToast(result.error);
       }
     } catch (error: any) {
-      setError(error.response?.data?.error || 'Login failed');
+      const errorMsg = error.response?.data?.error || 'Login failed';
+      setError(errorMsg);
+      showErrorToast(errorMsg);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-forest-50 via-nature-50 to-forest-100 py-8 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+    <>
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-forest-50 via-nature-50 to-forest-100 py-8 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-nature-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
@@ -96,12 +144,17 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               <GoogleLoginButton 
                 className="w-full"
                 onError={(msg) => {
-                  setError(msg || 'Google login failed');
+                  const errorMsg = msg || 'Google login failed';
+                  setError(errorMsg);
+                  showErrorToast(errorMsg);
                 }}
                 onSuccess={() => {
                   setError('');
-                  const from = (location.state as any)?.from?.pathname || '/home';
-                  navigate(from, { replace: true });
+                  success('Successfully logged in with Google!');
+                  setTimeout(() => {
+                    const from = (location.state as any)?.from?.pathname || '/home';
+                    navigate(from, { replace: true });
+                  }, 800);
                 }}
               />
               <div className="flex items-center gap-3 my-6">
@@ -142,10 +195,22 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   required
                   value={formData.email}
                   onChange={handleChange}
-                  className="w-full pl-12 pr-4 py-3.5 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-white hover:border-forest-300 text-forest-900 placeholder-forest-400"
+                  className={`w-full pl-12 pr-4 py-3.5 border-2 rounded-xl focus:outline-none focus:ring-2 transition-all duration-300 bg-white text-forest-900 placeholder-forest-400 ${
+                    validationErrors.email 
+                      ? 'border-red-400 focus:ring-red-300 focus:border-red-500' 
+                      : 'border-forest-200 focus:ring-nature-500 focus:border-nature-500 hover:border-forest-300'
+                  }`}
                   placeholder="you@example.com"
                 />
               </div>
+              {validationErrors.email && (
+                <p className="text-red-600 text-xs mt-1 ml-1 flex items-center gap-1">
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  {validationErrors.email}
+                </p>
+              )}
             </div>
               
             {/* Password Field */}
@@ -167,7 +232,11 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   required
                   value={formData.password}
                   onChange={handleChange}
-                  className="w-full pl-12 pr-12 py-3.5 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-white hover:border-forest-300 text-forest-900 placeholder-forest-400"
+                  className={`w-full pl-12 pr-12 py-3.5 border-2 rounded-xl focus:outline-none focus:ring-2 transition-all duration-300 bg-white text-forest-900 placeholder-forest-400 ${
+                    validationErrors.password 
+                      ? 'border-red-400 focus:ring-red-300 focus:border-red-500' 
+                      : 'border-forest-200 focus:ring-nature-500 focus:border-nature-500 hover:border-forest-300'
+                  }`}
                   placeholder="Enter your password"
                 />
                 <button
@@ -188,6 +257,14 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   )}
                 </button>
               </div>
+              {validationErrors.password && (
+                <p className="text-red-600 text-xs mt-1 ml-1 flex items-center gap-1">
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  {validationErrors.password}
+                </p>
+              )}
             </div>
 
             {/* Forgot Password Link */}
@@ -224,7 +301,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           </form>
         </div>
       </div>
-
+      
       {/* Add custom animations via style tag */}
       <style>{`
         @keyframes blob {
@@ -267,6 +344,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         }
       `}</style>
     </div>
+    </>
   );
 };
 

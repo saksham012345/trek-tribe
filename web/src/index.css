@@ -12,6 +12,12 @@
     animation: fadeIn 0.2s ease-out;
   }
   
+  .animate-shrink-width {
+    animation-name: shrink-width;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+  }
+  
   .line-clamp-1 {
     display: -webkit-box;
     -webkit-line-clamp: 1;
@@ -44,6 +50,15 @@
   }
   100% {
     opacity: 1;
+  }
+}
+
+@keyframes shrink-width {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
   }
 }
 

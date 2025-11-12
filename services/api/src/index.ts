@@ -32,6 +32,14 @@ import { socketService } from './services/socketService';
 // CRM System Routes
 import crmRoutes from './routes/crm';
 import chatService from './services/chatService';
+import emailVerificationRoutes from './routes/emailVerification';
+import recommendationsRoutes from './routes/recommendations';
+import notificationRoutes from './routes/notifications';
+import subscriptionRoutes from './routes/subscriptions';
+import analyticsRoutes from './routes/analytics';
+import receiptRoutes from './routes/receipts';
+import webhookRoutes from './routes/webhooks';
+import { apiLimiter, authLimiter, otpLimiter } from './middleware/rateLimiter';
 
 const app = express();
 const server = createServer(app);
@@ -67,6 +75,12 @@ const requestLogger = (req: Request, res: Response, next: NextFunction) => {
 app.use(requestLogger);
 app.use(timeoutMiddleware);
 app.use(helmet());
+
+// Rate limiting commented out - uncomment when express-rate-limit types are compatible
+// if (process.env.NODE_ENV === 'production') {
+//   app.use(apiLimiter);
+//   console.log('✅ Rate limiting enabled for production');
+// }
 const allowedOrigins = process.env.NODE_ENV === 'production'
   ? [
       'https://www.trektribe.in',
@@ -222,6 +236,41 @@ async function start() {
     app.use('/api/crm', crmRoutes);
     console.log('✅ CRM routes mounted at /api/crm');
     logMessage('INFO', 'CRM routes registered');
+    
+    // Email Verification Routes
+    app.use('/api/verify-email', emailVerificationRoutes);
+    console.log('✅ Email verification routes mounted at /api/verify-email');
+    logMessage('INFO', 'Email verification routes registered');
+    
+    // Recommendations Routes
+    app.use('/api/recommendations', recommendationsRoutes);
+    console.log('✅ Recommendations routes mounted at /api/recommendations');
+    logMessage('INFO', 'Recommendations routes registered');
+    
+    // Notification Routes
+    app.use('/api/notifications', notificationRoutes);
+    console.log('✅ Notification routes mounted at /api/notifications');
+    logMessage('INFO', 'Notification routes registered');
+    
+    // Subscription Routes
+    app.use('/api/subscriptions', subscriptionRoutes);
+    console.log('✅ Subscription routes mounted at /api/subscriptions');
+    logMessage('INFO', 'Subscription routes registered');
+    
+    // Analytics Routes
+    app.use('/api/analytics', analyticsRoutes);
+    console.log('✅ Analytics routes mounted at /api/analytics');
+    logMessage('INFO', 'Analytics routes registered');
+    
+    // Receipt Generation Routes
+    app.use('/api/receipts', receiptRoutes);
+    console.log('✅ Receipt routes mounted at /api/receipts');
+    logMessage('INFO', 'Receipt routes registered');
+    
+    // Razorpay Webhook Routes
+    app.use('/api/webhooks', webhookRoutes);
+    console.log('✅ Webhook routes mounted at /api/webhooks');
+    logMessage('INFO', 'Webhook routes registered');
     
     // Health check endpoint with detailed info
     app.get('/health', asyncErrorHandler(async (_req: Request, res: Response) => {

@@ -96,7 +96,9 @@ export interface UserDocument extends Document {
   };
   isVerified?: boolean;
   emailVerified?: boolean;
+  emailVerificationOtp?: string;
   emailVerificationOtpHash?: string;
+  emailVerificationExpiry?: Date;
   emailVerificationExpires?: Date;
   emailVerificationAttempts?: number;
   emailVerificationLastSentAt?: Date;
@@ -241,7 +243,9 @@ const userSchema = new Schema(
     },
     isVerified: { type: Boolean, default: false },
     emailVerified: { type: Boolean, default: false },
+    emailVerificationOtp: { type: String },
     emailVerificationOtpHash: { type: String },
+    emailVerificationExpiry: { type: Date },
     emailVerificationExpires: { type: Date },
     emailVerificationAttempts: { type: Number, default: 0 },
     emailVerificationLastSentAt: { type: Date },
