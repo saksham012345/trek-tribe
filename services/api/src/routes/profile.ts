@@ -88,10 +88,42 @@ router.get('/me', authenticateJwt, async (req, res) => {
   }
 });
 
-// Get public profile by user ID
+// Get profile by user ID (public or own)
 router.get('/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
+    
+    // Check if user is authenticated and viewing their own profile
+    const token = req.headers.authorization?.split(' ')[1];
+    let isOwnProfile = false;
+    let requestingUserId: string | null = null;
+
+    if (token) {
+      try {
+        const jwt = require('jsonwebtoken');
+        const decoded: any = jwt.verify(token, process.env.JWT_SECRET);
+        requestingUserId = decoded.userId;
+        isOwnProfile = requestingUserId === userId;
+      } catch (err) {
+        // Invalid token, treat as public request
+      }
+    }
+
+    // If viewing own profile, return full data (excluding sensitive fields)
+    if (isOwnProfile) {
+      const user = await User.findById(userId).select('-passwordHash');
+      
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      return res.json({ 
+        profile: user,
+        isOwnProfile: true 
+      });
+    }
+
+    // Otherwise return public profile data only
     const user = await User.findById(userId)
       .select('-passwordHash -email -phone -lastActive');
     
@@ -113,9 +145,12 @@ router.get('/:userId', async (req, res) => {
       createdAt: user.createdAt
     };
 
-    res.json({ profile: publicProfile });
+    res.json({ 
+      profile: publicProfile,
+      isOwnProfile: false 
+    });
   } catch (error: any) {
-    logger.error('Error fetching public profile', { error: error.message });
+    logger.error('Error fetching profile', { error: error.message });
     res.status(500).json({ error: 'Failed to fetch profile' });
   }
 });
