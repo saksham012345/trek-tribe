@@ -22,10 +22,13 @@
     "setup:db:prod": "node dist/scripts/setup-database.js",
     "setup:users": "ts-node src/scripts/setup-preset-users.ts",
     "setup:users:prod": "node dist/scripts/setup-preset-users.js",
+    "setup:users:updated": "ts-node src/scripts/setup-preset-users-updated.ts",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:verbose": "jest --verbose"
+    "test:verbose": "jest --verbose",
+    "train:ai": "ts-node src/scripts/trainAIWithMovieData.ts",
+    "train:ai:prod": "node dist/scripts/trainAIWithMovieData.js"
   },
   "dependencies": {
     "@types/nodemailer": "^7.0.2",

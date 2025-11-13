@@ -37,6 +37,40 @@ const updateProfileSchema = z.object({
   }).optional()
 });
 
+// Search profiles (MUST be before /:userId to avoid conflict)
+router.get('/search', async (req, res) => {
+  try {
+    const { q, role, location } = req.query;
+    
+    const query: any = {};
+    
+    if (q) {
+      query.$or = [
+        { name: { $regex: q, $options: 'i' } },
+        { bio: { $regex: q, $options: 'i' } }
+      ];
+    }
+    
+    if (role && role !== 'all') {
+      query.role = role;
+    }
+    
+    if (location) {
+      query.location = { $regex: location, $options: 'i' };
+    }
+
+    const profiles = await User.find(query)
+      .select('name bio profilePhoto location role socialLinks isVerified createdAt')
+      .limit(20)
+      .sort({ lastActive: -1 });
+
+    res.json({ profiles });
+  } catch (error: any) {
+    logger.error('Error searching profiles', { error: error.message });
+    res.status(500).json({ error: 'Failed to search profiles' });
+  }
+});
+
 // Get current user profile
 router.get('/me', authenticateJwt, async (req, res) => {
   try {
@@ -245,40 +279,6 @@ router.post('/me/share', authenticateJwt, async (req, res) => {
   } catch (error: any) {
     logger.error('Error generating shareable link', { error: error.message });
     res.status(500).json({ error: 'Failed to generate shareable link' });
-  }
-});
-
-// Search profiles
-router.get('/search', async (req, res) => {
-  try {
-    const { q, role, location } = req.query;
-    
-    const query: any = {};
-    
-    if (q) {
-      query.$or = [
-        { name: { $regex: q, $options: 'i' } },
-        { bio: { $regex: q, $options: 'i' } }
-      ];
-    }
-    
-    if (role && role !== 'all') {
-      query.role = role;
-    }
-    
-    if (location) {
-      query.location = { $regex: location, $options: 'i' };
-    }
-
-    const profiles = await User.find(query)
-      .select('name bio profilePhoto location role socialLinks isVerified createdAt')
-      .limit(20)
-      .sort({ lastActive: -1 });
-
-    res.json({ profiles });
-  } catch (error: any) {
-    logger.error('Error searching profiles', { error: error.message });
-    res.status(500).json({ error: 'Failed to search profiles' });
   }
 });
 
