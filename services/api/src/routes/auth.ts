@@ -24,7 +24,7 @@ const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   name: z.string().min(1),
-  phone: z.string().regex(/^[+]?[1-9]\d{1,14}$/),
+  phone: z.string().regex(/^[+]?[1-9]\d{1,14}$/), // Phone is now MANDATORY
   role: z.enum(['traveler', 'organizer']).optional(),
 });
 
@@ -36,47 +36,56 @@ router.post('/register', async (req, res) => {
   const existing = await User.findOne({ email });
   if (existing) return res.status(409).json({ error: 'Email already in use' });
 
-  // Check if phone already in use
-  const existingPhone = await User.findOne({ phone });
-  if (existingPhone) return res.status(409).json({ error: 'Phone number already in use' });
+  // Check if phone already in use (only if phone is provided)
+  if (phone) {
+    const existingPhone = await User.findOne({ phone });
+    if (existingPhone) return res.status(409).json({ error: 'Phone number already in use' });
+  }
 
   const passwordHash = await bcrypt.hash(password, 10);
   const user = await User.create({ email, passwordHash, name, phone, role: role ?? 'traveler' });
 
-  // Generate and store 10-minute OTP for phone verification
+  // Generate and store 10-minute OTP for email verification
   const otp = String(crypto.randomInt(100000, 999999));
   const otpHash = await bcrypt.hash(otp, 10);
-  user.phoneVerificationOtpHash = otpHash;
-  user.phoneVerificationExpires = new Date(Date.now() + 10 * 60 * 1000);
-  user.phoneVerificationAttempts = 0;
-  user.phoneVerificationLastSentAt = new Date();
+  user.emailVerificationOtpHash = otpHash;
+  user.emailVerificationExpires = new Date(Date.now() + 10 * 60 * 1000);
+  user.emailVerificationAttempts = 0;
+  user.emailVerificationLastSentAt = new Date();
   await user.save();
 
-  // Send verification code via SMS
-  const smsResult = await smsService.sendOTP({ phone, otp });
-  
-  if (!smsResult.success) {
-    logger.error('Failed to send registration OTP', { phone, error: smsResult.error });
-    // Still return success but inform about SMS failure
+  // Send verification code via Email
+  try {
+    await emailService.sendEmailVerificationOTP({
+      userName: user.name,
+      userEmail: user.email,
+      otp,
+      expiresMinutes: 10
+    });
+    
+    logger.info('Registration email OTP sent', { email, userId: user._id });
+
+    // Do not issue login token until email verified
+    return res.status(201).json({ 
+      message: 'Registered successfully. Verification code sent to your email.',
+      requiresVerification: true,
+      userId: user._id,
+      email: user.email,
+      // In dev mode, return OTP for testing
+      ...(process.env.NODE_ENV === 'development' && { otp })
+    });
+  } catch (error: any) {
+    logger.error('Failed to send registration OTP', { email, error: error.message });
+    // Still return success but inform about email failure
     return res.status(201).json({ 
       message: 'Registered successfully, but failed to send verification code. Please request a new code.',
       requiresVerification: true,
       userId: user._id,
+      email: user.email,
       // In dev mode, return OTP
       ...(process.env.NODE_ENV === 'development' && { otp })
     });
   }
-
-  logger.info('Registration OTP sent', { phone, userId: user._id });
-
-  // Do not issue login token until phone verified
-  return res.status(201).json({ 
-    message: 'Registered successfully. Verification code sent to your phone.',
-    requiresVerification: true,
-    userId: user._id,
-    // In dev mode, return OTP for testing
-    ...(process.env.NODE_ENV === 'development' && { otp })
-  });
 });
 
 const loginSchema = z.object({ email: z.string().email(), password: z.string().min(6) });
@@ -90,9 +99,9 @@ router.post('/login', async (req, res) => {
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
 
-  // Admin and agent users don't require phone verification
-  if (!user.phoneVerified && user.role !== 'admin' && user.role !== 'agent') {
-    return res.status(403).json({ error: 'Phone not verified. Please verify your phone number with the code sent via SMS.' });
+  // Admin and agent users don't require email verification
+  if (!user.emailVerified && user.role !== 'admin' && user.role !== 'agent') {
+    return res.status(403).json({ error: 'Email not verified. Please verify your email address with the code sent to your email.' });
   }
 
   const jwtSecret = process.env.JWT_SECRET;
@@ -103,6 +112,34 @@ router.post('/login', async (req, res) => {
   
   // Update last active timestamp
   user.lastActive = new Date();
+  
+  // Track first login for organizers and initialize auto-pay setup
+  if (user.role === 'organizer' && !user.firstOrganizerLogin) {
+    user.firstOrganizerLogin = new Date();
+    
+    // Initialize auto-pay setup for organizer
+    if (!user.organizerProfile) {
+      user.organizerProfile = {};
+    }
+    
+    const scheduledPaymentDate = new Date();
+    scheduledPaymentDate.setDate(scheduledPaymentDate.getDate() + 60); // 60 days from first login
+    
+    user.organizerProfile.autoPay = {
+      isSetupRequired: true,
+      isSetupCompleted: false,
+      firstLoginDate: new Date(),
+      scheduledPaymentDate: scheduledPaymentDate,
+      paymentAmount: 149900, // Default: ₹1499 in paise
+      autoPayEnabled: false
+    };
+    
+    logger.info('First organizer login tracked, auto-pay scheduled', { 
+      userId: user._id, 
+      scheduledDate: scheduledPaymentDate 
+    });
+  }
+  
   await user.save();
   
   return res.json({ 
@@ -218,9 +255,12 @@ router.post('/google', async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    // Check if profile is incomplete (no phone or default role for new users)
+    // Check if profile is incomplete
     const isNewUser = !user.phone;
     const needsRoleSelection = user.role === 'traveler' && !user.phone; // New Google users need role selection
+    
+    // For organizers via Google auth, they MUST complete profile with phone and payment verification
+    const isOrganizerNeedsSetup = user.role === 'organizer' && (!user.phone || !user.phoneVerified);
 
     res.json({ 
       token,
@@ -230,9 +270,12 @@ router.post('/google', async (req, res) => {
         name: user.name,
         role: user.role,
         profilePhoto: user.profilePhoto,
-        phone: user.phone
+        phone: user.phone,
+        phoneVerified: user.phoneVerified
       },
-      requiresProfileCompletion: isNewUser || needsRoleSelection
+      requiresProfileCompletion: isNewUser || needsRoleSelection || isOrganizerNeedsSetup,
+      requiresPhoneVerification: !user.phone || !user.phoneVerified,
+      requiresAutoPaySetup: user.role === 'organizer' && user.organizerProfile?.autoPay?.isSetupRequired && !user.organizerProfile?.autoPay?.isSetupCompleted
     });
 
   } catch (error: any) {
@@ -423,71 +466,71 @@ router.post('/create-agent', authenticateJwt, requireRole(['admin']), async (req
   }
 });
 
-// Phone verification for registration (without authentication)
-const verifyRegistrationPhoneSchema = z.object({
+// Email verification for registration (without authentication)
+const verifyRegistrationEmailSchema = z.object({
   userId: z.string(),
-  phone: z.string().regex(/^[+]?[1-9]\d{1,14}$/),
+  email: z.string().email(),
   otp: z.string().regex(/^\d{6}$/)
 });
 
-router.post('/verify-registration-phone', async (req, res) => {
+router.post('/verify-registration-email', async (req, res) => {
   try {
-    const parsed = verifyRegistrationPhoneSchema.safeParse(req.body);
+    const parsed = verifyRegistrationEmailSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() });
     }
 
-    const { userId, phone, otp } = parsed.data;
+    const { userId, email, otp } = parsed.data;
     const user = await User.findById(userId);
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    if (user.phoneVerified) {
-      return res.json({ message: 'Phone already verified.' });
+    if (user.emailVerified) {
+      return res.json({ message: 'Email already verified.' });
     }
 
-    if (!user.phoneVerificationOtpHash || !user.phoneVerificationExpires) {
+    if (!user.emailVerificationOtpHash || !user.emailVerificationExpires) {
       return res.status(400).json({ error: 'No active verification. Please request a new code.' });
     }
 
-    if (user.phoneVerificationExpires.getTime() < Date.now()) {
-      user.phoneVerificationOtpHash = undefined;
-      user.phoneVerificationExpires = undefined;
+    if (user.emailVerificationExpires.getTime() < Date.now()) {
+      user.emailVerificationOtpHash = undefined;
+      user.emailVerificationExpires = undefined;
       await user.save();
       return res.status(400).json({ error: 'Code expired. Please request a new one.' });
     }
 
     // Limit attempts to 5
-    const attempts = user.phoneVerificationAttempts || 0;
+    const attempts = user.emailVerificationAttempts || 0;
     if (attempts >= 5) {
-      user.phoneVerificationOtpHash = undefined;
-      user.phoneVerificationExpires = undefined;
-      user.phoneVerificationAttempts = 0;
+      user.emailVerificationOtpHash = undefined;
+      user.emailVerificationExpires = undefined;
+      user.emailVerificationAttempts = 0;
       await user.save();
       return res.status(429).json({ error: 'Too many attempts. Request a new code.' });
     }
 
-    const ok = await bcrypt.compare(otp, user.phoneVerificationOtpHash);
+    const ok = await bcrypt.compare(otp, user.emailVerificationOtpHash);
     if (!ok) {
-      user.phoneVerificationAttempts = attempts + 1;
+      user.emailVerificationAttempts = attempts + 1;
       await user.save();
       return res.status(400).json({ error: 'Invalid code' });
     }
 
     // Success: mark verified and clear OTP fields
-    user.phoneVerified = true;
-    user.phoneVerificationOtpHash = undefined;
-    user.phoneVerificationExpires = undefined;
-    user.phoneVerificationAttempts = 0;
+    user.emailVerified = true;
+    user.emailVerificationOtpHash = undefined;
+    user.emailVerificationExpires = undefined;
+    user.emailVerificationAttempts = 0;
     await user.save();
 
-    logger.info('Phone verified for new registration', { userId, phone });
+    logger.info('Email verified for new registration', { userId, email });
 
-    return res.json({ message: 'Phone verified successfully. You can now log in.' });
+    return res.json({ message: 'Email verified successfully. You can now log in.' });
   } catch (error: any) {
-    logger.error('Error verifying registration phone', { error: error.message });
+    logger.error('Error verifying registration email', { error: error.message });
     return res.status(500).json({ error: 'Verification failed' });
   }
 });
@@ -495,7 +538,7 @@ router.post('/verify-registration-phone', async (req, res) => {
 // Resend OTP for registration
 const resendRegistrationOtpSchema = z.object({
   userId: z.string(),
-  phone: z.string().regex(/^[+]?[1-9]\d{1,14}$/)
+  email: z.string().email()
 });
 
 router.post('/resend-registration-otp', async (req, res) => {
@@ -505,20 +548,20 @@ router.post('/resend-registration-otp', async (req, res) => {
       return res.status(400).json({ error: 'Invalid data', details: parsed.error.flatten() });
     }
 
-    const { userId, phone } = parsed.data;
+    const { userId, email } = parsed.data;
     const user = await User.findById(userId);
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    if (user.phoneVerified) {
-      return res.json({ message: 'Phone already verified.' });
+    if (user.emailVerified) {
+      return res.json({ message: 'Email already verified.' });
     }
 
     // Throttle resend: 60 seconds between sends
     const now = new Date();
-    if (user.phoneVerificationLastSentAt && now.getTime() - user.phoneVerificationLastSentAt.getTime() < 60 * 1000) {
+    if (user.emailVerificationLastSentAt && now.getTime() - user.emailVerificationLastSentAt.getTime() < 60 * 1000) {
       return res.status(429).json({ error: 'Please wait before requesting another code.' });
     }
 
@@ -526,23 +569,29 @@ router.post('/resend-registration-otp', async (req, res) => {
     const otp = String(crypto.randomInt(100000, 999999));
     const otpHash = await bcrypt.hash(otp, 10);
 
-    user.phoneVerificationOtpHash = otpHash;
-    user.phoneVerificationExpires = new Date(Date.now() + 10 * 60 * 1000);
-    user.phoneVerificationAttempts = 0;
-    user.phoneVerificationLastSentAt = now;
+    user.emailVerificationOtpHash = otpHash;
+    user.emailVerificationExpires = new Date(Date.now() + 10 * 60 * 1000);
+    user.emailVerificationAttempts = 0;
+    user.emailVerificationLastSentAt = now;
     await user.save();
 
-    // Send OTP via SMS
-    const smsResult = await smsService.sendOTP({ phone, otp });
-    
-    if (!smsResult.success) {
-      return res.status(500).json({ error: smsResult.error || 'Failed to send OTP' });
-    }
+    // Send OTP via Email
+    try {
+      await emailService.sendEmailVerificationOTP({
+        userName: user.name,
+        userEmail: user.email,
+        otp,
+        expiresMinutes: 10
+      });
 
-    return res.json({ 
-      message: 'New verification code sent to your phone',
-      ...(process.env.NODE_ENV === 'development' && { otp })
-    });
+      return res.json({ 
+        message: 'New verification code sent to your email',
+        ...(process.env.NODE_ENV === 'development' && { otp })
+      });
+    } catch (error: any) {
+      logger.error('Error sending registration OTP email', { error: error.message });
+      return res.status(500).json({ error: 'Failed to send OTP' });
+    }
   } catch (error: any) {
     logger.error('Error resending registration OTP', { error: error.message });
     return res.status(500).json({ error: 'Failed to resend code' });
@@ -795,7 +844,7 @@ router.post('/verify-phone/verify-otp', authenticateJwt, async (req, res) => {
 // Update user role and profile after Google signup
 const completeProfileSchema = z.object({
   role: z.enum(['traveler', 'organizer']),
-  phone: z.string().regex(/^[+]?[1-9]\d{1,14}$/),
+  phone: z.string().regex(/^[+]?[1-9]\d{1,14}$/), // Phone is now mandatory
   organizerProfile: z.object({
     experience: z.string().optional(),
     yearsOfExperience: z.number().optional(),
@@ -820,24 +869,57 @@ router.post('/complete-profile', authenticateJwt, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Verify phone is verified before completing profile
+    // Phone verification is MANDATORY for all users, especially organizers
     if (!user.phoneVerified) {
-      return res.status(400).json({ error: 'Please verify your phone number first' });
+      return res.status(400).json({ 
+        error: 'Please verify your phone number first',
+        requiresPhoneVerification: true
+      });
     }
 
     user.role = role;
     user.phone = phone;
 
-    if (role === 'organizer' && organizerProfile) {
-      user.organizerProfile = {
-        ...user.organizerProfile,
-        ...organizerProfile
-      };
+    // For organizers, initialize profile and auto-pay setup
+    if (role === 'organizer') {
+      if (!user.organizerProfile) {
+        user.organizerProfile = {};
+      }
+      
+      // Merge organizer profile details
+      if (organizerProfile) {
+        user.organizerProfile = {
+          ...user.organizerProfile,
+          ...organizerProfile
+        };
+      }
+      
+      // Initialize auto-pay if not already set (for Google auth organizers)
+      if (!user.firstOrganizerLogin) {
+        user.firstOrganizerLogin = new Date();
+        
+        const scheduledPaymentDate = new Date();
+        scheduledPaymentDate.setDate(scheduledPaymentDate.getDate() + 60);
+        
+        user.organizerProfile.autoPay = {
+          isSetupRequired: true,
+          isSetupCompleted: false,
+          firstLoginDate: new Date(),
+          scheduledPaymentDate: scheduledPaymentDate,
+          paymentAmount: 149900,
+          autoPayEnabled: false
+        };
+        
+        logger.info('Auto-pay initialized for Google auth organizer', { 
+          userId, 
+          scheduledDate: scheduledPaymentDate 
+        });
+      }
     }
 
     await user.save();
 
-    logger.info('Profile completed after Google signup', { userId, role });
+    logger.info('Profile completed', { userId, role, hasPhone: !!user.phone });
 
     return res.json({ 
       message: 'Profile completed successfully',
@@ -846,8 +928,10 @@ router.post('/complete-profile', authenticateJwt, async (req, res) => {
         email: user.email,
         name: user.name,
         role: user.role,
-        phone: user.phone
-      }
+        phone: user.phone,
+        phoneVerified: user.phoneVerified
+      },
+      requiresAutoPaySetup: role === 'organizer' && user.organizerProfile?.autoPay?.isSetupRequired && !user.organizerProfile?.autoPay?.isSetupCompleted
     });
   } catch (error: any) {
     logger.error('Error completing profile', { error: error.message });

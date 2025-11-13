@@ -39,7 +39,10 @@ import subscriptionRoutes from './routes/subscriptions';
 import analyticsRoutes from './routes/analytics';
 import receiptRoutes from './routes/receipts';
 import webhookRoutes from './routes/webhooks';
+import autoPayRoutes from './routes/autoPay';
+import dashboardRoutes from './routes/dashboard';
 import { apiLimiter, authLimiter, otpLimiter } from './middleware/rateLimiter';
+import { cronScheduler } from './services/cronScheduler';
 
 const app = express();
 const server = createServer(app);
@@ -203,6 +206,11 @@ async function start() {
       logMessage('INFO', 'CRM Chat service initialized');
     }
     
+    // Initialize Cron Scheduler for auto-pay and other scheduled tasks
+    cronScheduler.init();
+    console.log('✅ Cron scheduler initialized');
+    logMessage('INFO', 'Cron scheduler initialized');
+    
     // Routes
     app.use('/auth', authRoutes);
     app.use('/trips', tripRoutes);
@@ -272,6 +280,16 @@ async function start() {
     console.log('✅ Webhook routes mounted at /api/webhooks');
     logMessage('INFO', 'Webhook routes registered');
     
+    // Auto-Pay Routes
+    app.use('/api/auto-pay', autoPayRoutes);
+    console.log('✅ Auto-pay routes mounted at /api/auto-pay');
+    logMessage('INFO', 'Auto-pay routes registered');
+    
+    // Dashboard Routes (role-specific)
+    app.use('/api/dashboard', dashboardRoutes);
+    console.log('✅ Dashboard routes mounted at /api/dashboard');
+    logMessage('INFO', 'Dashboard routes registered');
+    
     // Health check endpoint with detailed info
     app.get('/health', asyncErrorHandler(async (_req: Request, res: Response) => {
       const mongoStatus = mongoose.connection.readyState;
@@ -334,6 +352,10 @@ async function start() {
         }
         
         try {
+          // Stop cron jobs
+          cronScheduler.stopAll();
+          console.log('✅ Cron jobs stopped');
+          
           // Shutdown Socket.IO service
           socketService.shutdown();
           console.log('✅ Socket.IO service shut down');

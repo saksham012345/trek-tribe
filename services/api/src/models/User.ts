@@ -42,6 +42,20 @@ interface TravelStats {
   averageRating: number;
 }
 
+interface AutoPayInfo {
+  isSetupRequired: boolean;
+  isSetupCompleted: boolean;
+  firstLoginDate?: Date;
+  setupCompletedDate?: Date;
+  scheduledPaymentDate?: Date;
+  paymentAmount?: number;
+  razorpayCustomerId?: string;
+  paymentMethodId?: string;
+  lastPaymentDate?: Date;
+  nextPaymentDate?: Date;
+  autoPayEnabled: boolean;
+}
+
 interface OrganizerProfile {
   bio?: string;
   experience?: string;
@@ -68,6 +82,7 @@ interface OrganizerProfile {
     isActive: boolean;
     _id?: any;
   }>;
+  autoPay?: AutoPayInfo;
 }
 
 export interface UserDocument extends Document {
@@ -125,6 +140,7 @@ export interface UserDocument extends Document {
   lastActive?: Date;
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
+  firstOrganizerLogin?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -237,7 +253,23 @@ const userSchema = new Schema(
           description: { type: String, default: '' },
           uploadedAt: { type: Date, default: Date.now },
           isActive: { type: Boolean, default: true }
-        }]
+        }],
+        autoPay: {
+          type: {
+            isSetupRequired: { type: Boolean, default: true },
+            isSetupCompleted: { type: Boolean, default: false },
+            firstLoginDate: { type: Date },
+            setupCompletedDate: { type: Date },
+            scheduledPaymentDate: { type: Date },
+            paymentAmount: { type: Number },
+            razorpayCustomerId: { type: String },
+            paymentMethodId: { type: String },
+            lastPaymentDate: { type: Date },
+            nextPaymentDate: { type: Date },
+            autoPayEnabled: { type: Boolean, default: false }
+          },
+          required: false
+        }
       },
       required: false
     },
@@ -282,7 +314,8 @@ const userSchema = new Schema(
     },
     lastActive: { type: Date, default: Date.now },
     resetPasswordToken: { type: String },
-    resetPasswordExpires: { type: Date }
+    resetPasswordExpires: { type: Date },
+    firstOrganizerLogin: { type: Date }
   },
   { timestamps: true }
 );

@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import api from '../config/api';
 import RoleSelectModal from '../components/RoleSelectModal';
 import GoogleLoginButton from '../components/GoogleLoginButton';
-import PhoneVerificationModal from '../components/PhoneVerificationModal';
+import EmailVerificationModal from '../components/EmailVerificationModal';
 
 interface RegisterProps {
   onLogin: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
@@ -24,7 +24,7 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
-  const [showPhoneVerification, setShowPhoneVerification] = useState(false);
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
   const [userId, setUserId] = useState('');
   const [devOtp, setDevOtp] = useState('');
   const [organizerDraft, setOrganizerDraft] = useState<{
@@ -76,7 +76,7 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
 
       const responseData = response.data as any;
       
-      // Registration successful, now verify phone
+      // Registration successful, now verify email
       if (responseData.requiresVerification && responseData.userId) {
         setUserId(responseData.userId);
         
@@ -85,8 +85,8 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
           setDevOtp(responseData.otp);
         }
         
-        // Show phone verification modal
-        setShowPhoneVerification(true);
+        // Show email verification modal
+        setShowEmailVerification(true);
         setError('');
         return;
       }
@@ -119,8 +119,8 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
     }
   };
 
-  const handlePhoneVerified = async () => {
-    setShowPhoneVerification(false);
+  const handleEmailVerified = async () => {
+    setShowEmailVerification(false);
     
     // Phone verified, now login
     try {
@@ -212,13 +212,13 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
             }}
           />
           
-          <PhoneVerificationModal
-            open={showPhoneVerification}
-            phone={formData.phoneNumber}
+          <EmailVerificationModal
+            open={showEmailVerification}
+            email={formData.email}
             userId={userId}
-            onVerified={handlePhoneVerified}
+            onVerified={handleEmailVerified}
             onClose={() => {
-              setShowPhoneVerification(false);
+              setShowEmailVerification(false);
               setError('Registration cancelled. Please try again.');
             }}
             initialDevOtp={devOtp}
@@ -268,20 +268,19 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
               
               <div>
                 <label htmlFor="phoneNumber" className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
-                  📱 Phone Number
+                  📱 Phone Number <span className="text-xs text-gray-500">(Optional)</span>
                 </label>
                 <input
                   id="phoneNumber"
                   name="phoneNumber"
                   type="tel"
                   autoComplete="tel"
-                  required
                   value={formData.phoneNumber}
                   onChange={handleChange}
                   className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
                   placeholder="+1234567890 (include country code)"
                 />
-                <p className="text-xs text-forest-600 mt-1">You'll receive an SMS verification code</p>
+                <p className="text-xs text-forest-600 mt-1">You'll receive an email verification code</p>
               </div>
               
               <div>
