@@ -6,7 +6,7 @@ import { useToast, ToastContainer } from '../components/Toast';
 
 interface ProfileData {
   name: string;
-  phone: string;
+  phone?: string;
   bio?: string;
   location?: string;
 }
@@ -18,6 +18,8 @@ const CompleteProfile: React.FC = () => {
   const { toasts, success, error: showErrorToast, removeToast } = useToast();
   
   const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState<'profile' | 'verify'>('profile');
+  const [verificationCode, setVerificationCode] = useState('');
   const [formData, setFormData] = useState<ProfileData>({
     name: user?.name || '',
     phone: '',
@@ -37,11 +39,6 @@ const CompleteProfile: React.FC = () => {
     }
   }, [user]);
 
-  const validatePhone = (phone: string): boolean => {
-    const phoneRegex = /^[+]?[1-9]\d{1,14}$/;
-    return phoneRegex.test(phone.replace(/\s/g, ''));
-  };
-
   const validateForm = (): boolean => {
     const newErrors: Partial<ProfileData> = {};
 
@@ -51,14 +48,28 @@ const CompleteProfile: React.FC = () => {
       newErrors.name = 'Name must be at least 2 characters';
     }
 
-    if (!formData.phone.trim()) {
-      newErrors.phone = 'Phone number is required';
-    } else if (!validatePhone(formData.phone)) {
-      newErrors.phone = 'Please enter a valid phone number (e.g., +919876543210)';
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSendVerificationCode = async () => {
+    if (!validateForm()) {
+      showErrorToast('Please fix the errors in the form');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Send verification email
+      await api.post('/auth/send-verification-email');
+      success('Verification code sent to your email!');
+      setStep('verify');
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.error || 'Failed to send verification code';
+      showErrorToast(errorMsg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -71,22 +82,24 @@ const CompleteProfile: React.FC = () => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validateForm()) {
-      showErrorToast('Please fix the errors in the form');
+  const handleVerifyAndComplete = async () => {
+    if (!verificationCode || verificationCode.length !== 6) {
+      showErrorToast('Please enter the 6-digit verification code');
       return;
     }
 
     setLoading(true);
 
     try {
-      const cleanPhone = formData.phone.replace(/\s/g, '');
-      
+      // Verify email code
+      await api.post('/auth/verify-email-code', {
+        code: verificationCode
+      });
+
+      // Complete profile
       await api.post('/auth/complete-profile', {
         name: formData.name.trim(),
-        phone: cleanPhone,
+        phone: formData.phone?.trim() || undefined,
         bio: formData.bio?.trim() || undefined,
         location: formData.location?.trim() || undefined
       });
@@ -101,7 +114,6 @@ const CompleteProfile: React.FC = () => {
       // Redirect based on role and next step
       setTimeout(() => {
         if (user?.role === 'organizer') {
-          // Check if auto-pay setup is needed
           const requiresAutoPay = (location.state as any)?.requiresAutoPay;
           if (requiresAutoPay) {
             navigate('/setup-auto-pay', { replace: true });
@@ -113,7 +125,7 @@ const CompleteProfile: React.FC = () => {
         }
       }, 1000);
     } catch (error: any) {
-      const errorMsg = error.response?.data?.error || 'Failed to complete profile';
+      const errorMsg = error.response?.data?.error || 'Verification failed';
       showErrorToast(errorMsg);
     } finally {
       setLoading(false);
@@ -144,34 +156,36 @@ const CompleteProfile: React.FC = () => {
           <div className="bg-white rounded-xl shadow-md p-4">
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-nature-600 text-white rounded-full flex items-center justify-center font-semibold">
-                  ✓
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${
+                  step === 'verify' ? 'bg-nature-600 text-white' : 'bg-forest-600 text-white'
+                }`}>
+                  1
                 </div>
-                <span className="text-forest-700 font-medium">Account Created</span>
+                <span className={step === 'verify' ? 'text-forest-700 font-medium' : 'text-forest-900 font-semibold'}>Role</span>
               </div>
-              <div className="flex-1 h-1 bg-nature-200 mx-3" />
+              <div className={`flex-1 h-1 mx-3 ${
+                step === 'verify' ? 'bg-nature-200' : 'bg-forest-200'
+              }`} />
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-forest-600 text-white rounded-full flex items-center justify-center font-semibold">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${
+                  step === 'verify' ? 'bg-forest-600 text-white' : 'bg-forest-200 text-forest-600'
+                }`}>
                   2
                 </div>
-                <span className="text-forest-900 font-semibold">Profile Details</span>
+                <span className={step === 'verify' ? 'text-forest-900 font-semibold' : 'text-forest-500'}>Phone</span>
               </div>
-              {user?.role === 'organizer' && (
-                <>
-                  <div className="flex-1 h-1 bg-forest-200 mx-3" />
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-forest-200 text-forest-600 rounded-full flex items-center justify-center font-semibold">
-                      3
-                    </div>
-                    <span className="text-forest-500">Auto-Pay Setup</span>
-                  </div>
-                </>
-              )}
+              <div className="flex-1 h-1 bg-forest-200 mx-3" />
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-forest-200 text-forest-600 rounded-full flex items-center justify-center font-semibold">
+                  3
+                </div>
+                <span className="text-forest-500">Verify</span>
+              </div>
             </div>
           </div>
 
           {/* Form Card */}
-          <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-8 space-y-6">
+          <div className="bg-white rounded-2xl shadow-xl p-8 space-y-6">
             {/* Name Field */}
             <div>
               <label htmlFor="name" className="block text-sm font-semibold text-forest-700 mb-2">
@@ -202,39 +216,49 @@ const CompleteProfile: React.FC = () => {
               )}
             </div>
 
-            {/* Phone Field */}
-            <div>
-              <label htmlFor="phone" className="block text-sm font-semibold text-forest-700 mb-2">
-                Phone Number <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <svg className="w-5 h-5 text-forest-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                  </svg>
+            {step === 'profile' ? (
+              /* Phone Number Field */
+              <div>
+                <label htmlFor="phone" className="block text-sm font-semibold text-forest-700 mb-2">
+                  📱 Phone Number
+                </label>
+                <div className="relative">
+                  <input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    placeholder="+1234567890"
+                    value={formData.phone || ''}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3.5 border-2 border-forest-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent transition-all"
+                    disabled={loading}
+                  />
                 </div>
+                <p className="mt-1 text-xs text-forest-500">
+                  Include country code (e.g., +91 for India)
+                </p>
+              </div>
+            ) : (
+              /* Verification Code Field */
+              <div>
+                <label className="block text-sm font-semibold text-forest-700 mb-3 text-center">
+                  Enter Verification Code
+                </label>
+                <p className="text-sm text-forest-600 text-center mb-4">
+                  We've sent a 6-digit code to <span className="font-semibold">{user?.email}</span>
+                </p>
                 <input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  placeholder="+919876543210"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  className={`w-full pl-12 pr-4 py-3.5 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent transition-all ${
-                    errors.phone ? 'border-red-500' : 'border-forest-300'
-                  }`}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="000000"
+                  className="w-full text-center text-2xl font-bold tracking-widest px-4 py-4 border-2 border-forest-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent transition-all"
                   disabled={loading}
-                  required
                 />
               </div>
-              {errors.phone ? (
-                <p className="mt-1 text-sm text-red-600">{errors.phone}</p>
-              ) : (
-                <p className="mt-1 text-xs text-forest-500">
-                  Format: +[country code][number] (e.g., +919876543210)
-                </p>
-              )}
-            </div>
+            )}
 
             {/* Location Field (Optional) */}
             <div>
@@ -281,43 +305,54 @@ const CompleteProfile: React.FC = () => {
               </p>
             </div>
 
-            {/* Info Box for Organizers */}
-            {user?.role === 'organizer' && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex gap-3">
-                <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
-                <div className="text-sm text-blue-800">
-                  <p className="font-medium mb-1">Next Step: Auto-Pay Setup</p>
-                  <p>After completing your profile, you'll setup auto-pay to keep your trek listings active.</p>
-                </div>
+            {/* Action Buttons */}
+            {step === 'profile' ? (
+              <button
+                onClick={handleSendVerificationCode}
+                disabled={loading}
+                className="w-full py-3.5 px-4 bg-gradient-to-r from-forest-600 to-nature-600 text-white font-semibold rounded-xl hover:from-forest-700 hover:to-nature-700 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl"
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Sending...
+                  </span>
+                ) : (
+                  'Send Verification Code'
+                )}
+              </button>
+            ) : (
+              <div className="space-y-4">
+                <button
+                  onClick={handleVerifyAndComplete}
+                  disabled={loading || verificationCode.length !== 6}
+                  className="w-full py-3.5 px-4 bg-gradient-to-r from-forest-600 to-nature-600 text-white font-semibold rounded-xl hover:from-forest-700 hover:to-nature-700 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl"
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Verifying...
+                    </span>
+                  ) : (
+                    'Verify & Complete Profile'
+                  )}
+                </button>
+                
+                <button
+                  onClick={() => setStep('profile')}
+                  className="w-full text-forest-700 hover:text-forest-900 font-medium"
+                >
+                  ← Back
+                </button>
               </div>
             )}
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3.5 px-4 bg-gradient-to-r from-forest-600 to-nature-600 text-white font-semibold rounded-xl hover:from-forest-700 hover:to-nature-700 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Saving...
-                </span>
-              ) : (
-                <span className="flex items-center justify-center gap-2">
-                  Continue
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                  </svg>
-                </span>
-              )}
-            </button>
-          </form>
+          </div>
 
           {/* Privacy Note */}
           <div className="text-center">
