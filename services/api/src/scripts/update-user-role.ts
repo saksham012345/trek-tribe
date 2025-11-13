@@ -32,20 +32,15 @@ async function updateUserRole(email: string, newRole: 'traveler' | 'organizer' |
     // If upgrading to organizer, initialize organizer profile
     if (newRole === 'organizer' && !user.organizerProfile) {
       user.organizerProfile = {
-        companyName: user.name,
         bio: 'Experienced trek organizer',
-        experience: 1,
-        specializations: ['Trekking', 'Adventure'],
+        experience: '1 year of experience',
+        specialties: ['Trekking', 'Adventure'],
+        yearsOfExperience: 1,
+        totalTripsOrganized: 0,
         qrCodes: [],
-        bankDetails: {
-          accountName: user.name,
-          accountNumber: '',
-          ifscCode: '',
-          bankName: ''
-        },
-        verified: false,
-        rating: 0,
-        totalTrips: 0
+        businessInfo: {
+          companyName: user.name
+        }
       };
     }
     
