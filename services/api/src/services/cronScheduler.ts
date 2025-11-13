@@ -1,10 +1,10 @@
-import cron from 'node-cron';
+import cron, { ScheduledTask } from 'node-cron';
 import { autoPayService } from './autoPayService';
 import { subscriptionNotificationService } from './subscriptionNotificationService';
 import { logger } from '../utils/logger';
 
 class CronScheduler {
-  private jobs: cron.ScheduledTask[] = [];
+  private jobs: ScheduledTask[] = [];
 
   /**
    * Initialize all cron jobs
