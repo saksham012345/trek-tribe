@@ -194,13 +194,13 @@ class SocketService {
     socket.join(sessionId);
     socket.data.sessionId = sessionId;
 
-    // Send welcome message
+    // Send dynamic welcome message
     const welcomeMessage: ChatMessage = {
       id: `msg_${Date.now()}`,
       senderId: 'ai',
       senderName: 'Trek Tribe Assistant',
       senderRole: 'ai',
-      message: "Hi! I'm your Trek Tribe assistant. I can help you with questions about trips, bookings, and using our platform. How can I assist you today?",
+      message: this.getWelcomeMessage(socket.data.userName, socket.data.isGuest),
       timestamp: new Date()
     };
 
@@ -655,6 +655,33 @@ class SocketService {
     }
   }
 
+  /**
+   * Generate dynamic welcome message with variation
+   */
+  private getWelcomeMessage(userName?: string, isGuest?: boolean): string {
+    const timeOfDay = new Date().getHours();
+    let greeting = 'Hi';
+    
+    if (timeOfDay < 12) {
+      greeting = 'Good morning';
+    } else if (timeOfDay < 17) {
+      greeting = 'Good afternoon';
+    } else if (timeOfDay < 21) {
+      greeting = 'Good evening';
+    }
+    
+    const welcomeVariations = [
+      `${greeting}${userName ? `, ${userName}` : ''}! 🌟 I'm your Trek Tribe assistant. Ready to discover your next adventure?`,
+      `${greeting}! 🌄 Looking for an unforgettable trek? I'm here to help you find the perfect adventure!`,
+      `Hey there${userName ? `, ${userName}` : ''}! 🏔️ I can help you explore amazing trips, answer booking questions, and more. What brings you here today?`,
+      `Welcome to Trek Tribe${userName ? `, ${userName}` : ''}! 🎒 I'm your AI assistant, ready to help with trip planning, bookings, and any questions you have.`,
+      `${greeting}! 🏞️ I'm here to make your trekking journey smooth and exciting. How can I assist you today?`,
+      `Hello${userName ? ` ${userName}` : ', adventurer'}! ⛺ Whether you're planning your first trek or your next expedition, I'm here to help!`
+    ];
+    
+    return welcomeVariations[Math.floor(Math.random() * welcomeVariations.length)];
+  }
+  
   private setupCleanupInterval() {
     // Clean up inactive sessions every 30 minutes
     this.sessionCleanupInterval = setInterval(() => {

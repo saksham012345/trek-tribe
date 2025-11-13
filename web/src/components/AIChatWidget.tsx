@@ -187,17 +187,36 @@ const AIChatWidget: React.FC = () => {
     });
   };
 
+  const getWelcomeMessage = (): string => {
+    const hour = new Date().getHours();
+    let greeting = 'Hi';
+    
+    if (hour < 12) greeting = 'Good morning';
+    else if (hour < 17) greeting = 'Good afternoon';
+    else if (hour < 21) greeting = 'Good evening';
+    
+    const welcomeMessages = [
+      `${greeting}! 🌟 I'm your Trek Tribe assistant. Ready to explore amazing adventures?`,
+      `${greeting}! 🌄 Looking for your next trek? I'm here to help you find the perfect adventure!`,
+      `Hey there! 🏔️ I can help with trip info, bookings, and all your questions. What brings you here?`,
+      `Welcome to Trek Tribe! 🎒 I'm here to make your trekking journey amazing. How can I help?`,
+      `${greeting}! 🏞️ I'm your AI travel companion, ready to help plan your perfect adventure!`
+    ];
+    
+    return welcomeMessages[Math.floor(Math.random() * welcomeMessages.length)];
+  };
+  
   const initializeChat = () => {
     if (socketRef.current) {
       socketRef.current.emit('init_chat', {});
     } else {
-      // Initialize with welcome message if no socket connection
+      // Initialize with dynamic welcome message if no socket connection
       const welcomeMessage: ChatMessage = {
         id: `welcome_${Date.now()}`,
         senderId: 'ai',
         senderName: 'Trek Tribe Assistant',
         senderRole: 'ai',
-        message: 'Hi there! 🌟 I\'m your Trek Tribe assistant. I can help you with trip information, booking questions, and more. What would you like to know?',
+        message: getWelcomeMessage(),
         timestamp: new Date()
       };
       setMessages([welcomeMessage]);
@@ -209,12 +228,23 @@ const AIChatWidget: React.FC = () => {
     const lowerMessage = message.toLowerCase();
     
     if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hey')) {
-      return 'Hello! 😊 I\'m here to help you with your Trek Tribe adventure. What would you like to know about our trips?';
+      const greetingResponses = [
+        'Hello! 😊 I\'m here to help you with your Trek Tribe adventure. What would you like to know about our trips?',
+        'Hey there! 👋 Ready to explore some amazing treks? How can I assist you today?',
+        'Hi! 🌟 Great to see you! Looking for adventure recommendations or have questions about bookings?',
+        'Hello, adventurer! 🏞️ I\'m excited to help you plan your next trek. What are you interested in?'
+      ];
+      return greetingResponses[Math.floor(Math.random() * greetingResponses.length)];
     }
     
     // Handle booking-related queries
     if (lowerMessage.includes('booking') || lowerMessage.includes('reserve') || lowerMessage.includes('join trip')) {
-      return 'To book a trip: 1) Browse our trips page 2) Click "Join Trip" on your chosen adventure 3) Fill in traveler details 4) Complete payment. Need help with a specific step? Just ask! 🎒';
+      const bookingResponses = [
+        'To book a trip: 1) Browse our trips page 2) Click "Join Trip" on your chosen adventure 3) Fill in traveler details 4) Complete payment. Need help with a specific step? Just ask! 🎒',
+        'Booking is super easy! Find a trip you love, click "Join Trip", fill in your info, and you\'re set! Want me to walk you through it? 🚀',
+        'Ready to book? Browse trips, choose your adventure, hit "Join Trip", complete the form, and pay securely. Need recommendations first? 🏞️'
+      ];
+      return bookingResponses[Math.floor(Math.random() * bookingResponses.length)];
     }
     
     // Handle payment queries

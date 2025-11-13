@@ -42,8 +42,21 @@ const upload = multer({
  */
 router.get('/enhanced/:userId?', async (req, res) => {
   try {
-    const userId = req.params.userId || req.user?.id;
-    const requestingUserId = req.user?.id;
+    // Try to extract user from token if present (optional authentication)
+    let requestingUserId: string | undefined;
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (token) {
+      try {
+        const jwt = require('jsonwebtoken');
+        const decoded: any = jwt.verify(token, process.env.JWT_SECRET);
+        requestingUserId = decoded.userId;
+      } catch (err) {
+        // Invalid token, treat as unauthenticated request
+      }
+    }
+    
+    const userId = req.params.userId || requestingUserId;
 
     if (!userId) {
       return res.status(400).json({

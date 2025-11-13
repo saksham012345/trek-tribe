@@ -161,12 +161,23 @@ class TrekTribeAI {
     logger.info('Trek Tribe AI initialized with advanced capabilities');
   }
 
+  /**
+   * Get random response from array for variation
+   */
+  private getRandomResponse(responses: string[]): string {
+    return responses[Math.floor(Math.random() * responses.length)];
+  }
+  
   private initializeKnowledgeBase(): KnowledgeBase {
     return {
       patterns: [
         {
           keywords: ['book', 'booking', 'reserve', 'join trip', 'sign up'],
-          response: "To book a trek with us, browse our available adventures and click 'Join Trip' on any adventure that catches your eye! You'll create an account, fill in participant details, and secure your spot. Each trip has clear pricing, pickup points, and what's included. Need help choosing the perfect adventure?",
+          response: this.getRandomResponse([
+            "To book a trek with us, browse our available adventures and click 'Join Trip' on any adventure that catches your eye! You'll create an account, fill in participant details, and secure your spot. Each trip has clear pricing, pickup points, and what's included. Need help choosing the perfect adventure?",
+            "Ready to book your adventure? It's easy! Just browse our trips, click 'Join Trip' on your favorite, fill in your details, and you're all set! Each listing shows everything you need to know - price, itinerary, what's included. Want me to help you find the perfect trip?",
+            "Booking with Trek Tribe is a breeze! 🎒 Find a trip you love, hit 'Join Trip', complete the simple form with your details, and secure your spot. All trip info like pricing and pickup points are right there. Looking for recommendations?"
+          ]),
           confidence: 0.9,
           requiresHuman: false,
           actions: ['Browse Available Trips', 'View Pricing']
@@ -278,7 +289,11 @@ class TrekTribeAI {
         },
         {
           keywords: ['contact', 'phone', 'whatsapp', 'call', 'reach', 'support', 'help'],
-          response: "You can reach us through multiple channels! Use this chat for instant support, email us at tanejasaksham44@gmail.com, or WhatsApp us at 9876177839 for quick queries. After booking, you'll get dedicated WhatsApp group access and direct contact with your trek leader.",
+          response: this.getRandomResponse([
+            "You can reach us through multiple channels! Use this chat for instant support, email us at tanejasaksham44@gmail.com, or WhatsApp us at 9876177839 for quick queries. After booking, you'll get dedicated WhatsApp group access and direct contact with your trek leader.",
+            "We're here for you 24/7! 📞 Chat with me right here, email tanejasaksham44@gmail.com, or send a WhatsApp to 9876177839. Once you book, you'll join a dedicated WhatsApp group with your trek leader and fellow adventurers!",
+            "Need help? I'm right here! You can also reach our team at tanejasaksham44@gmail.com or WhatsApp 9876177839. Booked travelers get exclusive access to trip WhatsApp groups for direct communication with guides and other trekkers."
+          ]),
           confidence: 0.9,
           requiresHuman: false,
           actions: ['Contact Details', 'WhatsApp Support']
@@ -446,8 +461,14 @@ class TrekTribeAI {
     try {
       const normalizedQuery = query.toLowerCase().trim();
       
+      // Check if this is a repeat query
+      const isRepeatQuery = this.detectRepeatQuery(query, context);
+      
       // Extract context from conversation history
       context = this.enrichContextFromHistory(query, context);
+      
+      // Detect user intent for better response variation
+      const intent = this.detectIntent(normalizedQuery, context);
       
       // Try RAG-enhanced response first for complex queries
       if (this.shouldUseRAG(query)) {
@@ -465,14 +486,18 @@ class TrekTribeAI {
         bestMatch = this.analyzeContext(normalizedQuery, context);
       }
       
-      // Enhance response with context
+      // Enhance response with context and variation
       if (bestMatch) {
         const enhancedResponse = await this.enhanceWithTripContext(bestMatch, context);
+        // Add response variation if it's a repeat query
+        if (isRepeatQuery) {
+          enhancedResponse.message = this.addResponseVariation(enhancedResponse.message, intent);
+        }
         return enhancedResponse;
       }
       
-      // Fallback to general response
-      return this.getGeneralResponse(normalizedQuery);
+      // Fallback to general response with intent-based variation
+      return this.getGeneralResponse(normalizedQuery, intent, context);
       
     } catch (error: any) {
       logger.error('Error in Trek Tribe AI analysis', { error: error.message, query });
@@ -1245,16 +1270,213 @@ What would you like to know?`;
     return null;
   }
   
-  private getGeneralResponse(query: string): AIResponse {
+  /**
+   * Detect user intent from query
+   */
+  private detectIntent(query: string, context: ChatContext): string {
+    // Greeting detection
+    if (/^(hi|hello|hey|greetings|good morning|good afternoon|good evening|sup|yo)\b/i.test(query)) {
+      return 'greeting';
+    }
+    
+    // Question detection
+    if (/\?(what|where|when|who|how|why|which|is|are|can|could|would|should)\b/i.test(query)) {
+      return 'question';
+    }
+    
+    // Action request detection
+    if (/(book|reserve|join|show me|find|search|recommend|suggest)/i.test(query)) {
+      return 'action_request';
+    }
+    
+    // Problem/complaint detection
+    if (/(problem|issue|error|can't|cannot|not working|help|stuck)/i.test(query)) {
+      return 'problem';
+    }
+    
+    // Generic query
+    return 'general';
+  }
+  
+  /**
+   * Detect if user is repeating similar queries
+   */
+  private detectRepeatQuery(query: string, context: ChatContext): boolean {
+    if (!context.previousMessages || context.previousMessages.length < 2) {
+      return false;
+    }
+    
+    const recentUserMessages = context.previousMessages
+      .filter(msg => msg.role === 'user')
+      .slice(-3)
+      .map(msg => msg.content.toLowerCase());
+    
+    const normalizedQuery = query.toLowerCase();
+    
+    // Check for similar queries
+    for (const prevMsg of recentUserMessages) {
+      const similarity = this.calculateSimilarity(normalizedQuery, prevMsg);
+      if (similarity > 0.7) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+  
+  /**
+   * Calculate string similarity (simple Levenshtein-based)
+   */
+  private calculateSimilarity(str1: string, str2: string): number {
+    const words1 = str1.split(/\s+/);
+    const words2 = str2.split(/\s+/);
+    
+    const commonWords = words1.filter(word => words2.includes(word));
+    return commonWords.length / Math.max(words1.length, words2.length);
+  }
+  
+  /**
+   * Add variation to response if repeating
+   */
+  private addResponseVariation(message: string, intent: string): string {
+    const variations = [
+      `Let me explain this differently: ${message}`,
+      `Here's another way to look at it: ${message}`,
+      `To clarify: ${message}`,
+      message // Keep original sometimes
+    ];
+    
+    return variations[Math.floor(Math.random() * variations.length)];
+  }
+  
+  private getGeneralResponse(query: string, intent?: string, context?: ChatContext): AIResponse {
     const generalResponses = this.knowledgeBase.contextualResponses.general;
-    const randomResponse = generalResponses[Math.floor(Math.random() * generalResponses.length)];
+    
+    // Select response based on intent
+    let responseBase = '';
+    
+    if (intent === 'greeting') {
+      const greetings = [
+        'Hi there! 👋 Ready to explore amazing adventures?',
+        'Hello! 🌟 How can I make your trekking dreams come true today?',
+        'Hey! 🏔️ Looking for your next adventure?',
+        'Welcome back! 🎒 What adventure can I help you discover?',
+        'Greetings, adventurer! 🌄 What brings you here today?'
+      ];
+      responseBase = greetings[Math.floor(Math.random() * greetings.length)];
+    } else if (intent === 'question') {
+      const questionResponses = [
+        'Great question! Let me help you with that.',
+        'I\'d be happy to answer that for you!',
+        'That\'s an important question. Here\'s what you need to know:',
+        'Good thinking! Let me provide some details.'
+      ];
+      responseBase = questionResponses[Math.floor(Math.random() * questionResponses.length)];
+    } else if (intent === 'problem') {
+      const problemResponses = [
+        'I understand you\'re facing an issue. Let me help you resolve it.',
+        'No worries! Let\'s get this sorted out for you.',
+        'I\'m here to help! Let\'s tackle this together.',
+        'Let me assist you with that problem right away.'
+      ];
+      responseBase = problemResponses[Math.floor(Math.random() * problemResponses.length)];
+    } else {
+      responseBase = generalResponses[Math.floor(Math.random() * generalResponses.length)];
+    }
+    
+    // Add context-aware suggestions
+    const suggestions = this.getContextualSuggestions(query, context);
+    
+    const fullMessage = `${responseBase} ${suggestions}`;
     
     return {
-      message: `${randomResponse} I can help you with booking trips, understanding our services, payment information, safety guidelines, and much more. What specific aspect would you like to know about?`,
+      message: fullMessage,
       requiresHumanSupport: false,
-      suggestedActions: ['Browse Available Trips', 'View Services', 'Contact Support'],
-      confidence: 0.6
+      suggestedActions: this.getSmartActions(query, intent),
+      confidence: 0.6,
+      quickReplies: this.getQuickRepliesForIntent(intent)
     };
+  }
+  
+  /**
+   * Get contextual suggestions based on query
+   */
+  private getContextualSuggestions(query: string, context?: ChatContext): string {
+    const lowerQuery = query.toLowerCase();
+    
+    if (lowerQuery.includes('where') && lowerQuery.includes('go')) {
+      return 'I can help you discover destinations! Tell me your interests - mountains, beaches, culture, or adventure?';
+    }
+    
+    if (lowerQuery.includes('when')) {
+      return 'Trip timing matters! We have adventures year-round. What season works best for you?';
+    }
+    
+    if (lowerQuery.includes('budget') || lowerQuery.includes('price') || lowerQuery.includes('cost')) {
+      return 'I can suggest trips within any budget. What\'s your price range?';
+    }
+    
+    // Check conversation history for context
+    if (context?.previousMessages && context.previousMessages.length > 0) {
+      const lastAssistantMsg = context.previousMessages
+        .filter(m => m.role === 'assistant')
+        .pop();
+      
+      if (lastAssistantMsg?.content.includes('recommend')) {
+        return 'Need more specific recommendations? Tell me your preferred difficulty level or destination!';
+      }
+    }
+    
+    return 'I can help with trip bookings, recommendations, safety info, payment questions, and much more. What interests you most?';
+  }
+  
+  /**
+   * Get smart actions based on intent
+   */
+  private getSmartActions(query: string, intent?: string): string[] {
+    if (intent === 'greeting') {
+      return ['Browse Trips', 'Get Recommendations', 'Popular Destinations'];
+    }
+    
+    if (intent === 'action_request') {
+      return ['View Available Trips', 'Check Availability', 'Contact Support'];
+    }
+    
+    if (intent === 'problem') {
+      return ['Talk to Agent', 'View Help Center', 'Check FAQs'];
+    }
+    
+    return ['Browse Available Trips', 'View Services', 'Contact Support'];
+  }
+  
+  /**
+   * Get quick replies based on intent
+   */
+  private getQuickRepliesForIntent(intent?: string): string[] {
+    if (intent === 'greeting') {
+      return [
+        'Show me trips',
+        'What\'s popular?',
+        'Budget-friendly options',
+        'Mountain treks'
+      ];
+    }
+    
+    if (intent === 'question') {
+      return [
+        'Tell me more',
+        'What\'s included?',
+        'Safety measures',
+        'Booking process'
+      ];
+    }
+    
+    return [
+      'Trip Booking',
+      'Cancellation Policy',
+      'Payment Options',
+      'Talk to Agent'
+    ];
   }
 }
 

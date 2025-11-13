@@ -335,11 +335,9 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
 
       setUploadProgress(90);
       
-      // Submit with timeout
+      // Submit with timeout (don't override headers - let interceptor add auth token)
       const response = await Promise.race([
-        api.post('/trips', tripData, {
-          headers: { 'Content-Type': 'application/json' }
-        }),
+        api.post('/trips', tripData),
         new Promise((_, reject) => 
           setTimeout(() => reject(new Error('Request timeout - please try again')), 15000)
         )
