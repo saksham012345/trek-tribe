@@ -50,9 +50,11 @@ router.get('/enhanced/:userId?', async (req, res) => {
       try {
         const jwt = require('jsonwebtoken');
         const decoded: any = jwt.verify(token, process.env.JWT_SECRET);
-        requestingUserId = decoded.userId;
+        // Handle both 'userId' and 'id' for backward compatibility
+        requestingUserId = decoded.userId || decoded.id;
       } catch (err) {
         // Invalid token, treat as unauthenticated request
+        logger.error('JWT verification failed in profile route', { error: (err as Error).message });
       }
     }
     
