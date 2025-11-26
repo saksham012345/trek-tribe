@@ -18,26 +18,47 @@ declare global {
 }
 
 export function authenticateToken(req: Request, res: Response, next: NextFunction) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
+  // Support multiple header patterns and alternate token header
+  const rawAuth = (req.headers.authorization as string) || (req.headers['x-access-token'] as string) || '';
+  let token: string | undefined;
+
+  if (rawAuth.startsWith('Bearer ')) {
+    token = rawAuth.slice(7).trim();
+  } else if (rawAuth) {
+    token = rawAuth.trim();
+  }
+
+  if (!token) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
-  const token = authHeader.slice(7);
+
   try {
     const secret = process.env.JWT_SECRET;
-    if (!secret) {
-      throw new Error('JWT_SECRET environment variable is required');
+    if (!secret || secret.length < 32) {
+      throw new Error('JWT_SECRET must be set and at least 32 characters long');
     }
+
     const payload = jwt.verify(token, secret) as any;
+
+    // Accept common JWT id fields: id, userId, sub, _id
+    const resolvedId = payload?.id || payload?.userId || payload?.sub || payload?._id;
+    const resolvedRole = payload?.role || payload?.roles || undefined;
+
+    if (!resolvedId) {
+      return res.status(401).json({ error: 'Invalid token payload: missing user id' });
+    }
+
     const authPayload: AuthPayload = {
-      id: payload.id || payload.userId,
-      userId: payload.id || payload.userId,
-      role: payload.role
+      id: String(resolvedId),
+      userId: String(resolvedId),
+      role: resolvedRole as any
     };
+
     req.user = authPayload;
     req.auth = authPayload;
     return next();
-  } catch {
+  } catch (err) {
+    console.error('Authentication error:', err instanceof Error ? err.message : err);
     return res.status(401).json({ error: 'Invalid token' });
   }
 }

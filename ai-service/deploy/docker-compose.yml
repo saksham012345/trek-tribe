@@ -1,0 +1,10 @@
+version: '3.8'
+services:
+  ai-service:
+    build: ..
+    container_name: trek-tribe-ai
+    ports:
+      - 8000:8000
+    environment:
+      - AI_SERVICE_KEY=${AI_SERVICE_KEY}
+    restart: unless-stopped

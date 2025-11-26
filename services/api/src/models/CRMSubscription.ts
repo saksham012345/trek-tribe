@@ -61,6 +61,16 @@ export interface ICRMSubscription extends Document {
     description: string;
     invoiceUrl?: string;
   }[];
+  // Persisted payment attempts for audit and retry idempotency
+  paymentAttempts?: {
+    attemptId?: string;
+    razorpayOrderId?: string;
+    razorpayPaymentId?: string;
+    amount?: number;
+    status?: 'attempted' | 'success' | 'failed';
+    errorMessage?: string;
+    createdAt?: Date;
+  }[];
   
   autoRenew: boolean;
   cancelledAt?: Date;
@@ -126,6 +136,18 @@ const CRMSubscriptionSchema: Schema = new Schema(
         paidAt: { type: Date },
         metadata: { type: Schema.Types.Mixed },
       },
+    ],
+    // Persisted payment attempts for audit and retry idempotency
+    paymentAttempts: [
+      {
+        attemptId: { type: String },
+        razorpayOrderId: { type: String },
+        razorpayPaymentId: { type: String },
+        amount: { type: Number },
+        status: { type: String, enum: ['attempted', 'success', 'failed'], default: 'attempted' },
+        errorMessage: { type: String },
+        createdAt: { type: Date, default: Date.now }
+      }
     ],
     
     notifications: {

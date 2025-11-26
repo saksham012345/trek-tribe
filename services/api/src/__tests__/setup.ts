@@ -36,3 +36,4 @@ process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'test-jwt-secret-key';
 process.env.RAZORPAY_KEY_ID = 'test_razorpay_key';
 process.env.RAZORPAY_KEY_SECRET = 'test_razorpay_secret';
+process.env.RAZORPAY_WEBHOOK_SECRET = 'test_webhook_secret';

@@ -1,0 +1,33 @@
+name: AI Service Smoke Test
+
+on:
+  push:
+    paths:
+      - 'ai-service/**'
+  workflow_dispatch: {}
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build ai-service image
+        run: |
+          docker build -t trek-tribe-ai:ci ./ai-service
+
+      - name: Run ai-service container
+        run: |
+          docker run -d --rm --name trek-tribe-ai-ci -p 8001:8000 -e AI_SERVICE_KEY=ci-test-key trek-tribe-ai:ci
+
+      - name: Wait for service
+        run: |
+          for i in {1..20}; do
+            if curl -sSf http://localhost:8001/health >/dev/null 2>&1; then echo 'healthy' && break; fi; sleep 1; done
+
+      - name: Smoke /generate (fallback mode)
+        run: |
+          curl -sS -X POST http://localhost:8001/generate -H "Content-Type: application/json" -H "x-api-key: ci-test-key" -d '{"prompt":"hello","max_tokens":10}' | jq .
+
+      - name: Stop container
+        run: docker stop trek-tribe-ai-ci || true

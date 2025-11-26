@@ -51,6 +51,7 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
   const [verificationLoading, setVerificationLoading] = useState<string | null>(null);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [notifications, setNotifications] = useState<Array<{ id: string; message: string; type: 'success' | 'info' | 'error'; timestamp: Date }>>([]);
+  const [crmSubscription, setCrmSubscription] = useState<any | null>(null);
 
   useEffect(() => {
     fetchDashboardData();
@@ -107,6 +108,14 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
       
       setTrips((tripsResponse.data as any).trips || []);
       setPendingBookings((bookingsResponse.data as any).bookings || []);
+      // Fetch CRM subscription info (if any)
+      try {
+        const crmRes = await api.get('/api/crm/subscriptions/my');
+        setCrmSubscription(crmRes.data?.data || null);
+      } catch (crmErr: any) {
+        // Not critical; ignore if user has no crm subscription
+        setCrmSubscription(null);
+      }
     } catch (error: any) {
       setError(error.response?.data?.error || 'Failed to load dashboard data');
       console.error('Error fetching dashboard data:', error);
@@ -376,6 +385,34 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* CRM Subscription Panel */}
+      <div className="max-w-7xl mx-auto mt-8">
+        <div className="bg-white rounded-2xl shadow-xl p-6">
+          <h2 className="text-2xl font-bold text-forest-800 mb-4">📋 CRM Access</h2>
+          {!crmSubscription ? (
+            <div className="text-sm text-forest-600">
+              <p>You do not have CRM access currently.</p>
+              <p className="mt-2">Purchase the CRM bundle to access leads, tickets and analytics.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <p className="text-xs text-forest-600">Status</p>
+                <p className="font-semibold text-forest-800">{crmSubscription.status}</p>
+              </div>
+              <div>
+                <p className="text-xs text-forest-600">CRM Access</p>
+                <p className="font-semibold text-forest-800">{crmSubscription.crmBundle?.hasAccess ? 'Enabled' : 'Disabled'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-forest-600">Billing</p>
+                <p className="font-semibold text-forest-800">{crmSubscription.billingHistory?.length || 0} transactions</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -131,7 +131,9 @@ TicketSchema.pre('save', async function (next) {
 });
 
 // Indexes
-TicketSchema.index({ ticketNumber: 1 });
+// `ticketNumber` is declared `unique: true` on the field which creates
+// the index at schema creation. Avoid duplicating the same single-field
+// index here to prevent Mongoose duplicate-index warnings.
 TicketSchema.index({ requesterId: 1 });
 TicketSchema.index({ status: 1 });
 TicketSchema.index({ assignedTo: 1 });

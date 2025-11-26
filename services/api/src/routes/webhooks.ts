@@ -8,6 +8,7 @@ import { emailService } from '../services/emailService';
 import { emailTemplates } from '../templates/emailTemplates';
 import { logger } from '../utils/logger';
 import { auditLogService } from '../services/auditLogService';
+import WebhookEvent from '../models/WebhookEvent';
 
 const router = Router();
 
@@ -31,8 +32,8 @@ router.post('/razorpay', async (req: Request, res: Response) => {
       return res.status(500).json({ error: 'Webhook not configured' });
     }
 
-    // Verify webhook signature
-    const webhookBody = JSON.stringify(req.body);
+    // Use rawBody when available so the signature matches exact bytes sent by Razorpay
+    const webhookBody = (req as any).rawBody || JSON.stringify(req.body);
     const expectedSignature = crypto
       .createHmac('sha256', webhookSecret)
       .update(webhookBody)
@@ -48,6 +49,20 @@ router.post('/razorpay', async (req: Request, res: Response) => {
 
     const { event, payload } = req.body;
     const paymentEntity = payload.payment?.entity || payload.order?.entity;
+
+    // Deduplicate: determine an eventId to ensure idempotency
+    const eventId = req.body?.id || paymentEntity?.id || payload?.payment?.entity?.id || payload?.order?.entity?.id;
+    if (!eventId) {
+      logger.warn('Webhook missing identifiable event id', { event });
+      return res.status(400).json({ error: 'Missing event id' });
+    }
+
+    // If this event was already processed, acknowledge quickly
+    const existingEvent = await WebhookEvent.findOne({ eventId, source: 'razorpay' });
+    if (existingEvent) {
+      logger.info('Duplicate webhook ignored (already processed)', { eventId, event });
+      return res.status(200).json({ status: 'already_processed' });
+    }
 
     if (!paymentEntity) {
       logger.warn('Webhook received without payment entity', { event });
@@ -85,6 +100,13 @@ router.post('/razorpay', async (req: Request, res: Response) => {
 
       default:
         logger.info('Unhandled webhook event', { event });
+    }
+
+    // Mark event processed for idempotency
+    try {
+      await WebhookEvent.create({ eventId, source: 'razorpay', processedAt: new Date(), rawPayload: req.body });
+    } catch (dbErr: any) {
+      logger.warn('Failed to persist webhook event for idempotency', { error: dbErr.message, eventId });
     }
 
     // Acknowledge webhook
