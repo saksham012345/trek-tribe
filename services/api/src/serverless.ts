@@ -10,29 +10,16 @@ import wishlistRoutes from './routes/wishlist';
 import fileRoutes from './routes/files';
 
 const app = express();
+import { logger } from './utils/logger';
+import errorHandler from './middleware/errorHandler';
 
 // Enhanced error handling middleware
 const asyncErrorHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
   Promise.resolve(fn(req, res, next)).catch(next);
 };
 
-// Request logging middleware
-const requestLogger = (req: Request, res: Response, next: NextFunction) => {
-  const start = Date.now();
-  console.log(`📨 ${new Date().toISOString()} - ${req.method} ${req.path}`);
-  
-  res.on('finish', () => {
-    const duration = Date.now() - start;
-    const status = res.statusCode;
-    const emoji = status >= 400 ? '❌' : status >= 300 ? '⚠️' : '✅';
-    console.log(`${emoji} ${req.method} ${req.path} - ${status} (${duration}ms)`);
-  });
-  
-  next();
-};
-
-// Apply middleware
-app.use(requestLogger);
+// Apply structured logger
+app.use(logger.requestLogger());
 app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
@@ -55,25 +42,7 @@ const logMessage = (level: string, message: string): void => {
   console.log(`${new Date().toISOString()} [${level}] ${message}`);
 };
 
-// Global error handler
-const globalErrorHandler = (error: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error('🚨 Unhandled error:', error);
-  
-  // Log error
-  logMessage('ERROR', `${req.method} ${req.path} - ${error.message}`);
-  
-  if (res.headersSent) {
-    return next(error);
-  }
-  
-  const statusCode = (error as any).statusCode || 500;
-  res.status(statusCode).json({
-    error: process.env.NODE_ENV === 'production' 
-      ? 'Internal server error' 
-      : error.message,
-    ...(process.env.NODE_ENV !== 'production' && { stack: error.stack })
-  });
-};
+// Use centralized error handler
 
 const mongoUri = process.env.MONGODB_URI || 'mongodb+srv://your-connection-string';
 
@@ -182,7 +151,7 @@ app.use('*', (req: Request, res: Response) => {
   });
 });
 
-// Apply global error handler
-app.use(globalErrorHandler);
+// Apply centralized error handler
+app.use(errorHandler);
 
 export default app;

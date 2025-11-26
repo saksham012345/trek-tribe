@@ -6,6 +6,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (emailOrCredential: string, passwordOrProvider?: string) => Promise<{ success: boolean; error?: string }>;
+  setSession: (token: string, userData?: User) => Promise<void>;
   logout: () => void;
   updateUser: (userData: Partial<User>) => void;
 }
@@ -82,6 +83,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const setSession = async (token: string, userData?: User) => {
+    localStorage.setItem('token', token);
+    if (userData) {
+      setUser(userData);
+      return;
+    }
+
+    try {
+      const resp = await api.get('/auth/me');
+      if (resp.data?.user) setUser(resp.data.user as User);
+    } catch (e) {
+      // If fetching user fails, at least keep token in storage and let app handle next steps
+      console.warn('setSession: failed to fetch user after setting token');
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
     setUser(null);
@@ -97,6 +114,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     user,
     loading,
     login,
+    setSession,
     logout,
     updateUser
   };

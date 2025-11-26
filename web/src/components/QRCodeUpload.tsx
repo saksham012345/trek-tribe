@@ -109,7 +109,7 @@ const QRCodeUpload: React.FC<QRCodeUploadProps> = ({ qrCodes, onQRCodesUpdate })
   };
 
   const deleteQRCode = async (qrId: string) => {
-    if (!confirm('Are you sure you want to delete this QR code?')) return;
+    if (!globalThis.confirm('Are you sure you want to delete this QR code?')) return;
 
     try {
       const response = await api.delete(`/profile/me/qr-codes/${qrId}`);

@@ -5,6 +5,8 @@ import { ChatSession } from '../models/ChatSession';
 import { authenticateJwt } from '../middleware/auth';
 import { socketService } from '../services/socketService';
 import { logger } from '../utils/logger';
+import { sanitizeText } from '../utils/sanitize';
+import { ticketCreateValidators, messageValidators, handleValidationErrors } from '../validators/ticketValidator';
 
 const router = express.Router();
 
@@ -78,25 +80,27 @@ router.get('/:ticketId/chats', async (req, res) => {
 });
 
 // Create a new ticket (for contact support button)
-router.post('/tickets', async (req, res) => {
+router.post('/tickets', ticketCreateValidators, handleValidationErrors, async (req, res, next) => {
   try {
     const userId = (req as any).auth.userId;
     const { subject, description, category = 'general', priority = 'medium', relatedTripId } = req.body;
 
-    if (!subject || !description) {
-      return res.status(400).json({ error: 'Subject and description are required' });
-    }
+    // Sanitize and truncate to safe lengths
+    const safeSubject = sanitizeText(subject, 200);
+    const safeDescription = sanitizeText(description, 1000);
 
     // Get user info for ticket
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      const err: any = new Error('User not found');
+      err.statusCode = 404;
+      return next(err);
     }
 
     const ticket = await SupportTicket.create({
       userId,
-      subject,
-      description,
+      subject: safeSubject,
+      description: safeDescription,
       category,
       priority,
       relatedTripId,
@@ -108,7 +112,7 @@ router.post('/tickets', async (req, res) => {
         sender: 'customer',
         senderName: user.name,
         senderId: userId,
-        message: description,
+        message: safeDescription,
         timestamp: new Date()
       }]
     });
@@ -119,7 +123,7 @@ router.post('/tickets', async (req, res) => {
       userId,
       customerName: user.name,
       customerEmail: user.email,
-      subject,
+      subject: safeSubject,
       priority,
       category,
       createdAt: ticket.createdAt
@@ -128,7 +132,7 @@ router.post('/tickets', async (req, res) => {
     logger.info('Support ticket created', { 
       ticketId: ticket.ticketId, 
       userId, 
-      subject 
+      subject: safeSubject 
     });
 
     res.status(201).json({
@@ -141,7 +145,6 @@ router.post('/tickets', async (req, res) => {
         createdAt: ticket.createdAt
       }
     });
-
   } catch (error: any) {
     logger.error('Error creating support ticket', { 
       error: error.message, 
@@ -153,10 +156,7 @@ router.post('/tickets', async (req, res) => {
         priority: req.body.priority 
       }
     });
-    res.status(500).json({ 
-      error: 'Failed to create support ticket',
-      message: error.message 
-    });
+    return next(error);
   }
 });
 
@@ -219,21 +219,21 @@ router.get('/tickets/my-tickets', async (req, res) => {
 });
 
 // Add message to existing ticket (reopen chat)
-router.post('/:ticketId/messages', async (req, res) => {
+router.post('/:ticketId/messages', messageValidators, handleValidationErrors, async (req, res, next) => {
   try {
     const { ticketId } = req.params;
     const { message } = req.body;
     const userId = (req as any).auth.userId;
 
-    if (!message) {
-      return res.status(400).json({ error: 'Message is required' });
-    }
-
     const User = require('../models/User').User;
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      const err: any = new Error('User not found');
+      err.statusCode = 404;
+      return next(err);
     }
+
+    const safeMessage = sanitizeText(message, 2000);
 
     const ticket = await SupportTicket.findOneAndUpdate(
       { ticketId, userId }, // Ensure user owns the ticket
@@ -243,7 +243,7 @@ router.post('/:ticketId/messages', async (req, res) => {
             sender: 'customer',
             senderName: user.name,
             senderId: userId,
-            message,
+            message: safeMessage,
             timestamp: new Date()
           }
         },
@@ -256,7 +256,9 @@ router.post('/:ticketId/messages', async (req, res) => {
     );
 
     if (!ticket) {
-      return res.status(404).json({ error: 'Ticket not found or access denied' });
+      const err: any = new Error('Ticket not found or access denied');
+      err.statusCode = 404;
+      return next(err);
     }
 
     // Notify agents about the ticket update
@@ -267,7 +269,7 @@ router.post('/:ticketId/messages', async (req, res) => {
       socketService.sendAgentReply(ticket.assignedAgentId.toString(), {
         ticketId: ticket.ticketId,
         customerName: user.name,
-        message,
+        message: safeMessage,
         timestamp: new Date()
       });
     }
@@ -275,7 +277,7 @@ router.post('/:ticketId/messages', async (req, res) => {
     logger.info('Message added to ticket by user', { 
       ticketId, 
       userId, 
-      messageLength: message.length 
+      messageLength: safeMessage.length 
     });
 
     res.json({ 
@@ -285,7 +287,7 @@ router.post('/:ticketId/messages', async (req, res) => {
 
   } catch (error: any) {
     logger.error('Error adding message to ticket', { error: error.message });
-    res.status(500).json({ error: 'Failed to send message' });
+    return next(error);
   }
 });
 

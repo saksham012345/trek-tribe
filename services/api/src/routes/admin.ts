@@ -6,6 +6,8 @@ import { Wishlist } from '../models/Wishlist';
 import { authenticateJwt, requireRole } from '../middleware/auth';
 import { logger } from '../utils/logger';
 import { emailService } from '../services/emailService';
+import { retryQueueService } from '../services/retryQueueService';
+import RetryJob from '../models/RetryJob';
 
 const router = express.Router();
 
@@ -351,6 +353,51 @@ router.get('/users/export-contacts', async (req, res) => {
       adminId: (req as any).auth.userId 
     });
     res.status(500).json({ error: 'Failed to export user contacts' });
+  }
+});
+
+// ===== Retry Jobs Management (Admin) =====
+router.get('/retries', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const skip = (page - 1) * limit;
+    const jobs = await RetryJob.find({}).sort({ createdAt: -1 }).limit(limit).skip(skip).lean();
+    const total = await RetryJob.countDocuments({});
+    res.json({ data: jobs, pagination: { page, limit, total } });
+  } catch (err: any) {
+    logger.error('Error listing retry jobs', { error: err.message });
+    res.status(500).json({ error: 'Failed to list retry jobs' });
+  }
+});
+
+router.post('/retries/:id/retry', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const job = await RetryJob.findById(id);
+    if (!job) return res.status(404).json({ error: 'Retry job not found' });
+    job.status = 'pending';
+    job.nextRetryAt = new Date();
+    job.retryCount = 0;
+    await job.save();
+    res.json({ success: true, job });
+  } catch (err: any) {
+    logger.error('Error retrying job', { error: err.message });
+    res.status(500).json({ error: 'Failed to retry job' });
+  }
+});
+
+router.post('/retries/:id/cancel', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const job = await RetryJob.findById(id);
+    if (!job) return res.status(404).json({ error: 'Retry job not found' });
+    job.status = 'cancelled';
+    await job.save();
+    res.json({ success: true, job });
+  } catch (err: any) {
+    logger.error('Error cancelling job', { error: err.message });
+    res.status(500).json({ error: 'Failed to cancel job' });
   }
 });
 

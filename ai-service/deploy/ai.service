@@ -1,0 +1,15 @@
+[Unit]
+Description=Trek-Tribe AI Service
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/trek-tribe/ai-service
+Environment=AI_SERVICE_KEY=change-me
+ExecStart=/usr/bin/env uvicorn app.main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -178,6 +178,8 @@ const organizerSubscriptionSchema = new Schema(
     // Auto-renewal
     autoRenew: { type: Boolean, default: false },
     paymentMethodId: { type: String },
+    // Payment method validity flag - maintained by migration/validation scripts
+    paymentMethodValid: { type: Boolean, default: undefined },
     
     // Notifications
     notificationsSent: { type: [notificationSchema], default: [] },

@@ -85,6 +85,12 @@ interface PublicProfileData {
     badges: string[];
   };
   isOrganizer: boolean;
+  isOwner?: boolean;
+  ownerOnly?: {
+    wishlist?: any;
+    pastTrips?: any[];
+    interestedLeads?: any[];
+  };
 }
 
 const PublicProfile: React.FC = () => {
@@ -528,6 +534,81 @@ const PublicProfile: React.FC = () => {
           </Box>
         )}
       </Paper>
+
+      {/* Owner-only sections: wishlist, past trips, interested leads */}
+      {profile.isOwner && profile.ownerOnly && (
+        <>
+          {/* Wishlist */}
+          {profile.ownerOnly.wishlist && profile.ownerOnly.wishlist.wishlistItems && profile.ownerOnly.wishlist.wishlistItems.length > 0 && (
+            <Paper sx={{ p: 3, mt: 3 }}>
+              <Typography variant="h5" gutterBottom>Saved Trips (Wishlist)</Typography>
+              <Grid container spacing={3}>
+                {profile.ownerOnly.wishlist.wishlistItems.map((item: any) => (
+                  <Grid item xs={12} sm={6} md={4} key={item._id}>
+                    {renderTripCard({
+                      _id: item.trip._id,
+                      title: item.trip.title,
+                      destination: item.trip.destination,
+                      description: item.trip.description,
+                      coverImage: item.trip.coverImage,
+                      startDate: item.trip.startDate,
+                      endDate: item.trip.endDate,
+                      price: item.trip.price,
+                      organizerId: item.trip.organizerId
+                    })}
+                  </Grid>
+                ))}
+              </Grid>
+            </Paper>
+          )}
+
+          {/* Past Trips */}
+          {profile.ownerOnly.pastTrips && profile.ownerOnly.pastTrips.length > 0 && (
+            <Paper sx={{ p: 3, mt: 3 }}>
+              <Typography variant="h5" gutterBottom>Past Trips</Typography>
+              <Grid container spacing={3}>
+                {profile.ownerOnly.pastTrips.map((trip: any) => (
+                  <Grid item xs={12} sm={6} md={4} key={trip._id}>
+                    {renderTripCard(trip)}
+                  </Grid>
+                ))}
+              </Grid>
+            </Paper>
+          )}
+
+          {/* Interested Trips (leads) */}
+          {profile.ownerOnly.interestedLeads && profile.ownerOnly.interestedLeads.length > 0 && (
+            <Paper sx={{ p: 3, mt: 3 }}>
+              <Typography variant="h5" gutterBottom>Interested Trips</Typography>
+              <Grid container spacing={3}>
+                {profile.ownerOnly.interestedLeads.map((lead: any) => (
+                  <Grid item xs={12} sm={6} md={4} key={lead._id}>
+                    {lead.tripId ? (
+                      renderTripCard({
+                        _id: lead.tripId._id,
+                        title: lead.tripId.title,
+                        destination: lead.tripId.destination,
+                        description: lead.tripId.description,
+                        coverImage: lead.tripId.coverImage,
+                        startDate: lead.tripId.startDate,
+                        endDate: lead.tripId.endDate,
+                        organizerId: lead.tripId.organizerId
+                      })
+                    ) : (
+                      <Card>
+                        <CardContent>
+                          <Typography variant="body1">Interested in a trip (details unavailable)</Typography>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </Grid>
+                ))}
+              </Grid>
+            </Paper>
+          )}
+        </>
+      )}
+
     </Container>
   );
 };

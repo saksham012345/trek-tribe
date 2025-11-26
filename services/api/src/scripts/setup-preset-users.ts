@@ -5,16 +5,16 @@ import { User } from '../models/User';
 import { logger } from '../utils/logger';
 
 // Allow overriding preset agent credentials via environment variables (recommended for production)
-const AGENT_NAME = process.env.PRESET_AGENT_NAME || 'Saksham Taneja';
-const AGENT_EMAIL = process.env.PRESET_AGENT_EMAIL || 'tanejasaksham44@gmail.com';
-const AGENT_PHONE = process.env.PRESET_AGENT_PHONE || '+91-9999999998';
-const AGENT_PASSWORD = process.env.PRESET_AGENT_PASSWORD || 'Agent@9800';
+const AGENT_NAME = process.env.PRESET_AGENT_NAME || 'Trek Agent';
+const AGENT_EMAIL = process.env.PRESET_AGENT_EMAIL || 'agent@gmail.com';
+const AGENT_PHONE = process.env.PRESET_AGENT_PHONE || '+1-555-0100';
+const AGENT_PASSWORD = process.env.PRESET_AGENT_PASSWORD || 'Agent@2025!';
 
 // Admin overrides
-const ADMIN_NAME = process.env.PRESET_ADMIN_NAME || 'Root Admin';
-const ADMIN_EMAIL = process.env.PRESET_ADMIN_EMAIL || 'trektribe_root@trektribe.in';
-const ADMIN_PHONE = process.env.PRESET_ADMIN_PHONE || '+91-9999999999';
-const ADMIN_PASSWORD = process.env.PRESET_ADMIN_PASSWORD || 'Saksham@4700';
+const ADMIN_NAME = process.env.PRESET_ADMIN_NAME || 'Trek Admin';
+const ADMIN_EMAIL = process.env.PRESET_ADMIN_EMAIL || 'admin@gmail.com';
+const ADMIN_PHONE = process.env.PRESET_ADMIN_PHONE || '+1-555-0001';
+const ADMIN_PASSWORD = process.env.PRESET_ADMIN_PASSWORD || 'Admin@2025!';
 
 const presetUsers = [
   {

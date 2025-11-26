@@ -54,10 +54,9 @@ const auditLogSchema = new Schema<AuditLogDocument>(
       type: Schema.Types.Mixed,
       default: {}
     },
-    timestamp: { 
-      type: Date, 
-      default: Date.now,
-      index: true
+    timestamp: {
+      type: Date,
+      default: Date.now
     },
     status: {
       type: String,

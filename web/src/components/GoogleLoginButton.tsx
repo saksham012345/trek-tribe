@@ -28,7 +28,7 @@ const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
   onError,
   className = ''
 }) => {
-  const { login } = useAuth();
+  const { login, setSession } = useAuth();
   const buttonRef = useRef<HTMLDivElement>(null);
   const scriptLoaded = useRef(false);
   const [gisReady, setGisReady] = useState(false);
@@ -50,9 +50,9 @@ const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
 
       const { token, user, requiresProfileCompletion } = authResponse.data;
       
-      // Store token
-      localStorage.setItem('token', token);
-      
+      // Store token and set user session
+      await setSession(token, user as any);
+
       // Check if profile needs completion
       if (requiresProfileCompletion) {
         setUserEmail(user.email);
@@ -60,13 +60,9 @@ const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
         setIsProcessing(false);
       } else {
         // Profile is complete, proceed with normal login
-        const result = await login(response.credential, 'google');
-        if (result.success) {
-          onSuccess?.();
-        } else {
-          setIsProcessing(false);
-          onError?.(result.error || 'Google login failed');
-        }
+        // We already set the session above; call success callback
+        setIsProcessing(false);
+        onSuccess?.();
       }
     } catch (error: any) {
       console.error('Google login error:', error);

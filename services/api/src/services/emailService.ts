@@ -69,6 +69,11 @@ class EmailService {
 
   private async initialize() {
     try {
+      // Allow disabling email initialization explicitly to avoid noisy logs
+      if ((process.env.DISABLE_EMAIL || 'false').toLowerCase() === 'true') {
+        logger.info('Email service explicitly disabled via DISABLE_EMAIL=true');
+        return;
+      }
       // Require credentials from environment
       const emailUser = process.env.GMAIL_USER;
       const emailPassword = process.env.GMAIL_APP_PASSWORD;
@@ -90,12 +95,21 @@ class EmailService {
       });
 
       // Verify the connection
-      await this.transporter.verify();
-      this.isInitialized = true;
-      logger.info('Email service initialized successfully with Gmail SMTP');
+      try {
+        await this.transporter.verify();
+        this.isInitialized = true;
+        logger.info('Email service initialized successfully with Gmail SMTP');
+      } catch (verifyError: any) {
+        // Treat verification failures as non-fatal: log a concise warning and
+        // disable the email service so application continues running.
+        logger.warn('Email service disabled: SMTP verification failed. Check GMAIL_USER/GMAIL_APP_PASSWORD or set DISABLE_EMAIL=true to skip email.', { error: verifyError?.message });
+        this.transporter = null;
+        this.isInitialized = false;
+      }
 
     } catch (error: any) {
-      logger.error('Failed to initialize email service', { error: error.message });
+      // For unexpected errors during initialization, warn and disable the service
+      logger.warn('Email service initialization failed and has been disabled', { error: error?.message });
       this.transporter = null;
       this.isInitialized = false;
     }

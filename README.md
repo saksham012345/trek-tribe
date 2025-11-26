@@ -199,6 +199,44 @@ A comprehensive travel platform that connects travelers for group trips and adve
 - `POST /chat-support` - AI chat support
 - `WebSocket /socket.io` - Real-time messaging
 
+## 📦 Prebuilt AI Image & CI
+
+This repository includes a GitHub Actions workflow that builds a prebuilt Docker image containing the AI model (Flan-T5 base), runs smoke tests, and pushes the image to GitHub Container Registry (GHCR) when tests pass.
+
+CI notes:
+- The workflow is at `.github/workflows/ci-build-and-push.yml`.
+- The workflow downloads the model into `ai-service/models/` during the run, builds the Docker image, runs the container, runs `ai-service/smoke_test.py`, and pushes the image to `ghcr.io/<org>/trek-tribe-ai`.
+- Required secrets:
+   - `AI_SERVICE_KEY` — strong API key for tests (set in repository secrets)
+   - `HF_TOKEN` (optional) — Hugging Face token for private models
+
+Local prebuilt image (developer):
+
+1. Download model into the `ai-service` folder (this bakes model files into the image):
+
+```powershell
+# Windows PowerShell
+$env:MODEL_NAME='google/flan-t5-base'
+python .\ai-service\download_model.py
+```
+
+2. Build the image locally (from repo root):
+
+```powershell
+docker build -f ai-service/Dockerfile -t trek-tribe-ai:local .
+```
+
+3. Run the container and test:
+
+```powershell
+docker run -d --rm -p 8000:8000 --name ai_service_local trek-tribe-ai:local
+#$env:AI_SERVICE_URL='http://localhost:8000'; $env:AI_SERVICE_KEY='dev-ai-key-123'
+python .\ai-service\smoke_test.py
+docker rm -f ai_service_local
+```
+
+If you prefer not to bake the model into your image, the container entrypoint will attempt to download the model on first boot (slower and not recommended for production builds).
+
 ### Health & Monitoring
 - `GET /health` - Health check endpoint
 

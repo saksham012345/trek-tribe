@@ -2,6 +2,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import { Server as HttpServer } from 'http';
 import jwt from 'jsonwebtoken';
 import { logger } from '../utils/logger';
+import tokenHelper from '../utils/tokenHelper';
 import { aiSupportService } from './aiSupportService';
 import { emailService } from './emailService';
 import { SupportTicket } from '../models/SupportTicket';
@@ -59,10 +60,16 @@ class SocketService {
       transports: ['websocket', 'polling']
     });
 
-    // Authentication middleware
+    // Authentication middleware (use token helper for consistency with HTTP middleware)
     this.io.use(async (socket, next) => {
       try {
-        const token = socket.handshake.auth.token;
+        // Try handshake.auth token, then headers (cookie/authorization)
+        let token = socket.handshake.auth?.token as string | undefined;
+        if (!token) {
+          // Try headers (cookies or Authorization header)
+          token = tokenHelper.extractTokenFromHeaders(socket.handshake.headers as any);
+        }
+
         if (!token) {
           // Allow guest users for basic support
           socket.data.isGuest = true;
@@ -70,19 +77,18 @@ class SocketService {
           return next();
         }
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
-        console.log('🔍 Socket auth - decoded token:', { id: decoded.id, userId: decoded.userId, role: decoded.role });
-        
+        const decoded = tokenHelper.verifyJwtToken(token) as any;
+
         // Try multiple possible ID fields from the token
-        const userId = decoded.id || decoded.userId || decoded.sub;
+        const userId = decoded?.id || decoded?.userId || decoded?.sub || decoded?._id;
         if (!userId) {
           console.log('❌ No user ID found in token');
           return next(new Error('Invalid token - no user ID'));
         }
-        
+
         const user = await User.findById(userId);
         console.log('👤 Socket auth - user lookup result:', { userId, found: !!user, userName: user?.name });
-        
+
         if (!user) {
           console.log('❌ User not found in database:', userId);
           return next(new Error('User not found'));

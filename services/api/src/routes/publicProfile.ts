@@ -1,6 +1,10 @@
 import express from 'express';
+import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 import { User } from '../models/User';
 import { Trip } from '../models/Trip';
+import { Wishlist } from '../models/Wishlist';
+import Lead from '../models/Lead';
 import { logger } from '../utils/logger';
 
 const router = express.Router();
@@ -14,6 +18,29 @@ router.get('/:uniqueUrl', async (req, res) => {
   try {
     const { uniqueUrl } = req.params;
 
+    // Parse optional auth token (non-fatal). We use this to determine if the requester
+    // is the owner of the profile or has admin/agent privileges.
+    let requesterRole: string | null = null;
+    let requesterId: string | null = null;
+    try {
+      const rawAuth = (req.headers.authorization as string) || (req.headers['x-access-token'] as string) || '';
+      let token: string | undefined;
+      if (rawAuth && rawAuth.startsWith('Bearer ')) token = rawAuth.slice(7).trim();
+      else if (rawAuth) token = rawAuth.trim();
+      if (token) {
+        const secret = process.env.JWT_SECRET;
+        if (secret) {
+          const payload: any = jwt.verify(token, secret);
+          requesterRole = payload?.role || null;
+          requesterId = payload?.userId || payload?.id || payload?.sub || null;
+        }
+      }
+    } catch (err) {
+      // ignore parse/verify errors; treat as anonymous
+      requesterRole = null;
+      requesterId = null;
+    }
+
     // Find user by unique URL
     const user = await User.findOne({ uniqueUrl })
       .select('-passwordHash -resetPasswordToken -emergencyContact -verificationDocuments')
@@ -26,12 +53,15 @@ router.get('/:uniqueUrl', async (req, res) => {
       });
     }
 
-    // Check privacy settings
+    // Check privacy settings. Allow admins and agents to view private profiles.
+    const isOwner = requesterId && String(requesterId) === String(user._id);
     if (user.privacySettings?.profileVisibility === 'private') {
-      return res.status(403).json({
-        success: false,
-        message: 'This profile is private'
-      });
+      if (!(isOwner || requesterRole === 'admin' || requesterRole === 'agent')) {
+        return res.status(403).json({
+          success: false,
+          message: 'This profile is private'
+        });
+      }
     }
 
     // Filter information based on privacy settings
@@ -79,6 +109,45 @@ router.get('/:uniqueUrl', async (req, res) => {
       .lean();
     }
 
+    // If the requester is the owner of this profile, include owner-only lists
+    let wishlistData = null;
+    let pastTrips: any[] = [];
+    let interestedLeads: any[] = [];
+    if (isOwner) {
+      try {
+        // Wishlist (joins trip info)
+        // Ensure we pass an ObjectId to the wishlist static method to satisfy typings
+        wishlistData = await Wishlist.getUserWishlistWithTrips(new mongoose.Types.ObjectId(String(user._id)), { limit: 20 });
+      } catch (e) {
+        logger.warn('Failed to load wishlist for owner view', { userId: user._id, err: e });
+      }
+
+      try {
+        // Past trips: trips where user participated and trip ended in past or marked completed
+        pastTrips = await Trip.find({
+          participants: user._id,
+          $or: [ { status: 'completed' }, { endDate: { $lt: new Date() } } ]
+        })
+        .select('title destination startDate endDate coverImage organizerId price')
+        .populate('organizerId', 'name uniqueUrl profilePhoto')
+        .sort({ endDate: -1 })
+        .limit(20)
+        .lean();
+      } catch (e) {
+        logger.warn('Failed to load past trips for owner view', { userId: user._id, err: e });
+      }
+
+      try {
+        // Interested leads associated with this user
+        interestedLeads = await Lead.find({ userId: user._id, status: 'interested' })
+          .populate('tripId', 'title destination startDate endDate')
+          .limit(50)
+          .lean();
+      } catch (e) {
+        logger.warn('Failed to load interested leads for owner view', { userId: user._id, err: e });
+      }
+    }
+
     // Calculate profile statistics
     const stats = {
       tripsOrganized: organizedTrips.length,
@@ -97,7 +166,13 @@ router.get('/:uniqueUrl', async (req, res) => {
         organizedTrips,
         participatedTrips,
         stats,
-        isOrganizer: user.role === 'organizer'
+        isOrganizer: user.role === 'organizer',
+        isOwner: !!isOwner,
+        ownerOnly: isOwner ? {
+          wishlist: wishlistData,
+          pastTrips,
+          interestedLeads
+        } : undefined
       }
     });
 

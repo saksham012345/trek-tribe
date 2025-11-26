@@ -23,6 +23,8 @@
     "setup:users": "ts-node src/scripts/setup-preset-users.ts",
     "setup:users:prod": "node dist/scripts/setup-preset-users.js",
     "setup:users:updated": "ts-node src/scripts/setup-preset-users-updated.ts",
+    "setup:users:force": "ts-node src/scripts/setup-preset-users-force.ts",
+    "setup:users:force:prod": "node dist/scripts/setup-preset-users-force.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
@@ -53,6 +55,8 @@
     "openai": "^4.67.1",
     "pdfkit": "^0.13.0",
     "pino": "^9.3.2",
+    "prom-client": "^14.0.0",
+    "@sentry/node": "^7.58.0",
     "qrcode": "^1.5.3",
     "qrcode-terminal": "^0.12.0",
     "razorpay": "^2.9.6",
@@ -85,6 +89,20 @@
     "ts-jest": "^29.1.0",
     "ts-node": "^10.9.0",
     "tsx": "^4.20.6",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "socket.io-client": "^4.8.1",
+    "@types/socket.io-client": "^1.4.36"
+  }
+
+  ,
+  "jest": {
+    "coverageThreshold": {
+      "global": {
+        "branches": 80,
+        "functions": 80,
+        "lines": 80,
+        "statements": 80
+      }
+    }
   }
 }

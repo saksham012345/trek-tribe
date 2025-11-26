@@ -100,7 +100,8 @@ const TripVerificationSchema: Schema = new Schema(
 );
 
 // Indexes
-TripVerificationSchema.index({ tripId: 1 });
+// `tripId` is declared `unique: true` on the field; avoid duplicating the
+// single-field index to prevent duplicate-index warnings in logs.
 TripVerificationSchema.index({ organizerId: 1 });
 TripVerificationSchema.index({ status: 1 });
 TripVerificationSchema.index({ submittedAt: -1 });

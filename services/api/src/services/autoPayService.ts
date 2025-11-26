@@ -3,6 +3,8 @@ import CRMSubscription from '../models/CRMSubscription';
 import { razorpayService } from './razorpayService';
 import { emailService } from './emailService';
 import { logger } from '../utils/logger';
+import { retryQueueService } from './retryQueueService';
+import { paymentsSuccessTotal, paymentsFailedTotal, paymentsRetriesTotal } from '../middleware/metrics';
 
 interface AutoPaySetupParams {
   userId: string;
@@ -118,116 +120,126 @@ class AutoPayService {
         return { success: false, error: 'Auto-pay not properly configured' };
       }
 
-      // Create payment order
       const receiptId = razorpayService.generateReceiptId(String(user._id), 'autopay_5trips');
       const order = await razorpayService.createOrder({
         amount: autoPay.paymentAmount,
         currency: 'INR',
         receipt: receiptId,
-        notes: {
-          userId: String(user._id),
-          type: 'auto_pay',
-          packageType: '5_trips'
-        }
+        notes: { userId: String(user._id), type: 'auto_pay', packageType: '5_trips' }
       });
 
-      // In production, you would charge the saved payment method here
-      // For now, we'll simulate a successful payment
-      // const payment = await razorpayService.chargeCustomer({
-      //   customerId: autoPay.razorpayCustomerId,
-      //   paymentMethodId: autoPay.paymentMethodId,
-      //   amount: autoPay.paymentAmount,
-      //   orderId: order.id
-      // });
-
-      // Create or update subscription
-      let subscription = await CRMSubscription.findOne({ organizerId: user._id });
-
-      if (!subscription) {
-        subscription = new CRMSubscription({
-          organizerId: user._id,
-          planType: 'trip_package_5',
-          status: 'active',
-          tripPackage: {
-            packageType: '5_trips',
-            totalTrips: 5,
-            usedTrips: 0,
-            remainingTrips: 5,
-            pricePerPackage: autoPay.paymentAmount / 100 // Convert from paise to rupees
-          },
-          notifications: {
-            trialEndingIn7Days: false,
-            trialEndingIn1Day: false,
-            trialExpired: false,
-            paymentReminder: false
-          }
+      // Try to charge immediately
+      try {
+        const payment = await razorpayService.chargeCustomer({
+          customerId: autoPay.razorpayCustomerId,
+          paymentMethodId: autoPay.paymentMethodId,
+          amount: autoPay.paymentAmount,
+          orderId: order.id,
+          capture: true
         });
-      } else {
-        // Add more trips to existing package
-        if (!subscription.tripPackage) {
-          subscription.tripPackage = {
-            packageType: '5_trips',
-            totalTrips: 5,
-            usedTrips: 0,
-            remainingTrips: 5,
-            pricePerPackage: autoPay.paymentAmount / 100
-          };
+
+        // Success metrics
+        paymentsSuccessTotal.inc();
+
+        const amountPaid = (payment?.amount || autoPay.paymentAmount) / 100;
+
+        // Update or create subscription
+        let subscription = await CRMSubscription.findOne({ organizerId: user._id });
+        if (!subscription) {
+          subscription = new CRMSubscription({
+            organizerId: user._id,
+            planType: 'trip_package_5',
+            status: 'active',
+            tripPackage: { packageType: '5_trips', totalTrips: 5, usedTrips: 0, remainingTrips: 5, pricePerPackage: autoPay.paymentAmount / 100 },
+            notifications: { trialEndingIn7Days: false, trialEndingIn1Day: false, trialExpired: false, paymentReminder: false }
+          });
         } else {
-          subscription.tripPackage.totalTrips += 5;
-          subscription.tripPackage.remainingTrips += 5;
+          if (!subscription.tripPackage) {
+            subscription.tripPackage = { packageType: '5_trips', totalTrips: 5, usedTrips: 0, remainingTrips: 5, pricePerPackage: autoPay.paymentAmount / 100 };
+          } else {
+            subscription.tripPackage.totalTrips += 5;
+            subscription.tripPackage.remainingTrips += 5;
+          }
         }
+
+        // Persist payment attempt and success
+        subscription.paymentAttempts = subscription.paymentAttempts || [];
+        subscription.paymentAttempts.push({
+          attemptId: payment?.id || `rcpt_${Date.now()}`,
+          razorpayOrderId: order.id,
+          razorpayPaymentId: payment?.id,
+          amount: amountPaid,
+          status: 'success',
+          createdAt: new Date()
+        } as any);
+
+        subscription.payments.push({
+          razorpayOrderId: order.id,
+          razorpayPaymentId: payment?.id,
+          transactionId: payment?.id || receiptId,
+          amount: amountPaid,
+          currency: 'INR',
+          paymentMethod: 'auto_pay',
+          status: 'completed',
+          paidAt: new Date(),
+          metadata: { raw: payment }
+        } as any);
+
+        subscription.billingHistory.push({ date: new Date(), amount: amountPaid, description: 'Auto-Pay: Trip Package - 5 Trips' } as any);
+        await subscription.save();
+
+        // Update autoPay schedule
+        autoPay.lastPaymentDate = new Date();
+        const nextPaymentDate = new Date(); nextPaymentDate.setDate(nextPaymentDate.getDate() + 60);
+        autoPay.nextPaymentDate = nextPaymentDate; autoPay.scheduledPaymentDate = nextPaymentDate;
+        await user.save();
+
+        // Send confirmation
+        await this.sendPaymentConfirmation(user, amountPaid, order.id);
+
+        return { success: true, paymentId: payment?.id || order.id };
+      } catch (chargeErr: any) {
+        // Charge failed: record attempt, enqueue retry
+        paymentsFailedTotal.inc();
+
+        // Persist a failed attempt on subscription for audit
+        let subscription = await CRMSubscription.findOne({ organizerId: user._id });
+        if (!subscription) {
+          subscription = new CRMSubscription({ organizerId: user._id, planType: 'trip_package_5', status: 'pending' });
+        }
+        subscription.paymentAttempts = subscription.paymentAttempts || [];
+        subscription.paymentAttempts.push({
+          attemptId: `failed_${Date.now()}`,
+          razorpayOrderId: order.id,
+          razorpayPaymentId: undefined,
+          amount: autoPay.paymentAmount / 100,
+          status: 'failed',
+          errorMessage: chargeErr.message || String(chargeErr),
+          createdAt: new Date()
+        } as any);
+        await subscription.save();
+
+        // Enqueue retry job
+        const delayMs = retryQueueService.calculateBackoffMs(subscription.paymentAttempts.length || 1);
+        await retryQueueService.enqueue('charge', String(subscription._id || user._id), {
+          organizerId: String(user._id),
+          subscriptionId: String(subscription._id),
+          razorpayCustomerId: autoPay.razorpayCustomerId,
+          paymentMethodId: autoPay.paymentMethodId,
+          amount: autoPay.paymentAmount,
+          orderId: order.id
+        }, delayMs);
+        paymentsRetriesTotal.inc();
+
+        // Notify user
+        await this.sendPaymentFailureNotification(user, chargeErr.message || 'Auto-pay charge failed');
+
+        logger.warn('Auto-pay charge failed and enqueued for retry', { userId: user._id, orderId: order.id, error: chargeErr.message });
+        return { success: false, error: chargeErr.message };
       }
-
-      // Add payment record
-      subscription.payments.push({
-        razorpayOrderId: order.id,
-        transactionId: receiptId,
-        amount: autoPay.paymentAmount / 100,
-        currency: 'INR',
-        paymentMethod: 'auto_pay',
-        status: 'completed',
-        paidAt: new Date()
-      });
-
-      // Add billing history
-      subscription.billingHistory.push({
-        date: new Date(),
-        amount: autoPay.paymentAmount / 100,
-        description: 'Auto-Pay: Trip Package - 5 Trips'
-      });
-
-      await subscription.save();
-
-      // Update user's auto-pay info
-      autoPay.lastPaymentDate = new Date();
-      
-      // Schedule next payment (60 days from now)
-      const nextPaymentDate = new Date();
-      nextPaymentDate.setDate(nextPaymentDate.getDate() + 60);
-      autoPay.nextPaymentDate = nextPaymentDate;
-      autoPay.scheduledPaymentDate = nextPaymentDate;
-
-      await user.save();
-
-      logger.info('Auto-pay processed successfully', {
-        userId: user._id,
-        orderId: order.id,
-        nextPaymentDate
-      });
-
-      // Send payment confirmation email
-      await this.sendPaymentConfirmation(user, autoPay.paymentAmount / 100, order.id);
-
-      return { success: true, paymentId: order.id };
     } catch (error: any) {
-      logger.error('Failed to process payment', {
-        userId: user._id,
-        error: error.message
-      });
-
-      // Send payment failure notification
+      logger.error('Failed to process payment', { userId: user._id, error: error.message });
       await this.sendPaymentFailureNotification(user, error.message);
-
       return { success: false, error: error.message };
     }
   }
