@@ -177,7 +177,7 @@ class RazorpayService {
     }
 
     try {
-      const payment = await this.razorpay.payments.fetch(paymentId);
+      const payment = await (this.razorpay as any).payments.fetch(paymentId);
       logger.info('Payment details fetched', { paymentId });
       return payment;
     } catch (error: any) {
@@ -219,7 +219,7 @@ class RazorpayService {
     }
 
     try {
-      const refund = await this.razorpay.payments.refund(paymentId, {
+      const refund = await (this.razorpay as any).payments.refund(paymentId, {
         amount: amount, // Optional - full refund if not provided
       });
 
@@ -235,6 +235,40 @@ class RazorpayService {
         paymentId, 
         error: error.message 
       });
+      throw error;
+    }
+  }
+
+  /**
+   * Attempt to charge a saved customer payment method (vault/token)
+   * Note: This requires that `paymentMethodId` represents a token/payment source
+   * stored with Razorpay (token, card token, etc.). Behavior depends on Razorpay account setup.
+   */
+  async chargeCustomer(params: { customerId: string; paymentMethodId: string; amount: number; currency?: string; orderId?: string; capture?: boolean; }): Promise<any> {
+    if (!this.razorpay) {
+      throw new Error('Razorpay is not configured');
+    }
+
+    try {
+      const { customerId, paymentMethodId, amount, currency = 'INR', orderId, capture = true } = params;
+
+      const payload: any = {
+        amount,
+        currency,
+        // If an order id exists, associate it
+        ...(orderId ? { order_id: orderId } : {}),
+        // Using token/payment method id stored in Razorpay vault
+        token: paymentMethodId,
+        customer_id: customerId,
+        payment_capture: capture ? 1 : 0
+      };
+
+      const payment = await (this.razorpay as any).payments.create(payload);
+
+      logger.info('Charged customer via Razorpay', { paymentId: payment.id, orderId: orderId });
+      return payment;
+    } catch (error: any) {
+      logger.error('Failed to charge customer', { error: error.message, params });
       throw error;
     }
   }

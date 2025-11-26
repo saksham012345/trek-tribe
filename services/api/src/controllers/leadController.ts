@@ -70,7 +70,7 @@ class LeadController {
    */
   async getLeads(req: AuthRequest, res: Response) {
     try {
-      const { status, source, tripId, page = 1, limit = 20 } = req.query;
+      const { status, source, tripId, page = 1, limit = 20, q } = req.query as any;
       const query: any = {};
 
       // Filter by role
@@ -81,6 +81,16 @@ class LeadController {
       if (status) query.status = status;
       if (source) query.source = source;
       if (tripId) query.tripId = tripId;
+
+      // Text search across common lead fields
+      if (q) {
+        const re = new RegExp(String(q), 'i');
+        query.$or = [
+          { name: { $regex: re } },
+          { email: { $regex: re } },
+          { phone: { $regex: re } },
+        ];
+      }
 
       const leads = await Lead.find(query)
         .populate('userId', 'name email')

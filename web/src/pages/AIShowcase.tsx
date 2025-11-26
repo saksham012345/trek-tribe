@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import AIRecommendations from '../components/AIRecommendations';
 import AIAnalyticsDashboard from '../components/AIAnalyticsDashboard';
 import AISmartSearch from '../components/AISmartSearch';
-import AIChatWidget from '../components/AIChatWidget';
+import AIChatWidget from '../components/AIChatWidgetClean';
 import api from '../config/api';
 
 interface ShowcaseSection {

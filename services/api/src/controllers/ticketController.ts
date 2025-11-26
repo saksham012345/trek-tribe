@@ -74,7 +74,7 @@ class TicketController {
    */
   async getTickets(req: AuthRequest, res: Response) {
     try {
-      const { status, category, priority, page = 1, limit = 20 } = req.query;
+      const { status, category, priority, page = 1, limit = 20, q } = req.query as any;
       const query: any = {};
 
       // Filter by role
@@ -85,6 +85,16 @@ class TicketController {
       if (status) query.status = status;
       if (category) query.category = category;
       if (priority) query.priority = priority;
+
+      // Text search across subject/description and conversation messages
+      if (q) {
+        const re = new RegExp(String(q), 'i');
+        query.$or = [
+          { subject: { $regex: re } },
+          { description: { $regex: re } },
+          { 'conversation.message': { $regex: re } },
+        ];
+      }
 
       const tickets = await Ticket.find(query)
         .populate('requesterId', 'name email')

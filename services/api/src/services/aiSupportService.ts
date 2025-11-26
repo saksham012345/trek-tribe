@@ -2,6 +2,7 @@ import { logger } from '../utils/logger';
 import { Trip } from '../models/Trip';
 import { User } from '../models/User';
 import { SupportTicket } from '../models/SupportTicket';
+import { sanitizeText } from '../utils/sanitize';
 import { GroupBooking } from '../models/GroupBooking';
 import { Review } from '../models/Review';
 import mongoose from 'mongoose';
@@ -1511,10 +1512,14 @@ class AISupportService {
         throw new Error('User not found');
       }
 
+      // Sanitize and truncate AI-generated or provided content
+      const safeSubject = sanitizeText(subject, 200);
+      const safeDescription = sanitizeText(description, 1000);
+
       const ticketData = {
         userId,
-        subject,
-        description,
+        subject: safeSubject,
+        description: safeDescription,
         category,
         priority: 'medium',
         customerEmail: user.email,
@@ -1524,7 +1529,7 @@ class AISupportService {
         messages: [{
           sender: 'customer',
           senderName: user.name,
-          message: description,
+          message: safeDescription,
           timestamp: new Date()
         }]
       };

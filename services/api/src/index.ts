@@ -17,6 +17,7 @@ import chatSupportRoutes from './routes/chatSupportRoutes';
 import enhancedProfileRoutes from './routes/enhancedProfile';
 import publicProfileRoutes from './routes/publicProfile';
 import aiRoutes from './routes/ai';
+import aiProxyRoutes from './routes/aiProxy';
 import followRoutes from './routes/follow';
 import viewsRoutes from './routes/views';
 import postsRoutes from './routes/posts';
@@ -43,9 +44,23 @@ import autoPayRoutes from './routes/autoPay';
 import dashboardRoutes from './routes/dashboard';
 import { apiLimiter, authLimiter, otpLimiter } from './middleware/rateLimiter';
 import { cronScheduler } from './services/cronScheduler';
+import { chargeRetryWorker } from './services/chargeRetryWorker';
+import { logger } from './utils/logger';
+import errorHandler from './middleware/errorHandler';
+import metrics from './middleware/metrics';
 
 const app = express();
 const server = createServer(app);
+// Export the express app for testing and programmatic use
+export default app;
+
+// Optional Sentry integration (centralized)
+import { initSentry } from './sentry';
+const Sentry = initSentry();
+if (Sentry) {
+  // Attach Sentry request handler
+  app.use(Sentry.Handlers.requestHandler());
+}
 
 // Enhanced error handling middleware
 const asyncErrorHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
@@ -59,23 +74,10 @@ const timeoutMiddleware = (req: Request, res: Response, next: NextFunction) => {
   next();
 };
 
-// Request logging middleware
-const requestLogger = (req: Request, res: Response, next: NextFunction) => {
-  const start = Date.now();
-  console.log(`📨 ${new Date().toISOString()} - ${req.method} ${req.path}`);
-  
-  res.on('finish', () => {
-    const duration = Date.now() - start;
-    const status = res.statusCode;
-    const emoji = status >= 400 ? '❌' : status >= 300 ? '⚠️' : '✅';
-    console.log(`${emoji} ${req.method} ${req.path} - ${status} (${duration}ms)`);
-  });
-  
-  next();
-};
-
-// Apply middleware
-app.use(requestLogger);
+// Apply middleware (structured logger)
+app.use(logger.requestLogger());
+// Metrics middleware collects request metrics for Prometheus
+app.use(metrics.metricsMiddleware());
 app.use(timeoutMiddleware);
 app.use(helmet());
 
@@ -101,7 +103,15 @@ app.use(cors({
   origin: allowedOrigins as any,
   credentials: true 
 }));
-app.use(express.json({ limit: '10mb' }));
+// Capture raw body for webhook signature verification (Razorpay requires exact bytes)
+app.use(express.json({ 
+  limit: '10mb',
+  verify: (req: any, _res, buf: Buffer, encoding: string) => {
+    if (buf && buf.length) {
+      req.rawBody = buf.toString((encoding as BufferEncoding) || 'utf8');
+    }
+  }
+}));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Serve static files for uploads
@@ -112,25 +122,7 @@ const logMessage = (level: string, message: string): void => {
   console.log(`${new Date().toISOString()} [${level}] ${message}`);
 };
 
-// Global error handler
-const globalErrorHandler = (error: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error('🚨 Unhandled error:', error);
-  
-  // Log error
-  logMessage('ERROR', `${req.method} ${req.path} - ${error.message}`);
-  
-  if (res.headersSent) {
-    return next(error);
-  }
-  
-  const statusCode = (error as any).statusCode || 500;
-  res.status(statusCode).json({
-    error: process.env.NODE_ENV === 'production' 
-      ? 'Internal server error' 
-      : error.message,
-    ...(process.env.NODE_ENV !== 'production' && { stack: error.stack })
-  });
-};
+// Centralized error handling is provided by middleware/errorHandler
 
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 4000;
 // Render uses port 10000 by default, but process.env.PORT should be available
@@ -210,6 +202,15 @@ async function start() {
     cronScheduler.init();
     console.log('✅ Cron scheduler initialized');
     logMessage('INFO', 'Cron scheduler initialized');
+
+    // Start charge retry worker
+    try {
+      chargeRetryWorker.start();
+      console.log('✅ Charge retry worker started');
+      logMessage('INFO', 'Charge retry worker started');
+    } catch (err: any) {
+      console.warn('⚠️ Failed to start charge retry worker', err.message);
+    }
     
     // Routes
     app.use('/auth', authRoutes);
@@ -233,6 +234,9 @@ async function start() {
     app.use('/agent', agentRoutes);
     app.use('/chat', chatSupportRoutes);
     app.use('/api/ai', aiRoutes);
+    // Server-side proxy that forwards client AI requests to the internal Python AI microservice
+    // Mounted at the same prefix so `/api/ai/generate` will forward to the Python service.
+    app.use('/api/ai', aiProxyRoutes);
     app.use('/', viewsRoutes);
     app.use('/api/follow', followRoutes);
     app.use('/api/posts', postsRoutes);
@@ -318,6 +322,37 @@ async function start() {
       
       res.json(health);
     }));
+
+    // Readiness probe: checks critical dependencies (DB + optional Redis + Razorpay)
+    app.get('/ready', asyncErrorHandler(async (_req: Request, res: Response) => {
+      const mongoStatus = mongoose.connection.readyState === 1;
+      // Optional Redis check
+      let redisOk = true;
+      try {
+        const { redisService } = require('./services/redisService');
+        if (redisService && redisService.ping) {
+          redisOk = await redisService.ping();
+        }
+      } catch (e) {
+        // redis might not be configured; treat as optional
+        redisOk = true;
+      }
+
+      // Razorpay credential check (lightweight): ensure env vars exist
+      const razorpayOk = !!(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET);
+
+      const ready = mongoStatus && redisOk && razorpayOk;
+      if (!ready) {
+        return res.status(503).json({ ready: false, mongo: mongoStatus, redis: redisOk, razorpay: razorpayOk });
+      }
+      return res.json({ ready: true });
+    }));
+
+    // Prometheus metrics endpoint
+    app.get('/metrics', metrics.metricsEndpoint);
+
+    // Request metrics middleware (collect metrics for each request)
+    app.use(metrics.metricsMiddleware());
     
     // 404 handler
     app.use('*', (req: Request, res: Response) => {
@@ -328,8 +363,8 @@ async function start() {
       });
     });
     
-    // Apply global error handler
-    app.use(globalErrorHandler);
+    // Apply centralized error handler
+    app.use(errorHandler);
     
     // Start server with error handling
     const httpServer = server.listen(port, () => {

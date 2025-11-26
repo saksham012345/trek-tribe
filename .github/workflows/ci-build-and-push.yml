@@ -1,0 +1,81 @@
+name: CI — Build, Smoke Test, Push Image
+
+on:
+  push:
+    branches: [ main ]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install pip deps (for model download)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r ai-service/requirements.txt
+
+      - name: Download model into repo (bake into image)
+        env:
+          MODEL_NAME: google/flan-t5-base
+          MODEL_DIR: ./ai-service/models/google_flan-t5-base
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python ai-service/download_model.py
+
+      - name: Build Docker image
+        run: |
+          IMAGE=ghcr.io/${{ github.repository_owner }}/trek-tribe-ai:${{ github.sha }}
+          docker build -f ai-service/Dockerfile -t $IMAGE .
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+
+      - name: Run ai-service container
+        run: |
+          docker run -d --rm -p 8000:8000 --name ai_service_test $IMAGE
+
+      - name: Wait for ai-service /health
+        run: |
+          for i in {1..60}; do
+            if curl -sSf http://localhost:8000/health >/dev/null 2>&1; then
+              echo "ai-service healthy"; exit 0;
+            fi
+            echo "waiting for service... ($i)";
+            sleep 2;
+          done
+          echo "Service did not become healthy"; exit 1
+
+      - name: Run smoke tests
+        env:
+          AI_SERVICE_URL: http://localhost:8000
+          AI_SERVICE_KEY: ${{ secrets.AI_SERVICE_KEY }}
+        run: |
+          python ai-service/smoke_test.py
+
+      - name: Login to GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push image to GHCR
+        run: |
+          docker push $IMAGE
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker rm -f ai_service_test || true
