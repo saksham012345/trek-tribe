@@ -85,6 +85,8 @@ const AgentDashboard: React.FC = () => {
   // Message form
   const [newMessage, setNewMessage] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiSuggestion, setAiSuggestion] = useState('');
 
   // Communication tools
   const [whatsappMessage, setWhatsappMessage] = useState({ phone: '', message: '' });
@@ -159,6 +161,31 @@ const AgentDashboard: React.FC = () => {
       setError(error.response?.data?.error || 'Failed to update ticket status');
     }
   };
+
+    const suggestResolution = async (ticketId: string) => {
+      try {
+        setAiLoading(true);
+        setAiSuggestion('');
+        const resp = await api.post(`/agent/tickets/${ticketId}/ai-resolve`);
+        setAiSuggestion(resp.data?.suggestion || 'No suggestion received');
+      } catch (err: any) {
+        setError(err.response?.data?.message || 'Failed to get AI suggestion');
+      } finally {
+        setAiLoading(false);
+      }
+    };
+
+    const resolveWithSuggestion = async (ticketId: string, suggestion?: string) => {
+      try {
+        const body = { resolutionNote: suggestion || aiSuggestion || 'Resolved by agent' };
+        await api.post(`/agent/tickets/${ticketId}/resolve`, body);
+        fetchTickets(currentPage);
+        if (selectedTicket?.ticketId === ticketId) fetchTicketDetails(ticketId);
+        setAiSuggestion('');
+      } catch (err: any) {
+        setError(err.response?.data?.error || 'Failed to resolve ticket');
+      }
+    };
 
   const sendMessage = async () => {
     if (!selectedTicket || !newMessage.trim()) return;
@@ -700,10 +727,59 @@ const AgentDashboard: React.FC = () => {
               <option value="resolved">Resolved</option>
               <option value="closed">Closed</option>
             </select>
+            {/* AI Suggest / Resolve */}
+            <div className="ml-2 flex items-center space-x-2">
+              <button
+                onClick={() => suggestResolution(selectedTicket.ticketId)}
+                disabled={aiLoading}
+                className="px-3 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {aiLoading ? 'Suggesting...' : 'Suggest (AI)'}
+              </button>
+              <button
+                onClick={() => resolveWithSuggestion(selectedTicket.ticketId)}
+                className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+              >
+                Resolve with Suggestion
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Messages */}
+          {/* AI Suggestion Preview */}
+          {aiSuggestion && (
+            <div className="bg-gray-50 p-4 rounded-lg mb-4 border">
+              <h4 className="font-medium text-gray-800 mb-2">AI Suggested Resolution</h4>
+              <textarea
+                value={aiSuggestion}
+                onChange={(e) => setAiSuggestion(e.target.value)}
+                rows={4}
+                className="w-full p-2 border rounded"
+              />
+              <div className="mt-2 flex space-x-2">
+                <button
+                  onClick={() => resolveWithSuggestion(selectedTicket.ticketId, aiSuggestion)}
+                  className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                >
+                  Resolve with This
+                </button>
+                <button
+                  onClick={() => { navigator.clipboard?.writeText(aiSuggestion); }}
+                  className="px-3 py-2 bg-gray-200 rounded"
+                >
+                  Copy
+                </button>
+                <button
+                  onClick={() => setAiSuggestion('')}
+                  className="px-3 py-2 bg-red-100 text-red-700 rounded"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Messages */}
         <div className="bg-white p-6 rounded-lg shadow">
           <h3 className="text-lg font-medium text-gray-900 mb-4">Conversation</h3>
           

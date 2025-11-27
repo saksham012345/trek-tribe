@@ -7,6 +7,7 @@ interface AuthContextType {
   loading: boolean;
   login: (emailOrCredential: string, passwordOrProvider?: string) => Promise<{ success: boolean; error?: string }>;
   setSession: (token: string, userData?: User) => Promise<void>;
+  refreshUser?: () => Promise<void>;
   logout: () => void;
   updateUser: (userData: Partial<User>) => void;
 }
@@ -99,6 +100,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const refreshUser = async () => {
+    try {
+      const resp = await api.get('/auth/me');
+      if (resp.data?.user) setUser(resp.data.user as User);
+    } catch (e) {
+      console.warn('refreshUser: failed to refresh user');
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
     setUser(null);
@@ -115,6 +125,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     loading,
     login,
     setSession,
+    refreshUser,
     logout,
     updateUser
   };

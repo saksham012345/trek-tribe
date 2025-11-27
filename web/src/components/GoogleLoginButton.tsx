@@ -40,11 +40,7 @@ const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
   const handleGoogleResponse = async (response: { credential: string }) => {
     setIsProcessing(true);
     try {
-      const authResponse = await api.post<{
-        token: string;
-        user: { email: string; [key: string]: any };
-        requiresProfileCompletion?: boolean;
-      }>('/auth/google', {
+      const authResponse = await api.post('/auth/google', {
         credential: response.credential
       });
 
@@ -77,7 +73,7 @@ const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
     
     // Fetch updated user data
     try {
-      const userResponse = await api.get<{ user?: any }>('/auth/me');
+      const userResponse = await api.get('/auth/me');
       if (userResponse.data?.user) {
         // Trigger success callback which should refresh the app
         onSuccess?.();
