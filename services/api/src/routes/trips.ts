@@ -210,12 +210,12 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), asyncHandl
     });
     
     // Create trip with timeout
+    // Create trip. Leave `status` unset so the model default ('pending') is used.
     const createPromise = Trip.create({
-      ...body, 
-      organizerId, 
+      ...body,
+      organizerId,
       location: body.location ? { type: 'Point', coordinates: body.location.coordinates } : undefined,
       participants: [],
-      status: 'active',
       createdAt: new Date(),
       updatedAt: new Date()
     });

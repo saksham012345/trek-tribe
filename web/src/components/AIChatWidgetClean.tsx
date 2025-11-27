@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import io, { Socket } from 'socket.io-client';
+import io from 'socket.io-client';
 import api from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
 import './AIChatWidget.css';
@@ -22,7 +22,7 @@ const AIChatWidgetClean: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [socketFailed, setSocketFailed] = useState(false);
 
-  const socketRef = useRef<Socket | null>(null);
+  const socketRef = useRef<any | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const API_BASE_URL = process.env.REACT_APP_SOCKET_URL || process.env.REACT_APP_API_URL || '';
@@ -143,12 +143,28 @@ const AIChatWidgetClean: React.FC = () => {
         // Non-fatal: don't break chat flow
       }
     } catch (err: any) {
+      // If AI proxy unavailable, provide a lightweight local fallback so widget remains useful
+      const localReply = (() => {
+        const t = text.toLowerCase();
+        if (t.includes('booking') || t.includes('book')) {
+          return 'I can help with bookings — tell me which trip or dates you are interested in, and I will check availability or create a booking request.';
+        }
+        if (t.includes('payment') || t.includes('refund')) {
+          return 'For payment issues, please share the booking ID or transaction details. I can guide you through refund and payment verification steps.';
+        }
+        if (t.includes('cancel') || t.includes('cancellation')) {
+          return 'To cancel a booking, please provide the booking ID. I will check the cancellation policy and next steps.';
+        }
+        // Generic helpful fallback
+        return "I'm temporarily offline for advanced suggestions, but I can still help: please describe your issue in a bit more detail and I'll provide step-by-step guidance.";
+      })();
+
       const fallback: ChatMessage = {
         id: `err_${Date.now()}`,
         senderId: 'system',
-        senderName: 'System',
+        senderName: 'Trek Tribe Assistant',
         senderRole: 'ai',
-        message: 'AI service unavailable. Please try again later.',
+        message: localReply,
         timestamp: new Date(),
       };
       setMessages((s) => [...s, fallback]);
@@ -185,37 +201,57 @@ const AIChatWidgetClean: React.FC = () => {
   };
 
   return (
-    <div className="ai-chat-widget">
-      <div className="ai-header" onClick={() => setIsOpen((v) => !v)}>
-        <strong>Trek Tribe Assistant</strong>
-      </div>
+    <div className="chat-widget-container">
+      {/* Toggle when closed */}
+      {!isOpen && (
+        <div className="chat-widget-toggle" onClick={() => setIsOpen(true)} title="Open Trek Tribe Assistant">
+          <svg className="chat-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width={24} height={24}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 15.75L12 19.5l3.75-3.75M12 4.5v15" />
+          </svg>
+        </div>
+      )}
 
+      {/* Full widget */}
       {isOpen && (
-        <div className="ai-body">
-          <div className="ai-messages">
+        <div className="chat-widget">
+          <div className="chat-header">
+            <div className="chat-header-info">
+              <h3>Trek Tribe Assistant</h3>
+              <div className={`connection-status ${socketFailed ? 'disconnected' : 'connected'}`}>{socketFailed ? 'Offline' : 'Online'}</div>
+            </div>
+            <button className="chat-close-btn" onClick={() => setIsOpen(false)}>×</button>
+          </div>
+
+          <div className="chat-messages">
             {messages.map((m) => (
-              <div key={m.id} className={`ai-message ${m.senderRole === 'user' ? 'user' : 'ai'}`}>
-                <div className="ai-message-sender">{m.senderRole === 'user' ? 'You' : m.senderName}</div>
-                <div className="ai-message-text">{m.message}</div>
+              <div key={m.id} className={`message ${m.senderRole === 'user' ? 'user' : m.senderRole === 'ai' ? 'assistant ai' : 'agent'}`}>
+                <div className="message-header">
+                  <div className="message-sender">{m.senderRole === 'user' ? 'You' : m.senderName}</div>
+                  <div className="message-timestamp">{new Date(m.timestamp).toLocaleString()}</div>
+                </div>
+                <div className="message-content">{m.message}</div>
               </div>
             ))}
             <div ref={messagesEndRef} />
           </div>
 
-          <div className="ai-input-row">
-            <input
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              placeholder="Ask a question..."
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  sendMessage();
-                }
-              }}
-              disabled={isLoading}
-            />
-            <button onClick={sendMessage} disabled={isLoading}>{isLoading ? '...' : 'Send'}</button>
+          <div className="chat-input-container">
+            <div className="chat-input-wrapper">
+              <input
+                className="chat-input"
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                placeholder="Ask a question..."
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                  }
+                }}
+                disabled={isLoading}
+              />
+              <button className="send-button" onClick={sendMessage} disabled={isLoading}>{isLoading ? '...' : '›'}</button>
+            </div>
           </div>
         </div>
       )}

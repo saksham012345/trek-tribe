@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Slider, Filter, Calendar, MapPin, DollarSign, ArrowUpDown } from 'lucide-react';
+import { Sliders, Filter, Calendar, MapPin, DollarSign, ArrowUpDown } from 'lucide-react';
 import api from '../config/api';
 import JoinTripModal from '../components/JoinTripModal';
 import AISmartSearch from '../components/AISmartSearch';

@@ -215,7 +215,9 @@ const tripSchema = new Schema(
     dropOffPoints: { type: [pickupDropPointSchema], default: [] },
     participants: [{ type: Schema.Types.ObjectId, ref: 'User' }],
     participantDetails: [participantInfoSchema],
-    status: { type: String, enum: ['active', 'cancelled', 'completed'], default: 'active' },
+    // Trip lifecycle status. New trips created by organizers remain in 'pending'
+    // until explicitly approved by an admin. Approved trips move to 'active'.
+    status: { type: String, enum: ['pending', 'active', 'cancelled', 'completed'], default: 'pending' },
     // Review and rating fields
     averageRating: { type: Number, default: 0, min: 0, max: 5 },
     reviewCount: { type: Number, default: 0, min: 0 },

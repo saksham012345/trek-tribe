@@ -441,6 +441,120 @@ router.get('/trips', async (req, res) => {
   }
 });
 
+// List trips pending verification (admin review queue)
+router.get('/trips/pending-verifications', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const skip = (page - 1) * limit;
+
+    const query: any = { verificationStatus: 'pending' };
+
+    const total = await Trip.countDocuments(query);
+    const trips = await Trip.find(query)
+      .populate('organizerId', 'name email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    res.json({
+      trips,
+      pagination: { current: page, pages: Math.ceil(total / limit), total }
+    });
+  } catch (error: any) {
+    logger.error('Error fetching pending verification trips', { error: error.message });
+    res.status(500).json({ error: 'Failed to fetch pending verification trips' });
+  }
+});
+
+// Approve (verify) a trip
+router.post('/trips/:id/verify', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminId = (req as any).auth.userId;
+    const { adminNotes } = req.body;
+
+    const trip = await Trip.findById(id).populate('organizerId', 'name email');
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+
+    if (trip.verificationStatus === 'approved') {
+      return res.status(400).json({ error: 'Trip already approved' });
+    }
+
+    trip.verificationStatus = 'approved';
+    trip.verifiedBy = adminId;
+    trip.verifiedAt = new Date();
+    if (adminNotes) trip.adminNotes = adminNotes;
+    // Make the trip active once verified
+    trip.status = 'active';
+
+    await trip.save();
+
+    // Notify organizer via email (best-effort)
+    try {
+      const organizer: any = trip.organizerId;
+      if (organizer && organizer.email) {
+        const subject = `Your trip "${trip.title}" has been approved`;
+        const html = `<p>Hi ${organizer.name || ''},</p><p>Your trip <strong>${trip.title}</strong> has been approved by the Trek Tribe team and is now live.</p><p>Notes from admin: ${adminNotes || 'No notes provided.'}</p>`;
+        await emailService.sendEmail({ to: organizer.email, subject, html });
+      }
+    } catch (err) {
+      logger.warn('Failed to send trip approval email', { error: (err as any)?.message });
+    }
+
+    logger.info('Trip verified by admin', { adminId, tripId: id });
+    res.json({ message: 'Trip approved successfully', trip });
+  } catch (error: any) {
+    logger.error('Error approving trip', { error: error.message });
+    res.status(500).json({ error: 'Failed to approve trip' });
+  }
+});
+
+// Reject a trip (provide reason)
+router.post('/trips/:id/reject', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminId = (req as any).auth.userId;
+    const { rejectionReason, adminNotes } = req.body;
+
+    const trip = await Trip.findById(id).populate('organizerId', 'name email');
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+
+    if (trip.verificationStatus === 'rejected') {
+      return res.status(400).json({ error: 'Trip already rejected' });
+    }
+
+    trip.verificationStatus = 'rejected';
+    trip.rejectionReason = rejectionReason || 'No reason provided';
+    trip.adminNotes = adminNotes || trip.adminNotes;
+    trip.verifiedBy = adminId;
+    trip.verifiedAt = new Date();
+    // Mark as cancelled to prevent it from being shown as active
+    trip.status = 'cancelled';
+
+    await trip.save();
+
+    // Notify organizer via email (best-effort)
+    try {
+      const organizer: any = trip.organizerId;
+      if (organizer && organizer.email) {
+        const subject = `Your trip "${trip.title}" has been rejected`;
+        const html = `<p>Hi ${organizer.name || ''},</p><p>Your trip <strong>${trip.title}</strong> was not approved.</p><p>Reason: ${trip.rejectionReason}</p><p>Admin notes: ${trip.adminNotes || 'No notes provided.'}</p>`;
+        await emailService.sendEmail({ to: organizer.email, subject, html });
+      }
+    } catch (err) {
+      logger.warn('Failed to send trip rejection email', { error: (err as any)?.message });
+    }
+
+    logger.info('Trip rejected by admin', { adminId, tripId: id });
+    res.json({ message: 'Trip rejected', trip });
+  } catch (error: any) {
+    logger.error('Error rejecting trip', { error: error.message });
+    res.status(500).json({ error: 'Failed to reject trip' });
+  }
+});
+
 // Update user role
 router.patch('/users/:id/role', async (req, res) => {
   try {
