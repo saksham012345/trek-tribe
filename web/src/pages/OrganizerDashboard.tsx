@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { io, Socket } from 'socket.io-client';
+import io from 'socket.io-client';
 import api from '../config/api';
 import { User } from '../types';
 
@@ -49,7 +49,7 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [verificationLoading, setVerificationLoading] = useState<string | null>(null);
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const [socket, setSocket] = useState<any | null>(null);
   const [notifications, setNotifications] = useState<Array<{ id: string; message: string; type: 'success' | 'info' | 'error'; timestamp: Date }>>([]);
   const [crmSubscription, setCrmSubscription] = useState<any | null>(null);
 

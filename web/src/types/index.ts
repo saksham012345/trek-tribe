@@ -4,6 +4,7 @@ export interface User {
   name: string;
   role: 'traveler' | 'organizer' | 'admin' | 'agent';
   phone?: string;
+  phoneVerified?: boolean;
   profilePhoto?: string;
   location?: string;
   bio?: string;

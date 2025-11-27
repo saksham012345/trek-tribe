@@ -212,6 +212,88 @@ router.post('/tickets/:ticketId/assign', async (req, res) => {
   }
 });
 
+// Ask AI to suggest a resolution for the ticket
+router.post('/tickets/:ticketId/ai-resolve', async (req, res) => {
+  try {
+    const { ticketId } = req.params;
+    const ticket = await SupportTicket.findOne({ ticketId }).populate('userId', 'name email');
+    if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+
+    // Build a concise prompt from the ticket details and recent messages
+    const recentMessages = (ticket.messages || []).slice(-10).map((m: any) => `${m.senderName || m.sender}: ${m.message}`).join('\n');
+    const prompt = `You are a helpful customer support agent. A customer raised the following support ticket:\n\nSubject: ${ticket.subject}\nCustomer: ${ticket.customerName} (${ticket.customerEmail})\n\nConversation:\n${recentMessages}\n\nProvide a concise, professional resolution note and a one-paragraph reply the agent can send to the customer. Keep it under 300 words.`;
+
+    // Forward to AI service (use server-side AI key)
+    const axios = require('axios');
+    const AI_SERVICE_URL = (process.env.AI_SERVICE_URL || 'http://localhost:8000').replace(/\/$/, '');
+    const AI_SERVICE_KEY = process.env.AI_SERVICE_KEY || process.env.AI_KEY || '';
+
+    const resp = await axios.post(
+      `${AI_SERVICE_URL}/generate`,
+      { prompt, max_tokens: 800 },
+      { headers: { 'Content-Type': 'application/json', 'x-api-key': AI_SERVICE_KEY }, timeout: parseInt(process.env.AI_PROXY_TIMEOUT_MS || '120000', 10) }
+    );
+
+    const data: any = resp.data || {};
+    const suggestion = typeof data.text === 'string' ? data.text : JSON.stringify(data);
+
+    res.json({ success: true, suggestion });
+  } catch (error: any) {
+    console.error('AI suggestion error:', error?.message || error);
+    res.status(502).json({ error: 'ai_service_unavailable', message: 'Failed to get AI suggestion' });
+  }
+});
+
+// Resolve ticket (agent resolving after AI suggestion or manual)
+router.post('/tickets/:ticketId/resolve', async (req, res) => {
+  try {
+    const { ticketId } = req.params;
+    const { resolutionNote } = req.body;
+    const agentId = (req as any).auth.userId;
+
+    const ticket = await SupportTicket.findOne({ ticketId });
+    if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+
+    // Only assigned agent or admin can resolve
+    if (ticket.assignedAgentId && ticket.assignedAgentId.toString() !== agentId && (req as any).auth.role !== 'admin') {
+      return res.status(403).json({ error: 'Only assigned agent or admin can resolve this ticket' });
+    }
+
+    // Mark resolved and record timestamps. Keep notes in internalNotes for audit.
+    ticket.status = 'resolved';
+    ticket.resolvedAt = new Date();
+    ticket.resolutionTime = new Date();
+    ticket.updatedAt = new Date();
+    if (resolutionNote) {
+      ticket.internalNotes = ticket.internalNotes || [];
+      ticket.internalNotes.push(`Resolved by ${agentId}: ${resolutionNote}`);
+    }
+
+    await ticket.save();
+
+    // Optionally notify customer (async)
+    setTimeout(async () => {
+      try {
+        if (emailService.isServiceReady()) {
+          await emailService.sendTicketResolvedNotification({
+            userName: ticket.customerName,
+            userEmail: ticket.customerEmail,
+            ticketId: ticket.ticketId,
+            resolutionNote: resolutionNote || 'Resolved by agent'
+          });
+        }
+      } catch (err: any) {
+        logger.error('Failed to send ticket resolved email', { error: err?.message || err, ticketId });
+      }
+    }, 1000);
+
+    res.json({ success: true, message: 'Ticket resolved successfully', ticket });
+  } catch (error: any) {
+    console.error('Resolve ticket error:', error?.message || error);
+    res.status(500).json({ error: 'Failed to resolve ticket' });
+  }
+});
+
 // Update ticket status
 router.patch('/tickets/:ticketId/status', async (req, res) => {
   try {

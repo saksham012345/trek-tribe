@@ -11,7 +11,7 @@ const API_BASE_URL = process.env.REACT_APP_API_URL ||
     : 'https://trek-tribe-38in.onrender.com');  // Use Render backend for development too
 
 // Create axios instance with default configuration
-const api = axios.create({
+const api: any = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000, // Increased to 30 seconds for Render's slower response times
   headers: {

@@ -714,6 +714,29 @@ class EmailService {
     }
   }
 
+  async sendTicketResolvedNotification(data: { userName: string; userEmail: string; ticketId: string; resolutionNote?: string; }): Promise<boolean> {
+    if (!this.isServiceReady()) {
+      logger.warn('Email service not ready, skipping ticket resolved notification');
+      return false;
+    }
+
+    try {
+      const mailOptions = {
+        from: `"Trek Tribe Support" <${process.env.GMAIL_USER || 'no-reply@trektribe.com'}>`,
+        to: data.userEmail,
+        subject: `✅ Your support ticket ${data.ticketId} has been resolved`,
+        text: `Hello ${data.userName},\n\nYour support ticket ${data.ticketId} has been marked as resolved.\n\nResolution:\n${data.resolutionNote || 'Resolved by support agent.'}\n\nIf you feel the issue is not resolved, reply to this email or open the ticket in your account.\n\nThanks,\nTrek Tribe Support Team`
+      };
+
+      await this.transporter!.sendMail(mailOptions);
+      logger.info('Ticket resolved notification email sent', { userEmail: data.userEmail, ticketId: data.ticketId });
+      return true;
+    } catch (error: any) {
+      logger.error('Failed to send ticket resolved notification email', { error: error.message, userEmail: data.userEmail, ticketId: data.ticketId });
+      return false;
+    }
+  }
+
   async getServiceStatus() {
     const hasCreds = !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
     return {
