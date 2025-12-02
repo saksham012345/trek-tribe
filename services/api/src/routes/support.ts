@@ -7,6 +7,7 @@ import { socketService } from '../services/socketService';
 import { logger } from '../utils/logger';
 import { sanitizeText } from '../utils/sanitize';
 import { ticketCreateValidators, messageValidators, handleValidationErrors } from '../validators/ticketValidator';
+import axios from 'axios';
 
 const router = express.Router();
 
@@ -287,6 +288,99 @@ router.post('/:ticketId/messages', messageValidators, handleValidationErrors, as
 
   } catch (error: any) {
     logger.error('Error adding message to ticket', { error: error.message });
+    return next(error);
+  }
+});
+
+// AI-assisted resolution suggestion for a ticket (customer/agent can request)
+router.post('/tickets/:ticketId/ai-resolve', async (req, res) => {
+  try {
+    const { ticketId } = req.params;
+    const userId = (req as any).auth.userId;
+    const userRole = (req as any).auth.role;
+
+    const ticket = await SupportTicket.findOne({ ticketId }).populate('userId', 'name email');
+    if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+
+    // Permission: owner, agent or admin can request AI suggestion
+    const canView = ticket.userId.toString() === userId || userRole === 'agent' || userRole === 'admin';
+    if (!canView) return res.status(403).json({ error: 'Access denied' });
+
+    // Build simple context from last messages + subject
+    const lastMessages = (ticket.messages || []).slice(-10).map((m: any) => `${m.senderName || m.sender}: ${m.message}`).join('\n');
+    const prompt = `Ticket: ${ticket.ticketId}\nSubject: ${ticket.subject}\nCategory: ${ticket.category}\nPriority: ${ticket.priority}\n\nConversation:\n${lastMessages}\n\nPlease suggest a concise resolution for this ticket and an action summary. Provide a short resolution note.`;
+
+    const aiUrl = `${req.protocol}://${req.get('host')}/api/ai/chat`;
+    const aiResp = await axios.post(aiUrl, { message: prompt, context: { ticketId: ticket.ticketId } }, { timeout: 120000 });
+    const aiData = aiResp.data?.aiResponse || aiResp.data || {};
+
+    // Normalize suggestion text
+    const suggestion = (aiData && (aiData.response || aiData.suggestion || aiData.text)) || 'No suggestion available';
+
+    res.json({ suggestion, aiRaw: aiData });
+  } catch (error: any) {
+    logger.error('AI resolve error', { error: error.message, ticketId: req.params.ticketId });
+    res.status(500).json({ error: 'Failed to generate AI suggestion' });
+  }
+});
+
+// Apply a resolution to a ticket (customer, agent or admin)
+router.post('/tickets/:ticketId/resolve', async (req, res, next) => {
+  try {
+    const { ticketId } = req.params;
+    const { resolutionNote } = req.body;
+    const userId = (req as any).auth.userId;
+    const userRole = (req as any).auth.role;
+
+    const UserModel = require('../models/User').User;
+    const user = await UserModel.findById(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const ticket = await SupportTicket.findOne({ ticketId });
+    if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+
+    const canResolve = ticket.userId.toString() === userId || userRole === 'agent' || userRole === 'admin';
+    if (!canResolve) return res.status(403).json({ error: 'Access denied' });
+
+    const sender = userRole === 'agent' || userRole === 'admin' ? 'agent' : 'customer';
+
+    const safeNote = typeof resolutionNote === 'string' && resolutionNote.trim().length > 0 ? resolutionNote.trim() : 'Resolved via assistant';
+
+    const updated = await SupportTicket.findOneAndUpdate(
+      { ticketId },
+      {
+        $set: { status: 'resolved', updatedAt: new Date() },
+        $push: {
+          messages: {
+            sender,
+            senderName: user.name,
+            senderId: userId,
+            message: safeNote,
+            timestamp: new Date()
+          },
+          internalNotes: safeNote
+        }
+      },
+      { new: true }
+    );
+
+    if (!updated) return res.status(500).json({ error: 'Failed to update ticket' });
+
+    // Notify sockets/agents
+    socketService.updateTicketStatus(updated, 'resolved');
+    if (updated.assignedAgentId) {
+      socketService.sendAgentReply(updated.assignedAgentId.toString(), {
+        ticketId: updated.ticketId,
+        message: `Ticket ${updated.ticketId} has been resolved`,
+        timestamp: new Date()
+      });
+    }
+
+    logger.info('Ticket resolved via AI/chat', { ticketId: updated.ticketId, resolvedBy: userId });
+
+    res.json({ message: 'Ticket resolved', ticketId: updated.ticketId });
+  } catch (error: any) {
+    logger.error('Error resolving ticket', { error: error.message, ticketId: req.params.ticketId });
     return next(error);
   }
 });

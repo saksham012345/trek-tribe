@@ -74,7 +74,7 @@ const AgentDashboard: React.FC = () => {
     status: 'all',
     priority: 'all',
     category: 'all',
-    assigned: 'me',
+    assigned: 'all',
     search: ''
   });
   
