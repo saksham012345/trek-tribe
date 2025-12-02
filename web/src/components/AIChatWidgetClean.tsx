@@ -21,6 +21,10 @@ const AIChatWidgetClean: React.FC = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [socketFailed, setSocketFailed] = useState(false);
+  const [currentTicketId, setCurrentTicketId] = useState<string | null>(null);
+  const [aiResolveLoading, setAiResolveLoading] = useState(false);
+  const [previewSuggestion, setPreviewSuggestion] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
 
   const socketRef = useRef<any | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -126,7 +130,9 @@ const AIChatWidgetClean: React.FC = () => {
               message: ticketData ? `Support ticket created (ID: ${ticketData.ticketId}). An agent will follow up.` : 'Support ticket requested; failed to create automatically.',
               timestamp: new Date(),
             };
-            setMessages((s) => [...s, systemMsg]);
+              setMessages((s) => [...s, systemMsg]);
+              // remember created ticket id for quick AI resolution actions
+              if (ticketData && ticketData.ticketId) setCurrentTicketId(ticketData.ticketId);
           } catch (err) {
             const sysErr: ChatMessage = {
               id: `syserr_${Date.now()}`,
@@ -200,6 +206,67 @@ const AIChatWidgetClean: React.FC = () => {
     }
   };
 
+  // Request AI suggestion for an existing ticket and show preview (manual confirm)
+  const fetchAISuggestionForTicket = async (ticketId: string) => {
+    try {
+      setAiResolveLoading(true);
+      setPreviewSuggestion(null);
+      setShowPreview(false);
+
+      const aiResp = await api.post(`/api/support/tickets/${encodeURIComponent(ticketId)}/ai-resolve`);
+      const suggestion = aiResp.data?.suggestion || aiResp.data?.suggestionText || (aiResp.data?.aiRaw ? JSON.stringify(aiResp.data.aiRaw) : null) || 'No suggestion available';
+
+      // Show preview to the user for confirmation
+      setPreviewSuggestion(typeof suggestion === 'string' ? suggestion : JSON.stringify(suggestion));
+      setShowPreview(true);
+    } catch (err: any) {
+      const errMsg: ChatMessage = {
+        id: `aierr_${Date.now()}`,
+        senderId: 'system',
+        senderName: 'System',
+        senderRole: 'ai',
+        message: 'AI suggestion failed. Try again later.',
+        timestamp: new Date(),
+      };
+      setMessages((s) => [...s, errMsg]);
+    } finally {
+      setAiResolveLoading(false);
+    }
+  };
+
+  // Confirm and apply resolution previously previewed
+  const confirmResolve = async (ticketId: string) => {
+    if (!previewSuggestion) return;
+    try {
+      setAiResolveLoading(true);
+      const res = await api.post(`/api/support/tickets/${encodeURIComponent(ticketId)}/resolve`, { resolutionNote: previewSuggestion });
+      const confirmation: ChatMessage = {
+        id: `conf_${Date.now()}`,
+        senderId: 'system',
+        senderName: 'System',
+        senderRole: 'ai',
+        message: res.data?.message || `Ticket ${ticketId} resolved via assistant.`,
+        timestamp: new Date(),
+      };
+      setMessages((s) => [...s, confirmation]);
+      setCurrentTicketId(null);
+      setPreviewSuggestion(null);
+      setShowPreview(false);
+    } catch (err: any) {
+      const confErr: ChatMessage = {
+        id: `conferr_${Date.now()}`,
+        senderId: 'system',
+        senderName: 'System',
+        senderRole: 'ai',
+        message: 'Failed to apply resolution to the ticket. Please try again or contact support.',
+        timestamp: new Date(),
+      };
+      setMessages((s) => [...s, confErr]);
+    } finally {
+      setAiResolveLoading(false);
+    }
+  };
+
   return (
     <div className="chat-widget-container">
       {/* Toggle when closed */}
@@ -219,7 +286,50 @@ const AIChatWidgetClean: React.FC = () => {
               <h3>Trek Tribe Assistant</h3>
               <div className={`connection-status ${socketFailed ? 'disconnected' : 'connected'}`}>{socketFailed ? 'Offline' : 'Online'}</div>
             </div>
-            <button className="chat-close-btn" onClick={() => setIsOpen(false)}>×</button>
+            <div className="flex items-center space-x-2">
+              <button
+                className="chat-action-btn px-2 py-1 bg-gray-100 rounded text-sm"
+                onClick={async () => {
+                  try {
+                    const resp = await api.get('/api/ai/recommendations');
+                    const recs = resp.data?.recommendations || resp.data || [];
+                    const msg: ChatMessage = { id: `rec_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: `Recommendations:\n${JSON.stringify(recs, null, 2)}`, timestamp: new Date() };
+                    setMessages(s => [...s, msg]);
+                  } catch (e: any) {
+                    const err: ChatMessage = { id: `recerr_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: 'Failed to fetch recommendations.', timestamp: new Date() };
+                    setMessages(s => [...s, err]);
+                  }
+                }}
+              >
+                Get Recommendations
+              </button>
+              <button
+                className="chat-action-btn px-2 py-1 bg-gray-100 rounded text-sm"
+                onClick={async () => {
+                  try {
+                    const resp = await api.get('/api/analytics/dashboard');
+                    const data = resp.data || resp.data?.overview || {};
+                    const msg: ChatMessage = { id: `an_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: `My Analytics:\n${JSON.stringify(data, null, 2)}`, timestamp: new Date() };
+                    setMessages(s => [...s, msg]);
+                  } catch (e: any) {
+                      // If analytics endpoint is restricted, show a friendly demo/fallback to all users
+                      const demoData = {
+                        overview: {
+                          tripsJoined: 0,
+                          upcomingTrips: 0,
+                          openTickets: 0
+                        },
+                        note: 'Demo analytics shown — sign up as an organizer to see detailed metrics.'
+                      };
+                      const msg: ChatMessage = { id: `andemo_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: `My Analytics (demo):\n${JSON.stringify(demoData, null, 2)}`, timestamp: new Date() };
+                      setMessages(s => [...s, msg]);
+                    }
+                }}
+              >
+                My Analytics
+              </button>
+              <button className="chat-close-btn" onClick={() => setIsOpen(false)}>×</button>
+            </div>
           </div>
 
           <div className="chat-messages">
@@ -252,6 +362,43 @@ const AIChatWidgetClean: React.FC = () => {
               />
               <button className="send-button" onClick={sendMessage} disabled={isLoading}>{isLoading ? '...' : '›'}</button>
             </div>
+            {/* If a ticket was created in this session, allow quick AI resolution */}
+            {currentTicketId && (
+              <div className="mt-2 px-3">
+                <button
+                  className="resolve-ai-button px-3 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
+                  onClick={() => fetchAISuggestionForTicket(currentTicketId)}
+                  disabled={aiResolveLoading || showPreview}
+                >
+                  {aiResolveLoading ? 'Fetching suggestion...' : `Preview AI resolution for ${currentTicketId}`}
+                </button>
+
+                {/* Preview area: show suggestion and confirm/cancel */}
+                {showPreview && (
+                  <div className="mt-3 p-3 bg-white border rounded shadow-sm">
+                    <div className="mb-2 text-sm text-gray-600">Payment plan: <strong>{user?.plan || 'Free (demo)'}</strong></div>
+                    <h4 className="text-sm font-medium mb-1">AI Suggested Resolution (preview)</h4>
+                    <div className="mb-3 text-sm text-gray-800 whitespace-pre-wrap">{previewSuggestion}</div>
+                    <div className="flex space-x-2">
+                      <button
+                        className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                        onClick={() => confirmResolve(currentTicketId)}
+                        disabled={aiResolveLoading}
+                      >
+                        {aiResolveLoading ? 'Applying...' : 'Confirm & Apply'}
+                      </button>
+                      <button
+                        className="px-3 py-2 bg-gray-100 rounded"
+                        onClick={() => { setShowPreview(false); setPreviewSuggestion(null); }}
+                        disabled={aiResolveLoading}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

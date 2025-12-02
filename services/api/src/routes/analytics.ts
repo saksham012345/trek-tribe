@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { authenticateJwt, requireRole } from '../middleware/auth';
+import { SupportTicket } from '../models/SupportTicket';
 import { Trip } from '../models/Trip';
 import { User } from '../models/User';
 import { OrganizerSubscription } from '../models/OrganizerSubscription';
@@ -13,7 +14,7 @@ const router = Router();
  * GET /api/analytics/dashboard
  * Get comprehensive dashboard analytics
  */
-router.get('/dashboard', authenticateJwt, requireRole(['admin', 'organizer']), async (req: Request, res: Response) => {
+router.get('/dashboard', authenticateJwt, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.userId;
     const userRole = (req as any).user?.role;
@@ -128,7 +129,7 @@ router.get('/dashboard', authenticateJwt, requireRole(['admin', 'organizer']), a
         })),
       });
 
-    } else {
+    } else if (userRole === 'organizer') {
       // Organizer sees only their metrics
       const [
         myTrips,
@@ -185,6 +186,28 @@ router.get('/dashboard', authenticateJwt, requireRole(['admin', 'organizer']), a
         support: {
           tickets: myTickets,
         },
+      });
+    } else {
+      // For regular users (travelers), return a safe, personal analytics view
+      const [
+        tripsJoined,
+        upcomingTrips,
+        myTickets,
+      ] = await Promise.all([
+        Trip.countDocuments({ participants: userId }),
+        Trip.countDocuments({ participants: userId, startDate: { $gte: new Date() } }),
+        SupportTicket.countDocuments({ userId })
+      ]);
+
+      const recentTrips = await Trip.find({ participants: userId }).sort({ startDate: -1 }).limit(5).select('title startDate destination');
+
+      return res.json({
+        overview: {
+          tripsJoined,
+          upcomingTrips,
+          openTickets: myTickets,
+        },
+        recentTrips: recentTrips.map(t => ({ id: t._id, title: (t as any).title, startDate: (t as any).startDate, destination: (t as any).destination })),
       });
     }
 

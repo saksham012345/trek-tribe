@@ -1,6 +1,8 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth';
 import { User } from '../models/User';
+import { Trip } from '../models/Trip';
+import { SupportTicket } from '../models/SupportTicket';
 import { logger } from '../utils/logger';
 import multer from 'multer';
 import path from 'path';
@@ -450,3 +452,44 @@ router.get('/organizer/:uniqueUrl', async (req, res) => {
 });
 
 export default router;
+
+/**
+ * @route GET /api/profile/me/stats
+ * @description Get simple traveler analytics for the authenticated user
+ * @access Private
+ */
+router.get('/me/stats', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+
+    const [tripsJoined, upcomingTrips, openTickets] = await Promise.all([
+      Trip.countDocuments({ participants: userId }),
+      Trip.countDocuments({ participants: userId, startDate: { $gte: new Date() } }),
+      SupportTicket.countDocuments({ userId })
+    ]);
+
+    // Profile completeness heuristic
+    const user = await User.findById(userId).select('name profilePhoto bio socialLinks organizerProfile');
+    let completeness = 20; // base
+    if (user) {
+      if (user.name) completeness += 20;
+      if (user.profilePhoto) completeness += 20;
+      if (user.bio) completeness += 20;
+      if (user.socialLinks && Object.values(user.socialLinks).some(Boolean)) completeness += 20;
+    }
+
+    res.json({
+      success: true,
+      stats: {
+        tripsJoined,
+        upcomingTrips,
+        openTickets,
+        profileCompleteness: Math.min(100, completeness),
+        memberSince: user?.createdAt || null
+      }
+    });
+  } catch (error: any) {
+    logger.error('Error fetching profile stats', { error: error.message, userId: req.user?.id });
+    res.status(500).json({ success: false, message: 'Failed to fetch profile stats' });
+  }
+});

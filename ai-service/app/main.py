@@ -41,6 +41,7 @@ from .config import (
 from .utils import require_api_key, make_response, normalize_error
 from .model_runner import generate as model_generate, is_model_loaded, load_local_pipeline, get_model_max_length, FallbackGenerator, count_tokens
 from .retrieval import retrieve, RETRIEVAL_INDEX_LOADED, reload_index, verify_index_matches_model
+from .retrieval import build_index_from_texts, load_index, DOCS_PATH
 
 app = FastAPI(title="Trek-Tribe AI Service")
 logger = logging.getLogger("ai-service")
@@ -259,6 +260,7 @@ def generate(req: GenerateRequest, request: Request, x_api_key: Optional[str] = 
     # Retrieval augmentation
     try:
         retrieved = retrieve(prompt, top_k=top_k) or []
+        logger.info('Retrieval returned %d documents for prompt (top_k=%s)', len(retrieved), top_k)
     except Exception:
         retrieved = []
 
@@ -377,6 +379,33 @@ def admin_reload_index(x_api_key: Optional[str] = Header(None)):
     except Exception as e:
         logger.exception("Reload index failed: %s", e)
         raise HTTPException(status_code=500, detail="Reload index failed")
+
+
+@app.post('/admin/build_index')
+def admin_build_index(x_api_key: Optional[str] = Header(None)):
+    """Admin endpoint to (re)build the TF-IDF retrieval index from the bundled docs file.
+
+    This helps complete the RAG flow by ensuring the TF-IDF index exists for `retrieve()`.
+    """
+    require_api_key(x_api_key, AI_SERVICE_KEY)
+    try:
+        # Load docs file (expects list of {"text":..., "source":...} entries)
+        if not os.path.exists(DOCS_PATH):
+            logger.warning('No docs file found at %s to build index', DOCS_PATH)
+            raise HTTPException(status_code=404, detail='Docs file for index not found')
+        with open(DOCS_PATH, 'r', encoding='utf-8') as f:
+            docs = json.load(f)
+
+        texts = [d.get('text', '') for d in docs]
+        meta = [{k: v for k, v in d.items() if k != 'text'} for d in docs]
+        build_index_from_texts(texts, meta, model_name=MODEL_NAME, tokenizer_version='unknown')
+        logger.info('Index build complete from %s (documents=%d)', DOCS_PATH, len(texts))
+        return make_response({'built': True, 'count': len(texts)})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception('Index build failed: %s', e)
+        raise HTTPException(status_code=500, detail='Index build failed')
 
 
 @app.get('/metrics')
