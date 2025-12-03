@@ -12,6 +12,10 @@ module.exports = {
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
+  // Ensure environment variables are available before modules are loaded.
+  // `setupEnv.ts` runs early; the test lifecycle hooks (beforeAll/afterAll)
+  // remain in `setup.ts`, which runs after the test environment is ready.
+  setupFiles: ['<rootDir>/src/__tests__/setupEnv.ts'],
   setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup.ts'],
   testTimeout: 10000,
   globals: {

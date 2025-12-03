@@ -778,10 +778,20 @@ router.post('/chat', aiMetricsMiddleware('chat'), validateChatMessage, handleVal
     const sessionId = req.headers['x-session-id'] as string || 'anonymous';
     aiMetricsService.recordChatMessage(sessionId, responseTime, aiResponse.requiresHumanAgent);
     
+    // Return both names for backward compatibility with older clients/tests that expect
+    // a top-level `response` string and a flattened shape.
+    const flattened: any = { ...(aiResponse || {}) };
+    if (aiResponse && (aiResponse as any).response) {
+      flattened.response = (aiResponse as any).response;
+    }
+
     res.json({
       success: true,
       userMessage: message,
+      // original structured response
       aiResponse,
+      // flattened top-level fields (backwards compatibility)
+      ...flattened,
       timestamp: new Date().toISOString()
     });
   } catch (error: any) {
