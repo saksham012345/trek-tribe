@@ -131,6 +131,13 @@ if (!mongoUri) {
   throw new Error('MONGODB_URI environment variable is required');
 }
 
+// Ensure a JWT secret exists. In test environments provide a safe fallback so
+// tests and worker processes don't fail when env vars are not propagated.
+if ((!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) && process.env.NODE_ENV === 'test') {
+  process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-key-that-is-long-enough-12345';
+  console.log('ℹ️  Using fallback JWT_SECRET for test environment');
+}
+
 const jwtSecret = process.env.JWT_SECRET;
 if (!jwtSecret || jwtSecret.length < 32) {
   throw new Error('JWT_SECRET must be set and at least 32 characters long');

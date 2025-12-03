@@ -6,6 +6,7 @@ import { Trip } from '../models/Trip';
 import { User } from '../models/User';
 import { GroupBooking } from '../models/GroupBooking';
 import { authenticateJwt } from '../middleware/auth';
+import mongoose from 'mongoose';
 import { whatsappService } from '../services/whatsappService';
 import { emailService } from '../services/emailService';
 import { fileHandler } from '../utils/fileHandler';
@@ -147,6 +148,11 @@ router.post('/', authenticateJwt, async (req, res) => {
       emergencyContactPhone,
       experienceLevel 
     } = parsed;
+
+    // Validate tripId
+    if (!tripId || !mongoose.isValidObjectId(tripId)) {
+      return res.status(400).json({ error: 'Invalid trip id' });
+    }
 
     // Find the trip
     const trip = await Trip.findById(tripId).populate('organizerId', 'name phone email');
@@ -305,23 +311,15 @@ router.post('/', authenticateJwt, async (req, res) => {
       logger.warn('⚠️  Email service not configured - skipping booking confirmation email');
     }
 
+    // Return booking object at top-level to match test expectations
+    const bookingObj = groupBooking.toObject ? groupBooking.toObject() : groupBooking;
+    bookingObj.numberOfGuests = groupBooking.numberOfGuests;
+    bookingObj.bookingStatus = groupBooking.bookingStatus;
+    bookingObj.pricePerPerson = pricePerPerson;
+    bookingObj.totalAmount = groupBooking.finalAmount;
+
     res.status(201).json({
-      message: 'Booking request submitted successfully. Please upload payment screenshot to confirm your booking.',
-      booking: {
-        bookingId: groupBooking._id,
-        tripTitle: trip.title,
-        destination: trip.destination,
-        startDate: trip.startDate,
-        endDate: trip.endDate,
-        numberOfTravelers,
-        pricePerPerson,
-        totalAmount: groupBooking.finalAmount,
-        status: 'pending',
-        paymentVerificationStatus: 'pending',
-        organizerName: (trip.organizerId as any).name,
-        organizerPhone: (trip.organizerId as any).phone,
-        requiresPaymentUpload: true
-      }
+      ...bookingObj
     });
 
   } catch (error: any) {
@@ -334,38 +332,85 @@ router.post('/', authenticateJwt, async (req, res) => {
 });
 
 // Get user bookings
+// List user bookings (root) and alias to /my-bookings for backwards compatibility
+router.get('/', authenticateJwt, async (req, res) => {
+  try {
+    const userId = (req as any).auth.userId;
+    console.log('🔍 My bookings request (root):', { userId, auth: (req as any).auth });
+    
+    const groupBookings = await GroupBooking.find({ mainBookerId: userId })
+      .populate({
+        path: 'tripId',
+        select: 'title destination startDate endDate coverImage organizerId status',
+        populate: {
+          path: 'organizerId',
+          select: 'name phone email'
+        }
+      })
+      .sort({ createdAt: -1 });
+
+    const bookings = groupBookings.map(booking => {
+      const trip = booking.tripId as any;
+      return {
+        _id: booking._id,
+        tripId: trip?._id || booking.tripId,
+        tripTitle: trip?.title || 'Unknown',
+        destination: trip?.destination || 'Unknown',
+        startDate: trip?.startDate,
+        endDate: trip?.endDate,
+        coverImage: trip?.coverImage,
+        numberOfGuests: booking.numberOfGuests,
+        totalAmount: booking.finalAmount,
+        pricePerPerson: booking.pricePerPerson,
+        selectedPackage: booking.packageName,
+        bookingStatus: booking.bookingStatus,
+        paymentStatus: booking.paymentStatus,
+        paymentVerificationStatus: booking.paymentVerificationStatus,
+        createdAt: booking.createdAt,
+        organizer: {
+          id: trip?.organizerId?._id?.toString() || '',
+          name: trip?.organizerId?.name || 'N/A',
+          phone: trip?.organizerId?.phone || 'N/A',
+          email: trip?.organizerId?.email || 'N/A'
+        }
+      };
+    });
+
+    return res.json(bookings);
+  } catch (error: any) {
+    logger.error('Error fetching user bookings', { 
+      error: error.message, 
+      stack: error.stack,
+      userId: (req as any).auth.userId 
+    });
+    return res.status(500).json({ error: 'Failed to fetch bookings' });
+  }
+});
+
+// Backwards-compatible alias: return an object with `bookings` key
 router.get('/my-bookings', authenticateJwt, async (req, res) => {
   try {
     const userId = (req as any).auth.userId;
-    console.log('🔍 My bookings request:', { userId, auth: (req as any).auth });
-    
-    // Find all bookings where user is the main booker
-    console.log('🔍 Querying GroupBooking for userId:', userId);
-    const groupBookings = await GroupBooking.find({ 
-      mainBookerId: userId 
-    })
-    .populate({
-      path: 'tripId',
-      select: 'title destination startDate endDate coverImage organizerId status',
-      populate: {
-        path: 'organizerId',
-        select: 'name phone email'
-      }
-    })
-    .sort({ createdAt: -1 });
-    
-    console.log('📋 Found bookings:', groupBookings.length);
+    console.log('🔍 My bookings request (alias):', { userId });
+
+    const groupBookings = await GroupBooking.find({ mainBookerId: userId })
+      .populate({
+        path: 'tripId',
+        select: 'title destination startDate endDate coverImage organizerId status',
+        populate: { path: 'organizerId', select: 'name phone email' }
+      })
+      .sort({ createdAt: -1 });
 
     const bookings = groupBookings.map(booking => {
       const trip = booking.tripId as any;
       return {
         bookingId: booking._id,
-        tripId: trip._id,
-        tripTitle: trip.title,
-        destination: trip.destination,
-        startDate: trip.startDate,
-        endDate: trip.endDate,
-        coverImage: trip.coverImage,
+        tripId: trip?._id || booking.tripId,
+        tripTitle: trip?.title || 'Unknown',
+        destination: trip?.destination || 'Unknown',
+        startDate: trip?.startDate,
+        endDate: trip?.endDate,
+        coverImage: trip?.coverImage,
         numberOfGuests: booking.numberOfGuests,
         totalAmount: booking.finalAmount,
         pricePerPerson: booking.pricePerPerson,
@@ -374,30 +419,21 @@ router.get('/my-bookings', authenticateJwt, async (req, res) => {
         paymentStatus: booking.paymentStatus,
         paymentVerificationStatus: booking.paymentVerificationStatus,
         paymentScreenshotUploaded: !!booking.paymentScreenshot,
-        tripStatus: trip.status,
+        tripStatus: trip?.status,
         createdAt: booking.createdAt,
         organizer: {
-          id: trip.organizerId?._id?.toString() || '',
-          name: trip.organizerId?.name || 'N/A',
-          phone: trip.organizerId?.phone || 'N/A',
-          email: trip.organizerId?.email || 'N/A'
+          id: trip?.organizerId?._id?.toString() || '',
+          name: trip?.organizerId?.name || 'N/A',
+          phone: trip?.organizerId?.phone || 'N/A',
+          email: trip?.organizerId?.email || 'N/A'
         }
       };
     });
 
-    res.json({ bookings });
-
+    return res.json({ bookings });
   } catch (error: any) {
-    logger.error('Error fetching user bookings', { 
-      error: error.message, 
-      stack: error.stack,
-      userId: (req as any).auth.userId 
-    });
-    console.error('❌ My bookings error:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch bookings',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    logger.error('Error fetching user bookings (alias)', { error: error.message, userId: (req as any).auth.userId });
+    return res.status(500).json({ error: 'Failed to fetch bookings' });
   }
 });
 
@@ -406,6 +442,10 @@ router.delete('/:tripId', authenticateJwt, async (req, res) => {
   try {
     const userId = (req as any).auth.userId;
     const { tripId } = req.params;
+
+    if (!tripId || !mongoose.isValidObjectId(tripId)) {
+      return res.status(400).json({ error: 'Invalid trip id' });
+    }
 
     const trip = await Trip.findById(tripId);
     if (!trip) {
@@ -443,6 +483,7 @@ router.get('/trip/:tripId', authenticateJwt, async (req, res) => {
   try {
     const userId = (req as any).auth.userId;
     const { tripId } = req.params;
+    if (!tripId || !mongoose.isValidObjectId(tripId)) return res.status(400).json({ error: 'Invalid trip id' });
 
     const trip = await Trip.findById(tripId).populate('organizerId', 'name phone email');
     if (!trip) {
@@ -803,6 +844,8 @@ router.post('/:bookingId/verify-payment', authenticateJwt, async (req, res) => {
     }
 
     // Find the booking
+    if (!bookingId || !mongoose.isValidObjectId(bookingId)) return res.status(400).json({ error: 'Invalid booking id' });
+
     const booking = await GroupBooking.findById(bookingId)
       .populate('tripId', 'title organizerId participants capacity');
       

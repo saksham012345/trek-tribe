@@ -5,6 +5,12 @@ let mongoServer: MongoMemoryServer;
 
 // Setup before all tests
 beforeAll(async () => {
+  // Allow more time for MongoMemoryServer to download/start on CI/Windows
+  // Some environments are slower fetching the binaries; increase Jest timeout.
+  // 60s should be sufficient in most cases.
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
+  jest.setTimeout(60000);
   // Create in-memory MongoDB instance
   mongoServer = await MongoMemoryServer.create();
   const mongoUri = mongoServer.getUri();

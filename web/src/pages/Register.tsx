@@ -140,7 +140,8 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
             });
           } catch {}
         }
-        navigate('/my-profile', { replace: true });
+        // After successful registration & auto-login, redirect to homepage
+        navigate('/', { replace: true });
       } else if (result.error) {
         setError(result.error);
         navigate('/login', { replace: true });
