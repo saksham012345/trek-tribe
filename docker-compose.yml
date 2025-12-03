@@ -12,10 +12,10 @@ services:
     build: ./services/api
     restart: unless-stopped
     environment:
-      - MONGODB_URI=mongodb://mongo:27017/trekktribe
+      - MONGODB_URI=mongodb://mongo:27017/trektribe
       - NODE_ENV=development
       - PORT=4000
-      - JWT_SECRET=${JWT_SECRET}
+      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret}
     ports:
       - '4000:4000'
     depends_on:
@@ -28,21 +28,21 @@ services:
       - '3000:80'
     depends_on:
       - api
-  ai-service:
-    build: ./ai-service
-    restart: unless-stopped
-    environment:
-      - MODEL_NAME=${MODEL_NAME:-google/flan-t5-base}
-      - MODEL_DIR=/app/models/${MODEL_NAME:-google_flan-t5-base}
-      - AI_SERVICE_KEY=${AI_SERVICE_KEY:-dev-ai-key-123}
-      - PORT=8000
-    ports:
-      - '8000:8000'
-    volumes:
-      - ./ai-service/data:/app/data:rw
-      - ./ai-service/models:/app/models:rw
-    depends_on:
-      - api
+  # ai-service: (disabled) -- remove or enable if you add an `ai-service` folder
+  #   build: ./ai-service
+  #   restart: unless-stopped
+  #   environment:
+  #     - MODEL_NAME=${MODEL_NAME:-google/flan-t5-base}
+  #     - MODEL_DIR=/app/models/${MODEL_NAME:-google_flan-t5-base}
+  #     - AI_SERVICE_KEY=${AI_SERVICE_KEY:-dev-ai-key-123}
+  #     - PORT=8000
+  #   ports:
+  #     - '8000:8000'
+  #   volumes:
+  #     - ./ai-service/data:/app/data:rw
+  #     - ./ai-service/models:/app/models:rw
+  #   depends_on:
+  #     - api
       
 volumes:
   mongo_data:

@@ -98,6 +98,13 @@ const EnhancedAgentDashboard: React.FC<AgentDashboardProps> = ({ user }) => {
       fetchDashboardData(); // Refresh data
     });
 
+    // New ticket notifications (from support system)
+    newSocket.on('new_ticket', (data) => {
+      console.log('🆕 New ticket notification received:', data);
+      addNotification(`New ticket: ${data.subject || data.ticketId}`, 'info');
+      fetchDashboardData();
+    });
+
     newSocket.on('trip_update', (data) => {
       if (data.type === 'created') {
         addNotification(`New trip available: ${data.trip.title}`, 'success');

@@ -311,8 +311,8 @@ router.post('/tickets/:ticketId/ai-resolve', async (req, res) => {
     const prompt = `Ticket: ${ticket.ticketId}\nSubject: ${ticket.subject}\nCategory: ${ticket.category}\nPriority: ${ticket.priority}\n\nConversation:\n${lastMessages}\n\nPlease suggest a concise resolution for this ticket and an action summary. Provide a short resolution note.`;
 
     const aiUrl = `${req.protocol}://${req.get('host')}/api/ai/chat`;
-    const aiResp = await axios.post(aiUrl, { message: prompt, context: { ticketId: ticket.ticketId } }, { timeout: 120000 });
-    const aiData = aiResp.data?.aiResponse || aiResp.data || {};
+    const aiResp = await axios.post<any>(aiUrl, { message: prompt, context: { ticketId: ticket.ticketId } }, { timeout: 120000 });
+    const aiData = (aiResp.data as any)?.aiResponse || (aiResp.data as any) || {};
 
     // Normalize suggestion text
     const suggestion = (aiData && (aiData.response || aiData.suggestion || aiData.text)) || 'No suggestion available';

@@ -1,0 +1,39 @@
+name: CI - API Build
+
+on:
+  push:
+    paths:
+      - 'services/api/**'
+  pull_request:
+    paths:
+      - 'services/api/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/api
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+      - name: Generate JWT secret for tests
+        run: |
+          echo "JWT_SECRET=$(openssl rand -hex 32)" >> $GITHUB_ENV
+
+      - name: Run tests
+        run: npm test
+
+      - name: Run TypeScript build
+        run: npm run build
+
+      - name: Build Docker image
+        run: docker build -t trek-tribe-api:ci .
