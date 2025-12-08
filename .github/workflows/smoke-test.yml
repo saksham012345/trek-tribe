@@ -1,0 +1,49 @@
+name: Smoke test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Compose
+        run: sudo apt-get update && sudo apt-get install -y docker-compose-plugin
+
+      - name: Build and start services
+        env:
+          MONGODB_URI: mongodb://mongo:27017/trektribe
+        run: |
+          # Provide a local strong JWT secret if one is not set in secrets
+          if [ -z "${{ secrets.JWT_SECRET }}" ]; then
+            export JWT_SECRET="local-dev-fallback-aaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          else
+            export JWT_SECRET="${{ secrets.JWT_SECRET }}"
+          fi
+          docker compose up --build -d
+
+      - name: Wait for API health
+        run: |
+          for i in {1..30}; do
+            if curl -sSf http://localhost:4000/health; then
+              echo "API healthy" && break
+            fi
+            sleep 2
+          done
+
+      - name: Run smoke curl checks
+        run: |
+          set -e
+          curl -sSf http://localhost:4000/api/ai/status | jq .
+          curl -sSf -X POST http://localhost:4000/api/ai/chat -H "Content-Type: application/json" -d '{"message":"Which places should I visit considering current travel trends and help me book a trip?","context":{}}' | jq .
+          curl -sSf http://localhost:4000/api/ai/recommendations | jq .
+
+      - name: Tear down
+        if: always()
+        run: docker compose down --volumes

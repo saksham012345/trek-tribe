@@ -1,4 +1,3 @@
-version: '3.9'
 services:
   mongo:
     image: mongo:6
@@ -15,9 +14,16 @@ services:
       - MONGODB_URI=mongodb://mongo:27017/trektribe
       - NODE_ENV=development
       - PORT=4000
-      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret}
+      # Provide a secure default for local/dev runs (must be >= 32 chars)
+      - JWT_SECRET=a2f4b6c8d0e2f6a8b0c2d4e6f8a0b2c4d6e8f0a2b4c6d8e0f2a4b6c8d0e2f6
     ports:
       - '4000:4000'
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:4000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     depends_on:
       - mongo
       
