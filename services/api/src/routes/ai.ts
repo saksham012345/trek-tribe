@@ -11,6 +11,9 @@ import { aiMetricsService, aiMetricsMiddleware } from '../services/aiMetricsServ
 
 const router = express.Router();
 
+// Feature toggle: allow public fallbacks for recommendations/analytics when unauthenticated.
+const AI_PUBLIC_FALLBACK = (process.env.AI_PUBLIC_FALLBACK || 'true').toLowerCase() !== 'false';
+
 // AI Service Mock (In production, this would be replaced with actual AI service)
 class TrekTribeAI {
   private static instance: TrekTribeAI;
@@ -578,7 +581,7 @@ class TrekTribeAI {
     }
   }
 
-  private async getPopularTrips(limit: number = 3) {
+  public async getPopularTrips(limit: number = 3) {
     try {
       const popularTrips = await Trip.find({ status: 'active' })
         .populate('organizerId', 'name profilePhoto')
@@ -706,24 +709,40 @@ router.post('/smart-search', aiMetricsMiddleware('smart-search'), validateSmartS
   }
 });
 
-// Personalized recommendations
-router.get('/recommendations', aiMetricsMiddleware('recommendations'), authenticateToken, validateRecommendations, handleValidationErrors, async (req: Request, res: Response) => {
+// Recommendations (public-friendly): returns personalized recommendations when authenticated,
+// otherwise returns a set of popular recommendations so AI features are visible to everyone.
+router.get('/recommendations', aiMetricsMiddleware('recommendations'), validateRecommendations, handleValidationErrors, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id;
     const limit = parseInt(req.query.limit as string) || 6;
-    
-    const recommendations = await aiService.generatePersonalizedRecommendations(userId, limit);
-    
-    // Record metrics
-    aiMetricsService.recordRecommendation(userId, recommendations.length);
-    
-    res.json({
+
+    // If user is authenticated, return personalized recommendations
+    const user = (req as any).user;
+    if (user && user.id) {
+      const userId = user.id;
+      const recommendations = await aiService.generatePersonalizedRecommendations(userId, limit);
+      aiMetricsService.recordRecommendation(userId, recommendations.length);
+      return res.json({
+        success: true,
+        userId,
+        recommendations,
+        aiInsights: {
+          algorithm: 'collaborative_filtering_with_content_analysis',
+          confidence: 'high',
+          lastUpdated: new Date().toISOString()
+        }
+      });
+    }
+
+    // Public fallback: return popular trips so the feature is useful without auth
+    const publicRecs = await aiService.getPopularTrips(limit).catch(() => []);
+    aiMetricsService.recordRecommendation('public', publicRecs.length);
+    return res.json({
       success: true,
-      userId,
-      recommendations,
+      userId: null,
+      recommendations: publicRecs,
       aiInsights: {
-        algorithm: 'collaborative_filtering_with_content_analysis',
-        confidence: 'high',
+        algorithm: 'popularity_fallback',
+        confidence: 'medium',
         lastUpdated: new Date().toISOString()
       }
     });
@@ -738,22 +757,44 @@ router.get('/recommendations', aiMetricsMiddleware('recommendations'), authentic
 });
 
 // User travel analytics
-router.get('/analytics', aiMetricsMiddleware('analytics'), authenticateToken, async (req: Request, res: Response) => {
+router.get('/analytics', aiMetricsMiddleware('analytics'), async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id;
+    const user = (req as any).user;
     const startTime = Date.now();
-    
-    const analytics = await aiService.generateUserAnalytics(userId);
-    
-    // Record metrics
-    const processingTime = Date.now() - startTime;
-    aiMetricsService.recordAnalyticsRequest(userId, processingTime);
-    
-    res.json({
+
+    if (user && user.id) {
+      const userId = user.id;
+      const analytics = await aiService.generateUserAnalytics(userId);
+      const processingTime = Date.now() - startTime;
+      aiMetricsService.recordAnalyticsRequest(userId, processingTime);
+      return res.json({
+        success: true,
+        userId,
+        analytics,
+        generatedAt: new Date().toISOString()
+      });
+    }
+
+    // Public fallback: return lightweight demo analytics so the dashboard and AI are usable without login
+    const demoAnalytics = {
+      summary: {
+        totalTrips: 0,
+        totalSpent: 0,
+        averageRating: 0,
+        memberSince: null
+      },
+      preferences: {},
+      travelPattern: {},
+      insights: {},
+      achievements: []
+    };
+    aiMetricsService.recordAnalyticsRequest('public', 0);
+    return res.json({
       success: true,
-      userId,
-      analytics,
-      generatedAt: new Date().toISOString()
+      userId: null,
+      analytics: demoAnalytics,
+      generatedAt: new Date().toISOString(),
+      note: 'Demo analytics for unauthenticated users. Log in as an organizer for personalized analytics.'
     });
   } catch (error: any) {
     console.error('AI Analytics Error:', error);

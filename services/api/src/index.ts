@@ -3,6 +3,8 @@ import express, { Request, Response, NextFunction } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import mongoose from 'mongoose';
+// Optional in-memory MongoDB for local dev/testing
+import { MongoMemoryServer } from 'mongodb-memory-server';
 import { createServer } from 'http';
 import authRoutes from './routes/auth';
 import tripRoutes from './routes/trips';
@@ -126,9 +128,14 @@ const logMessage = (level: string, message: string): void => {
 
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 4000;
 // Render uses port 10000 by default, but process.env.PORT should be available
-const mongoUri = process.env.MONGODB_URI;
-if (!mongoUri) {
-  throw new Error('MONGODB_URI environment variable is required');
+let mongoUri = process.env.MONGODB_URI;
+const useMemDb = (process.env.USE_MEM_DB || 'false').toLowerCase() === 'true';
+
+// If requested, start an in-memory MongoDB for local development/testing
+if (!mongoUri && useMemDb) {
+  console.log('ℹ️  USE_MEM_DB enabled — starting in-memory MongoDB instance');
+} else if (!mongoUri && !useMemDb) {
+  throw new Error('MONGODB_URI environment variable is required (or set USE_MEM_DB=true for in-memory DB)');
 }
 
 // Ensure a JWT secret exists. In test environments provide a safe fallback so
@@ -145,6 +152,12 @@ if (!jwtSecret || jwtSecret.length < 32) {
 
 // Enhanced database connection with retry logic
 const connectToDatabase = async (retries = 5): Promise<void> => {
+  // If using in-memory DB, start it here and set mongoUri
+  if ((!mongoUri || mongoUri.length === 0) && useMemDb) {
+    const mongod = await MongoMemoryServer.create();
+    mongoUri = mongod.getUri();
+    console.log(`✅ In-memory MongoDB started at ${mongoUri}`);
+  }
   for (let i = 1; i <= retries; i++) {
     try {
       console.log(`🔄 Database connection attempt ${i}/${retries}`);
@@ -173,7 +186,7 @@ const connectToDatabase = async (retries = 5): Promise<void> => {
   }
 };
 
-async function start() {
+export async function start() {
   try {
     console.log('🚀 Starting TrekkTribe API server...');
     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
@@ -439,7 +452,9 @@ process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
   process.exit(1);
 });
 
-// Start the application
-start();
+// Start the application unless auto-start was disabled (used by dev helpers)
+if (process.env.DISABLE_AUTO_START !== 'true') {
+  start();
+}
 
 

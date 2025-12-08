@@ -282,52 +282,14 @@ const AIChatWidgetClean: React.FC = () => {
       {isOpen && (
         <div className="chat-widget">
           <div className="chat-header">
-            <div className="chat-header-info">
-              <h3>Trek Tribe Assistant</h3>
-              <div className={`connection-status ${socketFailed ? 'disconnected' : 'connected'}`}>{socketFailed ? 'Offline' : 'Online'}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 10, height: 10, borderRadius: 10, background: '#34D399', boxShadow: '0 0 0 4px rgba(52,211,153,0.08)' }} />
+              <div className="chat-header-info">
+                <h3 style={{ margin: 0 }}>Trek Tribe Support</h3>
+                <div className={`connection-status ${socketFailed ? 'disconnected' : 'connected'}`} style={{ marginTop: 2 }}>{socketFailed ? 'Offline' : 'Online'}</div>
+              </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <button
-                className="chat-action-btn px-2 py-1 bg-gray-100 rounded text-sm"
-                onClick={async () => {
-                  try {
-                    const resp = await api.get('/api/ai/recommendations');
-                    const recs = resp.data?.recommendations || resp.data || [];
-                    const msg: ChatMessage = { id: `rec_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: `Recommendations:\n${JSON.stringify(recs, null, 2)}`, timestamp: new Date() };
-                    setMessages(s => [...s, msg]);
-                  } catch (e: any) {
-                    const err: ChatMessage = { id: `recerr_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: 'Failed to fetch recommendations.', timestamp: new Date() };
-                    setMessages(s => [...s, err]);
-                  }
-                }}
-              >
-                Get Recommendations
-              </button>
-              <button
-                className="chat-action-btn px-2 py-1 bg-gray-100 rounded text-sm"
-                onClick={async () => {
-                  try {
-                    const resp = await api.get('/api/analytics/dashboard');
-                    const data = resp.data || resp.data?.overview || {};
-                    const msg: ChatMessage = { id: `an_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: `My Analytics:\n${JSON.stringify(data, null, 2)}`, timestamp: new Date() };
-                    setMessages(s => [...s, msg]);
-                  } catch (e: any) {
-                      // If analytics endpoint is restricted, show a friendly demo/fallback to all users
-                      const demoData = {
-                        overview: {
-                          tripsJoined: 0,
-                          upcomingTrips: 0,
-                          openTickets: 0
-                        },
-                        note: 'Demo analytics shown — sign up as an organizer to see detailed metrics.'
-                      };
-                      const msg: ChatMessage = { id: `andemo_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: `My Analytics (demo):\n${JSON.stringify(demoData, null, 2)}`, timestamp: new Date() };
-                      setMessages(s => [...s, msg]);
-                    }
-                }}
-              >
-                My Analytics
-              </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <button className="chat-close-btn" onClick={() => setIsOpen(false)}>×</button>
             </div>
           </div>
@@ -343,6 +305,51 @@ const AIChatWidgetClean: React.FC = () => {
               </div>
             ))}
             <div ref={messagesEndRef} />
+          </div>
+
+          {/* Action grid (large buttons as in screenshot) */}
+          <div className="chat-footer" style={{ padding: '12px' }}>
+            <div className="smart-actions-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+              <button className="smart-action-btn" onClick={async () => {
+                // Get Recommendations
+                try {
+                  const resp = await api.get('/api/ai/recommendations');
+                  const recs = resp.data?.recommendations || resp.data || [];
+                  const msg: ChatMessage = { id: `rec_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: `Recommendations:\n${JSON.stringify(recs, null, 2)}`, timestamp: new Date() };
+                  setMessages(s => [...s, msg]);
+                } catch (e: any) {
+                  const err: ChatMessage = { id: `recerr_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: 'Failed to fetch recommendations.', timestamp: new Date() };
+                  setMessages(s => [...s, err]);
+                }
+              }}>🚀 Get Recommendations</button>
+
+              <button className="smart-action-btn" onClick={() => {
+                // Check Availability: simple prompt to AI chat
+                setInputMessage('Check availability for upcoming trips from my location');
+              }}>📅 Check Availability</button>
+
+              <button className="smart-action-btn" onClick={async () => {
+                try {
+                  const resp = await api.get('/api/analytics/dashboard');
+                  const data = resp.data || resp.data?.overview || {};
+                  const msg: ChatMessage = { id: `an_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: `My Analytics:\n${JSON.stringify(data, null, 2)}`, timestamp: new Date() };
+                  setMessages(s => [...s, msg]);
+                } catch (e: any) {
+                  const demoData = { overview: { tripsJoined: 0, upcomingTrips: 0, openTickets: 0 }, note: 'Demo analytics shown — sign up as an organizer to see detailed metrics.' };
+                  const msg: ChatMessage = { id: `andemo_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: `My Analytics (demo):\n${JSON.stringify(demoData, null, 2)}`, timestamp: new Date() };
+                  setMessages(s => [...s, msg]);
+                }
+              }}>📊 My Analytics</button>
+
+              <button className="smart-action-btn" onClick={() => { setInputMessage('I need help with booking a trip'); }}>{'🧭 Booking Help'}</button>
+            </div>
+
+            <div style={{ marginTop: 8 }}>
+              <button className="human-agent-request-btn" onClick={() => {
+                // Pre-fill and suggest contacting human agent
+                setMessages(s => [...s, { id: `sys_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: 'A human agent will join shortly. Meanwhile, please share your booking details or question.', timestamp: new Date() }]);
+              }}>👤 Talk to a Human Agent</button>
+            </div>
           </div>
 
           <div className="chat-input-container">
