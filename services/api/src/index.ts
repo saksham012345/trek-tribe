@@ -4,7 +4,6 @@ import helmet from 'helmet';
 import cors from 'cors';
 import mongoose from 'mongoose';
 // Optional in-memory MongoDB for local dev/testing
-import { MongoMemoryServer } from 'mongodb-memory-server';
 import { createServer } from 'http';
 import authRoutes from './routes/auth';
 import tripRoutes from './routes/trips';
@@ -154,6 +153,10 @@ if (!jwtSecret || jwtSecret.length < 32) {
 const connectToDatabase = async (retries = 5): Promise<void> => {
   // If using in-memory DB, start it here and set mongoUri
   if ((!mongoUri || mongoUri.length === 0) && useMemDb) {
+    console.log('ℹ️  USE_MEM_DB enabled — starting in-memory MongoDB instance');
+    // Dynamically import mongodb-memory-server only when requested so that production
+    // / production-built images that don't include devDependencies don't crash.
+    const { MongoMemoryServer } = await import('mongodb-memory-server');
     const mongod = await MongoMemoryServer.create();
     mongoUri = mongod.getUri();
     console.log(`✅ In-memory MongoDB started at ${mongoUri}`);

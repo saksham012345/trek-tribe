@@ -385,4 +385,169 @@ router.post('/tickets/:ticketId/resolve', async (req, res, next) => {
   }
 });
 
+// Create a human agent ticket from AI chat
+router.post('/human-agent/request', ticketCreateValidators, handleValidationErrors, async (req, res) => {
+  try {
+    const { message, category, priority } = req.body;
+    const userId = (req as any).auth.userId;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'User not found' });
+    }
+
+    // Create a new support ticket
+    const ticket = new SupportTicket({
+      ticketId: `TKT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      userId: userId,
+      customerName: user.name,
+      customerEmail: user.email,
+      subject: `Human Agent Requested - ${category || 'General Support'}`,
+      description: message || 'User requested to speak with a human agent',
+      category: category || 'general',
+      priority: priority || 'medium',
+      status: 'open',
+      assignedAgentId: null,
+      messages: [
+        {
+          sender: 'customer',
+          senderName: user.name,
+          senderId: userId,
+          message: message || 'User initiated human agent chat',
+          timestamp: new Date()
+        }
+      ],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+
+    await ticket.save();
+
+    // Notify agents that a new ticket is waiting
+    socketService.notifyNewTicket(ticket);
+
+    // Send notification to user
+    try {
+      await notificationService.notify({
+        userId: userId,
+        type: 'ticket_created',
+        title: 'Support Ticket Created',
+        message: `Your support ticket ${ticket.ticketId} has been created. A human agent will assist you shortly.`,
+        data: { ticketId: ticket.ticketId }
+      });
+    } catch (notifyError) {
+      logger.warn('Failed to send notification', { error: notifyError });
+    }
+
+    res.json({
+      success: true,
+      message: 'Human agent ticket created successfully',
+      ticket: {
+        ticketId: ticket.ticketId,
+        status: ticket.status,
+        priority: ticket.priority,
+        createdAt: ticket.createdAt
+      }
+    });
+
+  } catch (error: any) {
+    logger.error('Error creating human agent ticket', { error: error.message });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create support ticket',
+      message: error.message
+    });
+  }
+});
+
+// Get available agents for chat
+router.get('/agents/available', async (req, res) => {
+  try {
+    const agents = await User.find({
+      role: 'agent',
+      isActive: true
+    })
+    .select('name email profilePhoto status')
+    .limit(10);
+
+    const availableAgents = agents.map((agent: any) => ({
+      id: agent._id,
+      name: agent.name,
+      email: agent.email,
+      avatar: agent.profilePhoto,
+      status: agent.status || 'online',
+      isAvailable: agent.status !== 'offline'
+    }));
+
+    res.json({
+      success: true,
+      agents: availableAgents,
+      agentCount: availableAgents.filter((a: any) => a.isAvailable).length
+    });
+
+  } catch (error: any) {
+    logger.error('Error fetching available agents', { error: error.message });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch available agents'
+    });
+  }
+});
+
+// Send message to agent
+router.post('/:ticketId/message', messageValidators, handleValidationErrors, async (req, res) => {
+  try {
+    const { ticketId } = req.params;
+    const { message } = req.body;
+    const userId = (req as any).auth.userId;
+    const userRole = (req as any).auth.role;
+
+    const ticket = await SupportTicket.findOne({ ticketId })
+      .populate('assignedAgentId', 'name email _id');
+
+    if (!ticket) {
+      return res.status(404).json({ success: false, error: 'Ticket not found' });
+    }
+
+    const user = await User.findById(userId);
+
+    // Add message to ticket
+    const newMessage = {
+      sender: userRole === 'agent' ? 'agent' : 'customer',
+      senderName: user?.name || 'User',
+      senderId: userId,
+      message: sanitizeText(message),
+      timestamp: new Date()
+    };
+
+    ticket.messages.push(newMessage);
+    ticket.updatedAt = new Date();
+    await ticket.save();
+
+    // Notify socket connection if agent is assigned
+    if (ticket.assignedAgentId) {
+      socketService.sendAgentMessage(ticket.assignedAgentId.toString(), {
+        ticketId,
+        message: newMessage
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Message sent',
+      ticketId,
+      messageId: newMessage._id || Date.now().toString(),
+      timestamp: newMessage.timestamp
+    });
+
+  } catch (error: any) {
+    logger.error('Error sending message', { error: error.message, ticketId: req.params.ticketId });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to send message',
+      message: error.message
+    });
+  }
+});
+
 export default router;

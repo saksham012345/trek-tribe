@@ -8,6 +8,9 @@ import { Review } from '../models/Review';
 import { aiConfig, getScaledScore, isHighConfidence } from '../config/ai';
 import { aiCacheService } from '../services/aiCacheService';
 import { aiMetricsService, aiMetricsMiddleware } from '../services/aiMetricsService';
+import OpenAI from 'openai';
+import { answerGeneralQuery } from '../services/generalKnowledge';
+import { knowledgeBaseService } from '../services/knowledgeBase';
 
 const router = express.Router();
 
@@ -278,43 +281,238 @@ class TrekTribeAI {
     }
 
     const lowerMessage = message.toLowerCase();
+
+    // Handle weather queries with disclaimer
+    const weatherKeywords = ['weather', 'temperature', 'rain', 'snow', 'wind', 'forecast', 'climate', 'monsoon', 'condition'];
+    const isWeatherQuery = weatherKeywords.some(k => lowerMessage.includes(k));
     
-    // Trip search queries
-    if (lowerMessage.includes('find') || lowerMessage.includes('search') || lowerMessage.includes('looking for')) {
-      return await this.handleTripSearchQuery(message, context);
-    }
-    
-    // Booking questions
-    if (lowerMessage.includes('book') || lowerMessage.includes('reserve') || lowerMessage.includes('payment')) {
-      return this.handleBookingQuery(message, context);
-    }
-    
-    // Trip details questions
-    if (lowerMessage.includes('detail') || lowerMessage.includes('information') || lowerMessage.includes('about')) {
-      return await this.handleTripDetailQuery(message, context);
-    }
-    
-    // General help
-    if (lowerMessage.includes('help') || lowerMessage.includes('support')) {
-      return this.handleHelpQuery(message, context);
+    if (isWeatherQuery) {
+      const weatherResponse = {
+        response: "I appreciate your question about weather conditions, but I'm unable to provide real-time weather forecasts or current conditions. Weather in the Himalayas changes rapidly and unpredictably. For accurate weather information, I recommend:\n\n1. **Weather Apps**: Windy.com or Mountain-Forecast.com for altitude-specific forecasts\n2. **Local Sources**: Contact your trek organizer 2-3 days before departure\n3. **Government Data**: Check IMD (Indian Meteorological Department) forecasts\n\nI can, however, help you prepare for seasonal weather patterns and what to pack based on the time of year. Would you like packing tips for your trek?",
+        suggestions: [
+          "What to pack for this season",
+          "Best time to trek",
+          "Seasonal weather patterns",
+          "Prepare for monsoon/winter"
+        ],
+        requiresHumanAgent: false,
+        source: 'weather_disclaimer'
+      };
+      aiCacheService.setChatResponse(messageHash, weatherResponse);
+      return weatherResponse;
     }
 
-    // Default friendly response
-    const response = {
-      response: "I'm here to help you with trip planning, bookings, and recommendations! You can ask me about finding trips, booking details, or any other questions about Trek Tribe. What would you like to know?",
-      suggestions: [
-        "Find mountain trekking trips",
-        "Help me book a trip",
-        "Show me my trip recommendations",
-        "What are the popular destinations?"
-      ],
-      requiresHumanAgent: false
-    };
+    // Simple keyword-based routing: TrekTribe-specific queries use RAG; general queries go to OpenAI chat model
+    const trekKeywords = ['trek', 'trip', 'booking', 'book', 'itinerary', 'organizer', 'refund', 'upi', 'ticket', 'camping', 'trekking', 'himalaya', 'himachal', 'spiti', 'manali', 'booking id', 'reserve'];
+    const isTrekRelated = trekKeywords.some(k => lowerMessage.includes(k));
 
-    // Cache response
-    aiCacheService.setChatResponse(messageHash, response);
+    try {
+      if (isTrekRelated) {
+        // RAG-style response: retrieve top trips / local data and ask the model to answer using that context
+        const ragResponse = await this.generateRagResponse(message, context);
+        aiCacheService.setChatResponse(messageHash, ragResponse);
+        return ragResponse;
+      } else {
+        // General queries -> external chat model
+        const generalResponse = await this.generateGeneralChatResponse(message);
+        aiCacheService.setChatResponse(messageHash, generalResponse);
+        return generalResponse;
+      }
+    } catch (err: any) {
+      // Fallback to friendly response on any error
+      const fallback = {
+        response: "I'm here to help you with trip planning, bookings, and recommendations! You can ask me about finding trips, booking details, or any other questions about Trek Tribe. What would you like to know?",
+        suggestions: [
+          "Find mountain trekking trips",
+          "Help me book a trip",
+          "Show me my trip recommendations",
+          "What are the popular destinations?"
+        ],
+        requiresHumanAgent: false
+      };
+      aiCacheService.setChatResponse(messageHash, fallback);
+      return fallback;
+    }
+  }
 
-    return response;
+  // Call OpenAI chat model for general queries
+  private async generateGeneralChatResponse(message: string) {
+    const model = process.env.GENERAL_AI_MODEL || 'gpt-3.5-turbo';
+    try {
+      const apiKey = process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        // Use knowledge base search as primary fallback
+        try {
+          const results = await knowledgeBaseService.search(message, 3);
+          if (results.length > 0 && results[0].similarity > 0.15) {
+            const topDoc = results[0].document;
+            return { 
+              response: topDoc.content, 
+              suggestions: ['Tell me more', 'Show related trips', 'Contact support'],
+              requiresHumanAgent: false,
+              source: 'knowledge_base',
+              confidence: results[0].similarity
+            };
+          }
+          
+          // Fallback to legacy general knowledge if KB doesn't have good match
+          const local = await answerGeneralQuery(message);
+          if (local && local.response) {
+            return { response: local.response, suggestions: [], requiresHumanAgent: false, source: local.source };
+          }
+        } catch (e) {
+          console.error('Knowledge base search error:', e);
+        }
+        return { response: "Sorry, general AI service is not configured.", suggestions: [], requiresHumanAgent: false };
+      }
+      
+      // Use OpenAI with knowledge base context
+      const kbResults = await knowledgeBaseService.search(message, 3);
+      let contextStr = '';
+      if (kbResults.length > 0) {
+        contextStr = '\n\nRelevant TrekTribe information:\n' + 
+          kbResults.map(r => r.document.content).join('\n\n');
+      }
+      
+      const client = new OpenAI({ apiKey });
+      const systemPrompt = `You are a helpful travel assistant for TrekTribe. Answer succinctly and helpfully. Use the provided context when relevant.`;
+      const resp = await client.chat.completions.create({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: message + contextStr }
+        ],
+        max_tokens: 400
+      });
+
+      const text = resp.choices?.[0]?.message?.content || '';
+      return { response: text.trim(), suggestions: [], requiresHumanAgent: false };
+    } catch (error: any) {
+      console.error('OpenAI general chat error:', error?.message || error);
+      // Try knowledge base as fallback if OpenAI fails
+      try {
+        const results = await knowledgeBaseService.search(message, 3);
+        if (results.length > 0 && results[0].similarity > 0.15) {
+          const topDoc = results[0].document;
+          return { 
+            response: topDoc.content, 
+            suggestions: ['Tell me more', 'Show related trips'],
+            requiresHumanAgent: false,
+            source: 'knowledge_base_fallback'
+          };
+        }
+        
+        const local = await answerGeneralQuery(message);
+        if (local && local.response) {
+          return { response: local.response, suggestions: [], requiresHumanAgent: false, source: local.source };
+        }
+      } catch (e) {
+        // ignore and return default message
+      }
+      return { response: "I'm having trouble reaching the general AI service right now.", suggestions: [], requiresHumanAgent: false };
+    }
+  }
+
+  // RAG-style response for TrekTribe-specific queries
+  private async generateRagResponse(message: string, context: any) {
+    // Use knowledge base for comprehensive context retrieval
+    const kbResults = await knowledgeBaseService.search(message, 5, 'trip');
+    
+    // Safety-sensitive queries: provide immediate local guidance and offer agent handoff
+    const safetyKeywords = ['safety', 'safe', 'solo female', 'solo', 'female', 'safety concerns', 'emergency'];
+    if (safetyKeywords.some(k => message.toLowerCase().includes(k))) {
+      // Search knowledge base for safety info
+      const safetyResults = await knowledgeBaseService.search(message, 3);
+      const safetyDocs = safetyResults.filter(r => 
+        r.document.metadata.category === 'safety' || 
+        r.document.type === 'general'
+      );
+      
+      if (safetyDocs.length > 0 && safetyDocs[0].similarity > 0.2) {
+        return { 
+          response: safetyDocs[0].document.content, 
+          suggestions: ['Connect me with an agent', 'Show emergency contacts', 'Safety tips for treks'],
+          requiresHumanAgent: false,
+          source: 'knowledge_base_safety'
+        };
+      }
+      
+      const safetyResponse = `Safety tips for solo female travelers:\n- Prefer guided groups or trusted local guides; avoid isolated areas at night.\n- Share itinerary with family and maintain regular check-ins; carry a charged power bank.\n- Respect local customs and dress modestly where appropriate.\n- Keep copies of ID and emergency contacts; note nearest hospitals and police stations.\n- For high-altitude treks, acclimatize properly and check weather/road conditions before travel.\nIf you'd like, I can connect you with a human agent for detailed local safety planning.`;
+      return { response: safetyResponse, suggestions: ['Connect me with an agent', 'Show local emergency contacts'], requiresHumanAgent: false };
+    }
+    
+    // Compose context from knowledge base results
+    let docsContext = '';
+    if (kbResults.length > 0) {
+      docsContext = kbResults
+        .slice(0, 3)
+        .map((r, idx) => `${idx + 1}. ${r.document.title}\n${r.document.content}`)
+        .join('\n\n');
+    } else {
+      // Fallback to legacy trip search if KB has no results
+      const searchResults = await this.generateSmartSearchResults(message, {});
+      const top = (searchResults || []).slice(0, 3);
+      
+      if (top.length === 0) {
+        // Seed a small curated fallback list
+        const curated = [
+          { title: 'Parvati Valley Budget Trek', destination: 'Parvati Valley, Himachal', price: '₹6,500', description: 'A 4-5 day beginner-friendly trek with homestays and local guides.' },
+          { title: 'Kheerganga Short Trek', destination: 'Kheerganga, Himachal', price: '₹4,000', description: 'Popular 2-day trek with hot springs, suitable for monsoon window closures.' },
+          { title: 'Spiti Valley Explorer', destination: 'Spiti Valley, Himachal', price: '₹14,000', description: 'A longer 6-day itinerary for high-altitude exploration and cultural visits.' }
+        ];
+        docsContext = curated.map((t, idx) => `Trip ${idx + 1}: ${t.title} - ${t.destination}. Price: ${t.price}. Short: ${t.description}`).join('\n\n');
+      } else {
+        docsContext = top.map((t: any, idx: number) => `Trip ${idx + 1}: ${t.title} - ${t.destination || ''}. Price: ${t.price || 'N/A'}. Short: ${t.description?.slice(0, 200) || ''}`).join('\n\n');
+      }
+    }
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      // If no external model, return knowledge base results directly
+      if (kbResults.length > 0 && kbResults[0].similarity > 0.2) {
+        const topResult = kbResults[0];
+        const relatedTrips = kbResults.slice(1, 4).filter(r => r.document.type === 'trip');
+        
+        let response = topResult.document.content;
+        if (relatedTrips.length > 0) {
+          response += '\n\nRelated trips:\n' + relatedTrips
+            .map(r => `• ${r.document.title}`)
+            .join('\n');
+        }
+        
+        return { 
+          response, 
+          suggestions: ['Help me book', 'Tell me more', 'Show similar trips'],
+          requiresHumanAgent: false,
+          source: 'knowledge_base_direct',
+          matchedTrips: kbResults.filter(r => r.document.type === 'trip').map(r => r.document.metadata.tripId)
+        };
+      }
+      
+      // Fallback to context display
+      return { response: `Based on your query, here's what I found:\n\n${docsContext}\n\nWould you like to know more about any of these trips?`, suggestions: ['Help me book a trip', 'Show trip details', 'Compare prices'], requiresHumanAgent: false };
+    }
+
+    try {
+      const client = new OpenAI({ apiKey });
+      const systemPrompt = `You are TrekTribe assistant. Use only the provided TrekTribe context when answering questions about trips, bookings, policies. If the user asks general non-TrekTribe questions, briefly answer then offer to help with trip planning.`;
+      const userPrompt = `Context:\n${docsContext}\n\nUser question:\n${message}\n\nAnswer concisely and include actionable next steps (e.g., 'Book', 'Modify booking', 'Contact agent') if relevant.`;
+
+      const resp = await client.chat.completions.create({
+        model: process.env.RAG_MODEL || (process.env.GENERAL_AI_MODEL || 'gpt-3.5-turbo'),
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        max_tokens: 600
+      });
+
+      const text = resp.choices?.[0]?.message?.content || '';
+      return { response: text.trim(), suggestions: [], requiresHumanAgent: false, aiContextDocs: top };
+    } catch (error: any) {
+      console.error('RAG OpenAI error:', error?.message || error);
+      return { response: 'I encountered an error while fetching trek-specific info. Please try again or connect with an agent.', suggestions: ['Connect me with an agent'], requiresHumanAgent: true };
+    }
   }
 
   // Helper methods
@@ -646,6 +844,11 @@ class TrekTribeAI {
 const aiService = TrekTribeAI.getInstance();
 console.log('ℹ️  [' + new Date().toISOString() + '] INFO: Trek Tribe AI initialized with advanced capabilities');
 
+// Initialize knowledge base in background
+knowledgeBaseService.initialize().catch(err => {
+  console.error('❌ Failed to initialize knowledge base:', err);
+});
+
 // Validation middleware
 const validateSmartSearch = [
   body('query').isString().isLength({ min: 1, max: 200 }).withMessage('Query must be 1-200 characters'),
@@ -852,6 +1055,7 @@ router.post('/chat', aiMetricsMiddleware('chat'), validateChatMessage, handleVal
 // AI service status
 router.get('/status', (req: Request, res: Response) => {
   const healthMetrics = aiMetricsService.getHealthMetrics();
+  const kbStats = knowledgeBaseService.getStats();
   
   res.json({
     success: true,
@@ -860,15 +1064,17 @@ router.get('/status', (req: Request, res: Response) => {
       'smart_search',
       'personalized_recommendations', 
       'travel_analytics',
-      'chat_assistance'
+      'chat_assistance',
+      'knowledge_base_retrieval'
     ],
-    version: '1.0.0',
+    version: '2.0.0',
     lastInitialized: new Date().toISOString(),
     health: healthMetrics,
     caching: {
       enabled: aiConfig.enableCaching,
       stats: aiCacheService.getStats()
-    }
+    },
+    knowledgeBase: kbStats
   });
 });
 
@@ -911,6 +1117,66 @@ router.post('/cache/clear', (req: Request, res: Response) => {
     message: `${cacheType || 'all'} cache(s) cleared`,
     timestamp: new Date().toISOString()
   });
+});
+
+// Knowledge base search endpoint
+router.post('/knowledge-search', aiMetricsMiddleware('knowledge-search'), async (req: Request, res: Response) => {
+  try {
+    const { query, topK = 5, type } = req.body;
+    
+    if (!query || typeof query !== 'string' || query.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Query is required'
+      });
+    }
+
+    const results = await knowledgeBaseService.search(query.trim(), topK, type);
+    
+    res.json({
+      success: true,
+      query: query.trim(),
+      results: results.map(r => ({
+        id: r.document.id,
+        type: r.document.type,
+        title: r.document.title,
+        content: r.document.content,
+        similarity: r.similarity,
+        metadata: r.document.metadata
+      })),
+      totalResults: results.length,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('Knowledge search error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to search knowledge base',
+      message: error.message
+    });
+  }
+});
+
+// Refresh knowledge base endpoint (admin/cron)
+router.post('/knowledge-refresh', async (req: Request, res: Response) => {
+  try {
+    await knowledgeBaseService.refreshKnowledgeBase();
+    const stats = knowledgeBaseService.getStats();
+    
+    res.json({
+      success: true,
+      message: 'Knowledge base refreshed successfully',
+      stats,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('Knowledge refresh error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to refresh knowledge base',
+      message: error.message
+    });
+  }
 });
 
 export default router;
