@@ -1,9 +1,12 @@
 import 'dotenv/config';
-import { MongoMemoryServer } from 'mongodb-memory-server';
 import path from 'path';
 
 async function startMemoryAndApi() {
   console.log('🧪 Starting in-memory MongoDB for dev...');
+
+  // Dynamically import mongodb-memory-server to avoid bundling/dev-only deps
+  // into production builds where devDependencies are pruned.
+  const { MongoMemoryServer } = await import('mongodb-memory-server');
   const mongod = await MongoMemoryServer.create({ instance: { dbName: 'trektribe_dev' } });
   const uri = mongod.getUri();
   console.log(`🧪 MongoDB memory server running at ${uri}`);
@@ -18,7 +21,7 @@ async function startMemoryAndApi() {
   }
 
   // Spawn the API process with the in-memory MongoDB URI set in env
-  console.log('ℹ️  Spawning API process (ts-node src/index.ts) with in-memory MongoDB');
+  console.log('ℹ️  Spawning API process (node dist/index.js) with in-memory MongoDB');
   const { spawn } = await import('child_process');
   const apiEnv = { ...process.env, MONGODB_URI: uri } as any;
   const child = spawn('node', ['dist/index.js'], {

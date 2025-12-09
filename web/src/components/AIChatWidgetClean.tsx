@@ -17,7 +17,21 @@ const AIChatWidgetClean: React.FC = () => {
   const { user } = useAuth();
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  
+  // Load messages from localStorage on component mount
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const savedMessages = localStorage.getItem('chatMessages');
+        return savedMessages ? JSON.parse(savedMessages) : [];
+      } catch (e) {
+        console.error('Error loading chat messages from localStorage:', e);
+        return [];
+      }
+    }
+    return [];
+  });
+  
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [socketFailed, setSocketFailed] = useState(false);
@@ -30,6 +44,17 @@ const AIChatWidgetClean: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const API_BASE_URL = process.env.REACT_APP_SOCKET_URL || process.env.REACT_APP_API_URL || '';
+
+  // Save messages to localStorage whenever they change
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('chatMessages', JSON.stringify(messages));
+      } catch (e) {
+        console.error('Error saving chat messages to localStorage:', e);
+      }
+    }
+  }, [messages]);
 
   useEffect(() => {
     if (isOpen && !socketRef.current) {
@@ -267,6 +292,90 @@ const AIChatWidgetClean: React.FC = () => {
     }
   };
 
+  // Request human agent assistance
+  const requestHumanAgent = async () => {
+    if (!user) {
+      const loginMsg: ChatMessage = {
+        id: `login_${Date.now()}`,
+        senderId: 'system',
+        senderName: 'System',
+        senderRole: 'ai',
+        message: 'Please log in to request human agent assistance.',
+        timestamp: new Date(),
+      };
+      setMessages((s) => [...s, loginMsg]);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      
+      // Create support ticket for human agent
+      const resp = await api.post('/api/support/human-agent/request', {
+        message: inputMessage || 'User requested to speak with a human agent',
+        category: 'chat_request',
+        priority: 'medium'
+      });
+
+      if (resp.data?.success) {
+        const ticketId = resp.data?.ticket?.ticketId;
+        setCurrentTicketId(ticketId);
+
+        const systemMsg: ChatMessage = {
+          id: `agent_${Date.now()}`,
+          senderId: 'system',
+          senderName: 'Trek Tribe Support',
+          senderRole: 'ai',
+          message: `✅ Human agent support ticket created (ID: ${ticketId}). A support agent will be with you shortly. They will help you with any issues or questions you have.`,
+          timestamp: new Date(),
+        };
+        
+        setMessages((s) => [...s, systemMsg]);
+        setInputMessage('');
+
+        // Optional: show available agents
+        try {
+          const agentsResp = await api.get('/api/support/agents/available');
+          if (agentsResp.data?.agents?.length > 0) {
+            const agentMsg: ChatMessage = {
+              id: `agents_${Date.now()}`,
+              senderId: 'system',
+              senderName: 'Trek Tribe Support',
+              senderRole: 'ai',
+              message: `Available agents online: ${agentsResp.data.agents.slice(0, 3).map((a: any) => a.name).join(', ')}. They will respond shortly.`,
+              timestamp: new Date(),
+            };
+            setMessages((s) => [...s, agentMsg]);
+          }
+        } catch (e) {
+          // Silently fail, don't block user
+        }
+      } else {
+        const errMsg: ChatMessage = {
+          id: `agerr_${Date.now()}`,
+          senderId: 'system',
+          senderName: 'System',
+          senderRole: 'ai',
+          message: 'Failed to create support ticket. Please try again.',
+          timestamp: new Date(),
+        };
+        setMessages((s) => [...s, errMsg]);
+      }
+    } catch (error: any) {
+      const errMsg: ChatMessage = {
+        id: `agerr2_${Date.now()}`,
+        senderId: 'system',
+        senderName: 'System',
+        senderRole: 'ai',
+        message: `Error: ${error.message || 'Failed to request human agent'}`,
+        timestamp: new Date(),
+      };
+      setMessages((s) => [...s, errMsg]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="chat-widget-container">
       {/* Toggle when closed */}
@@ -345,10 +454,9 @@ const AIChatWidgetClean: React.FC = () => {
             </div>
 
             <div style={{ marginTop: 8 }}>
-              <button className="human-agent-request-btn" onClick={() => {
-                // Pre-fill and suggest contacting human agent
-                setMessages(s => [...s, { id: `sys_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: 'A human agent will join shortly. Meanwhile, please share your booking details or question.', timestamp: new Date() }]);
-              }}>👤 Talk to a Human Agent</button>
+              <button className="human-agent-request-btn" onClick={requestHumanAgent} disabled={isLoading}>
+                {isLoading ? '⏳ Requesting Agent...' : '🧑‍💼 Talk to a Human Agent'}
+              </button>
             </div>
           </div>
 
@@ -383,7 +491,7 @@ const AIChatWidgetClean: React.FC = () => {
                 {/* Preview area: show suggestion and confirm/cancel */}
                 {showPreview && (
                   <div className="mt-3 p-3 bg-white border rounded shadow-sm">
-                    <div className="mb-2 text-sm text-gray-600">Payment plan: <strong>{user?.plan || 'Free (demo)'}</strong></div>
+                    <div className="mb-2 text-sm text-gray-600">User: <strong>{user?.name || 'Guest'}</strong></div>
                     <h4 className="text-sm font-medium mb-1">AI Suggested Resolution (preview)</h4>
                     <div className="mb-3 text-sm text-gray-800 whitespace-pre-wrap">{previewSuggestion}</div>
                     <div className="flex space-x-2">
