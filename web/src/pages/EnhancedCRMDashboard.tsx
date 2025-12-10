@@ -30,6 +30,17 @@ interface Lead {
   createdAt: string;
   notes: string;
   verified: boolean;
+  metadata?: {
+    source?: string;
+    travelerInfo?: {
+      name: string;
+      email: string;
+      phone: string;
+      kycStatus?: 'not_submitted' | 'pending' | 'verified' | 'rejected';
+      idVerificationStatus?: 'not_verified' | 'pending' | 'verified' | 'rejected';
+      profileComplete: boolean;
+    };
+  };
 }
 
 interface CRMStats {
@@ -490,7 +501,7 @@ const EnhancedCRMDashboard: React.FC = () => {
                         <th className="px-6 py-4 text-left font-semibold">Contact</th>
                         <th className="px-6 py-4 text-left font-semibold">Trip</th>
                         <th className="px-6 py-4 text-left font-semibold">Status</th>
-                        <th className="px-6 py-4 text-left font-semibold">Verified</th>
+                        <th className="px-6 py-4 text-left font-semibold">Verification</th>
                         <th className="px-6 py-4 text-left font-semibold">Actions</th>
                       </tr>
                     </thead>
@@ -523,21 +534,68 @@ const EnhancedCRMDashboard: React.FC = () => {
                             </select>
                           </td>
                           <td className="px-6 py-4">
-                            {lead.verified ? (
-                              <span className="flex items-center text-green-600 font-semibold">
-                                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                </svg>
-                                Verified
-                              </span>
-                            ) : (
-                              <button
-                                onClick={() => verifyLead(lead._id)}
-                                className="text-blue-600 hover:text-blue-800 font-semibold transition-colors"
-                              >
-                                Verify
-                              </button>
-                            )}
+                            <div className="space-y-1.5">
+                              {lead.metadata?.travelerInfo ? (
+                                <>
+                                  {/* Profile Status */}
+                                  <div className="flex items-center gap-2">
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                      lead.metadata.travelerInfo.profileComplete
+                                        ? 'bg-green-100 text-green-800'
+                                        : 'bg-yellow-100 text-yellow-800'
+                                    }`}>
+                                      {lead.metadata.travelerInfo.profileComplete ? '✓ Profile' : '⚠ Incomplete'}
+                                    </span>
+                                  </div>
+
+                                  {/* ID Verification Status */}
+                                  {lead.metadata.travelerInfo.idVerificationStatus && (
+                                    <div className="flex items-center gap-2">
+                                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                        lead.metadata.travelerInfo.idVerificationStatus === 'verified'
+                                          ? 'bg-green-100 text-green-800'
+                                          : lead.metadata.travelerInfo.idVerificationStatus === 'pending'
+                                          ? 'bg-blue-100 text-blue-800'
+                                          : lead.metadata.travelerInfo.idVerificationStatus === 'rejected'
+                                          ? 'bg-red-100 text-red-800'
+                                          : 'bg-gray-100 text-gray-800'
+                                      }`}>
+                                        ID: {lead.metadata.travelerInfo.idVerificationStatus === 'verified' ? '✓' : 
+                                             lead.metadata.travelerInfo.idVerificationStatus === 'pending' ? '⏳' :
+                                             lead.metadata.travelerInfo.idVerificationStatus === 'rejected' ? '✗' : '○'}
+                                        {' '}{lead.metadata.travelerInfo.idVerificationStatus.replace('_', ' ').toUpperCase()}
+                                      </span>
+                                    </div>
+                                  )}
+
+                                  {/* KYC Status */}
+                                  {lead.metadata.travelerInfo.kycStatus && (
+                                    <div className="flex items-center gap-2">
+                                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                        lead.metadata.travelerInfo.kycStatus === 'verified'
+                                          ? 'bg-green-100 text-green-800'
+                                          : lead.metadata.travelerInfo.kycStatus === 'pending'
+                                          ? 'bg-blue-100 text-blue-800'
+                                          : lead.metadata.travelerInfo.kycStatus === 'rejected'
+                                          ? 'bg-red-100 text-red-800'
+                                          : 'bg-gray-100 text-gray-800'
+                                      }`}>
+                                        KYC: {lead.metadata.travelerInfo.kycStatus === 'verified' ? '✓' : 
+                                              lead.metadata.travelerInfo.kycStatus === 'pending' ? '⏳' :
+                                              lead.metadata.travelerInfo.kycStatus === 'rejected' ? '✗' : '○'}
+                                        {' '}{lead.metadata.travelerInfo.kycStatus.replace('_', ' ').toUpperCase()}
+                                      </span>
+                                    </div>
+                                  )}
+                                </>
+                              ) : (
+                                <span className="flex items-center text-green-600 font-semibold">
+                                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                  </svg>
+                                  Verified
+                                </span>
+                              )}\n                            </div>
                           </td>
                           <td className="px-6 py-4">
                             <button
@@ -810,7 +868,7 @@ const EnhancedCRMDashboard: React.FC = () => {
         </div>
       )}
 
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import Lead from '../models/Lead';
 import UserActivity from '../models/UserActivity';
+import { Trip } from '../models/Trip';
 import { logger } from '../utils/logger';
 
 interface TripViewData {
@@ -127,7 +128,10 @@ async function autoCreateLeadFromViews(userId: string, tripId: string, viewCount
         viewCount 
       });
     } else {
-      // Create new lead
+      // Get trip details
+      const trip = await Trip.findById(tripId).lean();
+      
+      // Create new lead with traveler information
       const lead = new Lead({
         userId,
         tripId,
@@ -136,11 +140,25 @@ async function autoCreateLeadFromViews(userId: string, tripId: string, viewCount
         name: user.name,
         source: 'trip_view',
         status: 'new',
-        leadScore: 20 + (viewCount > 3 ? 10 : 0), // Bonus for more views
+        leadScore: 20 + (viewCount > 2 ? 10 : 0), // Bonus for more views
         metadata: {
           tripViewCount: viewCount,
           lastVisitedAt: new Date(),
           tags: ['auto-generated', 'high-interest'],
+          travelerInfo: {
+            name: user.name,
+            email: user.email,
+            phone: user.phone,
+            profileComplete: !!(user.bio && user.location),
+            kycStatus: user.kycStatus || 'not_started',
+            idVerificationStatus: user.idVerificationStatus || 'not_verified'
+          },
+          tripDetails: trip ? {
+            title: trip.title,
+            destination: trip.destination,
+            startDate: trip.startDate,
+            price: trip.price
+          } : null
         },
       });
 
@@ -154,16 +172,15 @@ async function autoCreateLeadFromViews(userId: string, tripId: string, viewCount
       });
 
       // Send notification to organizer
-      const { Trip } = require('../models/Trip');
-      const trip = await Trip.findById(tripId);
+      const tripForNotification = await Trip.findById(tripId);
       
-      if (trip && trip.organizerId) {
+      if (tripForNotification && tripForNotification.organizerId) {
         const notificationService = require('../services/notificationService').default;
         await notificationService.createNotification({
-          userId: trip.organizerId,
+          userId: tripForNotification.organizerId,
           type: 'lead',
           title: 'New Lead Generated',
-          message: `${user.name || user.email} has viewed your trip "${trip.title}" ${viewCount} times`,
+          message: `${user.name || user.email} has viewed your trip "${tripForNotification.title}" ${viewCount} times`,
           actionUrl: `/crm/leads/${lead._id}`,
           actionType: 'view_lead',
           relatedTo: { type: 'lead', id: lead._id.toString() },

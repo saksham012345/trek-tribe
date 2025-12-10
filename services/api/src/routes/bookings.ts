@@ -167,6 +167,18 @@ router.post('/', authenticateJwt, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Check ID verification status (required for joining trips)
+    const { idVerificationService } = require('../services/idVerificationService');
+    const verificationCheck = await idVerificationService.canJoinTrip(userId, tripId);
+    
+    if (!verificationCheck.canJoin) {
+      return res.status(403).json({ 
+        error: verificationCheck.reason || 'ID verification required',
+        requiresVerification: verificationCheck.requiresVerification,
+        idVerificationStatus: user.idVerificationStatus || 'not_verified'
+      });
+    }
+
     // Check trip availability
     const currentParticipants = trip.participants.length;
     const availableSpots = trip.capacity - currentParticipants;

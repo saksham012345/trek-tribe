@@ -35,6 +35,7 @@ import { socketService } from './services/socketService';
 import crmRoutes from './routes/crm';
 import chatService from './services/chatService';
 import emailVerificationRoutes from './routes/emailVerification';
+import verificationRoutes from './routes/verification';
 import recommendationsRoutes from './routes/recommendations';
 import notificationRoutes from './routes/notifications';
 import subscriptionRoutes from './routes/subscriptions';
@@ -277,6 +278,11 @@ export async function start() {
     app.use('/api/verify-email', emailVerificationRoutes);
     console.log('✅ Email verification routes mounted at /api/verify-email');
     logMessage('INFO', 'Email verification routes registered');
+    
+    // KYC and ID Verification Routes
+    app.use('/api/verification', verificationRoutes);
+    console.log('✅ Verification routes mounted at /api/verification');
+    logMessage('INFO', 'KYC and ID verification routes registered');
     
     // Recommendations Routes
     app.use('/api/recommendations', recommendationsRoutes);
