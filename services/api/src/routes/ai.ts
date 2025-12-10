@@ -337,36 +337,42 @@ class TrekTribeAI {
 
   // Call OpenAI chat model for general queries
   private async generateGeneralChatResponse(message: string) {
-    const model = process.env.GENERAL_AI_MODEL || 'gpt-3.5-turbo';
-    try {
-      const apiKey = process.env.OPENAI_API_KEY;
-      if (!apiKey) {
-        // Use knowledge base search as primary fallback
-        try {
-          const results = await knowledgeBaseService.search(message, 3);
-          if (results.length > 0 && results[0].similarity > 0.15) {
-            const topDoc = results[0].document;
-            return { 
-              response: topDoc.content, 
-              suggestions: ['Tell me more', 'Show related trips', 'Contact support'],
-              requiresHumanAgent: false,
-              source: 'knowledge_base',
-              confidence: results[0].similarity
-            };
-          }
-          
-          // Fallback to legacy general knowledge if KB doesn't have good match
-          const local = await answerGeneralQuery(message);
-          if (local && local.response) {
-            return { response: local.response, suggestions: [], requiresHumanAgent: false, source: local.source };
-          }
-        } catch (e) {
-          console.error('Knowledge base search error:', e);
+    const apiKey = process.env.OPENAI_API_KEY;
+    
+    // If no API key, use knowledge base + local fallback (NO ERROR)
+    if (!apiKey) {
+      try {
+        const results = await knowledgeBaseService.search(message, 3);
+        if (results.length > 0 && results[0].similarity > 0.15) {
+          const topDoc = results[0].document;
+          return { 
+            response: topDoc.content, 
+            suggestions: ['Tell me more', 'Show related trips', 'Contact support'],
+            requiresHumanAgent: false,
+            source: 'knowledge_base',
+            confidence: results[0].similarity
+          };
         }
-        return { response: "Sorry, general AI service is not configured.", suggestions: [], requiresHumanAgent: false };
+        
+        // Fallback to legacy general knowledge if KB doesn't have good match
+        const local = await answerGeneralQuery(message);
+        if (local && local.response) {
+          return { response: local.response, suggestions: [], requiresHumanAgent: false, source: local.source };
+        }
+      } catch (e) {
+        console.warn('⚠️ Knowledge base search failed, using fallback:', e);
       }
-      
-      // Use OpenAI with knowledge base context
+      // Return friendly fallback without error
+      return { 
+        response: "I'm here to help with trip planning! You can ask about finding trips, booking details, packing tips, or any travel questions.", 
+        suggestions: ['Find mountain trips', 'Help me book', 'What to pack', 'Trip recommendations'], 
+        requiresHumanAgent: false,
+        source: 'fallback'
+      };
+    }
+
+    try {
+      // Use OpenAI with knowledge base context (only if API key exists)
       const kbResults = await knowledgeBaseService.search(message, 3);
       let contextStr = '';
       if (kbResults.length > 0) {
@@ -374,6 +380,7 @@ class TrekTribeAI {
           kbResults.map(r => r.document.content).join('\n\n');
       }
       
+      const model = process.env.GENERAL_AI_MODEL || 'gpt-3.5-turbo';
       const client = new OpenAI({ apiKey });
       const systemPrompt = `You are a helpful travel assistant for TrekTribe. Answer succinctly and helpfully. Use the provided context when relevant.`;
       const resp = await client.chat.completions.create({
@@ -386,10 +393,10 @@ class TrekTribeAI {
       });
 
       const text = resp.choices?.[0]?.message?.content || '';
-      return { response: text.trim(), suggestions: [], requiresHumanAgent: false };
+      return { response: text.trim(), suggestions: [], requiresHumanAgent: false, source: 'openai' };
     } catch (error: any) {
-      console.error('OpenAI general chat error:', error?.message || error);
-      // Try knowledge base as fallback if OpenAI fails
+      console.error('⚠️ OpenAI chat error:', error?.message);
+      // Fallback to knowledge base if OpenAI fails
       try {
         const results = await knowledgeBaseService.search(message, 3);
         if (results.length > 0 && results[0].similarity > 0.15) {
@@ -409,7 +416,7 @@ class TrekTribeAI {
       } catch (e) {
         // ignore and return default message
       }
-      return { response: "I'm having trouble reaching the general AI service right now.", suggestions: [], requiresHumanAgent: false };
+      return { response: "I'm here to help with trip planning! You can ask about finding trips, booking details, or any travel questions.", suggestions: ['Find a trip', 'Help booking', 'Contact support'], requiresHumanAgent: false };
     }
   }
 
@@ -467,8 +474,9 @@ class TrekTribeAI {
     }
 
     const apiKey = process.env.OPENAI_API_KEY;
+    
+    // If no OpenAI API key, return knowledge base results directly
     if (!apiKey) {
-      // If no external model, return knowledge base results directly
       if (kbResults.length > 0 && kbResults[0].similarity > 0.2) {
         const topResult = kbResults[0];
         const relatedTrips = kbResults.slice(1, 4).filter(r => r.document.type === 'trip');
@@ -490,7 +498,7 @@ class TrekTribeAI {
       }
       
       // Fallback to context display
-      return { response: `Based on your query, here's what I found:\n\n${docsContext}\n\nWould you like to know more about any of these trips?`, suggestions: ['Help me book a trip', 'Show trip details', 'Compare prices'], requiresHumanAgent: false };
+      return { response: `Based on your query, here's what I found:\n\n${docsContext}\n\nWould you like to know more about any of these trips?`, suggestions: ['Help me book a trip', 'Show trip details', 'Compare prices'], requiresHumanAgent: false, source: 'knowledge_base_display' };
     }
 
     try {
@@ -508,10 +516,20 @@ class TrekTribeAI {
       });
 
       const text = resp.choices?.[0]?.message?.content || '';
-      return { response: text.trim(), suggestions: [], requiresHumanAgent: false, aiContextDocs: top };
+      return { response: text.trim(), suggestions: [], requiresHumanAgent: false, aiContextDocs: top, source: 'openai_rag' };
     } catch (error: any) {
-      console.error('RAG OpenAI error:', error?.message || error);
-      return { response: 'I encountered an error while fetching trek-specific info. Please try again or connect with an agent.', suggestions: ['Connect me with an agent'], requiresHumanAgent: true };
+      console.error('⚠️ OpenAI RAG error:', error?.message);
+      // Fallback to knowledge base if OpenAI fails
+      if (kbResults.length > 0 && kbResults[0].similarity > 0.2) {
+        const topResult = kbResults[0];
+        return { 
+          response: topResult.document.content, 
+          suggestions: ['Tell me more', 'Show related trips'],
+          requiresHumanAgent: false,
+          source: 'knowledge_base_openai_fallback'
+        };
+      }
+      return { response: 'I encountered an error while searching trips. Please try again or connect with an agent.', suggestions: ['Connect me with an agent'], requiresHumanAgent: true };
     }
   }
 
