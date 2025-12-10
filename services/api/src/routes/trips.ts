@@ -4,6 +4,7 @@ import { Trip } from '../models/Trip';
 import { User } from '../models/User';
 import { authenticateJwt, requireRole } from '../middleware/auth';
 import { socketService } from '../services/socketService';
+import { trackTripView } from '../middleware/tripViewTracker';
 import mongoose from 'mongoose';
 
 const router = Router();
@@ -92,7 +93,39 @@ const createTripSchema = z.object({
       refundPolicy: z.union([z.string(), z.number(), z.undefined(), z.null()])
         .transform(val => val ? String(val) : undefined),
       instructions: z.union([z.string(), z.number(), z.undefined(), z.null()])
-        .transform(val => val ? String(val) : undefined)
+        .transform(val => val ? String(val) : undefined),
+      collectionMode: z.union([z.string(), z.undefined(), z.null()])
+        .transform(val => ['razorpay', 'manual'].includes(String(val)) ? String(val) : 'razorpay'),
+      verificationMode: z.union([z.string(), z.undefined(), z.null()])
+        .transform(val => ['automated', 'manual'].includes(String(val)) ? String(val) : 'automated'),
+      manualProofRequired: z.union([z.boolean(), z.string(), z.undefined(), z.null()])
+        .transform(val => {
+          if (typeof val === 'string') return val === 'true';
+          return Boolean(val);
+        }),
+      trustLevel: z.union([z.string(), z.undefined(), z.null()])
+        .transform(val => ['trusted', 'manual'].includes(String(val)) ? String(val) : 'trusted'),
+      gatewayQR: z.union([z.object({
+        provider: z.string().optional(),
+        amount: z.union([z.number(), z.string()]).optional(),
+        currency: z.string().optional(),
+        referenceId: z.string().optional(),
+        qrCodeUrl: z.string().optional(),
+        generatedAt: z.union([z.date(), z.string()]).optional(),
+        trusted: z.union([z.boolean(), z.string()]).optional()
+      }), z.undefined(), z.null()])
+        .transform(val => {
+          if (!val || typeof val !== 'object') return undefined;
+          return {
+            provider: (val as any).provider || 'razorpay',
+            amount: Number((val as any).amount || 0),
+            currency: (val as any).currency || 'INR',
+            referenceId: (val as any).referenceId,
+            qrCodeUrl: (val as any).qrCodeUrl,
+            generatedAt: (val as any).generatedAt ? new Date((val as any).generatedAt) : new Date(),
+            trusted: String((val as any).trusted) !== 'false'
+          };
+        })
     }),
     z.undefined(),
     z.null(),
@@ -106,7 +139,11 @@ const createTripSchema = z.object({
         advanceAmount: undefined,
         advancePercentage: undefined,
         refundPolicy: undefined,
-        instructions: undefined
+        instructions: undefined,
+        collectionMode: 'razorpay',
+        verificationMode: 'automated',
+        manualProofRequired: false,
+        trustLevel: 'trusted' as const
       };
     }
     return val;
@@ -166,7 +203,11 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), asyncHandl
         paymentConfig: req.body.paymentConfig || {
           paymentType: 'full',
           paymentMethods: ['upi'],
-          advanceAmount: undefined
+          advanceAmount: undefined,
+          collectionMode: 'razorpay',
+          verificationMode: 'automated',
+          manualProofRequired: false,
+          trustLevel: 'trusted'
         }
       });
     }
@@ -177,6 +218,7 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), asyncHandl
     // Check if organizer has uploaded at least one QR code for payment
     // In test environment we skip this requirement to make integration tests deterministic
     if (req.auth.role === 'organizer' && process.env.NODE_ENV !== 'test') {
+      const usesManualCollection = (body.paymentConfig as any)?.collectionMode === 'manual';
       const organizer = await User.findById(organizerId);
       if (!organizer) {
         return res.status(404).json({
@@ -185,16 +227,18 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), asyncHandl
         });
       }
       
-      const qrCodes = organizer.organizerProfile?.qrCodes || [];
-      const activeQRCodes = qrCodes.filter((qr: any) => qr.isActive !== false);
-      
-      if (activeQRCodes.length === 0) {
-        return res.status(400).json({
-          success: false,
-          error: 'Payment QR code required',
-          message: 'Please upload at least one payment QR code before creating a trip. You can upload QR codes from your profile settings.',
-          actionRequired: 'upload_qr_code'
-        });
+      if (usesManualCollection) {
+        const qrCodes = organizer.organizerProfile?.qrCodes || [];
+        const activeQRCodes = qrCodes.filter((qr: any) => qr.isActive !== false);
+        
+        if (activeQRCodes.length === 0) {
+          return res.status(400).json({
+            success: false,
+            error: 'Payment QR code required',
+            message: 'Manual collection selected. Please upload at least one payment QR code or switch to automated Razorpay collection.',
+            actionRequired: 'upload_qr_code'
+          });
+        }
       }
     }
     
@@ -333,7 +377,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', trackTripView, async (req, res) => {
   const id = req.params.id;
   if (!id || !mongoose.isValidObjectId(id)) {
     return res.status(400).json({ error: 'Invalid trip id' });

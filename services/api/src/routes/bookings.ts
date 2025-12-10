@@ -11,6 +11,7 @@ import { whatsappService } from '../services/whatsappService';
 import { emailService } from '../services/emailService';
 import { fileHandler } from '../utils/fileHandler';
 import { logger } from '../utils/logger';
+import { trackPartialBooking } from '../services/bookingAbandonmentService';
 
 const router = express.Router();
 
@@ -309,6 +310,25 @@ router.post('/', authenticateJwt, async (req, res) => {
       logger.info('📧 Booking confirmation email sent', { bookingId: groupBooking._id });
     } else {
       logger.warn('⚠️  Email service not configured - skipping booking confirmation email');
+    }
+
+    // Track partial booking for abandonment detection
+    if (user.email) {
+      trackPartialBooking(
+        user.email,
+        user.name,
+        trip.title,
+        tripId,
+        {
+          step: 'booking_created',
+          formProgress: 100, // Booking created means form was completed
+          travelerDetails: !!travelerDetails,
+          contactInfo: !!contactPhone,
+          paymentInfo: false // Payment not completed yet
+        }
+      ).catch(err => {
+        logger.error('Failed to track partial booking', { error: err.message, bookingId: groupBooking._id });
+      });
     }
 
     // Return booking object at top-level to match test expectations

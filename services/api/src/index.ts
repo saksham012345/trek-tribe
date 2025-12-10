@@ -43,6 +43,7 @@ import receiptRoutes from './routes/receipts';
 import webhookRoutes from './routes/webhooks';
 import autoPayRoutes from './routes/autoPay';
 import dashboardRoutes from './routes/dashboard';
+import paymentVerificationRoutes from './routes/paymentVerification';
 import { apiLimiter, authLimiter, otpLimiter } from './middleware/rateLimiter';
 import { cronScheduler } from './services/cronScheduler';
 import { chargeRetryWorker } from './services/chargeRetryWorker';
@@ -316,6 +317,11 @@ export async function start() {
     app.use('/api/dashboard', dashboardRoutes);
     console.log('✅ Dashboard routes mounted at /api/dashboard');
     logMessage('INFO', 'Dashboard routes registered');
+    
+    // Payment Verification Routes (Organizer QR code payment verification)
+    app.use('/api/payment-verification', paymentVerificationRoutes);
+    console.log('✅ Payment verification routes mounted at /api/payment-verification');
+    logMessage('INFO', 'Payment verification routes registered');
     
     // Health check endpoint with detailed info
     app.get('/health', asyncErrorHandler(async (_req: Request, res: Response) => {

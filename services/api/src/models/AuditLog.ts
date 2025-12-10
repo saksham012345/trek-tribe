@@ -3,7 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface AuditLogDocument extends Document {
   userId: mongoose.Types.ObjectId;
   userEmail?: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT' | 'VERIFY' | 'PAYMENT' | 'SUSPEND' | 'APPROVE' | 'REJECT';
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT' | 'VERIFY' | 'PAYMENT' | 'SUSPEND' | 'APPROVE' | 'REJECT' | 'payment_captured' | 'payment_failed' | 'subscription_activated' | 'subscription_charged' | 'subscription_cancelled' | 'subscription_paused' | 'order_paid';
   resource: 'Trip' | 'User' | 'Payment' | 'Subscription' | 'Ticket' | 'Lead' | 'Review' | 'Booking' | 'Auth';
   resourceId?: mongoose.Types.ObjectId;
   changes?: {
@@ -32,7 +32,7 @@ const auditLogSchema = new Schema<AuditLogDocument>(
     userEmail: { type: String },
     action: { 
       type: String, 
-      enum: ['CREATE', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT', 'VERIFY', 'PAYMENT', 'SUSPEND', 'APPROVE', 'REJECT'],
+      enum: ['CREATE', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT', 'VERIFY', 'PAYMENT', 'SUSPEND', 'APPROVE', 'REJECT', 'payment_captured', 'payment_failed', 'subscription_activated', 'subscription_charged', 'subscription_cancelled', 'subscription_paused', 'order_paid'],
       required: true,
       index: true
     },

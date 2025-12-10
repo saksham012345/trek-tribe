@@ -71,6 +71,13 @@ interface OrganizerProfile {
     licenseNumber?: string;
     insuranceDetails?: string;
   };
+  bankDetails?: {
+    accountHolderName?: string;
+    accountNumber?: string;
+    ifscCode?: string;
+    bankName?: string;
+    upiId?: string;
+  };
   paymentQR?: string;
   qrCodes?: Array<{
     filename: string;

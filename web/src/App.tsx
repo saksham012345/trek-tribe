@@ -30,6 +30,9 @@ const PrivacyPolicy = React.lazy(() => import('./pages/PrivacyPolicy'));
 const TermsConditions = React.lazy(() => import('./pages/TermsConditions'));
 const AIShowcase = React.lazy(() => import('./pages/AIShowcase'));
 const OrganizerCRM = React.lazy(() => import('./pages/OrganizerCRM'));
+const ProfessionalCRMDashboard = React.lazy(() => import('./pages/ProfessionalCRMDashboard'));
+const EnhancedCRMDashboard = React.lazy(() => import('./pages/EnhancedCRMDashboard'));
+const PaymentVerificationDashboard = React.lazy(() => import('./pages/PaymentVerificationDashboard'));
 
 function AppContent() {
   const { user, loading, login: handleLogin, logout: handleLogout } = useAuth();
@@ -146,7 +149,15 @@ function AppContent() {
               path="/organizer/crm"
               element={
                 !user ? <Navigate to="/login" /> :
-                user.role === 'organizer' || user.role === 'admin' ? <OrganizerCRM /> :
+                user.role === 'organizer' || user.role === 'admin' ? <ProfessionalCRMDashboard /> :
+                <Navigate to="/home?error=organizer-required" />
+              }
+            />
+            <Route
+              path="/organizer/payment-verification"
+              element={
+                !user ? <Navigate to="/login" /> :
+                user.role === 'organizer' || user.role === 'admin' ? <PaymentVerificationDashboard /> :
                 <Navigate to="/home?error=organizer-required" />
               }
             />

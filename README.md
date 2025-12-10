@@ -4,6 +4,16 @@ A comprehensive travel platform that connects travelers for group trips and adve
 
 ## 🌟 Core Features
 
+### 💳 Subscription & Payment System ⭐ NEW
+- **5-Tier Pricing Model**: STARTER (₹999) → ENTERPRISE (₹4999)
+- **Feature-Based Access**: CRM, lead capture, phone numbers based on plan
+- **PROFESSIONAL Plan (₹2199)**: Full CRM access with lead management
+- **Razorpay Integration**: Secure payment processing with webhook support
+- **Plan Comparison UI**: Interactive plan selection before payment
+- **Auto-Pay Subscriptions**: Monthly billing with easy cancellation
+- **CRM Features**: Lead capture, contact management, phone visibility
+- **Feature Flags**: Dynamic access control based on subscription tier
+
 ### Authentication & User Management
 - **Multi-role Authentication**: Register as traveler, organizer, or admin
 - **Secure JWT Authentication**: Password reset, email verification

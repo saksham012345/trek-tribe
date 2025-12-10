@@ -584,6 +584,384 @@ export const otpVerificationTemplate = (data: {
     return baseTemplate(content, `Your verification code: ${data.otp}`);
 };
 
+/**
+ * Booking Abandonment Email
+ */
+export const bookingAbandonmentTemplate = (data: {
+    userName: string;
+    tripTitle: string;
+    tripId: string;
+    discountCode?: string;
+    discountPercent?: number;
+}) => {
+    const content = `
+        <div class="content">
+            <h1>🎒 Complete Your Trek Booking</h1>
+            <p>Hi ${data.userName},</p>
+            <p>We noticed you started booking <strong>${data.tripTitle}</strong> but didn't complete the process.</p>
+            
+            <p>The adventure is waiting! Complete your booking now and join fellow travelers on this amazing journey.</p>
+
+            ${data.discountCode ? `
+            <div class="info-box" style="background: linear-gradient(135deg, ${BRAND_COLOR} 0%, ${SECONDARY_COLOR} 100%); color: white; text-align: center; padding: 25px;">
+                <h3 style="color: white; margin: 0 0 10px 0;">🎉 Special Offer Just For You!</h3>
+                <p style="font-size: 18px; margin: 10px 0;">Get <strong>${data.discountPercent}% OFF</strong></p>
+                <div style="background: white; color: ${BRAND_COLOR}; padding: 15px; border-radius: 8px; font-size: 24px; font-weight: bold; letter-spacing: 2px; margin: 15px 0;">
+                    ${data.discountCode}
+                </div>
+                <p style="font-size: 14px; margin: 0;">Valid for 48 hours</p>
+            </div>
+            ` : ''}
+
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.FRONTEND_URL}/trips/${data.tripId}" class="button">
+                    Complete Your Booking
+                </a>
+            </div>
+
+            <div class="info-box">
+                <p><strong>Why travelers love ${data.tripTitle}:</strong></p>
+                <ul style="margin: 10px 0; padding-left: 20px;">
+                    <li>Verified local guides</li>
+                    <li>Small group sizes for personalized experience</li>
+                    <li>24/7 customer support</li>
+                    <li>Flexible cancellation policy</li>
+                </ul>
+            </div>
+        </div>
+    `;
+    return baseTemplate(content, 'Complete your booking and save!');
+};
+
+/**
+ * Chat Follow-up Email
+ */
+export const chatFollowUpTemplate = (data: {
+    userName: string;
+    chatDate: string;
+    summary?: string;
+}) => {
+    const content = `
+        <div class="content">
+            <h1>💬 Following Up On Our Conversation</h1>
+            <p>Hi ${data.userName},</p>
+            <p>Thank you for chatting with us on ${data.chatDate}. We wanted to follow up and see if you have any more questions.</p>
+            
+            ${data.summary ? `
+            <div class="info-box">
+                <p><strong>Quick recap of your inquiry:</strong></p>
+                <p>${data.summary}</p>
+            </div>
+            ` : ''}
+
+            <p>Our travel experts are here to help you plan the perfect adventure. Whether you need trip recommendations, have questions about bookings, or want custom itinerary suggestions, we're just a message away.</p>
+
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.FRONTEND_URL}/chat" class="button">
+                    Continue Chatting
+                </a>
+            </div>
+
+            <div class="info-box">
+                <p><strong>Popular questions we can help with:</strong></p>
+                <ul style="margin: 10px 0; padding-left: 20px;">
+                    <li>Trip recommendations based on your interests</li>
+                    <li>Booking and payment options</li>
+                    <li>Group bookings and custom itineraries</li>
+                    <li>Travel tips and packing lists</li>
+                </ul>
+            </div>
+        </div>
+    `;
+    return baseTemplate(content, 'We\'re here to help with your travel plans');
+};
+
+/**
+ * Lead Follow-up Email (Generic)
+ */
+export const leadFollowUpTemplate = (data: {
+    userName: string;
+    leadSource: string;
+    tripTitle?: string;
+}) => {
+    const content = `
+        <div class="content">
+            <h1>🌟 Your Adventure Awaits</h1>
+            <p>Hi ${data.userName},</p>
+            <p>Thank you for your interest in Trek-Tribe! We noticed you've been exploring ${data.tripTitle || 'our trips'} and wanted to reach out.</p>
+            
+            <p>Planning the perfect adventure can be overwhelming, but we're here to make it easy. Our travel experts can help you find trips that match your interests, budget, and schedule.</p>
+
+            <div class="info-box">
+                <p><strong>✨ Why choose Trek-Tribe?</strong></p>
+                <ul style="margin: 10px 0; padding-left: 20px;">
+                    <li><strong>Curated Experiences:</strong> Handpicked trips with verified guides</li>
+                    <li><strong>Secure Payments:</strong> Book with confidence using our secure platform</li>
+                    <li><strong>Community:</strong> Join thousands of happy travelers</li>
+                    <li><strong>Support:</strong> 24/7 assistance before, during, and after your trip</li>
+                </ul>
+            </div>
+
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.FRONTEND_URL}/trips" class="button">
+                    Explore All Trips
+                </a>
+            </div>
+
+            <p>Have questions? Simply reply to this email or chat with us anytime!</p>
+        </div>
+    `;
+    return baseTemplate(content, 'Ready to start your next adventure?');
+};
+
+/**
+ * Drip Campaign: Welcome Series - Day 1
+ */
+export const welcomeDrip1Template = (data: { userName: string }) => {
+    const content = `
+        <div class="content">
+            <h1>🎉 Welcome to Trek-Tribe!</h1>
+            <p>Hi ${data.userName},</p>
+            <p>Welcome to the Trek-Tribe community! We're thrilled to have you join thousands of adventure seekers who trust us for unforgettable travel experiences.</p>
+            
+            <div class="info-box" style="background: linear-gradient(135deg, ${BRAND_COLOR} 0%, ${SECONDARY_COLOR} 100%); color: white;">
+                <h3 style="color: white; margin: 0 0 15px 0;">🚀 Getting Started</h3>
+                <p style="margin: 0;">Here's what you can do right now:</p>
+                <ul style="margin: 10px 0; padding-left: 20px;">
+                    <li>Browse our curated collection of trips</li>
+                    <li>Set up your profile preferences</li>
+                    <li>Join trip discussions and meet fellow travelers</li>
+                    <li>Save your favorite trips for later</li>
+                </ul>
+            </div>
+
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.FRONTEND_URL}/trips" class="button">
+                    Explore Trips
+                </a>
+            </div>
+
+            <p style="color: #6b7280; font-size: 14px;">Over the next few days, we'll share tips to help you get the most out of Trek-Tribe. Stay tuned!</p>
+        </div>
+    `;
+    return baseTemplate(content, 'Welcome to Trek-Tribe!');
+};
+
+/**
+ * Drip Campaign: Welcome Series - Day 3
+ */
+export const welcomeDrip2Template = (data: { userName: string }) => {
+    const content = `
+        <div class="content">
+            <h1>🗺️ Discover Your Perfect Trip</h1>
+            <p>Hi ${data.userName},</p>
+            <p>Did you know Trek-Tribe offers trips across <strong>50+ destinations</strong>? From mountain treks to beach getaways, cultural tours to adventure sports - we have something for every traveler.</p>
+            
+            <div class="info-box">
+                <p><strong>Popular Categories:</strong></p>
+                <ul style="margin: 10px 0; padding-left: 20px;">
+                    <li><strong>🏔️ Mountain Treks:</strong> Himalayan expeditions, alpine hikes</li>
+                    <li><strong>🏖️ Beach Escapes:</strong> Coastal getaways, island hopping</li>
+                    <li><strong>🏛️ Cultural Tours:</strong> Heritage sites, local experiences</li>
+                    <li><strong>🚴 Adventure Sports:</strong> Rafting, paragliding, diving</li>
+                </ul>
+            </div>
+
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.FRONTEND_URL}/trips?category=trending" class="button">
+                    View Trending Trips
+                </a>
+            </div>
+
+            <p><strong>💡 Pro Tip:</strong> Use our advanced filters to find trips that match your budget, duration, and difficulty level.</p>
+        </div>
+    `;
+    return baseTemplate(content, 'Find your perfect adventure');
+};
+
+/**
+ * Drip Campaign: Welcome Series - Day 7
+ */
+export const welcomeDrip3Template = (data: { userName: string; popularTrip?: { title: string; id: string; } }) => {
+    const content = `
+        <div class="content">
+            <h1>🌟 Ready to Book Your First Trip?</h1>
+            <p>Hi ${data.userName},</p>
+            <p>You've been with us for a week now! Many travelers book their first trip within the first 7 days. Here's why:</p>
+            
+            <div class="info-box">
+                <p><strong>✅ Booking with Trek-Tribe is:</strong></p>
+                <ul style="margin: 10px 0; padding-left: 20px;">
+                    <li><strong>Safe:</strong> Secure payment processing with Razorpay</li>
+                    <li><strong>Easy:</strong> Simple 3-step booking process</li>
+                    <li><strong>Flexible:</strong> Free cancellation up to 48 hours before</li>
+                    <li><strong>Supported:</strong> 24/7 customer support team</li>
+                </ul>
+            </div>
+
+            ${data.popularTrip ? `
+            <div class="info-box" style="border-left: 4px solid ${BRAND_COLOR};">
+                <p><strong>🔥 Currently Trending:</strong></p>
+                <h3 style="margin: 10px 0;">${data.popularTrip.title}</h3>
+                <div style="text-align: center; margin: 20px 0;">
+                    <a href="${process.env.FRONTEND_URL}/trips/${data.popularTrip.id}" class="button">
+                        View Trip Details
+                    </a>
+                </div>
+            </div>
+            ` : ''}
+
+            <p>Questions? Our travel experts are here to help! Reply to this email or start a chat on our website.</p>
+        </div>
+    `;
+    return baseTemplate(content, 'Book your first adventure!');
+};
+
+/**
+ * Drip Campaign: Interested Leads - Day 2
+ */
+export const interestedDrip1Template = (data: { userName: string; tripTitle: string; tripId: string }) => {
+    const content = `
+        <div class="content">
+            <h1>🎯 Still Interested in ${data.tripTitle}?</h1>
+            <p>Hi ${data.userName},</p>
+            <p>We noticed you were interested in <strong>${data.tripTitle}</strong>. Great choice! This is one of our most popular trips.</p>
+            
+            <div class="info-box" style="background: linear-gradient(135deg, ${BRAND_COLOR} 0%, ${SECONDARY_COLOR} 100%); color: white;">
+                <h3 style="color: white; margin: 0 0 15px 0;">⏰ Don't Miss Out!</h3>
+                <p style="margin: 0;">This trip is filling up fast. Only a few spots remain for the upcoming departures.</p>
+            </div>
+
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.FRONTEND_URL}/trips/${data.tripId}" class="button">
+                    Check Availability
+                </a>
+            </div>
+
+            <div class="info-box">
+                <p><strong>What's Included:</strong></p>
+                <ul style="margin: 10px 0; padding-left: 20px;">
+                    <li>Expert local guides</li>
+                    <li>Accommodation and meals</li>
+                    <li>All permits and entry fees</li>
+                    <li>Travel insurance options</li>
+                </ul>
+            </div>
+
+            <p>Have questions about the itinerary, difficulty level, or what to pack? We're here to help!</p>
+        </div>
+    `;
+    return baseTemplate(content, 'Spots filling fast!');
+};
+
+/**
+ * Drip Campaign: Interested Leads - Day 5
+ */
+export const interestedDrip2Template = (data: { userName: string; tripTitle: string; reviewCount?: number }) => {
+    const content = `
+        <div class="content">
+            <h1>⭐ See What Travelers Are Saying</h1>
+            <p>Hi ${data.userName},</p>
+            <p>Still thinking about <strong>${data.tripTitle}</strong>? Here's what travelers who've been on this trip have to say:</p>
+            
+            <div class="info-box" style="border-left: 4px solid ${BRAND_COLOR};">
+                <p style="font-style: italic; margin: 15px 0;">
+                    "Amazing experience! The guide was knowledgeable, the group was friendly, and the scenery was breathtaking. Worth every penny!" 
+                    <br><strong>- Sarah M.</strong>
+                </p>
+                <p style="font-style: italic; margin: 15px 0;">
+                    "Best trip I've ever taken. Everything was well-organized and the trek was challenging but rewarding."
+                    <br><strong>- Rahul K.</strong>
+                </p>
+            </div>
+
+            ${data.reviewCount ? `
+            <p style="text-align: center;">
+                <strong>Join ${data.reviewCount}+ satisfied travelers!</strong>
+            </p>
+            ` : ''}
+
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.FRONTEND_URL}/trips/${data.tripTitle.toLowerCase().replace(/ /g, '-')}" class="button">
+                    Read More Reviews
+                </a>
+            </div>
+
+            <p>Ready to create your own adventure story? We're here to help you every step of the way.</p>
+        </div>
+    `;
+    return baseTemplate(content, 'See what travelers are saying');
+};
+
+/**
+ * Drip Campaign: Re-engagement - Day 1
+ */
+export const reengageDrip1Template = (data: { userName: string }) => {
+    const content = `
+        <div class="content">
+            <h1>👋 We Miss You!</h1>
+            <p>Hi ${data.userName},</p>
+            <p>It's been a while since we last heard from you. We've added some exciting new trips and features that we think you'll love!</p>
+            
+            <div class="info-box" style="background: linear-gradient(135deg, ${BRAND_COLOR} 0%, ${SECONDARY_COLOR} 100%); color: white;">
+                <h3 style="color: white; margin: 0 0 15px 0;">🆕 What's New at Trek-Tribe</h3>
+                <ul style="margin: 10px 0; padding-left: 20px;">
+                    <li>20+ new trip destinations</li>
+                    <li>Enhanced AI chat support</li>
+                    <li>Flexible payment options</li>
+                    <li>Group booking discounts</li>
+                </ul>
+            </div>
+
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.FRONTEND_URL}/trips?filter=new" class="button">
+                    Explore New Trips
+                </a>
+            </div>
+
+            <p>Come back and discover your next adventure. The mountains are calling! 🏔️</p>
+        </div>
+    `;
+    return baseTemplate(content, 'Come back and explore!');
+};
+
+/**
+ * Drip Campaign: Re-engagement - Day 7
+ */
+export const reengageDrip2Template = (data: { userName: string; discountCode?: string }) => {
+    const content = `
+        <div class="content">
+            <h1>🎁 Special Offer Just For You</h1>
+            <p>Hi ${data.userName},</p>
+            <p>We'd love to see you back! As a valued member of the Trek-Tribe community, we're offering you an exclusive discount on your next booking.</p>
+            
+            ${data.discountCode ? `
+            <div class="info-box" style="background: linear-gradient(135deg, ${BRAND_COLOR} 0%, ${SECONDARY_COLOR} 100%); color: white; text-align: center; padding: 30px;">
+                <h3 style="color: white; margin: 0 0 10px 0;">🌟 Exclusive Comeback Offer</h3>
+                <p style="font-size: 24px; margin: 15px 0;"><strong>15% OFF</strong></p>
+                <div style="background: white; color: ${BRAND_COLOR}; padding: 15px; border-radius: 8px; font-size: 24px; font-weight: bold; letter-spacing: 2px; margin: 15px 0;">
+                    ${data.discountCode}
+                </div>
+                <p style="font-size: 14px; margin: 0;">Valid for 7 days on any trip</p>
+            </div>
+            ` : ''}
+
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.FRONTEND_URL}/trips" class="button">
+                    Start Exploring
+                </a>
+            </div>
+
+            <p>This offer won't last long. Book now and save on your next adventure!</p>
+
+            <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
+                Not interested anymore? <a href="${process.env.FRONTEND_URL}/unsubscribe" style="color: ${BRAND_COLOR};">Unsubscribe</a>
+            </p>
+        </div>
+    `;
+    return baseTemplate(content, 'Exclusive comeback offer - 15% OFF!');
+};
+
 export const emailTemplates = {
     bookingConfirmation: bookingConfirmationTemplate,
     paymentReceipt: paymentReceiptTemplate,
@@ -593,4 +971,15 @@ export const emailTemplates = {
     passwordReset: passwordResetTemplate,
     welcomeEmail: welcomeEmailTemplate,
     otpVerification: otpVerificationTemplate,
+    // New automation templates
+    bookingAbandonment: bookingAbandonmentTemplate,
+    chatFollowUp: chatFollowUpTemplate,
+    leadFollowUp: leadFollowUpTemplate,
+    welcomeDrip1: welcomeDrip1Template,
+    welcomeDrip2: welcomeDrip2Template,
+    welcomeDrip3: welcomeDrip3Template,
+    interestedDrip1: interestedDrip1Template,
+    interestedDrip2: interestedDrip2Template,
+    reengageDrip1: reengageDrip1Template,
+    reengageDrip2: reengageDrip2Template,
 };

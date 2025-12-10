@@ -66,6 +66,27 @@ const LeadSchema: Schema = new Schema(
       partialFormData: { type: Schema.Types.Mixed },
       tags: [{ type: String }],
       notes: { type: String },
+      // Traveler information
+      travelerDetails: {
+        age: { type: Number },
+        gender: { type: String, enum: ['male', 'female', 'other'] },
+        nationality: { type: String },
+        emergencyContact: { type: String },
+        medicalConditions: { type: String },
+        dietaryPreferences: { type: String },
+      },
+      // KYC and ID verification
+      kycStatus: { 
+        type: String, 
+        enum: ['pending', 'verified', 'rejected', 'not_required'],
+        default: 'pending'
+      },
+      kycDetails: {
+        documentType: { type: String, enum: ['aadhaar', 'passport', 'driving_license', 'pan_card'] },
+        documentNumber: { type: String },
+        verifiedAt: { type: Date },
+        verificationMethod: { type: String, enum: ['manual', 'razorpay_kyc', 'aadhaar_api'] },
+      },
     },
     assignedTo: { type: Schema.Types.ObjectId, ref: 'User' },
     convertedAt: { type: Date },
