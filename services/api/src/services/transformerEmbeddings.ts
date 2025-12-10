@@ -47,8 +47,8 @@ export class TransformerEmbeddingService {
       // Generate embeddings
       const output = await embeddingPipeline(text, { pooling: 'mean', normalize: true });
       
-      // Convert to array
-      const embedding = Array.from(output.data);
+      // Convert to array and cast to number[]
+      const embedding = Array.from(output.data) as number[];
       return embedding;
     } catch (error: any) {
       console.error('Error generating transformer embedding:', error.message);

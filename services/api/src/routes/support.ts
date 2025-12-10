@@ -4,6 +4,7 @@ import { User } from '../models/User';
 import { ChatSession } from '../models/ChatSession';
 import { authenticateJwt } from '../middleware/auth';
 import { socketService } from '../services/socketService';
+import notificationService from '../services/notificationService';
 import { logger } from '../utils/logger';
 import { sanitizeText } from '../utils/sanitize';
 import { ticketCreateValidators, messageValidators, handleValidationErrors } from '../validators/ticketValidator';
@@ -428,12 +429,12 @@ router.post('/human-agent/request', ticketCreateValidators, handleValidationErro
 
     // Send notification to user
     try {
-      await notificationService.notify({
+      await notificationService.createNotification({
         userId: userId,
-        type: 'ticket_created',
+        type: 'ticket',
         title: 'Support Ticket Created',
         message: `Your support ticket ${ticket.ticketId} has been created. A human agent will assist you shortly.`,
-        data: { ticketId: ticket.ticketId }
+        relatedTo: { type: 'ticket', id: ticket._id.toString() }
       });
     } catch (notifyError) {
       logger.warn('Failed to send notification', { error: notifyError });
@@ -512,8 +513,8 @@ router.post('/:ticketId/message', messageValidators, handleValidationErrors, asy
     const user = await User.findById(userId);
 
     // Add message to ticket
-    const newMessage = {
-      sender: userRole === 'agent' ? 'agent' : 'customer',
+    const newMessage: any = {
+      sender: (userRole === 'agent' ? 'agent' : 'customer') as 'agent' | 'customer',
       senderName: user?.name || 'User',
       senderId: userId,
       message: sanitizeText(message),
@@ -524,11 +525,17 @@ router.post('/:ticketId/message', messageValidators, handleValidationErrors, asy
     ticket.updatedAt = new Date();
     await ticket.save();
 
-    // Notify socket connection if agent is assigned
+    // Notify via socket if agent is assigned (use existing notifyNewTicket method)
     if (ticket.assignedAgentId) {
-      socketService.sendAgentMessage(ticket.assignedAgentId.toString(), {
+      socketService.notifyNewTicket({
         ticketId,
-        message: newMessage
+        userId: ticket.userId,
+        customerName: ticket.customerName,
+        customerEmail: ticket.customerEmail,
+        subject: ticket.subject,
+        priority: ticket.priority,
+        category: ticket.category,
+        createdAt: ticket.createdAt
       });
     }
 
@@ -536,7 +543,7 @@ router.post('/:ticketId/message', messageValidators, handleValidationErrors, asy
       success: true,
       message: 'Message sent',
       ticketId,
-      messageId: newMessage._id || Date.now().toString(),
+      messageId: ticket.messages[ticket.messages.length - 1]._id?.toString() || Date.now().toString(),
       timestamp: newMessage.timestamp
     });
 

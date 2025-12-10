@@ -8,6 +8,7 @@ import { whatsappService } from '../services/whatsappService';
 import { emailService } from '../services/emailService';
 import { socketService } from '../services/socketService';
 import { logger } from '../utils/logger';
+import { analyzeChatForLead } from '../services/chatLeadService';
 
 const router = express.Router();
 
@@ -403,6 +404,17 @@ router.post('/tickets/:ticketId/messages', async (req, res) => {
     }, 1000);
 
     logger.info('Message added to ticket', { ticketId, agentId, messageLength: message.length });
+
+    // Analyze chat for lead generation (async, non-blocking)
+    if (ticket.userId && ticket.messages && ticket.messages.length > 2) {
+      analyzeChatForLead(ticket.userId.toString(), ticket.messages.map(m => ({
+        role: m.sender === 'agent' ? 'assistant' : 'user',
+        content: m.message,
+        timestamp: m.timestamp
+      }))).catch(err => {
+        logger.error('Failed to analyze chat for lead', { error: err.message, ticketId });
+      });
+    }
 
     res.json({ ticket, message: 'Message added successfully' });
 

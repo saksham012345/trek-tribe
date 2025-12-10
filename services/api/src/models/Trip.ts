@@ -43,6 +43,19 @@ export interface PaymentConfig {
   refundPolicy?: string;
   paymentMethods: string[]; // e.g., ['upi', 'card', 'netbanking']
   instructions?: string;
+  collectionMode?: 'razorpay' | 'manual'; // Organizer chooses gateway vs manual screenshots
+  verificationMode?: 'automated' | 'manual'; // Automated via gateway vs manual review
+  manualProofRequired?: boolean; // Whether traveler must upload payment screenshot
+  trustLevel?: 'trusted' | 'manual'; // Display hint for users about trust
+  gatewayQR?: {
+    provider: 'razorpay';
+    amount: number;
+    currency: string;
+    referenceId: string;
+    qrCodeUrl: string;
+    generatedAt: Date;
+    trusted: boolean;
+  };
 }
 
 // Live trip photos uploaded during trip by organizer
@@ -157,7 +170,20 @@ const paymentConfigSchema = new Schema({
   dueDate: { type: Date },
   refundPolicy: { type: String },
   paymentMethods: { type: [String], default: ['upi'] },
-  instructions: { type: String }
+  instructions: { type: String },
+  collectionMode: { type: String, enum: ['razorpay', 'manual'], default: 'razorpay' },
+  verificationMode: { type: String, enum: ['automated', 'manual'], default: 'automated' },
+  manualProofRequired: { type: Boolean, default: false },
+  trustLevel: { type: String, enum: ['trusted', 'manual'], default: 'trusted' },
+  gatewayQR: {
+    provider: { type: String, enum: ['razorpay'] },
+    amount: { type: Number },
+    currency: { type: String },
+    referenceId: { type: String },
+    qrCodeUrl: { type: String },
+    generatedAt: { type: Date },
+    trusted: { type: Boolean, default: true }
+  }
 }, { _id: false });
 
 const livePhotoSchema = new Schema({

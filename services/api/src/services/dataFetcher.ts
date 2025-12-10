@@ -19,6 +19,9 @@ interface FetchedTrip {
     paymentType: string;
     paymentMethods: string[];
     refundPolicy?: string;
+    collectionMode?: string;
+    verificationMode?: string;
+    trustLevel?: string;
   };
   organizer?: {
     id: string;
@@ -90,7 +93,10 @@ export class DataFetcherService {
           paymentConfig: trip.paymentConfig ? {
             paymentType: trip.paymentConfig.paymentType || 'full',
             paymentMethods: trip.paymentConfig.paymentMethods || ['upi'],
-            refundPolicy: trip.paymentConfig.refundPolicy
+            refundPolicy: trip.paymentConfig.refundPolicy,
+            collectionMode: (trip.paymentConfig as any).collectionMode,
+            verificationMode: (trip.paymentConfig as any).verificationMode,
+            trustLevel: (trip.paymentConfig as any).trustLevel
           } : undefined,
           organizer: organizer ? {
             id: organizer._id?.toString(),
@@ -182,7 +188,10 @@ export class DataFetcherService {
         paymentConfig: trip.paymentConfig ? {
           paymentType: trip.paymentConfig.paymentType || 'full',
           paymentMethods: trip.paymentConfig.paymentMethods || ['upi'],
-          refundPolicy: trip.paymentConfig.refundPolicy
+          refundPolicy: trip.paymentConfig.refundPolicy,
+          collectionMode: (trip.paymentConfig as any).collectionMode,
+          verificationMode: (trip.paymentConfig as any).verificationMode,
+          trustLevel: (trip.paymentConfig as any).trustLevel
         } : undefined,
         organizer: organizer ? {
           id: organizer._id?.toString(),

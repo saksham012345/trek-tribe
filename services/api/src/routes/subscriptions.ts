@@ -25,35 +25,121 @@ try {
   console.error('❌ Failed to initialize Razorpay:', error.message);
 }
 
-// Subscription plans
+// Subscription plans with tiered features - Updated pricing
 const SUBSCRIPTION_PLANS = {
+  STARTER: {
+    name: 'Starter Plan',
+    price: 599,
+    trips: 2,
+    duration: 30, // days
+    crmAccess: false,
+    leadCapture: false,
+    phoneNumbers: false,
+    features: [
+      'List up to 2 trips',
+      'Basic analytics',
+      'Email support',
+      '60-day free trial'
+    ],
+    trialDays: 60,
+    description: 'Perfect for beginners just starting with trek organization'
+  },
   BASIC: {
     name: 'Basic Plan',
-    price: 1499,
-    trips: 5,
+    price: 1299,
+    trips: 4,
     duration: 30, // days
-    features: ['Post 5 trips', 'Basic support', 'Payment integration'],
-    trialDays: 60, // 2 months free trial
+    crmAccess: false,
+    leadCapture: false,
+    phoneNumbers: false,
+    features: [
+      'List up to 4 trips',
+      'Basic analytics',
+      'Email support',
+      'Payment integration',
+      '60-day free trial'
+    ],
+    trialDays: 60,
+    description: 'Great for growing organizers with regular trips'
+  },
+  PROFESSIONAL: {
+    name: 'Professional Plan',
+    price: 2199,
+    trips: 6,
+    duration: 30, // days
+    crmAccess: true,
+    leadCapture: true,
+    phoneNumbers: true,
+    features: [
+      'List up to 6 trips',
+      '✨ Full CRM Access',
+      '✨ Lead Capture & Management',
+      '✨ Phone Numbers in Leads',
+      '✨ Lead Verification System',
+      'Advanced analytics',
+      'Priority support',
+      'AI assistant tools',
+      'Email templates',
+      '60-day free trial'
+    ],
+    trialDays: 60,
+    description: 'Best for professional organizers with CRM features'
   },
   PREMIUM: {
     name: 'Premium Plan',
-    price: 2100,
-    trips: 10,
+    price: 3999,
+    trips: 15,
     duration: 30, // days
+    crmAccess: true,
+    leadCapture: true,
+    phoneNumbers: true,
     features: [
-      'Post 10 trips',
-      'CRM access',
-      'AI tools',
-      'Priority verification',
-      'Analytics dashboard',
-      '24/7 support',
+      'List up to 15 trips',
+      '✨ Full CRM Access',
+      '✨ Lead Capture & Management',
+      '✨ Phone Numbers in Leads',
+      '✨ Lead Verification System',
+      'Advanced analytics with AI',
+      '24/7 Priority support',
+      'Full AI assistant suite',
+      'Email & SMS templates',
+      'API access',
+      'Custom branding',
+      '60-day free trial'
     ],
     trialDays: 60,
+    description: 'Premium solution for scaling trek organizations'
   },
+  ENTERPRISE: {
+    name: 'Enterprise Plan',
+    price: 7999,
+    trips: 40,
+    duration: 30, // days
+    crmAccess: true,
+    leadCapture: true,
+    phoneNumbers: true,
+    features: [
+      'List up to 40 trip listings',
+      '✨ Full CRM Access',
+      '✨ Lead Capture & Management',
+      '✨ Phone Numbers in Leads',
+      '✨ Lead Verification System',
+      'Advanced analytics with AI',
+      '24/7 Priority support',
+      'Full AI assistant suite',
+      'Email & SMS templates',
+      'API access with webhooks',
+      'Custom branding',
+      'Advanced integrations',
+      '60-day free trial'
+    ],
+    trialDays: 60,
+    description: 'Ultimate solution for high-volume trek organizations'
+  }
 };
 
 const createOrderSchema = z.object({
-  planType: z.enum(['BASIC', 'PREMIUM']),
+  planType: z.enum(['STARTER', 'BASIC', 'PROFESSIONAL', 'PREMIUM', 'ENTERPRISE']),
   skipTrial: z.boolean().optional().default(false),
 });
 
@@ -61,24 +147,36 @@ const verifyPaymentSchema = z.object({
   razorpay_order_id: z.string(),
   razorpay_payment_id: z.string(),
   razorpay_signature: z.string(),
-  planType: z.enum(['BASIC', 'PREMIUM']),
+  planType: z.enum(['STARTER', 'BASIC', 'PROFESSIONAL', 'PREMIUM', 'ENTERPRISE']),
 });
 
 /**
  * GET /api/subscriptions/plans
- * Get available subscription plans
+ * Get available subscription plans with all features
  */
 router.get('/plans', async (_req: Request, res: Response) => {
   try {
     return res.json({
       plans: [
         {
+          id: 'STARTER',
+          ...SUBSCRIPTION_PLANS.STARTER,
+        },
+        {
           id: 'BASIC',
           ...SUBSCRIPTION_PLANS.BASIC,
         },
         {
+          id: 'PROFESSIONAL',
+          ...SUBSCRIPTION_PLANS.PROFESSIONAL,
+        },
+        {
           id: 'PREMIUM',
           ...SUBSCRIPTION_PLANS.PREMIUM,
+        },
+        {
+          id: 'ENTERPRISE',
+          ...SUBSCRIPTION_PLANS.ENTERPRISE,
         },
       ],
     });
@@ -546,5 +644,518 @@ router.get('/check-eligibility', authenticateJwt, requireRole(['organizer']), as
     return res.status(500).json({ error: 'Failed to check eligibility' });
   }
 });
+
+/**
+ * POST /api/subscriptions/webhook
+ * Handle Razorpay webhook events (payment.authorized, payment.failed, order.paid, etc.)
+ * Webhook secret must be verified for security
+ */
+router.post('/webhook', async (req: Request, res: Response) => {
+  try {
+    const razorpaySignature = req.headers['x-razorpay-signature'] as string;
+    const body = JSON.stringify(req.body);
+    
+    // Verify webhook signature
+    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || '';
+    
+    if (!webhookSecret) {
+      console.warn('⚠️ RAZORPAY_WEBHOOK_SECRET not configured. Webhook verification skipped.');
+      // Continue processing for dev environments, but log warning
+    } else {
+      const generatedSignature = crypto
+        .createHmac('sha256', webhookSecret)
+        .update(body)
+        .digest('hex');
+
+      if (generatedSignature !== razorpaySignature) {
+        console.error('❌ Webhook signature verification failed');
+        return res.status(401).json({ error: 'Unauthorized webhook' });
+      }
+    }
+
+    const event = req.body.event;
+    const eventData = req.body.payload;
+
+    console.log(`📩 Received webhook event: ${event}`);
+
+    // Handle different webhook events
+    switch (event) {
+      case 'payment.authorized':
+      case 'payment.captured':
+        await handlePaymentCaptured(eventData);
+        break;
+
+      case 'payment.failed':
+        await handlePaymentFailed(eventData);
+        break;
+
+      case 'subscription.activated':
+        await handleSubscriptionActivated(eventData);
+        break;
+
+      case 'subscription.charged':
+        await handleSubscriptionCharged(eventData);
+        break;
+
+      case 'subscription.cancelled':
+        await handleSubscriptionCancelled(eventData);
+        break;
+
+      case 'subscription.paused':
+        await handleSubscriptionPaused(eventData);
+        break;
+
+      case 'order.paid':
+        await handleOrderPaid(eventData);
+        break;
+
+      default:
+        console.log(`⚠️ Unhandled event type: ${event}`);
+    }
+
+    // Always return 200 to acknowledge receipt
+    return res.status(200).json({ status: 'ok' });
+  } catch (error: any) {
+    console.error('❌ Webhook processing error:', error);
+    // Return 200 even on error to prevent Razorpay retry storms
+    return res.status(200).json({ status: 'error', message: error.message });
+  }
+});
+
+/**
+ * Handle payment.captured event
+ */
+async function handlePaymentCaptured(eventData: any) {
+  try {
+    const payment = eventData.payment;
+    const paymentId = payment?.id;
+    const orderId = payment?.order_id;
+
+    console.log(`✅ Payment captured: ${paymentId} for order ${orderId}`);
+
+    // Log audit event
+    if (paymentId && orderId) {
+      await auditLogService.log({
+        userId: 'system',
+        action: 'payment_captured',
+        resource: 'Payment',
+        resourceId: paymentId,
+        metadata: {
+          orderId,
+          amount: payment?.amount,
+          currency: payment?.currency,
+        },
+      });
+    }
+  } catch (error: any) {
+    console.error('❌ Error handling payment captured:', error);
+  }
+}
+
+/**
+ * Handle payment.failed event
+ */
+async function handlePaymentFailed(eventData: any) {
+  try {
+    const payment = eventData.payment;
+    const paymentId = payment?.id;
+    const orderId = payment?.order_id;
+    const errorReason = payment?.vpa || payment?.description || 'Unknown error';
+
+    console.error(`❌ Payment failed: ${paymentId} for order ${orderId}. Reason: ${errorReason}`);
+
+    // Log audit event
+    await auditLogService.log({
+      userId: 'system',
+      action: 'payment_failed',
+      resource: 'Payment',
+      resourceId: paymentId,
+      metadata: {
+        orderId,
+        reason: errorReason,
+        amount: payment?.amount,
+      },
+    });
+
+    // Note: Frontend should handle retry logic based on payment status
+  } catch (error: any) {
+    console.error('❌ Error handling payment failed:', error);
+  }
+}
+
+/**
+ * Handle subscription.activated event
+ */
+async function handleSubscriptionActivated(eventData: any) {
+  try {
+    const subscription = eventData.subscription;
+    const subscriptionId = subscription?.id;
+
+    console.log(`✅ Subscription activated: ${subscriptionId}`);
+
+    await auditLogService.log({
+      userId: 'system',
+      action: 'subscription_activated',
+      resource: 'Subscription',
+      resourceId: subscriptionId,
+    });
+  } catch (error: any) {
+    console.error('❌ Error handling subscription activated:', error);
+  }
+}
+
+/**
+ * Handle subscription.charged event (automatic recurring payment)
+ */
+async function handleSubscriptionCharged(eventData: any) {
+  try {
+    const subscription = eventData.subscription;
+    const payment = eventData.payment;
+    const subscriptionId = subscription?.id;
+    const paymentId = payment?.id;
+
+    console.log(`✅ Subscription charged: ${subscriptionId}, Payment: ${paymentId}`);
+
+    await auditLogService.log({
+      userId: 'system',
+      action: 'subscription_charged',
+      resource: 'Subscription',
+      resourceId: subscriptionId,
+      metadata: {
+        paymentId,
+        amount: payment?.amount,
+      },
+    });
+  } catch (error: any) {
+    console.error('❌ Error handling subscription charged:', error);
+  }
+}
+
+/**
+ * Handle subscription.cancelled event
+ */
+async function handleSubscriptionCancelled(eventData: any) {
+  try {
+    const subscription = eventData.subscription;
+    const subscriptionId = subscription?.id;
+
+    console.log(`✅ Subscription cancelled: ${subscriptionId}`);
+
+    await auditLogService.log({
+      userId: 'system',
+      action: 'subscription_cancelled',
+      resource: 'Subscription',
+      resourceId: subscriptionId,
+    });
+  } catch (error: any) {
+    console.error('❌ Error handling subscription cancelled:', error);
+  }
+}
+
+/**
+ * Handle subscription.paused event
+ */
+async function handleSubscriptionPaused(eventData: any) {
+  try {
+    const subscription = eventData.subscription;
+    const subscriptionId = subscription?.id;
+
+    console.log(`⏸️ Subscription paused: ${subscriptionId}`);
+
+    await auditLogService.log({
+      userId: 'system',
+      action: 'subscription_paused',
+      resource: 'Subscription',
+      resourceId: subscriptionId,
+    });
+  } catch (error: any) {
+    console.error('❌ Error handling subscription paused:', error);
+  }
+}
+
+/**
+ * Handle order.paid event
+ */
+async function handleOrderPaid(eventData: any) {
+  try {
+    const order = eventData.order;
+    const orderId = order?.id;
+
+    console.log(`✅ Order marked as paid: ${orderId}`);
+
+    await auditLogService.log({
+      userId: 'system',
+      action: 'order_paid',
+      resource: 'Payment',
+      resourceId: orderId,
+    });
+  } catch (error: any) {
+    console.error('❌ Error handling order paid:', error);
+  }
+}
+
+/**
+ * GET /api/subscriptions/verify-crm-access
+ * Verify if user has CRM access based on their subscription plan
+ * Returns CRM access status, lead verification, and phone number visibility
+ */
+router.get('/verify-crm-access', authenticateJwt, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const subscription = await OrganizerSubscription.findOne({ organizerId: userId })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    if (!subscription) {
+      return res.json({
+        hasCRMAccess: false,
+        hasLeadCapture: false,
+        canViewPhoneNumbers: false,
+        planType: 'NONE',
+        message: 'No active subscription',
+      });
+    }
+
+    const plan = SUBSCRIPTION_PLANS[subscription.plan.toUpperCase() as keyof typeof SUBSCRIPTION_PLANS];
+
+    if (!plan) {
+      return res.json({
+        hasCRMAccess: false,
+        hasLeadCapture: false,
+        canViewPhoneNumbers: false,
+        planType: subscription.plan,
+        message: 'Invalid plan type',
+      });
+    }
+
+    return res.json({
+      hasCRMAccess: plan.crmAccess === true,
+      hasLeadCapture: plan.leadCapture === true,
+      canViewPhoneNumbers: plan.phoneNumbers === true,
+      planType: subscription.plan,
+      planName: plan.name,
+      planPrice: plan.price,
+      subscriptionStatus: subscription.status,
+      subscriptionEndDate: subscription.subscriptionEndDate,
+      isTrialActive: subscription.isTrialActive,
+      message: 'CRM access verified',
+      features: {
+        crm: {
+          enabled: plan.crmAccess,
+          description: 'Full CRM access for managing leads and participants'
+        },
+        leadCapture: {
+          enabled: plan.leadCapture,
+          description: 'Automatically capture and organize leads from your trips'
+        },
+        phoneNumbers: {
+          enabled: plan.phoneNumbers,
+          description: 'View phone numbers of leads and participants'
+        },
+        leadVerification: {
+          enabled: plan.leadCapture,
+          description: 'Verify leads before adding to your trips'
+        }
+      }
+    });
+  } catch (error: any) {
+    console.error('❌ Error verifying CRM access:', error);
+    return res.status(500).json({ error: 'Failed to verify CRM access' });
+  }
+});
+
+/**
+ * POST /api/subscriptions/check-feature-access
+ * Check if user has access to specific features
+ * Useful for frontend to conditionally show/hide features
+ */
+router.post('/check-feature-access', authenticateJwt, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.userId;
+    const { features } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (!Array.isArray(features)) {
+      return res.status(400).json({ error: 'Features must be an array' });
+    }
+
+    const subscription = await OrganizerSubscription.findOne({ organizerId: userId })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    if (!subscription) {
+      return res.json({
+        accessMap: features.reduce((acc, feature) => {
+          acc[feature] = false;
+          return acc;
+        }, {} as Record<string, boolean>),
+        planType: 'NONE',
+      });
+    }
+
+    const plan = SUBSCRIPTION_PLANS[subscription.plan.toUpperCase() as keyof typeof SUBSCRIPTION_PLANS];
+
+    const accessMap: Record<string, boolean> = {};
+    features.forEach(feature => {
+      switch (feature.toLowerCase()) {
+        case 'crm':
+        case 'crm_access':
+          accessMap[feature] = plan.crmAccess === true;
+          break;
+        case 'lead_capture':
+        case 'leadcapture':
+          accessMap[feature] = plan.leadCapture === true;
+          break;
+        case 'phone_numbers':
+        case 'phonenumbers':
+          accessMap[feature] = plan.phoneNumbers === true;
+          break;
+        case 'lead_verification':
+        case 'leadverification':
+          accessMap[feature] = plan.leadCapture === true;
+          break;
+        default:
+          accessMap[feature] = false;
+      }
+    });
+
+    return res.json({
+      accessMap,
+      planType: subscription.plan,
+      planName: plan.name,
+    });
+  } catch (error: any) {
+    console.error('❌ Error checking feature access:', error);
+    return res.status(500).json({ error: 'Failed to check feature access' });
+  }
+});
+
+/**
+ * GET /api/subscriptions/verify-organizer-info
+ * Verify that organizer information is properly loaded and complete
+ * Returns organizer profile completeness status
+ */
+router.get('/verify-organizer-info', authenticateJwt, requireRole(['organizer']), async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const user = await User.findById(userId).lean();
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        profileComplete: false,
+        message: 'User profile not found',
+        verification: {
+          namePresent: false,
+          emailVerified: false,
+          phonePresent: false,
+          profilePhotoPresent: false,
+          organizerProfileComplete: false,
+        },
+      });
+    }
+
+    // Check for required organizer information
+    const verification = {
+      namePresent: !!user.name && user.name.trim().length > 0,
+      emailVerified: !!user.email && user.emailVerified === true,
+      phonePresent: !!user.phone && user.phone.trim().length > 0,
+      profilePhotoPresent: !!user.profilePhoto && user.profilePhoto.trim().length > 0,
+      organizerProfileComplete: !!(
+        user.organizerProfile && 
+        Object.keys(user.organizerProfile).length > 0
+      ),
+      bioPresent: !!user.bio && user.bio.trim().length > 0,
+      bankDetailsPresent: !!(
+        user.organizerProfile?.bankDetails && 
+        Object.keys(user.organizerProfile.bankDetails).length > 0
+      ),
+    };
+
+    // Calculate profile completion percentage
+    const requiredFields = [
+      'namePresent',
+      'emailVerified',
+      'phonePresent',
+      'profilePhotoPresent',
+      'organizerProfileComplete'
+    ];
+    
+    const completedFields = requiredFields.filter(field => verification[field as keyof typeof verification]).length;
+    const completionPercentage = Math.round((completedFields / requiredFields.length) * 100);
+    
+    const profileComplete = completionPercentage >= 80; // 80% threshold for complete profile
+
+    return res.json({
+      success: true,
+      profileComplete,
+      completionPercentage,
+      message: profileComplete ? 'Organizer profile is complete' : 'Organizer profile is incomplete',
+      verification,
+      profile: {
+        name: user.name || null,
+        email: user.email || null,
+        phone: user.phone || null,
+        profilePhoto: user.profilePhoto || null,
+        bio: user.bio || null,
+        role: user.role,
+        emailVerified: user.emailVerified,
+        createdAt: user.createdAt,
+      },
+      missingFields: requiredFields.filter(field => !verification[field as keyof typeof verification]),
+      recommendations: getOrganizerProfileRecommendations(verification),
+    });
+  } catch (error: any) {
+    console.error('❌ Error verifying organizer info:', error);
+    return res.status(500).json({
+      error: 'Failed to verify organizer information',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * Helper function to get recommendations for profile completion
+ */
+function getOrganizerProfileRecommendations(verification: any): string[] {
+  const recommendations: string[] = [];
+
+  if (!verification.namePresent) {
+    recommendations.push('Add your full name to your profile');
+  }
+  if (!verification.emailVerified) {
+    recommendations.push('Verify your email address');
+  }
+  if (!verification.phonePresent) {
+    recommendations.push('Add a verified phone number');
+  }
+  if (!verification.profilePhotoPresent) {
+    recommendations.push('Upload a profile photo to build trust with customers');
+  }
+  if (!verification.organizerProfileComplete) {
+    recommendations.push('Complete your organizer profile information');
+  }
+  if (!verification.bioPresent) {
+    recommendations.push('Add a bio to describe your experience and expertise');
+  }
+  if (!verification.bankDetailsPresent) {
+    recommendations.push('Add bank details for receiving payments');
+  }
+
+  return recommendations;
+}
 
 export default router;

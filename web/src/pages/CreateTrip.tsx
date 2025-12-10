@@ -46,10 +46,23 @@ interface PackageOption {
 interface PaymentConfig {
   paymentType: 'full' | 'advance';
   advanceAmount?: number;
-  dueDate?: Date;
+  dueDate?: Date | string;
   refundPolicy: string;
   paymentMethods: string[];
   instructions?: string;
+  collectionMode: 'razorpay' | 'manual';
+  verificationMode: 'automated' | 'manual';
+  manualProofRequired: boolean;
+  trustLevel: 'trusted' | 'manual';
+  gatewayQR?: {
+    provider: 'razorpay';
+    amount: number;
+    currency: string;
+    referenceId: string;
+    qrCodeUrl: string;
+    generatedAt: string;
+    trusted: boolean;
+  };
 }
 
 const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
@@ -92,12 +105,18 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
     advanceAmount: 1000,
     refundPolicy: 'moderate',
     paymentMethods: ['card', 'upi'],
-    instructions: ''
+    instructions: '',
+    collectionMode: 'razorpay',
+    verificationMode: 'automated',
+    manualProofRequired: false,
+    trustLevel: 'trusted'
   });
   const [images, setImages] = useState<File[]>([]);
   const [coverImageIndex, setCoverImageIndex] = useState(0);
   const [itineraryPdf, setItineraryPdf] = useState<File | null>(null);
   const [paymentQR, setPaymentQR] = useState<File | null>(null);
+  const [gatewayQR, setGatewayQR] = useState<PaymentConfig['gatewayQR'] | null>(null);
+  const [qrGenerating, setQrGenerating] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -159,6 +178,43 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
 
   const handleCategoryChange = (category: string) => {
     handleArrayChange('categories', category);
+  };
+
+  // Generate trusted Razorpay-style QR for exact trip price
+  const handleGenerateGatewayQR = async () => {
+    try {
+      setQrGenerating(true);
+      setError('');
+      const amount = parseFloat(formData.price || '0');
+      if (!amount || amount <= 0) {
+        throw new Error('Enter a valid trip price before generating QR');
+      }
+
+      const response = await api.post('/payment-verification/generate-amount-qr', {
+        amount,
+        currency: 'INR',
+        purpose: `Trip payment for ${formData.title || 'your trip'}`,
+      });
+
+      const data = response.data as any;
+      const qrPayload = {
+        provider: 'razorpay' as const,
+        amount,
+        currency: (data?.payload?.currency as string) || 'INR',
+        referenceId: data?.referenceId,
+        qrCodeUrl: data?.qrCodeUrl,
+        generatedAt: new Date().toISOString(),
+        trusted: true,
+      };
+
+      setGatewayQR(qrPayload);
+      setPaymentConfig((prev) => ({ ...prev, gatewayQR: qrPayload, collectionMode: 'razorpay', trustLevel: 'trusted', verificationMode: 'automated', manualProofRequired: false }));
+    } catch (err: any) {
+      const message = err?.response?.data?.error || err?.message || 'Failed to generate QR';
+      setError(message);
+    } finally {
+      setQrGenerating(false);
+    }
   };
   
   // Schedule management
@@ -374,6 +430,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       if (!formData.price || parseFloat(formData.price) <= 0) throw new Error('Valid price is required');
       if (!formData.capacity || parseInt(formData.capacity) < 2) throw new Error('Capacity must be at least 2');
       if (formData.categories.length === 0) throw new Error('At least one category is required');
+      if (paymentConfig.collectionMode === 'manual' && !paymentQR) throw new Error('Upload a manual payment QR/screenshot or switch to automated Razorpay');
       
       const startDate = new Date(formData.startDate);
       const endDate = new Date(formData.endDate);
@@ -403,7 +460,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       }
       
       let uploadedQRUrl: string | undefined;
-      if (paymentQR) {
+      if (paymentConfig.collectionMode === 'manual' && paymentQR) {
         setUploadProgress(80);
         uploadedQRUrl = await uploadFileToServer(paymentQR);
         setUploadProgress(85);
@@ -437,6 +494,8 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
         packages: packages.filter(pkg => pkg.name.trim() && pkg.description.trim() && pkg.price > 0),
         paymentConfig: {
           ...paymentConfig,
+          manualProofRequired: paymentConfig.collectionMode === 'manual',
+          gatewayQR: gatewayQR || paymentConfig.gatewayQR,
           dueDate: paymentConfig.dueDate || new Date(new Date(formData.startDate).getTime() - 3 * 24 * 60 * 60 * 1000) // 3 days before trip
         },
         whatsappGroup: formData.whatsappGroup.enabled ? formData.whatsappGroup : null
@@ -911,44 +970,46 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                   )}
                 </div>
                 
-                {/* Payment QR Code Upload */}
-                <div className="mt-6">
-                  <label className="block text-sm font-semibold text-forest-700 mb-3">
-                    💳 Payment QR Code (Temporary Solution)
-                  </label>
-                  <div className="border-2 border-dashed border-forest-300 rounded-xl p-6 text-center hover:border-nature-400 transition-colors">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleFileChange(e, 'paymentQR')}
-                      className="hidden"
-                      id="qr-upload"
-                    />
-                    <label
-                      htmlFor="qr-upload"
-                      className="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors cursor-pointer"
-                    >
-                      📱 Upload Payment QR
+                {/* Payment QR Code Upload (manual collection only) */}
+                {paymentConfig.collectionMode === 'manual' && (
+                  <div className="mt-6">
+                    <label className="block text-sm font-semibold text-forest-700 mb-3">
+                      💳 Manual Payment QR (Not supervised, lower trust)
                     </label>
-                    <p className="mt-2 text-sm text-forest-600">Upload your UPI/Bank QR code for payments</p>
-                    <div className="mt-2 text-xs text-amber-600">
-                      ⚠️ Temporary solution while Razorpay is under review
-                    </div>
-                    
-                    {paymentQR && (
-                      <div className="mt-4">
-                        <div className="text-sm text-forest-700 bg-green-50 p-2 rounded mb-2">
-                          ✅ QR Code: {paymentQR.name}
-                        </div>
-                        <img
-                          src={URL.createObjectURL(paymentQR)}
-                          alt="Payment QR Code Preview"
-                          className="mx-auto w-32 h-32 object-cover border-2 border-green-300 rounded-lg"
-                        />
+                    <div className="border-2 border-dashed border-forest-300 rounded-xl p-6 text-center hover:border-nature-400 transition-colors">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'paymentQR')}
+                        className="hidden"
+                        id="qr-upload"
+                      />
+                      <label
+                        htmlFor="qr-upload"
+                        className="inline-flex items-center px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors cursor-pointer"
+                      >
+                        📱 Upload Payment QR / Screenshot
+                      </label>
+                      <p className="mt-2 text-sm text-forest-600">Travelers upload screenshots; you verify manually.</p>
+                      <div className="mt-2 text-xs text-amber-600">
+                        ⚠️ Less trusted. Consider switching to automated Razorpay for higher trust.
                       </div>
-                    )}
+                      
+                      {paymentQR && (
+                        <div className="mt-4">
+                          <div className="text-sm text-forest-700 bg-amber-50 p-2 rounded mb-2">
+                            ✅ QR Code: {paymentQR.name}
+                          </div>
+                          <img
+                            src={URL.createObjectURL(paymentQR)}
+                            alt="Payment QR Code Preview"
+                            className="mx-auto w-32 h-32 object-cover border-2 border-amber-300 rounded-lg"
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
                 
                 {/* Schedule Builder */}
                 <div className="mt-6">
@@ -1146,7 +1207,62 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
             {/* Payment Configuration */}
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
               <h3 className="text-lg font-semibold text-forest-700 mb-4">💳 Payment Configuration</h3>
-              
+
+              <div className="grid md:grid-cols-2 gap-4 mb-4">
+                <button
+                  type="button"
+                  onClick={() => setPaymentConfig({ ...paymentConfig, collectionMode: 'razorpay', verificationMode: 'automated', trustLevel: 'trusted', manualProofRequired: false })}
+                  className={`text-left border rounded-xl p-4 transition shadow-sm ${paymentConfig.collectionMode === 'razorpay' ? 'border-green-500 bg-white' : 'border-forest-200 bg-white/70'}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-forest-800">Automated & Trusted (Razorpay QR)</span>
+                    {paymentConfig.collectionMode === 'razorpay' && <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full">Selected</span>}
+                  </div>
+                  <p className="text-sm text-forest-600 mt-1">Auto-generated QR for exact amount. Lowest friction, trusted.</p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPaymentConfig({ ...paymentConfig, collectionMode: 'manual', verificationMode: 'manual', trustLevel: 'manual', manualProofRequired: true })}
+                  className={`text-left border rounded-xl p-4 transition shadow-sm ${paymentConfig.collectionMode === 'manual' ? 'border-amber-500 bg-white' : 'border-forest-200 bg-white/70'}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-forest-800">Manual Screenshot (Less trusted)</span>
+                    {paymentConfig.collectionMode === 'manual' && <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full">Selected</span>}
+                  </div>
+                  <p className="text-sm text-forest-600 mt-1">Upload your own QR / screenshots. Manual verification required.</p>
+                </button>
+              </div>
+
+              {paymentConfig.collectionMode === 'razorpay' && (
+                <div className="mb-4 rounded-lg border border-green-200 bg-green-50 p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <p className="text-sm font-semibold text-green-800">Trusted QR (automated)</p>
+                      <p className="text-xs text-green-700">Generates QR for ₹{formData.price || '0'} via Razorpay-style payload.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleGenerateGatewayQR}
+                      disabled={qrGenerating}
+                      className="px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-60"
+                    >
+                      {qrGenerating ? 'Generating...' : 'Generate QR'}
+                    </button>
+                  </div>
+                  {gatewayQR?.qrCodeUrl && (
+                    <div className="flex items-center gap-4 mt-2">
+                      <img src={gatewayQR.qrCodeUrl} alt="Payment QR" className="w-28 h-28 border border-green-200 rounded-lg" />
+                      <div className="text-sm text-forest-700">
+                        <p>Reference: {gatewayQR.referenceId}</p>
+                        <p>Amount: ₹{gatewayQR.amount} {gatewayQR.currency}</p>
+                        <p className="text-green-700">Trusted & automated</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-forest-700 mb-1">
