@@ -129,6 +129,24 @@ export interface UserDocument extends Document {
   phoneVerificationExpires?: Date;
   phoneVerificationAttempts?: number;
   phoneVerificationLastSentAt?: Date;
+  kycStatus?: 'pending' | 'submitted' | 'under_review' | 'approved' | 'rejected';
+  kycVerified?: boolean;
+  kycSubmittedAt?: Date;
+  kycApprovedAt?: Date;
+  kycRejectionReason?: string;
+  razorpayAccountId?: string;
+  razorpayStakeholderId?: string;
+  idVerificationStatus?: 'not_verified' | 'pending' | 'verified' | 'rejected';
+  idVerification?: {
+    documentType: 'aadhaar' | 'pan' | 'passport' | 'driving_license' | 'voter_id';
+    documentNumber: string;
+    documentFront?: string;
+    documentBack?: string;
+    verified: boolean;
+    verifiedAt?: Date;
+    expiryDate?: Date;
+    rejectionReason?: string;
+  };
   verificationDocuments?: Array<{
     filename: string;
     originalName: string;
@@ -293,6 +311,39 @@ const userSchema = new Schema(
     phoneVerificationExpires: { type: Date },
     phoneVerificationAttempts: { type: Number, default: 0 },
     phoneVerificationLastSentAt: { type: Date },
+    kycStatus: { 
+      type: String, 
+      enum: ['pending', 'submitted', 'under_review', 'approved', 'rejected'], 
+      default: 'pending' 
+    },
+    kycVerified: { type: Boolean, default: false },
+    kycSubmittedAt: { type: Date },
+    kycApprovedAt: { type: Date },
+    kycRejectionReason: { type: String },
+    razorpayAccountId: { type: String },
+    razorpayStakeholderId: { type: String },
+    idVerificationStatus: { 
+      type: String, 
+      enum: ['not_verified', 'pending', 'verified', 'rejected'], 
+      default: 'not_verified' 
+    },
+    idVerification: {
+      type: {
+        documentType: { 
+          type: String, 
+          enum: ['aadhaar', 'pan', 'passport', 'driving_license', 'voter_id'],
+          required: true
+        },
+        documentNumber: { type: String, required: true },
+        documentFront: { type: String },
+        documentBack: { type: String },
+        verified: { type: Boolean, default: false },
+        verifiedAt: { type: Date },
+        expiryDate: { type: Date },
+        rejectionReason: { type: String }
+      },
+      required: false
+    },
     verificationDocuments: [{
       filename: { type: String, required: true },
       originalName: { type: String, required: true },
