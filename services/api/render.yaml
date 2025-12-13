@@ -20,3 +20,17 @@ services:
         value: https://trek-tribe-web.onrender.com
       - key: CORS_ORIGIN
         value: https://trek-tribe-web.onrender.com
+      - key: AI_SERVICE_URL
+        value: https://trek-tribe-ai-service.onrender.com
+      - key: AI_SERVICE_KEY
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false

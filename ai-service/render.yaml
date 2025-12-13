@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: trek-tribe-ai-service
+    env: docker
+    plan: free
+    region: oregon
+    healthCheckPath: /health
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: CORS_ORIGINS
+        value: https://trek-tribe-web.onrender.com,https://trek-tribe-api.onrender.com
+      - key: API_KEY
+        generateValue: true
+      - key: REQUIRE_API_KEY
+        value: true
+      - key: MODEL_NAME
+        value: google/flan-t5-base
+      - key: MODEL_LOCAL_ENABLED
+        value: true
+      - key: REDIS_URL
+        sync: false
+      - key: LOG_LEVEL
+        value: INFO

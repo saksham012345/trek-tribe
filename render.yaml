@@ -12,6 +12,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: 10000
       - key: JWT_SECRET
         generateValue: true
       - key: MONGODB_URI
@@ -20,6 +22,48 @@ services:
         value: https://trek-tribe-web.onrender.com
       - key: CORS_ORIGIN
         value: https://trek-tribe-web.onrender.com
+      - key: AI_SERVICE_URL
+        value: https://trek-tribe-ai-service.onrender.com
+      - key: AI_SERVICE_KEY
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false
+
+  # AI Service
+  - type: web
+    name: trek-tribe-ai-service
+    env: docker
+    plan: free
+    region: oregon
+    rootDir: ai-service
+    healthCheckPath: /health
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: CORS_ORIGINS
+        value: https://trek-tribe-web.onrender.com,https://trek-tribe-api.onrender.com
+      - key: API_KEY
+        generateValue: true
+      - key: REQUIRE_API_KEY
+        value: true
+      - key: MODEL_NAME
+        value: google/flan-t5-base
+      - key: MODEL_LOCAL_ENABLED
+        value: true
+      - key: REDIS_URL
+        sync: false
+      - key: LOG_LEVEL
+        value: INFO
 
   # Web Service
   - type: web
@@ -51,6 +95,8 @@ services:
     envVars:
       - key: REACT_APP_API_URL
         value: https://trek-tribe-api.onrender.com
+      - key: REACT_APP_AI_SERVICE_URL
+        value: https://trek-tribe-ai-service.onrender.com
       - key: REACT_APP_APP_NAME
         value: Trek Tribe
       - key: REACT_APP_VERSION
