@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../config/api';
-import { useToast } from '../components/ui/Toast';
+import { useToast, ToastContainer } from '../components/Toast';
 import { Skeleton } from '../components/ui/Skeleton';
 
 interface Lead {
