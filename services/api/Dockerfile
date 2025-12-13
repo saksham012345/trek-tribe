@@ -4,11 +4,8 @@ WORKDIR /usr/src/app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies - use install instead of ci for flexibility
-RUN npm install --production
-
-# Install TypeScript globally for build
-RUN npm install -g typescript
+# Install all dependencies (including dev) for build
+RUN npm install
 
 # Copy source code
 COPY . .
@@ -16,7 +13,7 @@ COPY . .
 # Build TypeScript
 RUN npm run build
 
-# Clean up build dependencies
+# Prune to production dependencies only for runtime image
 RUN npm prune --production
 
 EXPOSE 4000
