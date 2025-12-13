@@ -1,7 +1,7 @@
 /* Chat Widget Toggle Button */
 .chat-widget-toggle {
   position: fixed;
-  bottom: 90px;
+  bottom: 20px;
   right: 20px;
   width: 60px;
   height: 60px;
@@ -13,7 +13,7 @@
   cursor: pointer;
   box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
   transition: all 0.3s ease;
-  z-index: 1000;
+  z-index: 30;
   animation: pulse 2s infinite;
 }
 

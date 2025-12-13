@@ -13,6 +13,7 @@ const JoinTheTribeModal: React.FC<Props> = ({ open, onClose, onStart }) => {
   const { user } = useAuth();
 
   const handleStartNow = () => {
+    onClose();
     if (onStart) {
       onStart();
     } else {
@@ -25,7 +26,6 @@ const JoinTheTribeModal: React.FC<Props> = ({ open, onClose, onStart }) => {
         // Non-organizers need to register as organizer first
         navigate('/register', { state: { role: 'organizer' } });
       }
-      onClose();
     }
   };
 
