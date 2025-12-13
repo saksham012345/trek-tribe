@@ -8,6 +8,7 @@ import { Review } from '../models/Review';
 import { aiConfig, getScaledScore, isHighConfidence } from '../config/ai';
 import { aiCacheService } from '../services/aiCacheService';
 import { aiMetricsService, aiMetricsMiddleware } from '../services/aiMetricsService';
+import { aiConversationService } from '../services/aiConversationService';
 import OpenAI from 'openai';
 import { answerGeneralQuery } from '../services/generalKnowledge';
 import { knowledgeBaseService } from '../services/knowledgeBase';
@@ -281,6 +282,13 @@ class TrekTribeAI {
     }
 
     const lowerMessage = message.toLowerCase();
+    const isFollowUp = context?.followUpInfo?.isFollowUp;
+    const hasTrekContext = Boolean(
+      context?.lastIntent ||
+      (Array.isArray(context?.lastEntities) && context.lastEntities.length > 0) ||
+      (Array.isArray(context?.relatedTrips) && context.relatedTrips.length > 0) ||
+      (Array.isArray(context?.relatedBookings) && context.relatedBookings.length > 0)
+    );
 
     // Handle weather queries with disclaimer
     const weatherKeywords = ['weather', 'temperature', 'rain', 'snow', 'wind', 'forecast', 'climate', 'monsoon', 'condition'];
@@ -304,7 +312,16 @@ class TrekTribeAI {
 
     // Simple keyword-based routing: TrekTribe-specific queries use RAG; general queries go to OpenAI chat model
     const trekKeywords = ['trek', 'trip', 'booking', 'book', 'itinerary', 'organizer', 'refund', 'upi', 'ticket', 'camping', 'trekking', 'himalaya', 'himachal', 'spiti', 'manali', 'booking id', 'reserve'];
-    const isTrekRelated = trekKeywords.some(k => lowerMessage.includes(k));
+    const trekIntents = ['booking', 'payment', 'packing', 'safety', 'recommendation', 'cancellation', 'trip_detail'];
+    let isTrekRelated = trekKeywords.some(k => lowerMessage.includes(k));
+
+    // Treat follow-ups with prior trek context as trek-related even if the new message is short/ambiguous
+    if (isFollowUp || (context?.lastIntent && trekIntents.includes(context.lastIntent))) {
+      isTrekRelated = true;
+    }
+    if (!isTrekRelated && hasTrekContext) {
+      isTrekRelated = true;
+    }
 
     try {
       if (isTrekRelated) {
@@ -339,9 +356,10 @@ class TrekTribeAI {
   private async generateGeneralChatResponse(message: string) {
     const apiKey = process.env.OPENAI_API_KEY;
     
-    // If no API key, use knowledge base + local fallback (NO ERROR)
+    // If no API key, use knowledge base + enhanced general knowledge fallback (NO ERROR)
     if (!apiKey) {
       try {
+        // First try TrekTribe knowledge base for travel-specific queries
         const results = await knowledgeBaseService.search(message, 3);
         if (results.length > 0 && results[0].similarity > 0.15) {
           const topDoc = results[0].document;
@@ -354,18 +372,23 @@ class TrekTribeAI {
           };
         }
         
-        // Fallback to legacy general knowledge if KB doesn't have good match
+        // Fallback to enhanced general knowledge (includes world topics)
         const local = await answerGeneralQuery(message);
         if (local && local.response) {
-          return { response: local.response, suggestions: [], requiresHumanAgent: false, source: local.source };
+          return { 
+            response: local.response, 
+            suggestions: ['Tell me more', 'Ask another question', 'Find trips'], 
+            requiresHumanAgent: false, 
+            source: `general_knowledge: ${local.source}`
+          };
         }
       } catch (e) {
         console.warn('⚠️ Knowledge base search failed, using fallback:', e);
       }
-      // Return friendly fallback without error
+      // Return intelligent fallback response
       return { 
-        response: "I'm here to help with trip planning! You can ask about finding trips, booking details, packing tips, or any travel questions.", 
-        suggestions: ['Find mountain trips', 'Help me book', 'What to pack', 'Trip recommendations'], 
+        response: "I'm an AI assistant that can help with travel planning, trip recommendations, booking questions, world geography, cultural information, and general knowledge. Feel free to ask me anything!", 
+        suggestions: ['World travel destinations', 'Popular landmarks', 'Climate information', 'Find trips'], 
         requiresHumanAgent: false,
         source: 'fallback'
       };
@@ -420,14 +443,189 @@ class TrekTribeAI {
     }
   }
 
+  // Extract trip name from user message
+  private extractTripName(message: string): string | null {
+    const lowerMessage = message.toLowerCase();
+    // Common trip patterns
+    const tripPatterns = [
+      /(?:book|trip|trek|join|interested in|about|details?)\s+([a-z\s]+?)(?:\s+trek|\s+trip|\s+in|\s+from|\?|$)/i,
+      /kedarkantha|roopkund|hampta|chadar|spiti|markha valley|triund|kheerganga|parvati/i
+    ];
+    
+    for (const pattern of tripPatterns) {
+      const match = message.match(pattern);
+      if (match) {
+        return match[1] ? match[1].trim() : match[0].trim();
+      }
+    }
+    return null;
+  }
+
+  // Extract organizer name from message
+  private extractOrganizerName(message: string): string | null {
+    const lowerMessage = message.toLowerCase();
+    const organizerPatterns = [
+      /organizer[:\s]+([a-z\s]+?)(?:\s|$|'s)/i,
+      /by\s+([a-z\s]+?)(?:\s+organizer|'s)/i,
+      /from\s+([a-z\s]+?)(?:\s|$)/i
+    ];
+    
+    for (const pattern of organizerPatterns) {
+      const match = message.match(pattern);
+      if (match && match[1]) {
+        return match[1].trim();
+      }
+    }
+    return null;
+  }
+
+  // Fetch trip from database by title and organizer
+  private async fetchTripFromDB(tripName: string, organizerName?: string): Promise<any> {
+    try {
+      const query: any = {
+        title: new RegExp(tripName, 'i'),
+        status: 'active'
+      };
+      
+      if (organizerName) {
+        // Find organizer first
+        const organizer = await User.findOne({
+          name: new RegExp(organizerName, 'i'),
+          role: 'organizer'
+        });
+        if (organizer) {
+          query.organizerId = organizer._id;
+        }
+      }
+      
+      const trips = await Trip.find(query)
+        .populate('organizerId', 'name email profilePhoto')
+        .limit(5);
+      
+      return trips;
+    } catch (error) {
+      console.error('Error fetching trip from DB:', error);
+      return [];
+    }
+  }
+
+  // Check if multiple organizers offer the same trip
+  private async checkMultipleOrganizers(tripName: string): Promise<{ hasMultiple: boolean; organizers: string[] }> {
+    try {
+      const trips = await Trip.find({
+        title: new RegExp(tripName, 'i'),
+        status: 'active'
+      }).populate('organizerId', 'name');
+      
+      const uniqueOrganizers = [...new Set(trips.map((t: any) => t.organizerId?.name).filter(Boolean))];
+      
+      return {
+        hasMultiple: uniqueOrganizers.length > 1,
+        organizers: uniqueOrganizers
+      };
+    } catch (error) {
+      console.error('Error checking organizers:', error);
+      return { hasMultiple: false, organizers: [] };
+    }
+  }
+
+  // Get specific trip detail from DB (accommodation, gear, price)
+  private async getTripDetailFromDB(tripName: string, organizerName: string, detailType: 'accommodation' | 'gear' | 'price' | 'itinerary'): Promise<any> {
+    try {
+      const organizer = await User.findOne({
+        name: new RegExp(organizerName, 'i'),
+        role: 'organizer'
+      });
+      
+      if (!organizer) {
+        return {
+          error: true,
+          message: `Organizer "${organizerName}" not found in our database. Please check the organizer name.`
+        };
+      }
+      
+      const trip = await Trip.findOne({
+        title: new RegExp(tripName, 'i'),
+        organizerId: organizer._id,
+        status: 'active'
+      }).populate('organizerId', 'name email');
+      
+      if (!trip) {
+        return {
+          error: true,
+          message: `Trip "${tripName}" not found for organizer "${organizerName}".`
+        };
+      }
+      
+      // Check for specific field
+      if (detailType === 'accommodation') {
+        const accommodationField = (trip as any).accommodation;
+        if (!accommodationField || accommodationField.trim() === '') {
+          return {
+            error: true,
+            message: `The organizer (${(trip as any).organizerId.name}) has not added accommodation details for this trip. Organizers must include: type of stay, sharing, bedding, washrooms, electricity, and night-by-night accommodation plan.`
+          };
+        }
+        return { data: accommodationField, trip };
+      }
+      
+      if (detailType === 'gear') {
+        const gearField = (trip as any).packingList || (trip as any).gear;
+        if (!gearField || gearField.trim() === '') {
+          return {
+            error: true,
+            message: `The organizer (${(trip as any).organizerId.name}) has not added a gear/packing list. Organizers must add: mandatory items, optional items, and rental availability.`
+          };
+        }
+        return { data: gearField, trip };
+      }
+      
+      if (detailType === 'price') {
+        if (!trip.price || trip.price === 0) {
+          return {
+            error: true,
+            message: `The organizer (${(trip as any).organizerId.name}) has not added pricing yet. Organizers must add: per-person cost, inclusions, exclusions, and extra charges.`
+          };
+        }
+        return { 
+          data: `₹${trip.price} per person`, 
+          trip,
+          inclusions: (trip as any).paymentConfig?.inclusions,
+          exclusions: (trip as any).paymentConfig?.exclusions
+        };
+      }
+      
+      if (detailType === 'itinerary') {
+        if (!trip.itinerary && (!trip.schedule || trip.schedule.length === 0)) {
+          return {
+            error: true,
+            message: `The organizer (${(trip as any).organizerId.name}) has not added an itinerary for this trip.`
+          };
+        }
+        return { 
+          data: trip.itinerary, 
+          schedule: trip.schedule,
+          trip 
+        };
+      }
+      
+      return { error: true, message: 'Unknown detail type requested.' };
+    } catch (error) {
+      console.error('Error fetching trip detail:', error);
+      return {
+        error: true,
+        message: 'Database error while fetching trip details.'
+      };
+    }
+  }
+
   // RAG-style response for TrekTribe-specific queries
   private async generateRagResponse(message: string, context: any) {
-    // Use knowledge base for comprehensive context retrieval
-    const kbResults = await knowledgeBaseService.search(message, 5, 'trip');
+    const lowerMessage = message.toLowerCase();
     
     // Safety-sensitive queries: provide immediate local guidance and offer agent handoff
     const safetyKeywords = ['safety', 'safe', 'solo female', 'solo', 'female', 'safety concerns', 'emergency'];
-    if (safetyKeywords.some(k => message.toLowerCase().includes(k))) {
+    if (safetyKeywords.some(k => lowerMessage.includes(k))) {
       // Search knowledge base for safety info
       const safetyResults = await knowledgeBaseService.search(message, 3);
       const safetyDocs = safetyResults.filter(r => 
@@ -447,64 +645,186 @@ class TrekTribeAI {
       const safetyResponse = `Safety tips for solo female travelers:\n- Prefer guided groups or trusted local guides; avoid isolated areas at night.\n- Share itinerary with family and maintain regular check-ins; carry a charged power bank.\n- Respect local customs and dress modestly where appropriate.\n- Keep copies of ID and emergency contacts; note nearest hospitals and police stations.\n- For high-altitude treks, acclimatize properly and check weather/road conditions before travel.\nIf you'd like, I can connect you with a human agent for detailed local safety planning.`;
       return { response: safetyResponse, suggestions: ['Connect me with an agent', 'Show local emergency contacts'], requiresHumanAgent: false };
     }
+
+    // STRICT RULE: Extract trip and organizer from message and context
+    let currentTrip = context?.currentTrip || this.extractTripName(message);
+    let currentOrganizer = context?.organizer || this.extractOrganizerName(message);
     
-    // Compose context from knowledge base results
-    let docsContext = '';
-    if (kbResults.length > 0) {
-      docsContext = kbResults
-        .slice(0, 3)
-        .map((r, idx) => `${idx + 1}. ${r.document.title}\n${r.document.content}`)
-        .join('\n\n');
-    } else {
-      // Fallback to legacy trip search if KB has no results
-      const searchResults = await this.generateSmartSearchResults(message, {});
-      const top = (searchResults || []).slice(0, 3);
-      
-      if (top.length === 0) {
-        // Seed a small curated fallback list
-        const curated = [
-          { title: 'Parvati Valley Budget Trek', destination: 'Parvati Valley, Himachal', price: '₹6,500', description: 'A 4-5 day beginner-friendly trek with homestays and local guides.' },
-          { title: 'Kheerganga Short Trek', destination: 'Kheerganga, Himachal', price: '₹4,000', description: 'Popular 2-day trek with hot springs, suitable for monsoon window closures.' },
-          { title: 'Spiti Valley Explorer', destination: 'Spiti Valley, Himachal', price: '₹14,000', description: 'A longer 6-day itinerary for high-altitude exploration and cultural visits.' }
-        ];
-        docsContext = curated.map((t, idx) => `Trip ${idx + 1}: ${t.title} - ${t.destination}. Price: ${t.price}. Short: ${t.description}`).join('\n\n');
-      } else {
-        docsContext = top.map((t: any, idx: number) => `Trip ${idx + 1}: ${t.title} - ${t.destination || ''}. Price: ${t.price || 'N/A'}. Short: ${t.description?.slice(0, 200) || ''}`).join('\n\n');
+    // Intent detection
+    const wantsStay = /stay|accommodation|hotel|hostel|homestay|camp|tent|campsite|room|lodge/.test(lowerMessage);
+    const wantsPacking = /(pack|packing|gear|equipment|bring|carry|stuff)/.test(lowerMessage);
+    const wantsPrice = /(price|cost|fee|fees|charge|charges|payment|pay|amount|how much|budget)/.test(lowerMessage);
+    const wantsItinerary = /itinerary|schedule|plan|day by day|activities/.test(lowerMessage);
+    const wantsDifficulty = /difficult|difficulty|level|fitness|easy|hard|moderate/.test(lowerMessage);
+    
+    const isDetailQuery = wantsStay || wantsPacking || wantsPrice || wantsItinerary || wantsDifficulty;
+    
+    // If user mentioned a trip name in this message, update context
+    if (currentTrip) {
+      context.currentTrip = currentTrip;
+    }
+    
+    // If user mentioned organizer, update context
+    if (currentOrganizer) {
+      context.organizer = currentOrganizer;
+    }
+    
+    // RULE: If detail query without organizer, check if multiple organizers exist
+    if (isDetailQuery && context.currentTrip && !context.organizer) {
+      const multiCheck = await this.checkMultipleOrganizers(context.currentTrip);
+      if (multiCheck.hasMultiple) {
+        return {
+          response: `Multiple organizers offer "${context.currentTrip}" trips:\n\n${multiCheck.organizers.map((org, i) => `${i + 1}. ${org}`).join('\n')}\n\nWhich organizer's ${context.currentTrip} trip are you referring to?`,
+          suggestions: multiCheck.organizers.map(org => `${org}'s ${context.currentTrip}`),
+          requiresHumanAgent: false,
+          source: 'organizer_disambiguation'
+        };
+      } else if (multiCheck.organizers.length === 1) {
+        // Auto-set organizer if only one exists
+        context.organizer = multiCheck.organizers[0];
+        currentOrganizer = multiCheck.organizers[0];
       }
+    }
+    
+    // RULE: Handle accommodation queries with DB-only data
+    if (wantsStay && context.currentTrip && context.organizer) {
+      const result = await this.getTripDetailFromDB(context.currentTrip, context.organizer, 'accommodation');
+      if (result.error) {
+        return {
+          response: result.message,
+          suggestions: ['Show itinerary', 'Contact organizer', 'Browse other trips'],
+          requiresHumanAgent: false,
+          source: 'db_missing_field'
+        };
+      }
+      return {
+        response: `Accommodation details for ${context.currentTrip} by ${context.organizer}:\n\n${result.data}`,
+        suggestions: ['What about meals?', 'Show pricing', 'Show gear list'],
+        requiresHumanAgent: false,
+        source: 'db_accommodation'
+      };
+    }
+    
+    // RULE: Handle gear/packing queries with DB-only data
+    if (wantsPacking && context.currentTrip && context.organizer) {
+      const result = await this.getTripDetailFromDB(context.currentTrip, context.organizer, 'gear');
+      if (result.error) {
+        return {
+          response: result.message,
+          suggestions: ['Show itinerary', 'Contact organizer', 'Browse other trips'],
+          requiresHumanAgent: false,
+          source: 'db_missing_field'
+        };
+      }
+      return {
+        response: `Gear/Packing list for ${context.currentTrip} by ${context.organizer}:\n\n${result.data}`,
+        suggestions: ['Can I rent gear?', 'Show pricing', 'Show accommodation'],
+        requiresHumanAgent: false,
+        source: 'db_gear'
+      };
+    }
+    
+    // RULE: Handle pricing queries with DB-only data
+    if (wantsPrice && context.currentTrip && context.organizer) {
+      const result = await this.getTripDetailFromDB(context.currentTrip, context.organizer, 'price');
+      if (result.error) {
+        return {
+          response: result.message,
+          suggestions: ['Show itinerary', 'Contact organizer', 'Browse other trips'],
+          requiresHumanAgent: false,
+          source: 'db_missing_field'
+        };
+      }
+      let priceResponse = `Price for ${context.currentTrip} by ${context.organizer}: ${result.data}`;
+      if (result.inclusions) {
+        priceResponse += `\n\nInclusions: ${result.inclusions}`;
+      }
+      if (result.exclusions) {
+        priceResponse += `\n\nExclusions: ${result.exclusions}`;
+      }
+      return {
+        response: priceResponse,
+        suggestions: ['Book this trip', 'Show accommodation', 'Show gear list'],
+        requiresHumanAgent: false,
+        source: 'db_price'
+      };
+    }
+    
+    // RULE: Handle itinerary queries with DB-only data
+    if (wantsItinerary && context.currentTrip && context.organizer) {
+      const result = await this.getTripDetailFromDB(context.currentTrip, context.organizer, 'itinerary');
+      if (result.error) {
+        return {
+          response: result.message,
+          suggestions: ['Show pricing', 'Contact organizer', 'Browse other trips'],
+          requiresHumanAgent: false,
+          source: 'db_missing_field'
+        };
+      }
+      let itineraryResponse = `Itinerary for ${context.currentTrip} by ${context.organizer}:`;
+      if (result.schedule && result.schedule.length > 0) {
+        itineraryResponse += '\n\n' + result.schedule.map((day: any) => 
+          `Day ${day.day}: ${day.title}\n${day.activities.join(', ')}`
+        ).join('\n\n');
+      } else if (result.data) {
+        itineraryResponse += '\n\n' + result.data;
+      }
+      return {
+        response: itineraryResponse,
+        suggestions: ['Show pricing', 'Show accommodation', 'Book this trip'],
+        requiresHumanAgent: false,
+        source: 'db_itinerary'
+      };
+    }
+    
+    // If detail query but missing context, prompt for it
+    if (isDetailQuery && !context.currentTrip) {
+      return {
+        response: 'Which trip are you interested in? Please tell me the trip name so I can provide specific details.',
+        suggestions: ['Kedarkantha trek', 'Roopkund trek', 'Browse all trips'],
+        requiresHumanAgent: false,
+        source: 'missing_trip_context'
+      };
+    }
+    
+    // For general trip search (not detail queries), fetch from DB
+    let docsContext = '';
+    const searchResults = await this.generateSmartSearchResults(message, {});
+    const top = (searchResults || []).slice(0, 3);
+    
+    if (top.length === 0) {
+      // Seed a small curated fallback list
+      const curated = [
+        { title: 'Parvati Valley Budget Trek', destination: 'Parvati Valley, Himachal', price: '₹6,500', description: 'A 4-5 day beginner-friendly trek with homestays and local guides.' },
+        { title: 'Kheerganga Short Trek', destination: 'Kheerganga, Himachal', price: '₹4,000', description: 'Popular 2-day trek with hot springs, suitable for monsoon window closures.' },
+        { title: 'Spiti Valley Explorer', destination: 'Spiti Valley, Himachal', price: '₹14,000', description: 'A longer 6-day itinerary for high-altitude exploration and cultural visits.' }
+      ];
+      docsContext = curated.map((t, idx) => `Trip ${idx + 1}: ${t.title} - ${t.destination}. Price: ${t.price}. Short: ${t.description}`).join('\n\n');
+    } else {
+      docsContext = top.map((t: any, idx: number) => `Trip ${idx + 1}: ${t.title} - ${t.destination || ''}. Price: ${t.price || 'N/A'}. Short: ${t.description?.slice(0, 200) || ''}`).join('\n\n');
     }
 
     const apiKey = process.env.OPENAI_API_KEY;
     
-    // If no OpenAI API key, return knowledge base results directly
+    // If no OpenAI API key, return DB results directly
     if (!apiKey) {
-      if (kbResults.length > 0 && kbResults[0].similarity > 0.2) {
-        const topResult = kbResults[0];
-        const relatedTrips = kbResults.slice(1, 4).filter(r => r.document.type === 'trip');
-        
-        let response = topResult.document.content;
-        if (relatedTrips.length > 0) {
-          response += '\n\nRelated trips:\n' + relatedTrips
-            .map(r => `• ${r.document.title}`)
-            .join('\n');
-        }
-        
+      if (top.length > 0) {
         return { 
-          response, 
+          response: `Based on your query, here are some trips:\\n\\n${docsContext}\\n\\nWould you like to know more about any of these trips?`, 
           suggestions: ['Help me book', 'Tell me more', 'Show similar trips'],
           requiresHumanAgent: false,
-          source: 'knowledge_base_direct',
-          matchedTrips: kbResults.filter(r => r.document.type === 'trip').map(r => r.document.metadata.tripId)
+          source: 'db_direct'
         };
       }
       
       // Fallback to context display
-      return { response: `Based on your query, here's what I found:\n\n${docsContext}\n\nWould you like to know more about any of these trips?`, suggestions: ['Help me book a trip', 'Show trip details', 'Compare prices'], requiresHumanAgent: false, source: 'knowledge_base_display' };
+      return { response: `Based on your query, here's what I found:\\n\\n${docsContext}\\n\\nWould you like to know more about any of these trips?`, suggestions: ['Help me book a trip', 'Show trip details', 'Compare prices'], requiresHumanAgent: false, source: 'db_display' };
     }
 
     try {
       const client = new OpenAI({ apiKey });
       const systemPrompt = `You are TrekTribe assistant. Use only the provided TrekTribe context when answering questions about trips, bookings, policies. If the user asks general non-TrekTribe questions, briefly answer then offer to help with trip planning.`;
-      const userPrompt = `Context:\n${docsContext}\n\nUser question:\n${message}\n\nAnswer concisely and include actionable next steps (e.g., 'Book', 'Modify booking', 'Contact agent') if relevant.`;
+      const userPrompt = `Context:\\n${docsContext}\\n\\nUser question:\\n${message}\\n\\nAnswer concisely and include actionable next steps (e.g., 'Book', 'Modify booking', 'Contact agent') if relevant.`;
 
       const resp = await client.chat.completions.create({
         model: process.env.RAG_MODEL || (process.env.GENERAL_AI_MODEL || 'gpt-3.5-turbo'),
@@ -519,14 +839,13 @@ class TrekTribeAI {
       return { response: text.trim(), suggestions: [], requiresHumanAgent: false, aiContextDocs: top, source: 'openai_rag' };
     } catch (error: any) {
       console.error('⚠️ OpenAI RAG error:', error?.message);
-      // Fallback to knowledge base if OpenAI fails
-      if (kbResults.length > 0 && kbResults[0].similarity > 0.2) {
-        const topResult = kbResults[0];
+      // Fallback to DB if OpenAI fails
+      if (top.length > 0) {
         return { 
-          response: topResult.document.content, 
+          response: `Based on your query, here are some trips:\\n\\n${docsContext}\\n\\nWould you like more details?`, 
           suggestions: ['Tell me more', 'Show related trips'],
           requiresHumanAgent: false,
-          source: 'knowledge_base_openai_fallback'
+          source: 'db_openai_fallback'
         };
       }
       return { response: 'I encountered an error while searching trips. Please try again or connect with an agent.', suggestions: ['Connect me with an agent'], requiresHumanAgent: true };
@@ -1027,18 +1346,99 @@ router.get('/analytics', aiMetricsMiddleware('analytics'), async (req: Request, 
   }
 });
 
-// AI chat assistance
+// AI chat assistance with conversation history and follow-up support
 router.post('/chat', aiMetricsMiddleware('chat'), validateChatMessage, handleValidationErrors, async (req: Request, res: Response) => {
   try {
     const { message, context } = req.body;
     const startTime = Date.now();
     
-    const aiResponse = await aiService.generateChatResponse(message, context);
+    // Get or create session ID
+    const sessionId = req.headers['x-session-id'] as string || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const userId = (req as any).user?.id; // From auth middleware if authenticated
+    
+    // Extract metadata from user message
+    const metadata = aiConversationService.extractMetadata(message);
+    
+    // Save user message to conversation history
+    await aiConversationService.addUserMessage(sessionId, message, metadata);
+    
+    // Get conversation context for follow-up handling
+    const conversationContext = await aiConversationService.getConversationContext(sessionId);
+    
+    // Detect and handle follow-ups
+    const followUpInfo = aiConversationService.detectFollowUp(message, conversationContext);
+    let enhancedMessage = message;
+    
+    if (followUpInfo.isFollowUp) {
+      enhancedMessage = aiConversationService.enhanceMessageWithContext(message, conversationContext);
+      console.log('📍 Follow-up detected:', followUpInfo.followUpType, 'Enhanced message:', enhancedMessage);
+    }
+    
+    // Get conversation history for AI context
+    const conversationHistory = await aiConversationService.getConversationHistory(sessionId, 6);
+    
+    // Merge conversation history with provided context + persist currentTrip/organizer
+    const enrichedContext = {
+      ...context,
+      conversationHistory: conversationHistory.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      })),
+      followUpInfo,
+      ...conversationContext,
+      // Preserve currentTrip and organizer from incoming context or conversation
+      currentTrip: context?.currentTrip || conversationContext?.currentTrip,
+      organizer: context?.organizer || conversationContext?.organizer
+    };
+    
+    // Generate AI response with enriched context
+    const aiResponse = await aiService.generateChatResponse(enhancedMessage, enrichedContext);
+    
+    // Save AI response to conversation history
+    await aiConversationService.addAssistantMessage(
+      sessionId, 
+      aiResponse.response,
+      {
+        intent: metadata.intent,
+        entities: metadata.entities,
+        requiresFollowUp: aiResponse.requiresHumanAgent
+      }
+    );
+    
+    // Update conversation context if we extracted entities or intent OR trip/organizer
+    const contextUpdate: any = {};
+    if (metadata.intent) contextUpdate.intent = metadata.intent;
+    if (metadata.entities) contextUpdate.entities = metadata.entities;
+    
+    // CRITICAL: Persist currentTrip and organizer in conversation context
+    if (enrichedContext.currentTrip) {
+      contextUpdate.currentTrip = enrichedContext.currentTrip;
+    }
+    if (enrichedContext.organizer) {
+      contextUpdate.organizer = enrichedContext.organizer;
+    }
+    
+    if (Object.keys(contextUpdate).length > 0) {
+      await aiConversationService.updateConversationContext(sessionId, contextUpdate);
+    }
     
     // Record metrics
     const responseTime = Date.now() - startTime;
-    const sessionId = req.headers['x-session-id'] as string || 'anonymous';
     aiMetricsService.recordChatMessage(sessionId, responseTime, aiResponse.requiresHumanAgent);
+    
+    // Update conversation metrics
+    await aiConversationService.updateMetrics(sessionId, {
+      responseTime,
+      aiConfidence: aiResponse.confidence || 0.5
+    });
+    
+    // Escalate to human if needed
+    if (aiResponse.requiresHumanAgent) {
+      await aiConversationService.escalateToHuman(
+        sessionId, 
+        'User query requires human agent assistance'
+      );
+    }
     
     // Return both names for backward compatibility with older clients/tests that expect
     // a top-level `response` string and a flattened shape.
@@ -1049,11 +1449,13 @@ router.post('/chat', aiMetricsMiddleware('chat'), validateChatMessage, handleVal
 
     res.json({
       success: true,
+      sessionId, // Return sessionId for client to use in subsequent requests
       userMessage: message,
       // original structured response
       aiResponse,
       // flattened top-level fields (backwards compatibility)
       ...flattened,
+      followUpDetected: followUpInfo.isFollowUp,
       timestamp: new Date().toISOString()
     });
   } catch (error: any) {
@@ -1192,6 +1594,163 @@ router.post('/knowledge-refresh', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Failed to refresh knowledge base',
+      message: error.message
+    });
+  }
+});
+
+// Get conversation history (for human agents)
+router.get('/conversation/:sessionId', async (req: Request, res: Response) => {
+  try {
+    const { sessionId } = req.params;
+    
+    const conversationData = await aiConversationService.getConversationForAgent(sessionId);
+    
+    if (!conversationData.conversation) {
+      return res.status(404).json({
+        success: false,
+        error: 'Conversation not found'
+      });
+    }
+    
+    res.json({
+      success: true,
+      ...conversationData,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('Get conversation error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve conversation',
+      message: error.message
+    });
+  }
+});
+
+// Get escalated conversations (for human agents)
+router.get('/conversations/escalated', async (req: Request, res: Response) => {
+  try {
+    const agentId = req.query.agentId as string;
+    
+    const conversations = await aiConversationService.getEscalatedConversations(agentId);
+    
+    res.json({
+      success: true,
+      conversations,
+      count: conversations.length,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('Get escalated conversations error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve escalated conversations',
+      message: error.message
+    });
+  }
+});
+
+// Assign conversation to agent
+router.post('/conversation/:sessionId/assign', async (req: Request, res: Response) => {
+  try {
+    const { sessionId } = req.params;
+    const { agentId } = req.body;
+    
+    if (!agentId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Agent ID is required'
+      });
+    }
+    
+    await aiConversationService.assignToAgent(sessionId, agentId);
+    
+    res.json({
+      success: true,
+      message: 'Conversation assigned successfully',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('Assign conversation error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to assign conversation',
+      message: error.message
+    });
+  }
+});
+
+// Update conversation satisfaction rating
+router.post('/conversation/:sessionId/rating', async (req: Request, res: Response) => {
+  try {
+    const { sessionId } = req.params;
+    const { rating } = req.body;
+    
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({
+        success: false,
+        error: 'Rating must be between 1 and 5'
+      });
+    }
+    
+    await aiConversationService.updateMetrics(sessionId, {
+      userSatisfaction: rating
+    });
+    
+    res.json({
+      success: true,
+      message: 'Rating recorded successfully',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('Update rating error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update rating',
+      message: error.message
+    });
+  }
+});
+
+// Get conversation statistics (for admins/monitoring)
+router.get('/conversations/stats', async (req: Request, res: Response) => {
+  try {
+    const stats = await aiConversationService.getStatistics();
+    
+    res.json({
+      success: true,
+      stats,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('Get conversation stats error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve statistics',
+      message: error.message
+    });
+  }
+});
+
+// Cleanup old conversations (admin/cron)
+router.post('/conversations/cleanup', async (req: Request, res: Response) => {
+  try {
+    const { daysOld = 30 } = req.body;
+    
+    const deletedCount = await aiConversationService.cleanupOldConversations(daysOld);
+    
+    res.json({
+      success: true,
+      message: `Cleaned up ${deletedCount} old conversations`,
+      deletedCount,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('Cleanup conversations error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to cleanup conversations',
       message: error.message
     });
   }

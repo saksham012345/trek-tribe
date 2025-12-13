@@ -13,6 +13,21 @@ import { smsService } from '../services/smsService';
 
 const router = Router();
 
+// Basic weak-password blocklist to prevent trivially guessable secrets
+const COMMON_PASSWORDS = new Set([
+  'password','password1','password123','123456','123456789','qwerty','letmein','welcome','admin','iloveyou','abc123','111111','123123','qwertyuiop','monkey','dragon','football','baseball'
+]);
+
+const strongPasswordSchema = z.string()
+  .min(10, { message: 'Your password must be at least 10 characters long.' })
+  .regex(/[A-Z]/, { message: 'Your password must include an uppercase letter.' })
+  .regex(/[a-z]/, { message: 'Your password must include a lowercase letter.' })
+  .regex(/[0-9]/, { message: 'Your password must include a number.' })
+  .regex(/[^A-Za-z0-9]/, { message: 'Your password must include a symbol.' })
+  .refine((val) => !COMMON_PASSWORDS.has(val.toLowerCase()), {
+    message: 'The password you entered is too weak. Please choose a stronger one.'
+  });
+
 // Google OAuth client setup
 const googleClientIds = (process.env.GOOGLE_CLIENT_IDS || process.env.GOOGLE_CLIENT_ID || '')
   .split(',')
@@ -21,8 +36,8 @@ const googleClientIds = (process.env.GOOGLE_CLIENT_IDS || process.env.GOOGLE_CLI
 const googleClient = new OAuth2Client();
 
 const registerSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
+  email: z.string().email({ message: 'Invalid email format. Please check and try again.' }),
+  password: strongPasswordSchema,
   name: z.string().min(1),
   // Keep phone optional to remain compatible with existing tests and clients
   phone: z.string().regex(/^[+]?[1-9]\d{1,14}$/).optional(),
@@ -31,7 +46,12 @@ const registerSchema = z.object({
 
 router.post('/register', async (req, res) => {
   const parsed = registerSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: parsed.error.flatten(),
+      message: 'The data you submitted is incomplete or invalid. Please fix the highlighted fields.'
+    });
+  }
   const { email, password, name, phone, role } = parsed.data;
 
   const existing = await User.findOne({ email });
@@ -43,7 +63,7 @@ router.post('/register', async (req, res) => {
     if (existingPhone) return res.status(400).json({ error: 'Phone number already in use' });
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
+  const passwordHash = await bcrypt.hash(password, 12);
   const user = await User.create({ email, passwordHash, name, phone, role: role ?? 'traveler' });
 
   // Generate and store 10-minute OTP for email verification
@@ -116,16 +136,24 @@ router.post('/register', async (req, res) => {
   }
 });
 
-const loginSchema = z.object({ email: z.string().email(), password: z.string().min(6) });
+const loginSchema = z.object({
+  email: z.string().email({ message: 'Invalid email format. Please check and try again.' }),
+  password: z.string().min(1, { message: 'Password is required.' })
+});
 
 router.post('/login', async (req, res) => {
   const parsed = loginSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: parsed.error.flatten(),
+      message: 'Invalid email or password format. Please check and try again.'
+    });
+  }
   const { email, password } = parsed.data;
   const user = await User.findOne({ email });
-  if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+  if (!user) return res.status(401).json({ error: 'Invalid credentials', message: 'Your email or password is incorrect. Please try again.' });
   const ok = await bcrypt.compare(password, user.passwordHash);
-  if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
+  if (!ok) return res.status(401).json({ error: 'Invalid credentials', message: 'Your email or password is incorrect. Please try again.' });
 
   // Admin and agent users don't require email verification
   if (!user.emailVerified && user.role !== 'admin' && user.role !== 'agent') {
@@ -255,7 +283,7 @@ router.post('/google', async (req, res) => {
     } else {
       // Create new user with Google information
       // Generate a random password hash (won't be used but required by schema)
-      const dummyPasswordHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
+      const dummyPasswordHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
       
       user = await User.create({
         email,

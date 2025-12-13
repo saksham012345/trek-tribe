@@ -7,6 +7,7 @@ import Register from './pages/Register';
 import AIChatWidget from './components/AIChatWidgetClean';
 import CookieConsent from './components/CookieConsent';
 import APIDebugger from './components/APIDebugger';
+import FloatingJoinCTA from './components/FloatingJoinCTA';
 import { Trip } from './types';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
@@ -33,6 +34,11 @@ const OrganizerCRM = React.lazy(() => import('./pages/OrganizerCRM'));
 const ProfessionalCRMDashboard = React.lazy(() => import('./pages/ProfessionalCRMDashboard'));
 const EnhancedCRMDashboard = React.lazy(() => import('./pages/EnhancedCRMDashboard'));
 const PaymentVerificationDashboard = React.lazy(() => import('./pages/PaymentVerificationDashboard'));
+const OrganizerRouteOnboarding = React.lazy(() => import('./pages/OrganizerRouteOnboarding'));
+const OrganizerSettlements = React.lazy(() => import('./pages/OrganizerSettlements'));
+const MarketplaceCheckout = React.lazy(() => import('./pages/MarketplaceCheckout'));
+const JoinTheTribe = React.lazy(() => import('./pages/JoinTheTribe'));
+const Subscribe = React.lazy(() => import('./pages/Subscribe'));
 
 function AppContent() {
   const { user, loading, login: handleLogin, logout: handleLogout } = useAuth();
@@ -89,6 +95,13 @@ function AppContent() {
             <Route 
               path="/register" 
               element={user ? <Navigate to="/home" /> : <Register onLogin={handleLogin} />} 
+            />
+            <Route path="/join-the-tribe" element={<JoinTheTribe />} />
+            <Route 
+              path="/subscribe" 
+              element={
+                user ? <Subscribe /> : <Navigate to="/login" state={{ from: { pathname: '/subscribe' } }} />
+              } 
             />
             <Route 
               path="/forgot-password" 
@@ -161,9 +174,30 @@ function AppContent() {
                 <Navigate to="/home?error=organizer-required" />
               }
             />
+            <Route
+              path="/organizer/route-onboarding"
+              element={
+                !user ? <Navigate to="/login" /> :
+                user.role === 'organizer' || user.role === 'admin' ? <OrganizerRouteOnboarding /> :
+                <Navigate to="/home?error=organizer-required" />
+              }
+            />
+            <Route
+              path="/organizer/settlements"
+              element={
+                !user ? <Navigate to="/login" /> :
+                user.role === 'organizer' || user.role === 'admin' ? <OrganizerSettlements /> :
+                <Navigate to="/home?error=organizer-required" />
+              }
+            />
+            <Route
+              path="/checkout/marketplace"
+              element={user ? <MarketplaceCheckout /> : <Navigate to="/login" />}
+            />
           </Routes>
           </React.Suspense>
         </main>
+        <FloatingJoinCTA />
         
         {/* AI Chat Support Widget */}
         <AIChatWidget />

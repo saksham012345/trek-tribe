@@ -17,7 +17,7 @@ if (process.env.SENTRY_DSN) {
 export function errorHandler(err: any, req: Request, res: Response, next: NextFunction) {
   // Default to 500
   let status = 500;
-  let message = 'Internal server error';
+  let message = 'Something went wrong on our side. Please try again in a moment.';
 
   // Mongoose validation error
   if (err && (err.name === 'ValidationError' || err.code === 11000)) {
@@ -27,7 +27,7 @@ export function errorHandler(err: any, req: Request, res: Response, next: NextFu
       const parts = Object.keys(err.errors).map(k => err.errors[k].message);
       message = parts.join('; ');
     } else if (err.code === 11000) {
-      message = 'Duplicate key error';
+      message = 'This record already exists. Please use a different value.';
     } else {
       message = err.message || 'Validation error';
     }
@@ -36,13 +36,13 @@ export function errorHandler(err: any, req: Request, res: Response, next: NextFu
   // Mongoose CastError (invalid ObjectId)
   if (err && err.name === 'CastError') {
     status = 400;
-    message = 'Invalid identifier';
+    message = 'The provided identifier is invalid. Please check and try again.';
   }
 
   // JWT errors
   if (err && (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError')) {
     status = 401;
-    message = err.message || 'Invalid or expired token';
+    message = err.message || 'Your session has expired. Please log in again.';
   }
 
   // express-validator style error (we throw with statusCode earlier)

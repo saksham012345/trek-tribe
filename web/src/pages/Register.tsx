@@ -22,6 +22,7 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
     role: undefined as undefined | 'traveler' | 'organizer'
   });
   const [error, setError] = useState('');
+  const [passwordHint, setPasswordHint] = useState('Use at least 10 characters with upper, lower, number, and symbol.');
   const [loading, setLoading] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [showEmailVerification, setShowEmailVerification] = useState(false);
@@ -47,11 +48,27 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
     if (error) {
       setError('');
     }
-    
+    const { name, value } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: value
     });
+
+    if (name === 'password') {
+      const checks = [
+        /[A-Z]/.test(value),
+        /[a-z]/.test(value),
+        /[0-9]/.test(value),
+        /[^A-Za-z0-9]/.test(value),
+        value.length >= 10,
+      ];
+      const score = checks.filter(Boolean).length;
+      if (score >= 5) {
+        setPasswordHint('Looks good! Strong password.');
+      } else {
+        setPasswordHint('Your password must include upper/lowercase letters, a number, a symbol, and be at least 10 characters.');
+      }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -311,6 +328,7 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
                   className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
                   placeholder="Create a secure password"
                 />
+                <p className="text-xs text-forest-600 mt-1">{passwordHint}</p>
               </div>
               
               <div>
