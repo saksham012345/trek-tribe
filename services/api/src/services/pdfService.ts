@@ -361,7 +361,7 @@ class PDFService {
   /**
    * Add header to PDF
    */
-  private addHeader(doc: PDFKit.PDFDocument) {
+  private addHeader(doc: InstanceType<typeof PDFDocument>) {
     // Logo/Brand
     doc.fontSize(28)
        .fillColor(this.BRAND_COLOR)
@@ -382,7 +382,7 @@ class PDFService {
   /**
    * Add footer to PDF
    */
-  private addFooter(doc: PDFKit.PDFDocument) {
+  private addFooter(doc: InstanceType<typeof PDFDocument>) {
     const pageHeight = doc.page.height;
     
     // Horizontal line

@@ -47,6 +47,7 @@ services:
     healthCheckPath: /health
     dockerfilePath: ./Dockerfile
     dockerContext: .
+    # Docker ENTRYPOINT will be used (entrypoint.py)
     envVars:
       - key: PORT
         value: 8000

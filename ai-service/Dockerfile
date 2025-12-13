@@ -30,4 +30,5 @@ RUN chmod +x /app/entrypoint.py || true
 EXPOSE 8000
 
 # Runtime entrypoint script will download model and build index on first boot (Render-friendly)
-ENTRYPOINT ["python", "./entrypoint.py"]
+# The entrypoint.py script will then exec uvicorn with proper module path
+ENTRYPOINT ["python", "/app/entrypoint.py"]

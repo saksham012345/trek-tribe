@@ -1,10 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { authenticateToken } from './auth';
+import { AuthRequest } from '../types/express';
 
-// Use the globally extended Request type
-export interface AuthRequest extends Request {
-  // Request already has user and auth from global declaration in auth.ts
-}
+export { AuthRequest };
 
 /**
  * Middleware to check if user has required role(s)
