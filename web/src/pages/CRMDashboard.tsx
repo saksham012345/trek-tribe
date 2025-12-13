@@ -31,7 +31,7 @@ interface CRMStats {
 const CRMDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { add } = useToast();
+  const { showToast, toasts, removeToast, success } = useToast();
 
   const [hasCRMAccess, setHasCRMAccess] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -60,7 +60,7 @@ const CRMDashboard: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Failed to check CRM access:', error);
-      add('Failed to verify CRM access. Please upgrade your plan.', 'error');
+      showToast('Failed to verify CRM access. Please upgrade your plan.', 'error');
     } finally {
       setLoading(false);
     }
@@ -88,9 +88,9 @@ const CRMDashboard: React.FC = () => {
     try {
       await api.put(`/api/crm/leads/${leadId}`, { status: newStatus });
       fetchLeads();
-      add('Lead status updated!', 'success');
+      showToast('Lead status updated!', 'success');
     } catch (error: any) {
-      add('Failed to update lead status', 'error');
+      showToast('Failed to update lead status', 'error');
     }
   };
 
@@ -99,9 +99,9 @@ const CRMDashboard: React.FC = () => {
       await api.put(`/api/crm/leads/${leadId}`, { notes: editingNote });
       fetchLeads();
       setEditingNote('');
-      add('Note updated!', 'success');
+      showToast('Note updated!', 'success');
     } catch (error: any) {
-      add('Failed to update note', 'error');
+      showToast('Failed to update note', 'error');
     }
   };
 
@@ -109,9 +109,9 @@ const CRMDashboard: React.FC = () => {
     try {
       await api.post(`/api/crm/leads/${leadId}/verify`);
       fetchLeads();
-      add('Lead verified!', 'success');
+      showToast('Lead verified!', 'success');
     } catch (error: any) {
-      add('Failed to verify lead', 'error');
+      showToast('Failed to verify lead', 'error');
     }
   };
 

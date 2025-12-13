@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import api from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../components/ui/Toast';
-import Tooltip from '../components/ui/Tooltip';
+import { Tooltip } from '../components/ui/Tooltip';
 import { Skeleton } from '../components/ui/Skeleton';
 
 interface StatusResponse {
