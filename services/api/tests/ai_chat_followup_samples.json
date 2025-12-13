@@ -1,0 +1,74 @@
+[
+  {
+    "name": "booking_kedarkantha_followups_gibberish",
+    "sessionId": "test_booking_1",
+    "messages": [
+      "I want to book Kedarkantha in December",
+      "what about stay?",
+      "and gear?? lol asdf",
+      "how much tho???"
+    ],
+    "expected": {
+      "followUps": [1, 2, 3],
+      "intent": "booking",
+      "entities": ["Kedarkantha", "December"],
+      "shouldKeepContext": true
+    }
+  },
+  {
+    "name": "general_world_food_followups",
+    "sessionId": "test_general_1",
+    "messages": [
+      "Tell me about Japan weather in spring",
+      "food?",
+      "and umm desserts???",
+      "what else lol"
+    ],
+    "expected": {
+      "followUps": [1, 2, 3],
+      "intent": "general_help",
+      "entities": ["Japan", "spring"],
+      "shouldKeepContext": true
+    }
+  },
+  {
+    "name": "safety_solo_female_followups",
+    "sessionId": "test_safety_1",
+    "messages": [
+      "Is it safe for solo female?",
+      "what if I get lost",
+      "and tents? asdfasdf"
+    ],
+    "expected": {
+      "followUps": [1, 2],
+      "intent": "safety",
+      "shouldKeepContext": true
+    }
+  },
+  {
+    "name": "payment_refund_followups_gibberish",
+    "sessionId": "test_payment_1",
+    "messages": [
+      "Do you take UPI?",
+      "refunds???",
+      "kjhasd askjd askjdas?"
+    ],
+    "expected": {
+      "followUps": [1, 2],
+      "intent": "payment",
+      "shouldKeepContext": true
+    }
+  },
+  {
+    "name": "out_of_domain_guardrail",
+    "sessionId": "test_guardrail_1",
+    "messages": [
+      "Solve 10x^2 + 3 = ? lol"
+    ],
+    "expected": {
+      "followUps": [],
+      "intent": null,
+      "shouldRedirectToDomain": true
+    }
+  }
+]

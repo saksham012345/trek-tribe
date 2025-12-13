@@ -9,6 +9,11 @@ import { emailTemplates } from '../templates/emailTemplates';
 import { logger } from '../utils/logger';
 import { auditLogService } from '../services/auditLogService';
 import WebhookEvent from '../models/WebhookEvent';
+import { MarketplaceOrder } from '../models/MarketplaceOrder';
+import { MarketplaceTransfer } from '../models/MarketplaceTransfer';
+import { MarketplaceRefund } from '../models/MarketplaceRefund';
+import { razorpayRouteService } from '../services/razorpayRouteService';
+import { PayoutLedger } from '../models/PayoutLedger';
 
 const router = Router();
 
@@ -45,6 +50,22 @@ router.post('/razorpay', async (req: Request, res: Response) => {
         expected: expectedSignature?.slice(0, 10)
       });
       return res.status(400).json({ error: 'Invalid signature' });
+    }
+
+    // Webhook replay protection: check timestamp (optional but recommended)
+    const webhookTimestamp = req.body?.created_at;
+    if (webhookTimestamp) {
+      const now = Math.floor(Date.now() / 1000);
+      const timeDiff = now - webhookTimestamp;
+      // Reject webhooks older than 5 minutes (300 seconds)
+      if (timeDiff > 300 || timeDiff < -60) {
+        logger.warn('Webhook timestamp out of acceptable range (possible replay attack)', {
+          timeDiff,
+          webhookTimestamp,
+          currentTime: now
+        });
+        return res.status(400).json({ error: 'Webhook timestamp invalid or expired' });
+      }
     }
 
     const { event, payload } = req.body;
@@ -94,6 +115,10 @@ router.post('/razorpay', async (req: Request, res: Response) => {
         await handleRefundProcessed(paymentEntity);
         break;
 
+      case 'transfer.processed':
+        await handleTransferProcessed(payload);
+        break;
+
       case 'payment.authorized':
         await handlePaymentAuthorized(paymentEntity);
         break;
@@ -129,6 +154,10 @@ async function handlePaymentCaptured(payment: any) {
     const { id: paymentId, order_id: orderId, amount, method, notes } = payment;
 
     logger.info('Processing payment.captured', { paymentId, orderId });
+
+    if (notes?.type === 'marketplace') {
+      await handleMarketplacePaymentCaptured(payment);
+    }
 
     // Check if this is a subscription payment
     if (notes?.type === 'subscription') {
@@ -247,6 +276,34 @@ async function handlePaymentCaptured(payment: any) {
   }
 }
 
+async function handleMarketplacePaymentCaptured(payment: any) {
+  const { order_id: orderId, id: paymentId, amount } = payment;
+
+  const order = await MarketplaceOrder.findOne({ orderId });
+  if (!order) {
+    logger.warn('Marketplace order not found for payment', { orderId, paymentId });
+    return;
+  }
+
+  order.status = 'paid';
+  order.paymentId = paymentId;
+  await order.save();
+
+  try {
+    await razorpayRouteService.createTransfer({ orderId, paymentId });
+  } catch (err: any) {
+    logger.error('Auto-split failed after capture', { error: err.message, orderId, paymentId });
+  }
+
+  await auditLogService.log({
+    userId: order.userId.toString(),
+    action: 'PAYMENT',
+    resource: 'MarketplaceOrder',
+    resourceId: order._id.toString(),
+    metadata: { type: 'marketplace.payment_captured', paymentId, amount: amount / 100 }
+  });
+}
+
 /**
  * Handle payment.failed event
  * Triggered when payment fails
@@ -337,6 +394,42 @@ async function handleOrderPaid(order: any) {
   }
 }
 
+async function handleTransferProcessed(payload: any) {
+  const transferEntity = payload?.transfer?.entity;
+  if (!transferEntity) return;
+
+  const transferId = transferEntity.id;
+  const paymentId = transferEntity.source;
+
+  const transferDoc = await MarketplaceTransfer.findOne({ transferId });
+  if (!transferDoc) {
+    logger.warn('Transfer webhook received but transfer not found in DB', { transferId, paymentId });
+    return;
+  }
+
+  transferDoc.status = 'processed';
+  transferDoc.processedAt = new Date();
+  await transferDoc.save();
+
+  await PayoutLedger.create({
+    organizerId: transferDoc.organizerId,
+    type: 'credit',
+    source: 'transfer',
+    referenceId: transferId,
+    amount: transferDoc.payoutAmount,
+    currency: 'INR',
+    description: 'Transfer processed',
+  });
+
+  await auditLogService.log({
+    userId: transferDoc.organizerId.toString(),
+    action: 'PAYMENT',
+    resource: 'MarketplaceTransfer',
+    resourceId: transferDoc._id.toString(),
+    metadata: { type: 'transfer.processed', transferId, paymentId }
+  });
+}
+
 /**
  * Handle refund.processed event
  * Triggered when refund is processed
@@ -383,6 +476,47 @@ async function handleRefundProcessed(refund: any) {
         resource: 'Booking',
         resourceId: booking._id.toString(),
         metadata: { type: 'booking.refund_processed', refundId, paymentId, amount: amount / 100 }
+      });
+    }
+
+    // Marketplace refunds
+    const marketplaceOrder = await MarketplaceOrder.findOne({ paymentId });
+    if (marketplaceOrder) {
+      const refundDoc = await MarketplaceRefund.findOneAndUpdate(
+        { refundId },
+        {
+          orderId: marketplaceOrder._id,
+          paymentId,
+          refundId,
+          amount,
+          currency: marketplaceOrder.currency,
+          reversedTransfer: false,
+          status: 'processed',
+          processedAt: new Date(),
+        },
+        { upsert: true, new: true }
+      );
+
+      marketplaceOrder.status = amount === marketplaceOrder.amount ? 'refunded' : 'partial_refund';
+      marketplaceOrder.refundStatus = amount === marketplaceOrder.amount ? 'processed' : 'partial';
+      await marketplaceOrder.save();
+
+      await PayoutLedger.create({
+        organizerId: marketplaceOrder.organizerId,
+        type: 'debit',
+        source: 'refund',
+        referenceId: refundId,
+        amount,
+        currency: marketplaceOrder.currency,
+        description: 'Marketplace refund processed',
+      });
+
+      await auditLogService.log({
+        userId: marketplaceOrder.userId.toString(),
+        action: 'PAYMENT',
+        resource: 'MarketplaceRefund',
+        resourceId: refundDoc._id.toString(),
+        metadata: { type: 'marketplace.refund_processed', refundId, paymentId, amount: amount / 100 }
       });
     }
   } catch (error: any) {

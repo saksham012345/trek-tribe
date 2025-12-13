@@ -28,23 +28,32 @@ uploadDirs.forEach(dir => {
   }
 });
 
-// File type validation
-const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  const allowedImageTypes = /jpeg|jpg|png|webp/;
-  const allowedDocTypes = /pdf|doc|docx/;
-  
-  const extname = allowedImageTypes.test(path.extname(file.originalname).toLowerCase()) ||
-                  allowedDocTypes.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = allowedImageTypes.test(file.mimetype) || 
-                   file.mimetype === 'application/pdf' ||
-                   file.mimetype === 'application/msword' ||
-                   file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+// File type validation with strict MIME checking
+const ALLOWED_IMAGE_MIMES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+const ALLOWED_DOC_MIMES = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+const ALLOWED_MIMES = [...ALLOWED_IMAGE_MIMES, ...ALLOWED_DOC_MIMES];
 
-  if (extname && mimetype) {
-    return cb(null, true);
-  } else {
-    cb(new Error('Only images (jpeg, jpg, png, webp) and documents (pdf, doc, docx) are allowed'));
+const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  // Strict MIME type validation (don't rely on extension alone)
+  if (!ALLOWED_MIMES.includes(file.mimetype)) {
+    return cb(new Error('This file type is not allowed. Please upload a valid image (JPEG, PNG, WebP) or document (PDF, DOC, DOCX).'));
   }
+  
+  // Also validate extension as secondary check
+  const allowedImageTypes = /\.(jpeg|jpg|png|webp)$/i;
+  const allowedDocTypes = /\.(pdf|doc|docx)$/i;
+  const extname = allowedImageTypes.test(file.originalname) || allowedDocTypes.test(file.originalname);
+  
+  if (!extname) {
+    return cb(new Error('Invalid file extension. Please use JPEG, PNG, WebP, PDF, DOC, or DOCX.'));
+  }
+  
+  // Block suspicious filenames (directory traversal, executable extensions)
+  if (file.originalname.includes('..') || /\.(exe|sh|bat|cmd|ps1)$/i.test(file.originalname)) {
+    return cb(new Error('Invalid or suspicious filename detected.'));
+  }
+  
+  cb(null, true);
 };
 
 // Storage configuration
@@ -77,10 +86,14 @@ const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
-    files: 10
+    fileSize: 5 * 1024 * 1024, // 5MB limit per file for security
+    files: 10,
+    fieldSize: 1 * 1024 * 1024 // 1MB field size limit
   }
 });
+
+// Import sanitization middleware for file upload routes
+import { sanitizeFileUploads } from '../middleware/sanitization';
 
 // Profile photo upload
 router.post('/profile-photo', auth, (upload.single('profilePhoto') as any), wrapMulterRoute(async (req: AuthenticatedRequest, res) => {

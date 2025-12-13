@@ -45,6 +45,7 @@ import webhookRoutes from './routes/webhooks';
 import autoPayRoutes from './routes/autoPay';
 import dashboardRoutes from './routes/dashboard';
 import paymentVerificationRoutes from './routes/paymentVerification';
+import marketplaceRoutes from './routes/marketplace';
 import { apiLimiter, authLimiter, otpLimiter } from './middleware/rateLimiter';
 import { cronScheduler } from './services/cronScheduler';
 import { chargeRetryWorker } from './services/chargeRetryWorker';
@@ -82,13 +83,26 @@ app.use(logger.requestLogger());
 // Metrics middleware collects request metrics for Prometheus
 app.use(metrics.metricsMiddleware());
 app.use(timeoutMiddleware);
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: process.env.NODE_ENV === 'production' ? {
+    useDefaults: true,
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      "default-src": ["'self'"],
+      "script-src": ["'self'","'unsafe-inline'", 'https://checkout.razorpay.com'],
+      "frame-src": ['https://checkout.razorpay.com'],
+      "img-src": ["'self'", 'data:', 'https:'],
+      "connect-src": ["'self'", 'https:', process.env.FRONTEND_URL || ''],
+    }
+  } : false,
+  crossOriginEmbedderPolicy: false
+}));
 
-// Rate limiting commented out - uncomment when express-rate-limit types are compatible
-// if (process.env.NODE_ENV === 'production') {
-//   app.use(apiLimiter);
-//   console.log('✅ Rate limiting enabled for production');
-// }
+// Enable rate limiting in non-test environments for brute-force protection
+if (process.env.NODE_ENV !== 'test') {
+  app.use(apiLimiter);
+  console.log('✅ Rate limiting enabled');
+}
 const allowedOrigins = process.env.NODE_ENV === 'production'
   ? [
       'https://www.trektribe.in',
@@ -116,6 +130,10 @@ app.use(express.json({
   }
 }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Apply input sanitization middleware to prevent XSS/injection attacks
+import { sanitizeInputs } from './middleware/sanitization';
+app.use(sanitizeInputs);
 
 // Serve static files for uploads
 app.use('/uploads', express.static('uploads'));
@@ -238,7 +256,7 @@ export async function start() {
     }
     
     // Routes
-    app.use('/auth', authRoutes);
+    app.use('/auth', authLimiter, authRoutes);
     app.use('/trips', tripRoutes);
     app.use('/reviews', reviewRoutes);
     app.use('/wishlist', wishlistRoutes);
@@ -298,6 +316,11 @@ export async function start() {
     app.use('/api/subscriptions', subscriptionRoutes);
     console.log('✅ Subscription routes mounted at /api/subscriptions');
     logMessage('INFO', 'Subscription routes registered');
+
+    // Marketplace Routes (Razorpay Route)
+    app.use('/api/marketplace', marketplaceRoutes);
+    console.log('✅ Marketplace routes mounted at /api/marketplace');
+    logMessage('INFO', 'Marketplace routes registered');
     
     // Analytics Routes
     app.use('/api/analytics', analyticsRoutes);

@@ -113,7 +113,10 @@ export function requireRole(roles: AuthPayload['role'][]){
   return (req: Request, res: Response, next: NextFunction) => {
     const payload = req.user || req.auth;
     if (!payload || !roles.includes(payload.role)) {
-      return res.status(403).json({ error: 'Forbidden' });
+      const message = roles.length === 1
+        ? `Access denied. You must be a ${roles[0]} to access this feature.`
+        : 'Access denied. Your account does not have permission for this action.';
+      return res.status(403).json({ error: message });
     }
     next();
   };

@@ -61,6 +61,15 @@ export class KnowledgeBaseService {
       content: 'Group discounts available for 6+ travelers booking together. Typical discounts: 6-10 people: 10% off per person, 11-15 people: 15% off, 16+ people: 20% off. One person can book for the entire group. Group leader gets free trip for groups of 20+. Corporate and college groups get additional 5% discount. Contact organizer directly for custom group packages. Payment can be split or made by one person. All group members must be added before booking confirmation.',
       metadata: { category: 'booking', priority: 'medium' }
     },
+
+    // Accommodation & stay details
+    {
+      id: 'base-accommodation-overview',
+      type: 'general' as const,
+      title: 'Accommodation and Stay on Treks',
+      content: 'Typical stays: campsite tents (double/triple sharing) or basic homestays/guesthouses on approach days. Inclusions: sleeping tents, common dining tent, sleeping bag and mat (unless mentioned otherwise), evening tea/snacks, and all meals on trek days. Washrooms: dry toilet tents or basic shared toilets; hot water usually not available at campsites. Power/charging: limited or unavailable at higher camps—carry a power bank. Room upgrades (private tent/room) are subject to availability and may have an extra charge payable to the organizer on-site. If you need a single-occupancy tent/room, request it during booking so the team can confirm availability and any surcharge.',
+      metadata: { category: 'accommodation', priority: 'high' }
+    },
     
     // Packing Lists
     {
