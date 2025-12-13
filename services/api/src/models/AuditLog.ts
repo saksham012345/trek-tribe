@@ -4,7 +4,7 @@ export interface AuditLogDocument extends Document {
   userId: mongoose.Types.ObjectId;
   userEmail?: string;
   action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT' | 'VERIFY' | 'PAYMENT' | 'SUSPEND' | 'APPROVE' | 'REJECT' | 'payment_captured' | 'payment_failed' | 'subscription_activated' | 'subscription_charged' | 'subscription_cancelled' | 'subscription_paused' | 'order_paid';
-  resource: 'Trip' | 'User' | 'Payment' | 'Subscription' | 'Ticket' | 'Lead' | 'Review' | 'Booking' | 'Auth';
+  resource: 'Trip' | 'User' | 'Payment' | 'Subscription' | 'Ticket' | 'Lead' | 'Review' | 'Booking' | 'Auth' | 'MarketplaceOrder' | 'MarketplaceTransfer' | 'MarketplaceRefund';
   resourceId?: mongoose.Types.ObjectId;
   changes?: {
     before?: any;
@@ -38,7 +38,7 @@ const auditLogSchema = new Schema<AuditLogDocument>(
     },
     resource: { 
       type: String, 
-      enum: ['Trip', 'User', 'Payment', 'Subscription', 'Ticket', 'Lead', 'Review', 'Booking', 'Auth'],
+      enum: ['Trip', 'User', 'Payment', 'Subscription', 'Ticket', 'Lead', 'Review', 'Booking', 'Auth', 'MarketplaceOrder', 'MarketplaceTransfer', 'MarketplaceRefund'],
       required: true,
       index: true
     },
