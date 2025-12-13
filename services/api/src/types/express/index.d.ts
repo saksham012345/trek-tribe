@@ -1,5 +1,6 @@
-import { Request } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { JwtPayload } from 'jsonwebtoken';
+import { ParamsDictionary, Query } from 'express-serve-static-core';
 
 // AuthPayload matches the one from middleware/auth.ts
 export interface AuthPayload {
@@ -34,14 +35,26 @@ declare global {
   }
 }
 
-// AuthRequest includes all Express Request properties
-export interface AuthRequest extends Request {
+// AuthRequest explicitly includes all Request properties
+export interface AuthRequest<
+  P = ParamsDictionary,
+  ResBody = any,
+  ReqBody = any,
+  ReqQuery = Query,
+  Locals extends Record<string, any> = Record<string, any>
+> extends Request<P, ResBody, ReqBody, ReqQuery, Locals> {
   user: AuthPayload | any;
   auth?: JwtPayload | AuthPayload | any;
 }
 
-// AuthenticatedRequest includes all Express Request properties
-export interface AuthenticatedRequest extends Request {
+// AuthenticatedRequest explicitly includes all Request properties
+export interface AuthenticatedRequest<
+  P = ParamsDictionary,
+  ResBody = any,
+  ReqBody = any,
+  ReqQuery = Query,
+  Locals extends Record<string, any> = Record<string, any>
+> extends Request<P, ResBody, ReqBody, ReqQuery, Locals> {
   userId?: string;
   user: AuthPayload | any;
 }
