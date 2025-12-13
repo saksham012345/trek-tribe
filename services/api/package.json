@@ -25,6 +25,8 @@
     "setup:users:updated": "ts-node src/scripts/setup-preset-users-updated.ts",
     "setup:users:force": "ts-node src/scripts/setup-preset-users-force.ts",
     "setup:users:force:prod": "node dist/scripts/setup-preset-users-force.js",
+    "db:clean": "ts-node src/scripts/clean-and-seed.ts",
+    "db:clean:prod": "node dist/scripts/clean-and-seed.js",
     "test": "jest --config jest.config.js",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",

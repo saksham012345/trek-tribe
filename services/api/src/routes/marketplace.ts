@@ -49,10 +49,17 @@ router.post('/organizer/onboard', authenticateJwt, requireRole(['organizer', 'ad
     const body = schema.parse(req.body);
     const organizerId = req.user?.id as string;
 
-    // Block onboarding unless subscription active
-    const activeSub = await OrganizerSubscription.findOne({ organizerId, status: 'active' }).sort({ createdAt: -1 });
+    // Block onboarding unless subscription active or trial active
+    const activeSub = await OrganizerSubscription.findOne({ 
+      organizerId, 
+      $or: [
+        { status: 'active' },
+        { status: 'trial', isTrialActive: true }
+      ]
+    }).sort({ createdAt: -1 });
+    
     if (!activeSub) {
-      return res.status(402).json({ error: 'Subscription required before onboarding' });
+      return res.status(402).json({ error: 'Subscription required before onboarding. Please activate a subscription plan first.' });
     }
 
     const result = await razorpayRouteService.onboardOrganizer({

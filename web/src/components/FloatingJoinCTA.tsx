@@ -9,6 +9,17 @@ const FloatingJoinCTA: React.FC = () => {
   const location = useLocation();
   const [open, setOpen] = useState(false);
 
+  // Don't show for logged-in organizers or on certain pages
+  const shouldHide = 
+    (user?.role === 'organizer') || 
+    location.pathname.includes('/subscribe') ||
+    location.pathname.includes('/login') ||
+    location.pathname.includes('/register');
+
+  if (shouldHide) {
+    return null;
+  }
+
   const handleClick = () => {
     if (!user) {
       navigate('/login', { state: { from: { pathname: '/subscribe' } } });

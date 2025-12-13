@@ -7,6 +7,16 @@ import PostCreator from '../components/PostCreator';
 import PostCard from '../components/PostCard';
 import ProfilePhotoUpload from '../components/ProfilePhotoUpload';
 
+interface RoleBasedData {
+  portfolioVisible: boolean;
+  postsVisible: boolean;
+  followersVisible: boolean;
+  statsVisible: boolean;
+  canPost: boolean;
+  showPastTrips: boolean;
+  showWishlists: boolean;
+}
+
 interface ProfileUser {
   _id: string;
   name: string;
@@ -37,6 +47,11 @@ interface ProfileUser {
   };
   isVerified?: boolean;
   createdAt: string;
+}
+
+interface EnhancedProfileResponse {
+  user: ProfileUser;
+  roleBasedData: RoleBasedData;
 }
 
 interface Post {
@@ -79,8 +94,10 @@ const EnhancedProfilePage: React.FC = () => {
   const isOwnProfile = !userId || userId === currentUser?.id;
   
   const [profile, setProfile] = useState<ProfileUser | null>(null);
+  const [roleBasedData, setRoleBasedData] = useState<RoleBasedData | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<{ type: 'not-found' | 'server-error' | 'private' | null; message: string } | null>(null);
   const [editing, setEditing] = useState(false);
   const [showPostCreator, setShowPostCreator] = useState(false);
   const [activeTab, setActiveTab] = useState<'posts' | 'past-trips' | 'links'>('posts');
@@ -118,13 +135,23 @@ const EnhancedProfilePage: React.FC = () => {
   }, [userId, isOwnProfile]);
 
   const fetchProfile = async () => {
+    setError(null);
     try {
       const endpoint = isOwnProfile ? '/profile/enhanced' : `/profile/enhanced/${userId}`;
       const response = await api.get(endpoint);
       
-      const responseData = response.data as { data: { user: any } };
-      const userData = responseData.data.user;
+      const responseData = response.data as { data: EnhancedProfileResponse };
+      const { user: userData, roleBasedData: roleData } = responseData.data;
       setProfile(userData);
+      setRoleBasedData(roleData || {
+        portfolioVisible: true,
+        postsVisible: true,
+        followersVisible: true,
+        statsVisible: true,
+        canPost: userData.role === 'organizer',
+        showPastTrips: userData.role === 'traveller',
+        showWishlists: userData.role === 'traveller'
+      });
       
       if (isOwnProfile) {
         setEditForm({
@@ -148,8 +175,19 @@ const EnhancedProfilePage: React.FC = () => {
           }
         });
       }
-    } catch (error) {
-      console.error('Error fetching profile:', error);
+    } catch (error: any) {
+      const statusCode = error.response?.status;
+      const errorMessage = error.response?.data?.message || error.message;
+      
+      console.error('Error fetching profile:', { statusCode, errorMessage, error });
+      
+      if (statusCode === 404) {
+        setError({ type: 'not-found', message: 'Profile not found' });
+      } else if (statusCode === 403) {
+        setError({ type: 'private', message: 'This profile is private and you do not have access to view it.' });
+      } else {
+        setError({ type: 'server-error', message: 'Something went wrong. Please try again later.' });
+      }
     } finally {
       setLoading(false);
     }
@@ -249,6 +287,42 @@ const EnhancedProfilePage: React.FC = () => {
     );
   }
 
+  // Show error states
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          {error.type === 'not-found' && (
+            <>
+              <h2 className="text-2xl font-bold text-gray-900">Profile Not Found</h2>
+              <p className="text-gray-600 mt-2">{error.message}</p>
+              <p className="text-sm text-gray-500 mt-1">The profile you're looking for doesn't exist.</p>
+            </>
+          )}
+          {error.type === 'private' && (
+            <>
+              <h2 className="text-2xl font-bold text-gray-900">Profile is Private</h2>
+              <p className="text-gray-600 mt-2">{error.message}</p>
+            </>
+          )}
+          {error.type === 'server-error' && (
+            <>
+              <h2 className="text-2xl font-bold text-gray-900">Server Error</h2>
+              <p className="text-gray-600 mt-2">{error.message}</p>
+              <p className="text-sm text-gray-500 mt-1">Please try again in a few moments.</p>
+            </>
+          )}
+          <button
+            onClick={() => navigate('/home')}
+            className="mt-6 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Go Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!profile) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
@@ -283,8 +357,8 @@ const EnhancedProfilePage: React.FC = () => {
         {/* Action buttons for own profile */}
         {isOwnProfile && (
           <div className="flex gap-4 mb-6">
-            {/* Only organizers can create posts */}
-            {profile.role === 'organizer' && (
+            {/* Only allow post creation if roleBasedData allows it */}
+            {roleBasedData?.canPost && (
               <button
                 onClick={() => setShowPostCreator(true)}
                 className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 flex items-center gap-2 shadow-lg"
@@ -482,16 +556,16 @@ const EnhancedProfilePage: React.FC = () => {
           </div>
         )}
 
-        {/* Content tabs - only show for organizers */}
-        {profile.role === 'organizer' ? (
+        {/* Content tabs - show based on role and roleBasedData */}
+        {roleBasedData && (roleBasedData.postsVisible || roleBasedData.showPastTrips || roleBasedData.showWishlists) ? (
           <div className="bg-white rounded-2xl shadow-xl">
             {/* Tab navigation */}
             <div className="border-b border-gray-200">
               <nav className="flex space-x-8 px-6">
                 {[
-                  { id: 'posts', label: 'Posts', icon: '📝', count: posts.length, show: true },
-                  { id: 'past-trips', label: 'Past Trips', icon: '🏔️', count: pastTrips.length, show: isOwnProfile },
-                  { id: 'links', label: 'Links', icon: '🔗', count: userLinks.length, show: isOwnProfile }
+                  { id: 'posts', label: 'Posts', icon: '📝', count: posts.length, show: roleBasedData.postsVisible },
+                  { id: 'past-trips', label: 'Past Trips', icon: '🏔️', count: pastTrips.length, show: roleBasedData.showPastTrips && isOwnProfile },
+                  { id: 'links', label: 'Links', icon: '🔗', count: userLinks.length, show: roleBasedData.showWishlists && isOwnProfile }
                 ].filter(tab => tab.show).map((tab) => (
                 <button
                   key={tab.id}
@@ -523,9 +597,9 @@ const EnhancedProfilePage: React.FC = () => {
                     <div className="text-6xl mb-4">📝</div>
                     <h3 className="text-xl font-semibold text-gray-900 mb-2">No posts yet</h3>
                     <p className="text-gray-600 mb-6">
-                      {isOwnProfile ? (profile.role === 'organizer' ? 'Start sharing your adventures with the community!' : 'Posts are only available for organizers') : 'This user hasn\'t posted anything yet.'}
+                      {isOwnProfile ? (roleBasedData?.canPost ? 'Start sharing your adventures with the community!' : 'Posts are only available for organizers') : 'This user hasn\'t posted anything yet.'}
                     </p>
-                    {isOwnProfile && profile.role === 'organizer' && (
+                    {isOwnProfile && roleBasedData?.canPost && (
                       <button
                         onClick={() => setShowPostCreator(true)}
                         className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"

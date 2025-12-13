@@ -40,7 +40,7 @@ const upload = multer({
 /**
  * @route GET /api/profile/enhanced/:userId?
  * @description Get enhanced user profile
- * @access Public/Private (depends on privacy settings)
+ * @access Public (all profiles viewable, role-based content)
  */
 router.get('/enhanced/:userId?', async (req, res) => {
   try {
@@ -69,64 +69,107 @@ router.get('/enhanced/:userId?', async (req, res) => {
       });
     }
 
+    // Validate MongoDB ObjectId format
+    const mongooseObjectIdRegex = /^[0-9a-fA-F]{24}$/;
+    if (!mongooseObjectIdRegex.test(userId)) {
+      logger.info('Invalid user ID format provided', { userId });
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user ID format'
+      });
+    }
+
+    console.log('Fetching profile:', userId);
     const user = await User.findById(userId).select('-passwordHash -resetPasswordToken');
 
     if (!user) {
+      logger.info('User not found', { userId });
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        message: 'User not found',
+        statusCode: 404
       });
     }
 
-    // Check privacy settings
+    // Check if viewing own profile
     const isOwnProfile = requestingUserId === userId;
-    const privacySettings = user.privacySettings || { 
-      profileVisibility: 'public' as const,
-      showEmail: false,
-      showPhone: false, 
-      showLocation: true 
-    };
-
-    if (!isOwnProfile && privacySettings.profileVisibility === 'private') {
-      return res.status(403).json({
-        success: false,
-        message: 'This profile is private'
-      });
-    }
-
-    // Filter sensitive information based on privacy settings
+    
+    // All profiles are now public, but show different content based on role
     let profileData: any = user.toObject();
 
+    // Filter sensitive information for non-owners
     if (!isOwnProfile) {
-      if (!privacySettings.showEmail) {
-        profileData.email = undefined;
-      }
-      if (!privacySettings.showPhone) {
-        profileData.phone = undefined;
-      }
-      if (!privacySettings.showLocation) {
-        profileData.location = undefined;
-      }
-      
-      // Always hide these for non-owners
+      // Hide sensitive fields from non-owners
+      profileData.email = user.email; // Show email for contact
+      profileData.phone = undefined; // Hide phone
       profileData.emergencyContact = undefined;
       profileData.resetPasswordExpires = undefined;
       profileData.verificationDocuments = undefined;
     }
 
-    res.json({
+    // Role-based content visibility
+    // Organizers get: profile, portfolio, followers, posts, stats
+    // Travellers get: profile, following, past trips, wishlists
+    let roleSpecificData: any = {};
+    
+    if (user.role === 'organizer') {
+      // Organizers: full profile with portfolio
+      roleSpecificData = {
+        portfolioVisible: true,
+        postsVisible: true,
+        followersVisible: true,
+        statsVisible: true,
+        canPost: isOwnProfile,
+      };
+    } else if (user.role === 'traveller') {
+      // Travellers: basic profile only
+      roleSpecificData = {
+        portfolioVisible: false,
+        postsVisible: false,
+        followersVisible: true,
+        statsVisible: false,
+        canPost: false,
+        showPastTrips: true,
+        showWishlists: true,
+      };
+    } else {
+      // Other roles
+      roleSpecificData = {
+        portfolioVisible: false,
+        postsVisible: false,
+        followersVisible: false,
+        statsVisible: false,
+        canPost: false,
+      };
+    }
+
+    return res.status(200).json({
       success: true,
       data: {
         user: profileData,
-        isOwnProfile
-      }
+        isOwnProfile,
+        roleBasedData: roleSpecificData
+      },
+      statusCode: 200
     });
 
   } catch (error: any) {
-    logger.error('Error fetching enhanced profile', { error: error.message, userId: req.params.userId });
+    logger.error('Error fetching enhanced profile', { error: error.message, userId: req.params.userId, stack: error.stack });
+    
+    // Specific error handling
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user ID format',
+        statusCode: 400
+      });
+    }
+
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch profile'
+      message: 'Failed to fetch profile',
+      statusCode: 500,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
