@@ -1,5 +1,4 @@
 import { Router, Request, Response } from 'express';
-import { z } from 'zod';
 import { body, validationResult } from 'express-validator';
 import { z } from 'zod';
 import { authenticateJwt, requireRole } from '../middleware/auth';
@@ -30,7 +29,21 @@ router.post('/organizer/onboard', authenticateJwt, requireRole(['organizer', 'ad
   if (!vErrors.isEmpty()) {
     return res.status(400).json({ errors: vErrors.array() });
   }
-  const schema = z.object({
+  const schema = {
+    parse: (data: any) => {
+      // Lightweight runtime validation mirroring previous Zod schema
+      const errs: string[] = [];
+      if (typeof data.legalBusinessName !== 'string' || data.legalBusinessName.length < 2) errs.push('legalBusinessName');
+      if (!['proprietorship','partnership','llp','pvt_ltd'].includes(data.businessType)) errs.push('businessType');
+      const ba = data.bankAccount || {};
+      if (typeof ba.accountNumber !== 'string' || ba.accountNumber.length < 6) errs.push('bankAccount.accountNumber');
+      if (typeof ba.ifscCode !== 'string' || ba.ifscCode.length < 5) errs.push('bankAccount.ifscCode');
+      if (typeof ba.accountHolderName !== 'string' || ba.accountHolderName.length < 2) errs.push('bankAccount.accountHolderName');
+      if (data.commissionRate !== undefined && (typeof data.commissionRate !== 'number' || data.commissionRate < 0 || data.commissionRate > 50)) errs.push('commissionRate');
+      if (errs.length) throw new Error(`Invalid fields: ${errs.join(', ')}`);
+      return data;
+    }
+  };
     legalBusinessName: z.string().min(2),
     businessType: z.enum(['proprietorship', 'partnership', 'llp', 'pvt_ltd']),
     bankAccount: z.object({
@@ -106,13 +119,17 @@ router.post('/orders/create', authenticateJwt, requireRole(['traveler', 'organiz
   if (!vErrors.isEmpty()) {
     return res.status(400).json({ errors: vErrors.array() });
   }
-  const schema = z.object({
-    amount: z.number().min(100),
-    currency: z.string().optional(),
-    organizerId: z.string(),
-    tripId: z.string().optional(),
-    notes: z.record(z.any()).optional(),
-  });
+  const schema = {
+    parse: (data: any) => {
+      const errs: string[] = [];
+      if (typeof data.amount !== 'number' || data.amount < 100) errs.push('amount');
+      if (data.currency !== undefined && data.currency !== 'INR') errs.push('currency');
+      if (typeof data.organizerId !== 'string' || data.organizerId.length < 12) errs.push('organizerId');
+      if (data.tripId !== undefined && (typeof data.tripId !== 'string' || data.tripId.length < 8)) errs.push('tripId');
+      if (errs.length) throw new Error(`Invalid fields: ${errs.join(', ')}`);
+      return data;
+    }
+  };
 
   try {
     const body = schema.parse(req.body);
@@ -142,10 +159,15 @@ router.post('/payments/split', authenticateJwt, requireRole(['admin']), async (r
   if (!vErrors.isEmpty()) {
     return res.status(400).json({ errors: vErrors.array() });
   }
-  const schema = z.object({
-    orderId: z.string(),
-    paymentId: z.string(),
-  });
+  const schema = {
+    parse: (data: any) => {
+      const errs: string[] = [];
+      if (typeof data.orderId !== 'string' || data.orderId.length < 10) errs.push('orderId');
+      if (typeof data.paymentId !== 'string' || data.paymentId.length < 10) errs.push('paymentId');
+      if (errs.length) throw new Error(`Invalid fields: ${errs.join(', ')}`);
+      return data;
+    }
+  };
 
   try {
     const body = schema.parse(req.body);
@@ -172,11 +194,16 @@ router.post('/refunds/initiate', authenticateJwt, requireRole(['admin']), async 
   if (!vErrors.isEmpty()) {
     return res.status(400).json({ errors: vErrors.array() });
   }
-  const schema = z.object({
-    orderId: z.string(),
-    amount: z.number().min(1),
-    reason: z.string().optional(),
-  });
+  const schema = {
+    parse: (data: any) => {
+      const errs: string[] = [];
+      if (typeof data.orderId !== 'string' || data.orderId.length < 10) errs.push('orderId');
+      if (typeof data.amount !== 'number' || data.amount < 1) errs.push('amount');
+      if (data.reason !== undefined && (typeof data.reason !== 'string' || data.reason.length > 256)) errs.push('reason');
+      if (errs.length) throw new Error(`Invalid fields: ${errs.join(', ')}`);
+      return data;
+    }
+  };
 
   try {
     const body = schema.parse(req.body);
