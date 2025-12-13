@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../config/api';
-import { useToast, ToastContainer } from '../components/Toast';
+import { useToast } from '../components/ui/Toast';
+import { Skeleton } from '../components/ui/Skeleton';
 
 interface Lead {
   _id: string;
@@ -30,7 +31,7 @@ interface CRMStats {
 const CRMDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { toasts, success, error: showErrorToast, removeToast } = useToast();
+  const { add } = useToast();
 
   const [hasCRMAccess, setHasCRMAccess] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -59,7 +60,7 @@ const CRMDashboard: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Failed to check CRM access:', error);
-      showErrorToast('Failed to verify CRM access. Please upgrade your plan.');
+      add('Failed to verify CRM access. Please upgrade your plan.', 'error');
     } finally {
       setLoading(false);
     }
@@ -87,9 +88,9 @@ const CRMDashboard: React.FC = () => {
     try {
       await api.put(`/api/crm/leads/${leadId}`, { status: newStatus });
       fetchLeads();
-      success('Lead status updated!');
+      add('Lead status updated!', 'success');
     } catch (error: any) {
-      showErrorToast('Failed to update lead status');
+      add('Failed to update lead status', 'error');
     }
   };
 
@@ -98,9 +99,9 @@ const CRMDashboard: React.FC = () => {
       await api.put(`/api/crm/leads/${leadId}`, { notes: editingNote });
       fetchLeads();
       setEditingNote('');
-      success('Note updated!');
+      add('Note updated!', 'success');
     } catch (error: any) {
-      showErrorToast('Failed to update note');
+      add('Failed to update note', 'error');
     }
   };
 
@@ -108,9 +109,9 @@ const CRMDashboard: React.FC = () => {
     try {
       await api.post(`/api/crm/leads/${leadId}/verify`);
       fetchLeads();
-      success('Lead verified!');
+      add('Lead verified!', 'success');
     } catch (error: any) {
-      showErrorToast('Failed to verify lead');
+      add('Failed to verify lead', 'error');
     }
   };
 
@@ -125,13 +126,20 @@ const CRMDashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-forest-50 to-nature-50">
-        <div className="text-center">
-          <svg className="animate-spin h-12 w-12 text-forest-600 mx-auto" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-          </svg>
-          <p className="mt-4 text-forest-600">Loading CRM...</p>
+      <div className="min-h-screen bg-gradient-to-br from-forest-50 to-nature-50 p-6">
+        <div className="max-w-7xl mx-auto space-y-6">
+          <div className="bg-white rounded-2xl shadow-lg p-6">
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="mt-2 h-4 w-96" />
+          </div>
+          <div className="grid md:grid-cols-3 gap-4">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="bg-white rounded-xl shadow p-6">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="mt-2 h-8 w-24" />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );

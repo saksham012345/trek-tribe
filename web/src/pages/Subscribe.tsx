@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
+import { ToastProvider, useToast } from '../components/ui/Toast';
+import { Skeleton } from '../components/ui/Skeleton';
 
 declare global {
   interface Window {
@@ -30,9 +32,10 @@ const loadRazorpay = () => {
   });
 };
 
-const Subscribe: React.FC = () => {
+const SubscribeInner: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { add } = useToast();
 
   const [plans, setPlans] = useState<Plan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<Plan['id']>('PROFESSIONAL');
@@ -96,6 +99,7 @@ const Subscribe: React.FC = () => {
       if (data.isTrial) {
         setSubscription({ hasSubscription: true, subscription: data.subscription });
         setStatus(data.message || 'Trial activated');
+        add('Trial activated', 'success');
         setTimeout(() => navigate('/organizer/route-onboarding'), 800);
         return;
       }
@@ -118,10 +122,14 @@ const Subscribe: React.FC = () => {
               planType: selectedPlan,
             });
             setSubscription({ hasSubscription: true, subscription: verifyRes.data?.subscription });
-            setStatus(verifyRes.data?.message || 'Subscription activated');
+            const msg = verifyRes.data?.message || 'Subscription activated';
+            setStatus(msg);
+            add(msg, 'success');
             setTimeout(() => navigate('/organizer/route-onboarding'), 800);
           } catch (err: any) {
-            setStatus(err.response?.data?.error || 'Verification failed');
+            const m = err.response?.data?.error || 'Verification failed';
+            setStatus(m);
+            add(m, 'error');
           }
         },
         prefill: {
@@ -138,11 +146,15 @@ const Subscribe: React.FC = () => {
 
       const rzp = new (window as any).Razorpay(options);
       rzp.on('payment.failed', (resp: any) => {
-        setStatus(resp.error?.description || 'Payment failed');
+        const m = resp.error?.description || 'Payment failed';
+        setStatus(m);
+        add(m, 'error');
       });
       rzp.open();
     } catch (error: any) {
-      setStatus(error.response?.data?.error || 'Failed to start subscription');
+      const m = error.response?.data?.error || 'Failed to start subscription';
+      setStatus(m);
+      add(m, 'error');
     } finally {
       setLoading(false);
     }
@@ -150,10 +162,21 @@ const Subscribe: React.FC = () => {
 
   if (loadingState) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-forest-50">
-        <div className="text-center space-y-3">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-600 mx-auto" />
-          <p className="text-forest-700 font-medium">Preparing subscription options...</p>
+      <div className="max-w-6xl mx-auto px-4 py-10 space-y-8">
+        <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-6 sm:p-8 rounded-3xl shadow-xl">
+          <div className="h-6 w-40 bg-white/20 rounded" />
+          <div className="mt-3 h-8 w-72 bg-white/20 rounded" />
+          <div className="mt-2 h-4 w-96 bg-white/10 rounded" />
+        </div>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="p-5 rounded-2xl border border-gray-200 bg-white">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="mt-2 h-6 w-40" />
+              <Skeleton className="mt-3 h-10 w-28" />
+              <Skeleton className="mt-3 h-4 w-64" />
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -180,7 +203,7 @@ const Subscribe: React.FC = () => {
           </div>
           <button
             onClick={() => navigate('/organizer/route-onboarding')}
-            className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700"
+            className="px-4 py-2.5 rounded-lg bg-emerald-600 text-white font-semibold shadow-md hover:bg-emerald-700 hover:shadow-lg transition-all duration-200"
           >
             Go to Onboarding
           </button>
@@ -194,7 +217,7 @@ const Subscribe: React.FC = () => {
             <button
               key={plan.id}
               onClick={() => setSelectedPlan(plan.id)}
-              className={`text-left p-5 rounded-2xl border transition shadow-sm hover:shadow-md ${selected ? 'border-emerald-500 ring-2 ring-emerald-200 bg-emerald-50' : 'border-gray-200 bg-white'}`}
+              className={`text-left p-5 rounded-2xl border transition-all duration-200 shadow-sm hover:shadow-lg hover:-translate-y-0.5 ${selected ? 'border-emerald-500 ring-2 ring-emerald-200 bg-emerald-50' : 'border-gray-200 bg-white'}`}
             >
               <div className="flex items-center justify-between">
                 <div>
@@ -229,14 +252,14 @@ const Subscribe: React.FC = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/join-the-tribe')}
-            className="px-4 py-2 rounded-lg border text-gray-700 hover:bg-gray-50"
+            className="px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 hover:border-gray-400 transition-all duration-200"
           >
             Learn more
           </button>
           <button
             onClick={startSubscription}
             disabled={loading}
-            className="px-5 py-3 rounded-xl bg-emerald-600 text-white font-semibold shadow hover:bg-emerald-700 disabled:opacity-60"
+            className="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-semibold shadow-md hover:shadow-lg hover:from-emerald-700 hover:to-teal-700 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200"
           >
             {loading ? 'Starting...' : hasActiveSub ? 'Go to Onboarding' : 'Subscribe & Continue'}
           </button>
@@ -246,4 +269,10 @@ const Subscribe: React.FC = () => {
   );
 };
 
-export default Subscribe;
+export default function Subscribe() {
+  return (
+    <ToastProvider>
+      <SubscribeInner />
+    </ToastProvider>
+  );
+}
