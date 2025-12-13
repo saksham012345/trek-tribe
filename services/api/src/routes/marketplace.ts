@@ -44,16 +44,6 @@ router.post('/organizer/onboard', authenticateJwt, requireRole(['organizer', 'ad
       return data;
     }
   };
-    legalBusinessName: z.string().min(2),
-    businessType: z.enum(['proprietorship', 'partnership', 'llp', 'pvt_ltd']),
-    bankAccount: z.object({
-      accountNumber: z.string().min(6),
-      ifscCode: z.string().min(5),
-      accountHolderName: z.string().min(2),
-      bankName: z.string().optional(),
-    }).strict(),
-    commissionRate: z.number().min(0).max(50).optional(),
-  });
 
   try {
     const body = schema.parse(req.body);
