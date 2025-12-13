@@ -24,11 +24,10 @@ RUN pip install --upgrade pip && \
 # Copy application sources
 COPY . /app
 
-# Ensure entrypoint is executable and used to download model/index at runtime
-RUN chmod +x /app/entrypoint.py || true
+# Make entrypoint scripts executable
+RUN chmod +x /app/entrypoint.py /app/docker-entrypoint.sh
 
 EXPOSE 8000
 
-# Runtime entrypoint script will download model and build index on first boot (Render-friendly)
-# The entrypoint.py script will then exec uvicorn with proper module path
-ENTRYPOINT ["python", "/app/entrypoint.py"]
+# Use shell script wrapper to ensure proper execution
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
