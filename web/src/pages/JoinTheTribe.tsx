@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -49,18 +49,83 @@ const JoinTheTribe: React.FC = () => {
             <li>• Email/SMS templates and analytics</li>
           </ul>
         </div>
-        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100">
-          <h3 className="font-semibold text-emerald-900">What to prepare</h3>
-          <ul className="mt-2 text-sm text-emerald-800 space-y-1">
-            <li>• Bank account & IFSC</li>
-            <li>• Basic KYC documents</li>
-            <li>• Trip details & pricing</li>
-            <li>• Organizer support contact</li>
-          </ul>
-        </div>
+        <KycQuickForm />
       </div>
     </div>
   );
 };
 
 export default JoinTheTribe;
+
+const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/i;
+
+const KycQuickForm: React.FC = () => {
+  const [form, setForm] = useState({
+    legalBusinessName: '',
+    businessType: 'proprietorship',
+    accountNumber: '',
+    ifscCode: '',
+    accountHolderName: '',
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const validate = () => {
+    const e: Record<string, string> = {};
+    if (form.legalBusinessName.trim().length < 2) e.legalBusinessName = 'Business name must be at least 2 characters';
+    if (!['proprietorship','partnership','llp','pvt_ltd'].includes(form.businessType)) e.businessType = 'Invalid business type';
+    if (form.accountNumber.trim().length < 6 || form.accountNumber.trim().length > 20) e.accountNumber = 'Account number must be 6-20 digits';
+    if (!ifscRegex.test(form.ifscCode)) e.ifscCode = 'Invalid IFSC (e.g., HDFC0001234)';
+    if (form.accountHolderName.trim().length < 2) e.accountHolderName = 'Account holder name too short';
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validate()) return;
+    // Local-only preview; actual onboarding happens server-side in /api/marketplace/organizer/onboard
+    alert('Looks good! Proceed to subscription, then onboarding.');
+  };
+
+  return (
+    <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100">
+      <h3 className="font-semibold text-emerald-900">Quick KYC Check</h3>
+      <p className="text-sm text-emerald-800 mt-1">Validate basic details before onboarding. We never store bank data client-side.</p>
+      <form onSubmit={onSubmit} className="mt-3 grid gap-3">
+        <div>
+          <label className="text-sm font-medium text-emerald-900">Legal Business Name</label>
+          <input className="mt-1 w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-emerald-400" value={form.legalBusinessName} onChange={e=>setForm({...form, legalBusinessName: e.target.value})} placeholder="Acme Adventures Pvt Ltd" />
+          {errors.legalBusinessName && <p className="text-red-600 text-xs mt-1">{errors.legalBusinessName}</p>}
+        </div>
+        <div>
+          <label className="text-sm font-medium text-emerald-900">Business Type</label>
+          <select className="mt-1 w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-emerald-400" value={form.businessType} onChange={e=>setForm({...form, businessType: e.target.value})}>
+            <option value="proprietorship">Proprietorship</option>
+            <option value="partnership">Partnership</option>
+            <option value="llp">LLP</option>
+            <option value="pvt_ltd">Private Limited</option>
+          </select>
+          {errors.businessType && <p className="text-red-600 text-xs mt-1">{errors.businessType}</p>}
+        </div>
+        <div className="grid md:grid-cols-2 gap-3">
+          <div>
+            <label className="text-sm font-medium text-emerald-900">Account Number</label>
+            <input className="mt-1 w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-emerald-400" value={form.accountNumber} onChange={e=>setForm({...form, accountNumber: e.target.value.replace(/\D/g,'')})} placeholder="1234567890" inputMode="numeric" />
+            {errors.accountNumber && <p className="text-red-600 text-xs mt-1">{errors.accountNumber}</p>}
+          </div>
+          <div>
+            <label className="text-sm font-medium text-emerald-900">IFSC Code</label>
+            <input className="mt-1 w-full rounded-lg border uppercase px-3 py-2 focus:ring-2 focus:ring-emerald-400" value={form.ifscCode} onChange={e=>setForm({...form, ifscCode: e.target.value.toUpperCase()})} placeholder="HDFC0001234" />
+            {errors.ifscCode && <p className="text-red-600 text-xs mt-1">{errors.ifscCode}</p>}
+          </div>
+        </div>
+        <div>
+          <label className="text-sm font-medium text-emerald-900">Account Holder Name</label>
+          <input className="mt-1 w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-emerald-400" value={form.accountHolderName} onChange={e=>setForm({...form, accountHolderName: e.target.value})} placeholder="John Doe" />
+          {errors.accountHolderName && <p className="text-red-600 text-xs mt-1">{errors.accountHolderName}</p>}
+        </div>
+        <button type="submit" className="mt-1 bg-emerald-600 text-white px-4 py-2 rounded-lg font-semibold shadow hover:bg-emerald-700">Validate</button>
+      </form>
+    </div>
+  );
+};
