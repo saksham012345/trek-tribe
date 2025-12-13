@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
+import { body, validationResult } from 'express-validator';
+import { z } from 'zod';
 import { authenticateJwt, requireRole } from '../middleware/auth';
 import { razorpayRouteService } from '../services/razorpayRouteService';
 import { OrganizerPayoutConfig } from '../models/OrganizerPayoutConfig';
@@ -14,6 +16,20 @@ const router = Router();
 
 // POST /api/marketplace/organizer/onboard
 router.post('/organizer/onboard', authenticateJwt, requireRole(['organizer', 'admin']), async (req: Request, res: Response) => {
+  // Additional validation to guard against malformed inputs
+  await Promise.all([
+    body('legalBusinessName').isString().trim().isLength({ min: 2, max: 120 }).run(req),
+    body('businessType').isString().isIn(['proprietorship', 'partnership', 'llp', 'pvt_ltd']).run(req),
+    body('bankAccount.accountNumber').isString().isLength({ min: 6, max: 20 }).run(req),
+    body('bankAccount.ifscCode').isString().matches(/^[A-Z]{4}0[A-Z0-9]{6}$/i).run(req),
+    body('bankAccount.accountHolderName').isString().trim().isLength({ min: 2, max: 120 }).run(req),
+    body('bankAccount.bankName').optional().isString().trim().isLength({ max: 120 }).run(req),
+    body('commissionRate').optional().isFloat({ min: 0, max: 50 }).run(req),
+  ]);
+  const vErrors = validationResult(req);
+  if (!vErrors.isEmpty()) {
+    return res.status(400).json({ errors: vErrors.array() });
+  }
   const schema = z.object({
     legalBusinessName: z.string().min(2),
     businessType: z.enum(['proprietorship', 'partnership', 'llp', 'pvt_ltd']),
@@ -80,6 +96,16 @@ router.get('/organizer/status/:id?', authenticateJwt, requireRole(['organizer', 
 
 // POST /api/marketplace/orders/create
 router.post('/orders/create', authenticateJwt, requireRole(['traveler', 'organizer', 'admin']), async (req: Request, res: Response) => {
+  await Promise.all([
+    body('amount').isInt({ min: 100, max: 10000000 }).run(req),
+    body('currency').optional().isString().isIn(['INR']).run(req),
+    body('organizerId').isString().isLength({ min: 12, max: 48 }).run(req),
+    body('tripId').optional().isString().isLength({ min: 8, max: 64 }).run(req),
+  ]);
+  const vErrors = validationResult(req);
+  if (!vErrors.isEmpty()) {
+    return res.status(400).json({ errors: vErrors.array() });
+  }
   const schema = z.object({
     amount: z.number().min(100),
     currency: z.string().optional(),
@@ -108,6 +134,14 @@ router.post('/orders/create', authenticateJwt, requireRole(['traveler', 'organiz
 
 // POST /api/marketplace/payments/split
 router.post('/payments/split', authenticateJwt, requireRole(['admin']), async (req: Request, res: Response) => {
+  await Promise.all([
+    body('orderId').isString().isLength({ min: 10, max: 64 }).run(req),
+    body('paymentId').isString().isLength({ min: 10, max: 64 }).run(req),
+  ]);
+  const vErrors = validationResult(req);
+  if (!vErrors.isEmpty()) {
+    return res.status(400).json({ errors: vErrors.array() });
+  }
   const schema = z.object({
     orderId: z.string(),
     paymentId: z.string(),
@@ -129,6 +163,15 @@ router.post('/payments/split', authenticateJwt, requireRole(['admin']), async (r
 
 // POST /api/marketplace/refunds/initiate
 router.post('/refunds/initiate', authenticateJwt, requireRole(['admin']), async (req: Request, res: Response) => {
+  await Promise.all([
+    body('orderId').isString().isLength({ min: 10, max: 64 }).run(req),
+    body('amount').isInt({ min: 1 }).run(req),
+    body('reason').optional().isString().isLength({ max: 256 }).run(req),
+  ]);
+  const vErrors = validationResult(req);
+  if (!vErrors.isEmpty()) {
+    return res.status(400).json({ errors: vErrors.array() });
+  }
   const schema = z.object({
     orderId: z.string(),
     amount: z.number().min(1),

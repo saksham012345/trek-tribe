@@ -89,13 +89,27 @@ app.use(helmet({
     directives: {
       ...helmet.contentSecurityPolicy.getDefaultDirectives(),
       "default-src": ["'self'"],
-      "script-src": ["'self'","'unsafe-inline'", 'https://checkout.razorpay.com'],
+      // Only allow Razorpay checkout script; disallow inline scripts
+      "script-src": ["'self'", 'https://checkout.razorpay.com'],
+      // Allow Razorpay checkout to be framed
       "frame-src": ['https://checkout.razorpay.com'],
+      // Images from self and data URLs; https generally
       "img-src": ["'self'", 'data:', 'https:'],
-      "connect-src": ["'self'", 'https:', process.env.FRONTEND_URL || ''],
+      // Restrict connections to self, frontend/backend domains, AI service, and Razorpay API
+      "connect-src": [
+        "'self'",
+        'https:',
+        process.env.FRONTEND_URL || '',
+        process.env.BACKEND_URL || '',
+        process.env.AI_SERVICE_URL || '',
+        'https://api.razorpay.com'
+      ].filter(Boolean),
+      // Block embedding of objects completely
+      "object-src": ["'none'"]
     }
   } : false,
-  crossOriginEmbedderPolicy: false
+  crossOriginEmbedderPolicy: true,
+  crossOriginOpenerPolicy: { policy: 'same-origin' }
 }));
 
 // Enable rate limiting in non-test environments for brute-force protection
