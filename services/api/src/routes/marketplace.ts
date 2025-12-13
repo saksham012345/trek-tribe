@@ -22,7 +22,7 @@ router.post('/organizer/onboard', authenticateJwt, requireRole(['organizer', 'ad
       ifscCode: z.string().min(5),
       accountHolderName: z.string().min(2),
       bankName: z.string().optional(),
-    }),
+    }).strict(),
     commissionRate: z.number().min(0).max(50).optional(),
   });
 
@@ -42,7 +42,12 @@ router.post('/organizer/onboard', authenticateJwt, requireRole(['organizer', 'ad
       phone: undefined,
       legalBusinessName: body.legalBusinessName,
       businessType: body.businessType,
-      bankAccount: body.bankAccount,
+      bankAccount: {
+        accountNumber: body.bankAccount.accountNumber,
+        ifscCode: body.bankAccount.ifscCode,
+        accountHolderName: body.bankAccount.accountHolderName,
+        bankName: body.bankAccount.bankName,
+      },
       commissionRate: body.commissionRate,
     });
 
