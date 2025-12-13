@@ -30,17 +30,17 @@ declare global {
       user?: AuthPayload | any;
       userId?: string;
       auth?: JwtPayload | AuthPayload | any;
-      file?: Multer.File;
-      files?: Multer.File[] | { [fieldname: string]: Multer.File[] };
     }
   }
 }
 
+// AuthRequest includes all Express Request properties
 export interface AuthRequest extends Request {
   user: AuthPayload | any;
   auth?: JwtPayload | AuthPayload | any;
 }
 
+// AuthenticatedRequest includes all Express Request properties
 export interface AuthenticatedRequest extends Request {
   userId?: string;
   user: AuthPayload | any;
