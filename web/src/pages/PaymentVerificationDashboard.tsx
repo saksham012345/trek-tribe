@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../services/apiClient';
-import { useToast } from '../components/ui/Toast';
+import { useToast, ToastContainer } from '../components/Toast';
 import { Skeleton } from '../components/ui/Skeleton';
 
 interface PaymentVerification {
@@ -38,7 +38,7 @@ interface TrustedAmountQR {
 
 export const PaymentVerificationDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { add } = useToast();
+  const { showToast, success, toasts, removeToast } = useToast();
   const [verification, setVerification] = useState<PaymentVerification | null>(null);
   const [history, setHistory] = useState<PaymentHistory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,7 +59,7 @@ export const PaymentVerificationDashboard: React.FC = () => {
     try {
       const response = await apiClient.get('/subscriptions/verify-crm-access');
       if (!response.data.hasCRMAccess) {
-        add('You need a CRM-enabled subscription to access payment verification', 'error');
+        showToast('You need a CRM-enabled subscription to access payment verification', 'error');
         navigate('/organizer/subscriptions');
       }
     } catch (error) {
@@ -96,9 +96,9 @@ export const PaymentVerificationDashboard: React.FC = () => {
     try {
       const response = await apiClient.post('/payment-verification/generate-code', {});
       setVerification(response.data);
-      add('Payment verification code generated successfully!', 'success');
+      showToast('Payment verification code generated successfully!', 'success');
     } catch (error: any) {
-      add(error.response?.data?.message || 'Failed to generate verification code', 'error');
+      showToast(error.response?.data?.message || 'Failed to generate verification code', 'error');
     }
   };
 
@@ -110,10 +110,10 @@ export const PaymentVerificationDashboard: React.FC = () => {
     try {
       await apiClient.post('/payment-verification/deactivate', {});
       setVerification(null);
-      add('Verification code deactivated', 'success');
+      showToast('Verification code deactivated', 'success');
       fetchVerificationCode();
     } catch (error: any) {
-      add(error.response?.data?.message || 'Failed to deactivate verification code', 'error');
+      showToast(error.response?.data?.message || 'Failed to deactivate verification code', 'error');
     }
   };
 
@@ -122,7 +122,7 @@ export const PaymentVerificationDashboard: React.FC = () => {
       navigator.clipboard.writeText(verification.verificationCode);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-      add('Code copied to clipboard!', 'success');
+      showToast('Code copied to clipboard!', 'success');
     }
   };
 
@@ -148,9 +148,9 @@ export const PaymentVerificationDashboard: React.FC = () => {
         currency: (data?.payload?.currency as string) || 'INR',
         trusted: true,
       });
-      toast.success('Trusted QR generated');
+      success('Trusted QR generated');
     } catch (error: any) {
-      add(error?.response?.data?.error || error.message || 'Failed to generate trusted QR', 'error');
+      showToast(error?.response?.data?.error || error.message || 'Failed to generate trusted QR', 'error');
     } finally {
       setQrGenerating(false);
     }
@@ -188,6 +188,7 @@ export const PaymentVerificationDashboard: React.FC = () => {
   }
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
