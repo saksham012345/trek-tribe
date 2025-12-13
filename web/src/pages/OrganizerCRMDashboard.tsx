@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import api from '../config/api';
 import { User } from '../types';
 import SubscriptionCard from '../components/crm/SubscriptionCard';
+import { useToast } from '../components/ui/Toast';
+import { Skeleton } from '../components/ui/Skeleton';
 
 interface OrganizerCRMProps {
   user: User;
@@ -33,6 +35,7 @@ interface Ticket {
 }
 
 const OrganizerCRMDashboard: React.FC<OrganizerCRMProps> = ({ user }) => {
+  const { add } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -59,8 +62,9 @@ const OrganizerCRMDashboard: React.FC<OrganizerCRMProps> = ({ user }) => {
         const response = await api.get('/tickets');
         setTickets(response.data.tickets || []);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching dashboard data:', error);
+      add(error.response?.data?.error || 'Failed to load dashboard data', 'error');
     } finally {
       setLoading(false);
     }

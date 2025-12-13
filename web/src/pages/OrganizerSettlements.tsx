@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import api from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../components/ui/Toast';
+import { Skeleton } from '../components/ui/Skeleton';
 
 type Transfer = {
   transferId?: string;
@@ -22,6 +24,7 @@ type Ledger = {
 
 const OrganizerSettlements: React.FC = () => {
   const { user } = useAuth();
+  const { add } = useToast();
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [ledger, setLedger] = useState<Ledger[]>([]);
   const [loading, setLoading] = useState(false);
@@ -38,6 +41,7 @@ const OrganizerSettlements: React.FC = () => {
       setLedger(data.ledger || []);
     } catch (error) {
       console.error('Failed to load settlements', error);
+      add('Failed to load settlements', 'error');
     } finally {
       setLoading(false);
     }
@@ -49,7 +53,7 @@ const OrganizerSettlements: React.FC = () => {
     <div className="max-w-5xl mx-auto p-8">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-3xl font-bold">Settlements & Payouts</h1>
-        <button onClick={fetchData} className="rounded bg-gray-800 px-3 py-2 text-white text-sm" disabled={loading}>
+        <button onClick={fetchData} className="rounded-lg bg-emerald-600 px-4 py-2 text-white text-sm font-semibold shadow-md hover:bg-emerald-700 hover:shadow-lg disabled:opacity-50 transition-all duration-200" disabled={loading}>
           Refresh
         </button>
       </div>
@@ -68,7 +72,18 @@ const OrganizerSettlements: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {transfers.map((t) => (
+              {loading && (
+                <tr>
+                  <td className="p-2" colSpan={5}>
+                    <div className="grid grid-cols-5 gap-2">
+                      {[...Array(3)].map((_, i) => (
+                        <Skeleton key={i} className="h-4 w-full" />
+                      ))}
+                    </div>
+                  </td>
+                </tr>
+              )}
+              {!loading && transfers.map((t) => (
                 <tr key={t.paymentId} className="border-t">
                   <td className="p-2">{t.transferId || '—'}</td>
                   <td className="p-2">{t.paymentId}</td>
@@ -77,7 +92,7 @@ const OrganizerSettlements: React.FC = () => {
                   <td className="p-2">{new Date(t.createdAt).toLocaleString()}</td>
                 </tr>
               ))}
-              {!transfers.length && (
+              {!loading && !transfers.length && (
                 <tr><td className="p-3 text-center text-gray-500" colSpan={5}>No transfers yet</td></tr>
               )}
             </tbody>
@@ -99,7 +114,18 @@ const OrganizerSettlements: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {ledger.map((l, idx) => (
+              {loading && (
+                <tr>
+                  <td className="p-2" colSpan={5}>
+                    <div className="grid grid-cols-5 gap-2">
+                      {[...Array(3)].map((_, i) => (
+                        <Skeleton key={i} className="h-4 w-full" />
+                      ))}
+                    </div>
+                  </td>
+                </tr>
+              )}
+              {!loading && ledger.map((l, idx) => (
                 <tr key={idx} className="border-t">
                   <td className="p-2 capitalize">{l.type}</td>
                   <td className="p-2 capitalize">{l.source}</td>
@@ -108,7 +134,7 @@ const OrganizerSettlements: React.FC = () => {
                   <td className="p-2">{new Date(l.createdAt).toLocaleString()}</td>
                 </tr>
               ))}
-              {!ledger.length && (
+              {!loading && !ledger.length && (
                 <tr><td className="p-3 text-center text-gray-500" colSpan={5}>No ledger entries yet</td></tr>
               )}
             </tbody>

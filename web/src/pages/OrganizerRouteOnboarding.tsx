@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import api from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../components/ui/Toast';
+import Tooltip from '../components/ui/Tooltip';
+import { Skeleton } from '../components/ui/Skeleton';
 
 interface StatusResponse {
   onboarded: boolean;
@@ -12,6 +15,7 @@ interface StatusResponse {
 
 const OrganizerRouteOnboarding: React.FC = () => {
   const { user } = useAuth();
+  const { add } = useToast();
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
@@ -33,6 +37,7 @@ const OrganizerRouteOnboarding: React.FC = () => {
       setStatus(data);
     } catch (error) {
       console.error('Failed to fetch onboarding status', error);
+      add('Failed to fetch onboarding status', 'error');
     }
   }
 
@@ -51,9 +56,9 @@ const OrganizerRouteOnboarding: React.FC = () => {
         },
       });
       await fetchStatus();
-      alert('Onboarding submitted. You can receive payouts after activation.');
+      add('Onboarding submitted. You can receive payouts after activation.', 'success');
     } catch (error: any) {
-      alert(error.response?.data?.error || error.message);
+      add(error.response?.data?.error || error.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -66,7 +71,15 @@ const OrganizerRouteOnboarding: React.FC = () => {
       <h1 className="text-3xl font-bold mb-4">Route Onboarding</h1>
       <p className="text-gray-600 mb-6">Connect your bank to receive automatic payouts after bookings.</p>
 
-      {status && status.onboarded && (
+      {!status ? (
+        <div className="mb-6">
+          <div className="p-4 rounded-lg border bg-white">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="mt-2 h-4 w-48" />
+            <Skeleton className="mt-2 h-4 w-64" />
+          </div>
+        </div>
+      ) : status.onboarded ? (
         <div className="mb-6 rounded-lg border border-green-200 bg-green-50 p-4">
           <p className="font-semibold text-green-800">✅ Onboarded</p>
           <p className="text-sm">Account: {status.accountId}</p>
@@ -74,7 +87,7 @@ const OrganizerRouteOnboarding: React.FC = () => {
           <p className="text-sm">Commission: {status.commissionRate || 5}%</p>
           <p className="text-sm">KYC: {status.kycStatus}</p>
         </div>
-      )}
+      ) : null}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
@@ -112,7 +125,10 @@ const OrganizerRouteOnboarding: React.FC = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">IFSC Code</label>
+            <label className="block text-sm font-medium mb-1 flex items-center gap-2">
+              IFSC Code
+              <Tooltip text="We only store hashed identifiers and never your full bank details." />
+            </label>
             <input
               required
               className="w-full rounded border px-3 py-2"
@@ -145,7 +161,7 @@ const OrganizerRouteOnboarding: React.FC = () => {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+          className="w-full rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white shadow-md hover:bg-emerald-700 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
         >
           {loading ? 'Submitting...' : 'Submit Onboarding'}
         </button>

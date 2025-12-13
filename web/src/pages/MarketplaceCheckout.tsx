@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../components/ui/Toast';
 
 declare global {
   interface Window {
@@ -21,6 +22,7 @@ const loadRazorpay = () => {
 
 const MarketplaceCheckout: React.FC = () => {
   const { user } = useAuth();
+  const { add } = useToast();
   const [organizerId, setOrganizerId] = useState('');
   const [tripId, setTripId] = useState('');
   const [amount, setAmount] = useState(10000); // default ₹100
@@ -34,14 +36,17 @@ const MarketplaceCheckout: React.FC = () => {
   async function startCheckout() {
     if (!user) {
       setMessage('Login required');
+      add('Login required', 'error');
       return;
     }
     if (!organizerId || organizerId.length < 12) {
       setMessage('Please enter a valid organizer ID');
+      add('Please enter a valid organizer ID', 'error');
       return;
     }
     if (amount < 100) {
       setMessage('Amount must be at least ₹1.00');
+      add('Amount must be at least ₹1.00', 'error');
       return;
     }
     setLoading(true);
@@ -58,6 +63,7 @@ const MarketplaceCheckout: React.FC = () => {
       const keyId = process.env.REACT_APP_RAZORPAY_KEY_ID || '';
       if (!keyId) {
         setMessage('Payment key missing. Contact support.');
+        add('Payment key missing. Contact support.', 'error');
         return;
       }
 
@@ -70,6 +76,7 @@ const MarketplaceCheckout: React.FC = () => {
         description: 'Trip booking payment',
         handler: function (response: any) {
           setMessage('Payment successful. Awaiting confirmation.');
+          add('Payment successful. Awaiting confirmation.', 'success');
         },
         prefill: {
           name: user.name,
@@ -82,11 +89,15 @@ const MarketplaceCheckout: React.FC = () => {
 
       const rzp = new window.Razorpay(options);
       rzp.on('payment.failed', function (resp: any) {
-        setMessage(resp.error?.description || 'Payment failed');
+        const m = resp.error?.description || 'Payment failed';
+        setMessage(m);
+        add(m, 'error');
       });
       rzp.open();
     } catch (error: any) {
-      setMessage(error.response?.data?.error || error.message);
+      const m = error.response?.data?.error || error.message;
+      setMessage(m);
+      add(m, 'error');
     } finally {
       setLoading(false);
     }
@@ -130,7 +141,7 @@ const MarketplaceCheckout: React.FC = () => {
           <p className="text-xs text-gray-500">₹{(amount / 100).toFixed(2)}</p>
         </div>
         <button
-          className="w-full rounded bg-emerald-600 px-4 py-2 font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+          className="w-full rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white shadow-md hover:bg-emerald-700 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
           onClick={startCheckout}
           disabled={loading}
         >

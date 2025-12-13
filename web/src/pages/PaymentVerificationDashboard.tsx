@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../services/apiClient';
-import { toast } from 'react-toastify';
+import { useToast } from '../components/ui/Toast';
+import { Skeleton } from '../components/ui/Skeleton';
 
 interface PaymentVerification {
   verificationCode: string;
@@ -37,6 +38,7 @@ interface TrustedAmountQR {
 
 export const PaymentVerificationDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const { add } = useToast();
   const [verification, setVerification] = useState<PaymentVerification | null>(null);
   const [history, setHistory] = useState<PaymentHistory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,13 +53,13 @@ export const PaymentVerificationDashboard: React.FC = () => {
     checkAuthorization();
     fetchVerificationCode();
     fetchPaymentHistory();
-  }, []);
+  }, []); 
 
   const checkAuthorization = async () => {
     try {
       const response = await apiClient.get('/subscriptions/verify-crm-access');
       if (!response.data.hasCRMAccess) {
-        toast.error('You need a CRM-enabled subscription to access payment verification');
+        add('You need a CRM-enabled subscription to access payment verification', 'error');
         navigate('/organizer/subscriptions');
       }
     } catch (error) {
@@ -94,9 +96,9 @@ export const PaymentVerificationDashboard: React.FC = () => {
     try {
       const response = await apiClient.post('/payment-verification/generate-code', {});
       setVerification(response.data);
-      toast.success('Payment verification code generated successfully!');
+      add('Payment verification code generated successfully!', 'success');
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to generate verification code');
+      add(error.response?.data?.message || 'Failed to generate verification code', 'error');
     }
   };
 
@@ -108,10 +110,10 @@ export const PaymentVerificationDashboard: React.FC = () => {
     try {
       await apiClient.post('/payment-verification/deactivate', {});
       setVerification(null);
-      toast.success('Verification code deactivated');
+      add('Verification code deactivated', 'success');
       fetchVerificationCode();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to deactivate verification code');
+      add(error.response?.data?.message || 'Failed to deactivate verification code', 'error');
     }
   };
 
@@ -120,7 +122,7 @@ export const PaymentVerificationDashboard: React.FC = () => {
       navigator.clipboard.writeText(verification.verificationCode);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-      toast.success('Code copied to clipboard!');
+      add('Code copied to clipboard!', 'success');
     }
   };
 
@@ -148,7 +150,7 @@ export const PaymentVerificationDashboard: React.FC = () => {
       });
       toast.success('Trusted QR generated');
     } catch (error: any) {
-      toast.error(error?.response?.data?.error || error.message || 'Failed to generate trusted QR');
+      add(error?.response?.data?.error || error.message || 'Failed to generate trusted QR', 'error');
     } finally {
       setQrGenerating(false);
     }
@@ -165,14 +167,24 @@ export const PaymentVerificationDashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading payment verification...</p>
+      <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto space-y-6">
+          <div className="bg-white rounded-lg shadow p-6">
+            <Skeleton className="h-6 w-64" />
+            <Skeleton className="mt-2 h-4 w-96" />
+          </div>
+          <div className="grid lg:grid-cols-3 gap-6">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="bg-white rounded-lg shadow p-6">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="mt-2 h-6 w-52" />
+                <Skeleton className="mt-3 h-24 w-full" />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
