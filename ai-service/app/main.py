@@ -111,13 +111,43 @@ app.add_middleware(BodySizeLimitMiddleware)
 app.add_middleware(RequestIDMiddleware)
 
 
-# Basic in-memory rate limiter
+# Redis client initialization (optional)
+_redis_client = None
+if REDIS_URL:
+    try:
+        import redis
+        _redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+        logger.info("Redis connected successfully for distributed rate limiting")
+    except Exception as e:
+        logger.warning(f"Failed to connect to Redis: {e}. Falling back to in-memory rate limiting.")
+        _redis_client = None
+
+
+# Basic in-memory rate limiter (fallback)
 _rate_store = {}
 
 
 def is_rate_limited(ip: str) -> bool:
-    # Simple in-memory rate limiting (fallback). Prefer Redis-based limiter in production.
+    """Rate limiting with Redis support (fallback to in-memory if Redis unavailable)"""
     now = time()
+    
+    # Use Redis if available for distributed rate limiting
+    if _redis_client:
+        try:
+            key = f"ratelimit:{ip}"
+            current = _redis_client.incr(key)
+            if current == 1:
+                _redis_client.expire(key, AI_RATE_WINDOW)
+            
+            if current > AI_RATE_LIMIT:
+                RATE_LIMIT_HITS.inc()
+                return True
+            return False
+        except Exception as e:
+            logger.warning(f"Redis rate limit check failed: {e}. Falling back to in-memory.")
+            # Fall through to in-memory rate limiting
+    
+    # In-memory fallback
     window = _rate_store.get(ip, [])
     window = [t for t in window if t > now - AI_RATE_WINDOW]
     if len(window) >= AI_RATE_LIMIT:

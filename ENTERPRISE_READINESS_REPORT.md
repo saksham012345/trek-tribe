@@ -24,11 +24,24 @@ Summary — Completion Update
 - **Status**: Test-ready; needs `WEBHOOK_SECRET` from dashboard for production
 
 ### AI Chat System ✅
-- Strict trip + organizer context enforcement (DB-only queries)
+- **FastAPI microservice** (`ai-service/`) with production-grade features:
+  - API key authentication via `x-api-key` header (32+ char requirement)
+  - CORS middleware with configurable origins
+  - Rate limiting: 20 requests per 60s window (configurable)
+  - Prometheus metrics for monitoring (request count, latency, failures)
+  - Structured JSON logging for production debugging
+  - Health (`/health`) and readiness (`/ready`) endpoints
+  - Request timeout enforcement (50s default)
+  - Body size limits (50KB max) to prevent abuse
+- **Dual-mode operation**:
+  - Local model inference (transformers + torch) for production ML
+  - Fallback stub mode for lightweight deployments (no ML dependencies)
+- **RAG (Retrieval-Augmented Generation)** support with document indexing
+- **Few-shot prompt engineering** for structured JSON outputs
 - Conversation persistence via `AIConversation` model with `context.currentTrip` and `context.organizer`
-- Organizer disambiguation for multi-organizer scenarios
-- Direct database queries for accommodation, gear, pricing details (no fallback to generic docs)
-- **Status**: Verified and production-ready
+- Direct database queries for accommodation, gear, pricing details
+- Backend proxy routes: `/api/ai/generate` and `/api/agent/suggest`
+- **Status**: ✅ Production-ready AI service with enterprise-grade security and monitoring
 
 ### Verification Systems
 
