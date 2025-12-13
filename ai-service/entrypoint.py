@@ -4,6 +4,9 @@ import subprocess
 import time
 from pathlib import Path
 
+# Ensure we're in the correct working directory
+os.chdir('/app')
+
 MODEL_DIR = os.environ.get("MODEL_DIR") or f"/app/models/{os.environ.get('MODEL_NAME','google/flan-t5-base').replace('/','_')}"
 DATA_DIR = os.environ.get("AI_DATA_DIR") or os.environ.get("DATA_DIR") or "/app/data"
 
