@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { body, validationResult } from 'express-validator';
 import crypto from 'crypto';
 import { razorpayService } from '../services/razorpayService';
 import { OrganizerSubscription } from '../models/OrganizerSubscription';
@@ -28,6 +29,15 @@ const router = Router();
  * - refund.processed - Refund completed
  */
 router.post('/razorpay', async (req: Request, res: Response) => {
+  // Ensure Razorpay webhook payload has expected shape before signature verification
+  await Promise.all([
+    body('payload').optional().isObject().run(req),
+    body('event').optional().isString().isLength({ min: 2, max: 64 }).run(req),
+  ]);
+  const vErrors = validationResult(req);
+  if (!vErrors.isEmpty()) {
+    return res.status(400).json({ errors: vErrors.array() });
+  }
   try {
     const webhookSignature = req.headers['x-razorpay-signature'] as string;
     const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;

@@ -91,6 +91,17 @@ const upload = multer({
     fieldSize: 1 * 1024 * 1024 // 1MB field size limit
   }
 });
+const allowedMime = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!allowedMime.includes(file.mimetype)) {
+      return cb(new Error('Invalid file type'));
+    }
+    cb(null, true);
+  }
+});
 
 // Import sanitization middleware for file upload routes
 import { sanitizeFileUploads } from '../middleware/sanitization';
