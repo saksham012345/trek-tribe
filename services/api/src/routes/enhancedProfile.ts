@@ -121,7 +121,7 @@ router.get('/enhanced/:userId?', async (req, res) => {
         statsVisible: true,
         canPost: isOwnProfile,
       };
-    } else if (user.role === 'traveller') {
+    } else if (user.role === 'traveler') {
       // Travellers: basic profile only
       roleSpecificData = {
         portfolioVisible: false,

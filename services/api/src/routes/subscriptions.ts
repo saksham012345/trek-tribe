@@ -232,6 +232,30 @@ router.get('/my', authenticateJwt, async (req: Request, res: Response) => {
       });
     }
 
+    // Validate subscription status
+    // Trial subscriptions must have status='trial' and isTrialActive=true
+    if (subscription.status === 'trial' && !subscription.isTrialActive) {
+      return res.json({
+        hasSubscription: false,
+        message: 'Trial subscription is inactive',
+        reason: 'Your trial has expired or been cancelled',
+      });
+    }
+
+    // Check if payment was completed for active subscriptions
+    if (subscription.status === 'active' && subscription.payments && subscription.payments.length > 0) {
+      const lastPayment = subscription.payments[subscription.payments.length - 1];
+      if (lastPayment.status !== 'completed') {
+        return res.json({
+          hasSubscription: false,
+          message: 'Subscription not active',
+          reason: `Payment status is ${lastPayment.status}. Please complete payment.`,
+          subscriptionId: subscription._id,
+          paymentStatus: lastPayment.status,
+        });
+      }
+    }
+
     // Calculate remaining trips
     const tripsUsed = subscription.tripsUsed || 0;
     const tripsRemaining = Math.max(0, (subscription.tripsPerCycle || 5) - tripsUsed);
@@ -244,7 +268,7 @@ router.get('/my', authenticateJwt, async (req: Request, res: Response) => {
     );
 
     return res.json({
-      hasSubscription: true,
+      hasSubscription: !isExpired && ['active', 'trial'].includes(subscription.status),
       subscription: {
         ...subscription,
         tripsRemaining,
@@ -926,6 +950,7 @@ router.get('/verify-crm-access', authenticateJwt, async (req: Request, res: Resp
       .sort({ createdAt: -1 })
       .lean();
 
+    // Check if subscription exists
     if (!subscription) {
       return res.json({
         hasCRMAccess: false,
@@ -933,7 +958,54 @@ router.get('/verify-crm-access', authenticateJwt, async (req: Request, res: Resp
         canViewPhoneNumbers: false,
         planType: 'NONE',
         message: 'No active subscription',
+        accessDeniedReason: 'No subscription found',
       });
+    }
+
+    // Check if subscription status is valid (must be 'active' or 'trial')
+    if (!['active', 'trial'].includes(subscription.status)) {
+      return res.json({
+        hasCRMAccess: false,
+        hasLeadCapture: false,
+        canViewPhoneNumbers: false,
+        planType: subscription.plan,
+        subscriptionStatus: subscription.status,
+        message: 'Subscription is not active',
+        accessDeniedReason: `Subscription status is ${subscription.status}. Please renew your subscription.`,
+      });
+    }
+
+    // Check if subscription has expired
+    const now = new Date();
+    const endDate = subscription.subscriptionEndDate || subscription.currentPeriodEnd;
+    
+    if (endDate && endDate < now && subscription.status !== 'trial') {
+      return res.json({
+        hasCRMAccess: false,
+        hasLeadCapture: false,
+        canViewPhoneNumbers: false,
+        planType: subscription.plan,
+        subscriptionStatus: 'expired',
+        subscriptionEndDate: endDate,
+        message: 'Subscription has expired',
+        accessDeniedReason: `Your subscription expired on ${endDate.toLocaleDateString()}. Please renew.`,
+      });
+    }
+
+    // Verify payment was actually captured (for paid subscriptions)
+    if (subscription.status === 'active' && subscription.payments) {
+      const lastPayment = subscription.payments[subscription.payments.length - 1];
+      if (lastPayment && lastPayment.status !== 'completed') {
+        return res.json({
+          hasCRMAccess: false,
+          hasLeadCapture: false,
+          canViewPhoneNumbers: false,
+          planType: subscription.plan,
+          subscriptionStatus: subscription.status,
+          message: 'Payment not completed',
+          accessDeniedReason: `Your payment status is ${lastPayment.status}. Please complete payment to activate CRM access.`,
+        });
+      }
     }
 
     const plan = SUBSCRIPTION_PLANS[subscription.plan.toUpperCase() as keyof typeof SUBSCRIPTION_PLANS];
@@ -945,6 +1017,7 @@ router.get('/verify-crm-access', authenticateJwt, async (req: Request, res: Resp
         canViewPhoneNumbers: false,
         planType: subscription.plan,
         message: 'Invalid plan type',
+        accessDeniedReason: `Plan "${subscription.plan}" is not recognized`,
       });
     }
 
@@ -956,9 +1029,10 @@ router.get('/verify-crm-access', authenticateJwt, async (req: Request, res: Resp
       planName: plan.name,
       planPrice: plan.price,
       subscriptionStatus: subscription.status,
-      subscriptionEndDate: subscription.subscriptionEndDate,
+      subscriptionEndDate: subscription.subscriptionEndDate || subscription.currentPeriodEnd,
       isTrialActive: subscription.isTrialActive,
       message: 'CRM access verified',
+      accessGranted: true,
       features: {
         crm: {
           enabled: plan.crmAccess,
