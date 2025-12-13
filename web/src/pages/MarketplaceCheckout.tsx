@@ -36,6 +36,14 @@ const MarketplaceCheckout: React.FC = () => {
       setMessage('Login required');
       return;
     }
+    if (!organizerId || organizerId.length < 12) {
+      setMessage('Please enter a valid organizer ID');
+      return;
+    }
+    if (amount < 100) {
+      setMessage('Amount must be at least ₹1.00');
+      return;
+    }
     setLoading(true);
     setMessage('');
     try {
@@ -48,6 +56,10 @@ const MarketplaceCheckout: React.FC = () => {
 
       const order = data.order;
       const keyId = process.env.REACT_APP_RAZORPAY_KEY_ID || '';
+      if (!keyId) {
+        setMessage('Payment key missing. Contact support.');
+        return;
+      }
 
       const options = {
         key: keyId,
