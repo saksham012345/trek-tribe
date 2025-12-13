@@ -1,6 +1,6 @@
-import { Request, Response, NextFunction } from 'express';
-import { JwtPayload } from 'jsonwebtoken';
-import { ParamsDictionary, Query } from 'express-serve-static-core';
+import type { JwtPayload } from 'jsonwebtoken';
+import type { ParamsDictionary, Query } from 'express-serve-static-core';
+import type { Request } from 'express';
 
 // AuthPayload matches the one from middleware/auth.ts
 export interface AuthPayload {
