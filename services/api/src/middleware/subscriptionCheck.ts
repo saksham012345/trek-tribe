@@ -106,9 +106,11 @@ export const getSubscriptionStatus = async (
     const subscription = await OrganizerSubscription.findOne({ organizerId: userId });
 
     if (!subscription) {
-      // Create trial subscription for new organizer
-      const newSubscription = await OrganizerSubscription.create({ organizerId: userId });
-      req.subscription = newSubscription;
+      // DO NOT auto-create subscription here
+      // Subscriptions should only be created through explicit endpoints:
+      // - Trial: /api/subscriptions/start-trial
+      // - Paid: /api/subscriptions/verify-payment
+      req.subscription = null;
     } else {
       req.subscription = subscription;
     }
