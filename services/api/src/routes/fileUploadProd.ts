@@ -82,24 +82,24 @@ const storage = multer.diskStorage({
   }
 });
 
+const allowedMime = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 const upload = multer({
   storage,
-  fileFilter,
+  fileFilter: (req, file, cb) => {
+    // Run existing fileFilter first
+    fileFilter(req as any, file as any, (err: any, passed?: boolean) => {
+      if (err) return cb(err);
+      // Enforce MIME allowlist
+      if (!allowedMime.includes(file.mimetype)) {
+        return cb(new Error('Invalid file type'));
+      }
+      cb(null, passed !== false);
+    });
+  },
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit per file for security
     files: 10,
     fieldSize: 1 * 1024 * 1024 // 1MB field size limit
-  }
-});
-const allowedMime = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    if (!allowedMime.includes(file.mimetype)) {
-      return cb(new Error('Invalid file type'));
-    }
-    cb(null, true);
   }
 });
 
