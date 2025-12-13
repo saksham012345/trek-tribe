@@ -1,12 +1,34 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  onStart: () => void;
+  onStart?: () => void;
 }
 
 const JoinTheTribeModal: React.FC<Props> = ({ open, onClose, onStart }) => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const handleStartNow = () => {
+    if (onStart) {
+      onStart();
+    } else {
+      // Default behavior: navigate to subscribe page
+      if (!user) {
+        navigate('/login', { state: { from: { pathname: '/subscribe' } } });
+      } else if (user.role === 'organizer') {
+        navigate('/subscribe');
+      } else {
+        // Non-organizers need to register as organizer first
+        navigate('/register', { state: { role: 'organizer' } });
+      }
+      onClose();
+    }
+  };
+
   if (!open) return null;
 
   return (
@@ -45,8 +67,8 @@ const JoinTheTribeModal: React.FC<Props> = ({ open, onClose, onStart }) => {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2">
           <p className="text-sm text-gray-600">Already convinced? Start with subscription, then connect Razorpay to receive payouts.</p>
           <div className="flex gap-3">
-            <button onClick={onClose} className="px-4 py-2 rounded-lg border text-gray-700">Maybe later</button>
-            <button onClick={onStart} className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700">Start now</button>
+            <button onClick={onClose} className="px-4 py-2 rounded-lg border text-gray-700 hover:bg-gray-50 transition-colors">Maybe later</button>
+            <button onClick={handleStartNow} className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700 transition-colors shadow-md hover:shadow-lg">Start now</button>
           </div>
         </div>
       </div>

@@ -31,7 +31,7 @@ const SUBSCRIPTION_PLANS = {
     name: 'Starter Plan',
     price: 599,
     trips: 2,
-    duration: 30, // days
+    duration: 30, // days (+ 2 months free)
     crmAccess: false,
     leadCapture: false,
     phoneNumbers: false,
@@ -39,7 +39,8 @@ const SUBSCRIPTION_PLANS = {
       'List up to 2 trips',
       'Basic analytics',
       'Email support',
-      '60-day free trial'
+      '2 months free service included',
+      '60-day free trial available'
     ],
     trialDays: 60,
     description: 'Perfect for beginners just starting with trek organization'
@@ -48,7 +49,7 @@ const SUBSCRIPTION_PLANS = {
     name: 'Basic Plan',
     price: 1299,
     trips: 4,
-    duration: 30, // days
+    duration: 30, // days (+ 2 months free)
     crmAccess: false,
     leadCapture: false,
     phoneNumbers: false,
@@ -57,7 +58,8 @@ const SUBSCRIPTION_PLANS = {
       'Basic analytics',
       'Email support',
       'Payment integration',
-      '60-day free trial'
+      '2 months free service included',
+      '60-day free trial available'
     ],
     trialDays: 60,
     description: 'Great for growing organizers with regular trips'
@@ -66,30 +68,27 @@ const SUBSCRIPTION_PLANS = {
     name: 'Professional Plan',
     price: 2199,
     trips: 6,
-    duration: 30, // days
-    crmAccess: true,
-    leadCapture: true,
-    phoneNumbers: true,
+    duration: 30, // days (+ 2 months free)
+    crmAccess: false,
+    leadCapture: false,
+    phoneNumbers: false,
     features: [
       'List up to 6 trips',
-      '✨ Full CRM Access',
-      '✨ Lead Capture & Management',
-      '✨ Phone Numbers in Leads',
-      '✨ Lead Verification System',
       'Advanced analytics',
       'Priority support',
       'AI assistant tools',
       'Email templates',
-      '60-day free trial'
+      '2 months free service included',
+      '60-day free trial available'
     ],
     trialDays: 60,
-    description: 'Best for professional organizers with CRM features'
+    description: 'Great for professional trip organizers'
   },
   PREMIUM: {
     name: 'Premium Plan',
     price: 3999,
     trips: 15,
-    duration: 30, // days
+    duration: 30, // days (+ 2 months free)
     crmAccess: true,
     leadCapture: true,
     phoneNumbers: true,
@@ -105,7 +104,8 @@ const SUBSCRIPTION_PLANS = {
       'Email & SMS templates',
       'API access',
       'Custom branding',
-      '60-day free trial'
+      '2 months free service included',
+      '60-day free trial available'
     ],
     trialDays: 60,
     description: 'Premium solution for scaling trek organizations'
@@ -114,7 +114,7 @@ const SUBSCRIPTION_PLANS = {
     name: 'Enterprise Plan',
     price: 7999,
     trips: 40,
-    duration: 30, // days
+    duration: 30, // days (+ 2 months free)
     crmAccess: true,
     leadCapture: true,
     phoneNumbers: true,
@@ -131,7 +131,8 @@ const SUBSCRIPTION_PLANS = {
       'API access with webhooks',
       'Custom branding',
       'Advanced integrations',
-      '60-day free trial'
+      '2 months free service included',
+      '60-day free trial available'
     ],
     trialDays: 60,
     description: 'Ultimate solution for high-volume trek organizations'
@@ -156,33 +157,47 @@ const verifyPaymentSchema = z.object({
  */
 router.get('/plans', async (_req: Request, res: Response) => {
   try {
+    const plans = [
+      {
+        id: 'STARTER',
+        type: 'STARTER',
+        ...SUBSCRIPTION_PLANS.STARTER,
+      },
+      {
+        id: 'BASIC',
+        type: 'BASIC',
+        ...SUBSCRIPTION_PLANS.BASIC,
+      },
+      {
+        id: 'PROFESSIONAL',
+        type: 'PROFESSIONAL',
+        ...SUBSCRIPTION_PLANS.PROFESSIONAL,
+        popular: true, // Mark as popular plan
+      },
+      {
+        id: 'PREMIUM',
+        type: 'PREMIUM',
+        ...SUBSCRIPTION_PLANS.PREMIUM,
+      },
+      {
+        id: 'ENTERPRISE',
+        type: 'ENTERPRISE',
+        ...SUBSCRIPTION_PLANS.ENTERPRISE,
+      },
+    ];
+    
     return res.json({
-      plans: [
-        {
-          id: 'STARTER',
-          ...SUBSCRIPTION_PLANS.STARTER,
-        },
-        {
-          id: 'BASIC',
-          ...SUBSCRIPTION_PLANS.BASIC,
-        },
-        {
-          id: 'PROFESSIONAL',
-          ...SUBSCRIPTION_PLANS.PROFESSIONAL,
-        },
-        {
-          id: 'PREMIUM',
-          ...SUBSCRIPTION_PLANS.PREMIUM,
-        },
-        {
-          id: 'ENTERPRISE',
-          ...SUBSCRIPTION_PLANS.ENTERPRISE,
-        },
-      ],
+      success: true,
+      plans,
+      message: 'Subscription plans fetched successfully',
     });
   } catch (error: any) {
     console.error('❌ Error fetching plans:', error);
-    return res.status(500).json({ error: 'Failed to fetch plans' });
+    return res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch plans',
+      message: error.message 
+    });
   }
 });
 

@@ -68,9 +68,13 @@ interface PaymentConfig {
 const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 7;
   
+  // All hooks must be called before any conditional returns
+  const [currentStep, setCurrentStep] = useState(1);
+  const [subscriptionChecked, setSubscriptionChecked] = useState(false);
+  const [hasSubscription, setHasSubscription] = useState(false);
+  const totalSteps = 7;
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -120,6 +124,60 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+
+  // Check subscription status on mount
+  React.useEffect(() => {
+    const checkSubscription = async () => {
+      try {
+        if (user?.role !== 'organizer') {
+          navigate('/');
+          return;
+        }
+
+        const response = await api.get('/api/subscriptions/my');
+        const hasActive = response.data?.hasSubscription && response.data?.subscription?.isActive;
+        setHasSubscription(hasActive);
+        
+        if (!hasActive) {
+          // Redirect to subscription page if no active subscription
+          navigate('/subscribe', { 
+            state: { 
+              message: 'You need an active subscription to create trips',
+              from: { pathname: '/create-trip' }
+            } 
+          });
+          return;
+        }
+        
+        setSubscriptionChecked(true);
+      } catch (error) {
+        console.error('Failed to check subscription:', error);
+        navigate('/subscribe', { 
+          state: { 
+            message: 'Please subscribe to create trips',
+            from: { pathname: '/create-trip' }
+          } 
+        });
+      }
+    };
+
+    checkSubscription();
+  }, [user, navigate]);
+
+  // Don't render form until subscription is checked and user is authorized
+  if (!subscriptionChecked || !hasSubscription) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-forest-50 via-nature-50 to-forest-100">
+        <div className="text-center">
+          <svg className="animate-spin h-12 w-12 text-forest-600 mx-auto mb-4" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+          <p className="text-forest-700 font-medium">Verifying subscription...</p>
+        </div>
+      </div>
+    );
+  }
 
   const categories = ['Adventure', 'Cultural', 'Beach', 'Mountain', 'City', 'Nature', 'Wildlife', 'Desert', 'Arctic', 'Botanical', 'Photography', 'Spiritual', 'Culinary', 'Historical', 'Sports'];
   

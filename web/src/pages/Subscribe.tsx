@@ -243,6 +243,18 @@ const SubscribeInner: React.FC = () => {
         })}
       </div>
 
+      <div className="p-5 rounded-2xl border border-amber-200 bg-amber-50">
+        <p className="text-sm text-amber-900">
+          <span className="font-semibold">Note:</span> A standard Razorpay handling fee of 1.85% applies per transaction. This is a platform standard for payment processing.
+        </p>
+      </div>
+
+      <div className="p-5 rounded-2xl border border-blue-200 bg-blue-50">
+        <p className="text-sm text-blue-900">
+          <span className="font-semibold">Free Service Included:</span> Every subscription plan includes 2 months of free service with your initial payment. After the initial month, you get 2 additional months free.
+        </p>
+      </div>
+
       <div className="p-5 rounded-2xl border border-gray-200 bg-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <p className="font-semibold text-gray-900">Start with the selected plan</p>
