@@ -151,9 +151,22 @@ router.post('/login', async (req, res) => {
   }
   const { email, password } = parsed.data;
   const user = await User.findOne({ email });
-  if (!user) return res.status(401).json({ error: 'Invalid credentials', message: 'Your email or password is incorrect. Please try again.' });
+  if (!user) {
+    return res.status(401).json({
+      error: 'User does not exist',
+      message: 'No account found for this email. Please sign up.',
+      code: 'USER_NOT_FOUND'
+    });
+  }
+
   const ok = await bcrypt.compare(password, user.passwordHash);
-  if (!ok) return res.status(401).json({ error: 'Invalid credentials', message: 'Your email or password is incorrect. Please try again.' });
+  if (!ok) {
+    return res.status(401).json({
+      error: 'Invalid password',
+      message: 'The password you entered is incorrect.',
+      code: 'INVALID_PASSWORD'
+    });
+  }
 
   // Admin and agent users don't require email verification
   if (!user.emailVerified && user.role !== 'admin' && user.role !== 'agent') {
