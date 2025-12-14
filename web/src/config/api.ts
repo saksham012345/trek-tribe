@@ -2,13 +2,9 @@ import axios from 'axios';
 import { apiCache } from '../utils/apiCache';
 
 // API Configuration
-// Priority: Environment Variable > Production Detection > Development Default
-const API_BASE_URL = process.env.REACT_APP_API_URL || 
-  (process.env.NODE_ENV === 'production' 
-    ? (window.location.hostname.includes('trektribe.in') || window.location.hostname.includes('onrender.com')
-        ? 'https://trek-tribe-38in.onrender.com'  // Production API (for trektribe.in and Render)
-        : 'https://trek-tribe-38in.onrender.com')  // Default to production API
-    : 'https://trek-tribe-38in.onrender.com');  // Use Render backend for development too
+// Priority: explicit env → hosted API (Render/Vercel)
+const API_BASE_URL = process.env.REACT_APP_API_URL
+  || 'https://trek-tribe-38in.onrender.com';
 
 // Create axios instance with default configuration
 const api: any = axios.create({

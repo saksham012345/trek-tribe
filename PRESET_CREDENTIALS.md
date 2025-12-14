@@ -32,19 +32,26 @@ These accounts are automatically created when you run the database seed script.
 
 ## 🚀 How to Set Up Test Users
 
-### Option 1: Run Seed Script (Recommended)
+### Option 1: Render/Vercel (Hosted) — Safe Upsert
+Call the internal seed endpoint (requires `SEED_TOKEN` env):
 ```bash
-cd services/api
-npm run seed
+curl -X POST https://trek-tribe-38in.onrender.com/api/internal/seed/preset-users \
+	-H "x-seed-token: $SEED_TOKEN"
 ```
 
-### Option 2: Clean and Seed
+### Option 2: Local Dev (Non-destructive)
 ```bash
 cd services/api
-npm run clean-seed
+npm run setup:users
 ```
 
-⚠️ **Warning:** `clean-seed` will delete ALL existing data
+### Option 3: Local Dev (Full reset + seed) ⚠️ wipes data
+```bash
+cd services/api
+npm run db:clean
+```
+
+⚠️ **Warning:** `db:clean` deletes ALL data. Do not run on production.
 
 ---
 
