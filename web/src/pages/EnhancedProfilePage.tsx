@@ -91,7 +91,8 @@ const EnhancedProfilePage: React.FC = () => {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
-  const isOwnProfile = !userId || userId === currentUser?.id;
+  const [resolvedUserId, setResolvedUserId] = useState<string | null>(userId || currentUser?.id || null);
+  const [isOwnProfile, setIsOwnProfile] = useState<boolean>(!userId || userId === currentUser?.id);
   
   const [profile, setProfile] = useState<ProfileUser | null>(null);
   const [roleBasedData, setRoleBasedData] = useState<RoleBasedData | null>(null);
@@ -127,33 +128,66 @@ const EnhancedProfilePage: React.FC = () => {
 
   useEffect(() => {
     fetchProfile();
+  }, [userId]);
+
+  useEffect(() => {
+    if (!resolvedUserId) return;
     fetchPosts();
     if (isOwnProfile) {
       fetchPastTrips();
       fetchUserLinks();
     }
-  }, [userId, isOwnProfile]);
+  }, [resolvedUserId, isOwnProfile]);
 
   const fetchProfile = async () => {
     setError(null);
     try {
-      const endpoint = isOwnProfile ? '/profile/enhanced' : `/profile/enhanced/${userId}`;
+      const identifier = userId;
+      const isHandle = identifier ? !/^[a-f0-9]{24}$/i.test(identifier) : false;
+      const endpoint = !identifier
+        ? '/profile/enhanced'
+        : isHandle
+          ? `/public/${identifier}`
+          : `/profile/enhanced/${identifier}`;
+
       const response = await api.get(endpoint);
-      
-      const responseData = response.data as { data: EnhancedProfileResponse };
-      const { user: userData, roleBasedData: roleData } = responseData.data;
+
+      let userData: ProfileUser;
+      let roleData: RoleBasedData | null = null;
+
+      if (endpoint.startsWith('/public/')) {
+        const publicData = (response.data as any).data;
+        userData = publicData.user as ProfileUser;
+        roleData = {
+          portfolioVisible: true,
+          postsVisible: true,
+          followersVisible: true,
+          statsVisible: true,
+          canPost: userData.role === 'organizer',
+          showPastTrips: userData.role === 'traveller',
+          showWishlists: userData.role === 'traveller'
+        };
+      } else {
+        const responseData = response.data as { data: EnhancedProfileResponse };
+        userData = responseData.data.user;
+        roleData = responseData.data.roleBasedData || {
+          portfolioVisible: true,
+          postsVisible: true,
+          followersVisible: true,
+          statsVisible: true,
+          canPost: userData.role === 'organizer',
+          showPastTrips: userData.role === 'traveller',
+          showWishlists: userData.role === 'traveller'
+        };
+      }
+
       setProfile(userData);
-      setRoleBasedData(roleData || {
-        portfolioVisible: true,
-        postsVisible: true,
-        followersVisible: true,
-        statsVisible: true,
-        canPost: userData.role === 'organizer',
-        showPastTrips: userData.role === 'traveller',
-        showWishlists: userData.role === 'traveller'
-      });
-      
-      if (isOwnProfile) {
+      setRoleBasedData(roleData);
+      setResolvedUserId(userData._id || userData.email); // fall back to email if id missing
+      const viewingOwnProfile = !!(currentUser && userData._id === currentUser.id);
+      setIsOwnProfile(viewingOwnProfile || (!identifier && !!currentUser));
+
+      if (viewingOwnProfile) {
         setEditForm({
           name: userData.name || '',
           phone: userData.phone || '',
@@ -195,10 +229,9 @@ const EnhancedProfilePage: React.FC = () => {
 
   const fetchPosts = async () => {
     try {
-      const targetUserId = userId || currentUser?.id;
-      if (!targetUserId) return;
+      if (!resolvedUserId) return;
 
-      const response = await api.get(`/api/posts?authorId=${targetUserId}`);
+      const response = await api.get(`/api/posts?authorId=${resolvedUserId}`);
       setPosts((response.data as any).posts);
     } catch (error) {
       console.error('Error fetching posts:', error);

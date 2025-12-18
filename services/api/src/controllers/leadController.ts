@@ -5,6 +5,16 @@ import UserActivity from '../models/UserActivity';
 import notificationService from '../services/notificationService';
 
 class LeadController {
+  // Bind methods in constructor to preserve 'this' context
+  constructor() {
+    this.createLead = this.createLead.bind(this);
+    this.getLeads = this.getLeads.bind(this);
+    this.getLeadById = this.getLeadById.bind(this);
+    this.updateLead = this.updateLead.bind(this);
+    this.addInteraction = this.addInteraction.bind(this);
+    this.convertLead = this.convertLead.bind(this);
+  }
+
   /**
    * Create a new lead
    */

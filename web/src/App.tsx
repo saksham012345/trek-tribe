@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Header from './components/Header';
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -43,26 +43,6 @@ const Subscribe = React.lazy(() => import('./pages/Subscribe'));
 function AppContent() {
   const { user, loading, login: handleLogin, logout: handleLogout } = useAuth();
 
-  // Redirect organizers to their CRM when they hit the generic home/login pages
-  function RoleRedirect() {
-    const navigate = useNavigate();
-    const location = useLocation();
-
-    React.useEffect(() => {
-      if (!user) return;
-      if (user.role !== 'organizer') return;
-
-      const path = location.pathname || '/';
-      // If user is on generic home or root or login/register, send to organizer CRM
-      const shouldRedirect = path === '/' || path === '/home' || path === '/login' || path === '/register';
-      if (shouldRedirect) {
-        navigate('/organizer/crm', { replace: true });
-      }
-    }, [user, location.pathname, navigate]);
-
-    return null;
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -74,7 +54,6 @@ function AppContent() {
   return (
     <Router>
       <div className="min-h-screen bg-forest-50">
-        <RoleRedirect />
         <Header user={user} onLogout={handleLogout} />
         <main className="pt-16">
           <React.Suspense fallback={
@@ -89,6 +68,10 @@ function AppContent() {
             <Route path="/" element={user ? <Navigate to="/home" /> : <Register onLogin={handleLogin} />} />
             <Route path="/home" element={user ? <Home user={user} /> : <Navigate to="/" />} />
             <Route 
+            <Route 
+              path="/u/:userId" 
+              element={<EnhancedProfilePage />} 
+            />
               path="/login" 
               element={user ? <Navigate to="/home" /> : <Login onLogin={handleLogin} />} 
             />
@@ -101,6 +84,12 @@ function AppContent() {
               path="/subscribe" 
               element={
                 user ? <Subscribe /> : <Navigate to="/login" state={{ from: { pathname: '/subscribe' } }} />
+              } 
+            />
+            <Route 
+              path="/organizer/subscriptions" 
+              element={
+                user ? <Subscribe /> : <Navigate to="/login" state={{ from: { pathname: '/organizer/subscriptions' } }} />
               } 
             />
             <Route 

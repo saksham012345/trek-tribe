@@ -278,7 +278,9 @@ export async function start() {
     app.use('/files', fileRoutes);
     app.use('/bookings', bookingRoutes);
     app.use('/admin', adminRoutes);
-    app.use('/profile', profileRoutes);
+    app.use('/api/profile', profileRoutes);
+    app.use('/api/profile', enhancedProfileRoutes);
+    // Also mount enhanced profile without /api prefix to match other routes
     app.use('/profile', enhancedProfileRoutes);
     app.use('/api/public', publicProfileRoutes);
     // File upload system (production ready)
@@ -300,6 +302,7 @@ export async function start() {
     app.use('/api/posts', postsRoutes);
     app.use('/api/search', searchRoutes);
     app.use('/support', supportRoutes);
+    app.use('/api/support', supportRoutes); // Also mount at /api/support for consistency
     app.use('/stats', statsRoutes);
     
     // CRM System Routes

@@ -47,6 +47,35 @@ export class KnowledgeBaseService {
       content: 'Standard cancellation policy: Full refund if cancelled 7+ days before trip start, 50% refund if 3-7 days before, No refund within 3 days of trip start (except in case of organizer cancellation or force majeure). Refunds processed within 5-7 business days to original payment method. Some trips have custom policies - check trip details. For emergencies, contact support@trektribe.com.',
       metadata: { category: 'refund', priority: 'high' }
     },
+    // Trip Creation for Organizers
+    {
+      id: 'base-create-trip',
+      type: 'organizer' as const,
+      title: 'How to Create a Trip - 7 Step Process',
+      content: 'To create a trip on TrekTribe, you must be registered as an Organizer. Access the trip creation form by clicking "+ Create Adventure" in the header or navigating to /create-trip. The process has 7 steps: Step 1 - Basic Information (title, destination, description, categories like trekking/adventure/beach). Step 2 - Dates & Pricing (start date, end date, price per person in ₹, maximum capacity). Step 3 - Itinerary/Schedule (day-by-day activities with titles and descriptions). Step 4 - Images & Media (upload cover image and gallery photos, max 5MB each, JPG/PNG/WEBP). Step 5 - Inclusions & Exclusions (what is included in price: accommodation, meals, guide; and what is excluded: travel insurance, personal expenses). Step 6 - Terms & Policies (cancellation policy, important notes, safety guidelines). Step 7 - Review & Publish (review all details and publish your trip). After publishing, your trip appears in the marketplace immediately and you can manage bookings from the CRM Dashboard at /organizer/crm.',
+      metadata: { category: 'organizer', priority: 'critical' }
+    },
+    {
+      id: 'base-trip-creation-requirements',
+      type: 'organizer' as const,
+      title: 'Requirements for Creating a Trip',
+      content: 'Prerequisites for creating trips on TrekTribe: 1) Must be registered as an Organizer role (not Traveler). 2) Complete your organizer profile with verification documents. 3) Have an active subscription plan (2-month free trial for new organizers, then paid plans: Starter ₹1,499/month for 5 trips, Growth ₹3,499/month for 15 trips, Professional ₹5,999/month for 30 trips, Enterprise ₹9,999/month for 50 trips). 4) High-quality images (minimum 3-5 photos showing destination, activities, accommodation). 5) Detailed itinerary with day-wise breakdown. 6) Clear pricing with all inclusions/exclusions listed. 7) Valid cancellation and refund policy. Check your subscription status at /subscribe route.',
+      metadata: { category: 'organizer', priority: 'high' }
+    },
+    {
+      id: 'base-organizer-dashboard',
+      type: 'organizer' as const,
+      title: 'Organizer CRM Dashboard and Features',
+      content: 'The Organizer CRM Dashboard is your professional control center for managing trips and bookings. Access it at /organizer/crm route (NOT your homepage - home page is the normal Trek Tribe experience for all users). CRM features include: View all your trips with booking statistics, Manage participant details and contact information, Track payments and revenue analytics, View booking requests and confirmations, Export reports for accounting, Communicate with participants, Update trip availability and dates, Payment verification dashboard at /organizer/payment-verification, Analytics and insights on trip performance. The CRM is a separate professional tool accessible from the header menu for organizers only.',
+      metadata: { category: 'organizer', priority: 'high' }
+    },
+    {
+      id: 'base-trip-editing',
+      type: 'organizer' as const,
+      title: 'Editing and Managing Your Trips',
+      content: 'Edit existing trips by going to your trips list in the CRM Dashboard and clicking Edit on any trip. You can update: Trip details (title, description, categories), Dates and pricing (price changes notify existing bookings), Itinerary and schedule, Images (add/remove/reorder), Inclusions and exclusions, Policies and terms, Trip status (active, completed, cancelled). Changes to published trips are immediate. If you have existing bookings, price changes do not affect confirmed bookings. For major changes (like date modifications), notify participants via email/WhatsApp. To cancel a trip: change status to Cancelled and system notifies all participants. Refunds for cancelled trips follow your stated cancellation policy.',
+      metadata: { category: 'organizer', priority: 'medium' }
+    },
     {
       id: 'base-modification',
       type: 'policy' as const,

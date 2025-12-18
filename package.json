@@ -24,7 +24,8 @@
     "render:setup-db": "cd services/api && npm run setup:db"
   },
   "dependencies": {
-    "axios": "^1.11.0",
+    "axios": "^1.13.2",
+    "colors": "^1.4.0",
     "pip": "^0.0.1",
     "python": "^0.0.4"
   }

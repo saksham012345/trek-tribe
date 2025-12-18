@@ -27,6 +27,11 @@ const GENERAL_DOCS = [
   // General world knowledge
   {
     id: 'w1',
+    title: 'World Capitals',
+    text: 'Major world capitals: Paris is the capital of France. London is the capital of the United Kingdom. Berlin is the capital of Germany. Rome is the capital of Italy. Madrid is the capital of Spain. Tokyo is the capital of Japan. Beijing is the capital of China. Moscow is the capital of Russia. Washington D.C. is the capital of the United States. New Delhi is the capital of India. Canberra is the capital of Australia. Ottawa is the capital of Canada.'
+  },
+  {
+    id: 'w1b',
     title: 'World Geography and Travel',
     text: 'Popular travel destinations include: Paris (France) for art and culture, Tokyo (Japan) for technology and tradition, Bali (Indonesia) for beaches and temples, Iceland for natural wonders like glaciers and northern lights, Peru for Machu Picchu and ancient history, New Zealand for adventure sports and landscapes, and Dubai (UAE) for modern architecture and luxury.'
   },

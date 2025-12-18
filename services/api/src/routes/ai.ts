@@ -12,6 +12,7 @@ import { aiConversationService } from '../services/aiConversationService';
 import OpenAI from 'openai';
 import { answerGeneralQuery } from '../services/generalKnowledge';
 import { knowledgeBaseService } from '../services/knowledgeBase';
+import axios from 'axios';
 
 const router = express.Router();
 
@@ -315,12 +316,29 @@ class TrekTribeAI {
     const trekIntents = ['booking', 'payment', 'packing', 'safety', 'recommendation', 'cancellation', 'trip_detail'];
     let isTrekRelated = trekKeywords.some(k => lowerMessage.includes(k));
 
-    // Treat follow-ups with prior trek context as trek-related even if the new message is short/ambiguous
-    if (isFollowUp || (context?.lastIntent && trekIntents.includes(context.lastIntent))) {
-      isTrekRelated = true;
-    }
-    if (!isTrekRelated && hasTrekContext) {
-      isTrekRelated = true;
+    // World knowledge exclusion - even with trek context, world knowledge questions should use general AI
+    const worldKnowledgePatterns = [
+      /what is (the|a) capital/i,
+      /who is|who was|who are/i,
+      /what is (the|a) population/i,
+      /where is (the|a)/i,
+      /when did|when was/i,
+      /how (tall|high|far|long|big|small) is/i,
+      /tell me about (mount |mt\. |the |a )/i,
+      /explain |define |definition of/i
+    ];
+    const isWorldKnowledge = worldKnowledgePatterns.some(pattern => pattern.test(message));
+    
+    if (isWorldKnowledge) {
+      isTrekRelated = false;
+    } else {
+      // Treat follow-ups with prior trek context as trek-related only if NOT a world knowledge question
+      if (isFollowUp || (context?.lastIntent && trekIntents.includes(context.lastIntent))) {
+        isTrekRelated = true;
+      }
+      if (!isTrekRelated && hasTrekContext) {
+        isTrekRelated = true;
+      }
     }
 
     try {
@@ -1752,6 +1770,95 @@ router.post('/conversations/cleanup', async (req: Request, res: Response) => {
       success: false,
       error: 'Failed to cleanup conversations',
       message: error.message
+    });
+  }
+});
+
+// RAG System Proxy Endpoints
+import axios from 'axios';
+
+/**
+ * POST /api/ai/rag/query
+ * Proxy endpoint for RAG service queries
+ */
+router.post('/rag/query', async (req: Request, res: Response) => {
+  try {
+    const ragServiceUrl = process.env.RAG_SERVICE_URL;
+    const ragApiKey = process.env.RAG_API_KEY;
+    
+    if (!ragServiceUrl || !ragApiKey) {
+      return res.status(503).json({ 
+        error: 'RAG service not configured',
+        fallback: true 
+      });
+    }
+
+    const { query, top_k = 3 } = req.body;
+    
+    if (!query) {
+      return res.status(400).json({ 
+        error: 'Query parameter is required' 
+      });
+    }
+    
+    // Forward request to RAG service
+    const response = await axios.post(
+      `${ragServiceUrl}/query`,
+      { query, top_k },
+      {
+        headers: {
+          'X-API-Key': ragApiKey,
+          'Content-Type': 'application/json'
+        },
+        timeout: 30000 // 30 second timeout
+      }
+    );
+    
+    res.json({
+      ...response.data,
+      source: 'rag'
+    });
+  } catch (error: any) {
+    console.error('RAG proxy error:', error.message);
+    
+    // Return fallback flag instead of error
+    res.json({
+      error: 'RAG service temporarily unavailable',
+      fallback: true,
+      message: 'Please try again or use the knowledge base'
+    });
+  }
+});
+
+/**
+ * GET /api/ai/rag/health
+ * Check RAG service health
+ */
+router.get('/rag/health', async (req: Request, res: Response) => {
+  try {
+    const ragServiceUrl = process.env.RAG_SERVICE_URL;
+    const ragApiKey = process.env.RAG_API_KEY;
+    
+    if (!ragServiceUrl || !ragApiKey) {
+      return res.json({ 
+        status: 'disabled',
+        message: 'RAG service not configured' 
+      });
+    }
+    
+    const response = await axios.get(
+      `${ragServiceUrl}/health`,
+      { timeout: 5000 }
+    );
+    
+    res.json({
+      status: 'healthy',
+      ragService: response.data
+    });
+  } catch (error: any) {
+    res.json({
+      status: 'unhealthy',
+      error: error.message
     });
   }
 });
