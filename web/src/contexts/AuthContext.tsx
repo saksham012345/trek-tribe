@@ -36,16 +36,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Verify token and get user info (api instance handles auth headers)
       api.get('/auth/me')
         .then(response => {
-          const responseData = response.data as { user: User };
-          setUser(responseData.user);
+          // Handle both { user: User } and direct User object formats
+          const userData = response.data?.user || response.data;
+          if (userData && userData._id) {
+            setUser(userData as User);
+          } else {
+            localStorage.removeItem('token');
+          }
         })
-        .catch(() => {
+        .catch((error) => {
+          console.error('Failed to restore session:', error);
           localStorage.removeItem('token');
-        })
-        .then(() => {
           setLoading(false);
         })
-        .catch(() => {
+        .finally(() => {
           setLoading(false);
         });
     } else {
@@ -93,10 +97,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     try {
       const resp = await api.get('/auth/me');
-      if (resp.data?.user) setUser(resp.data.user as User);
+      // Handle both { user: User } and direct User object formats
+      const user = resp.data?.user || resp.data;
+      if (user && user._id) {
+        setUser(user as User);
+      }
     } catch (e) {
       // If fetching user fails, at least keep token in storage and let app handle next steps
-      console.warn('setSession: failed to fetch user after setting token');
+      console.warn('setSession: failed to fetch user after setting token', e);
     }
   };
 

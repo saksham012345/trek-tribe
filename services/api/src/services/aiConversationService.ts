@@ -164,7 +164,22 @@ class AIConversationService {
       return { isFollowUp: false };
     }
     
-    if (isShort && (hasReference || hasFiller || hasQuestionMark || isMostlyPunctuationOrFiller)) {
+    // World knowledge questions should NOT be follow-ups unless explicitly referencing previous context
+    const worldKnowledgePatterns = [
+      /what is (the|a) capital/i,
+      /who is/i, /who was/i, /who are/i,
+      /what is (the|a) population/i,
+      /where is (the|a)/i,
+      /when did/i, /when was/i,
+      /how (tall|high|far|long|big|small) is/i,
+      /what are the|what is the (largest|biggest|smallest)/i
+    ];
+    const isWorldKnowledge = worldKnowledgePatterns.some(pattern => pattern.test(message));
+    if (isWorldKnowledge && !hasReference) {
+      return { isFollowUp: false };
+    }
+    
+    if (isShort && (hasReference || hasFiller || isMostlyPunctuationOrFiller) && !hasQuestionMark) {
       return {
         isFollowUp: true,
         followUpType: 'clarification',
@@ -177,7 +192,7 @@ class AIConversationService {
       };
     }
     
-    if (hasClarification && hasContext) {
+    if (hasClarification && hasReference && hasContext) {
       return {
         isFollowUp: true,
         followUpType: 'clarification',

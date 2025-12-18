@@ -39,6 +39,7 @@ const AIChatWidgetClean: React.FC = () => {
   const [aiResolveLoading, setAiResolveLoading] = useState(false);
   const [previewSuggestion, setPreviewSuggestion] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const socketRef = useRef<any | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -76,6 +77,42 @@ const AIChatWidgetClean: React.FC = () => {
 
   const scrollToBottom = () => {
     if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const formatRecommendations = (recs: any[]) => {
+    if (!recs || recs.length === 0) {
+      return 'No recommendations available right now. Tell me your preferred dates, budget, and destination so I can tailor options.';
+    }
+
+    return ['Here are some picks:', ...recs.slice(0, 5).map((r: any, idx: number) => {
+      const name = r.title || r.name || r.trip || `Option ${idx + 1}`;
+      const place = r.destination || r.location || r.region || '';
+      const price = r.price || r.cost || r.fare || '';
+      const note = r.description || r.summary || '';
+      const parts = [name, place && `(${place})`, price && `~ ${price}`, note].filter(Boolean);
+      return `${idx + 1}. ${parts.join(' - ')}`;
+    })].join('\n');
+  };
+
+  const formatAnalytics = (data: any) => {
+    if (!data || Object.keys(data).length === 0) {
+      return 'No analytics yet. Add trips and bookings to see metrics. If you are an organizer, make sure your account is verified.';
+    }
+
+    const overview = data.overview || data;
+    const trips = overview.tripsJoined ?? overview.trips ?? overview.totalTrips;
+    const upcoming = overview.upcomingTrips ?? overview.upcoming;
+    const openTickets = overview.openTickets ?? overview.tickets;
+
+    return [
+      'Analytics snapshot:',
+      `• Trips: ${trips ?? 'N/A'}`,
+      `• Upcoming: ${upcoming ?? 'N/A'}`,
+      `• Open tickets: ${openTickets ?? 'N/A'}`,
+      overview.revenue ? `• Revenue: ${overview.revenue}` : null,
+      overview.conversionRate ? `• Conversion: ${overview.conversionRate}` : null,
+      overview.topDestinations?.length ? `• Top destinations: ${overview.topDestinations.slice(0, 3).join(', ')}` : null
+    ].filter(Boolean).join('\n');
   };
 
   const initializeSocket = () => {
@@ -410,7 +447,7 @@ const AIChatWidgetClean: React.FC = () => {
                   <div className="message-sender">{m.senderRole === 'user' ? 'You' : m.senderName}</div>
                   <div className="message-timestamp">{new Date(m.timestamp).toLocaleString()}</div>
                 </div>
-                <div className="message-content">{m.message}</div>
+                <div className="message-content" style={{ whiteSpace: 'pre-wrap' }}>{m.message}</div>
               </div>
             ))}
             <div ref={messagesEndRef} />
@@ -420,16 +457,19 @@ const AIChatWidgetClean: React.FC = () => {
           <div className="chat-footer" style={{ padding: '12px' }}>
             <div className="smart-actions-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
               <button className="smart-action-btn" onClick={async () => {
-                // Get Recommendations
+                if (actionLoading) return;
+                setActionLoading('recs');
                 try {
                   const resp = await api.get('/api/ai/recommendations');
                   const recs = resp.data?.recommendations || resp.data || [];
-                  const msg: ChatMessage = { id: `rec_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: `Recommendations:\n${JSON.stringify(recs, null, 2)}`, timestamp: new Date() };
-                  setMessages(s => [...s, msg]);
+                  const text = formatRecommendations(Array.isArray(recs) ? recs : [recs]);
+                  const msg: ChatMessage = { id: `rec_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: text, timestamp: new Date() };
+                  setMessages((s) => [...s, msg]);
                 } catch (e: any) {
-                  const err: ChatMessage = { id: `recerr_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: 'Failed to fetch recommendations.', timestamp: new Date() };
-                  setMessages(s => [...s, err]);
+                  const err: ChatMessage = { id: `recerr_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: 'No recommendations available right now. Please try again or share your preferences.', timestamp: new Date() };
+                  setMessages((s) => [...s, err]);
                 }
+                setActionLoading(null);
               }}>🚀 Get Recommendations</button>
 
               <button className="smart-action-btn" onClick={() => {
@@ -438,16 +478,19 @@ const AIChatWidgetClean: React.FC = () => {
               }}>📅 Check Availability</button>
 
               <button className="smart-action-btn" onClick={async () => {
+                if (actionLoading) return;
+                setActionLoading('analytics');
                 try {
                   const resp = await api.get('/api/analytics/dashboard');
                   const data = resp.data || resp.data?.overview || {};
-                  const msg: ChatMessage = { id: `an_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: `My Analytics:\n${JSON.stringify(data, null, 2)}`, timestamp: new Date() };
-                  setMessages(s => [...s, msg]);
+                  const msg: ChatMessage = { id: `an_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: formatAnalytics(data), timestamp: new Date() };
+                  setMessages((s) => [...s, msg]);
                 } catch (e: any) {
-                  const demoData = { overview: { tripsJoined: 0, upcomingTrips: 0, openTickets: 0 }, note: 'Demo analytics shown — sign up as an organizer to see detailed metrics.' };
-                  const msg: ChatMessage = { id: `andemo_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: `My Analytics (demo):\n${JSON.stringify(demoData, null, 2)}`, timestamp: new Date() };
-                  setMessages(s => [...s, msg]);
+                  const fallback = formatAnalytics({ overview: { tripsJoined: 0, upcomingTrips: 0, openTickets: 0 }, note: 'Demo analytics shown — add trips to unlock live metrics.' });
+                  const msg: ChatMessage = { id: `andemo_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: fallback, timestamp: new Date() };
+                  setMessages((s) => [...s, msg]);
                 }
+                setActionLoading(null);
               }}>📊 My Analytics</button>
 
               <button className="smart-action-btn" onClick={() => { setInputMessage('I need help with booking a trip'); }}>{'🧭 Booking Help'}</button>

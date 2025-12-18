@@ -102,10 +102,11 @@ router.get('/:userId', async (req, res) => {
       try {
         const jwt = require('jsonwebtoken');
         const decoded: any = jwt.verify(token, process.env.JWT_SECRET);
-        requestingUserId = decoded.userId;
-        isOwnProfile = requestingUserId === userId;
+        requestingUserId = decoded.userId || decoded.id;
+        isOwnProfile = requestingUserId === userId || requestingUserId?.toString() === userId;
       } catch (err) {
         // Invalid token, treat as public request
+        console.log('Token verification failed:', err);
       }
     }
 
@@ -117,9 +118,23 @@ router.get('/:userId', async (req, res) => {
         return res.status(404).json({ error: 'User not found' });
       }
 
+      // Ensure organizer profile exists for organizers
+      if (user.role === 'organizer' && !user.organizerProfile) {
+        user.organizerProfile = {
+          bio: user.bio || '',
+          experience: '',
+          specialties: [],
+          certifications: [],
+          languages: [],
+          yearsOfExperience: 0
+        };
+        await user.save();
+      }
+
       return res.json({ 
         profile: user,
-        isOwnProfile: true 
+        isOwnProfile: true,
+        success: true
       });
     }
 

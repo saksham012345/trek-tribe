@@ -1,0 +1,68 @@
+{
+  "documents": [
+    {
+      "id": "trip-creation-1",
+      "title": "How to Create a Trip",
+      "category": "organizer",
+      "content": "To create a trip on Trek Tribe: 1) Click + Create Adventure in header. 2) Step 1 - Enter trip title, destination, description. 3) Step 2 - Set start/end dates, price (₹), capacity. 4) Step 3 - Create day-by-day itinerary. 5) Step 4 - Upload cover image and photos (max 5MB). 6) Step 5 - List inclusions (food, guide, accommodation) and exclusions. 7) Step 6 - Set cancellation policy. 8) Step 7 - Review and publish. Trip appears in marketplace immediately. Manage bookings from /organizer/crm dashboard.",
+      "tags": ["trip", "organizer", "creation", "steps"],
+      "url": "/create-trip"
+    },
+    {
+      "id": "trip-booking-1",
+      "title": "How to Book a Trip",
+      "category": "traveler",
+      "content": "To book a trip: 1) Go to /trips and browse adventures. 2) Click trip to view details. 3) Select dates and number of travelers. 4) Enter traveler details (name, age, phone, emergency contact). 5) Choose payment method (UPI/Card). 6) For UPI: scan QR, upload screenshot. For Card: complete payment. 7) Wait for organizer verification (24 hours). 8) Get confirmation email with trip details. You can see all bookings at /my-bookings.",
+      "tags": ["booking", "payment", "traveler", "process"],
+      "url": "/trips"
+    },
+    {
+      "id": "organizer-crm-1",
+      "title": "Organizer CRM Dashboard",
+      "category": "organizer",
+      "content": "The CRM Dashboard at /organizer/crm is NOT your home page. Home page shows normal Trek Tribe experience. CRM is a professional separate tool for organizers to: View all bookings with participant details. Track payments and revenue. Export reports and analytics. Communicate with participants. Update trip availability. Verify payments at /organizer/payment-verification. Manage subscription at /subscribe with plans: Starter ₹1,499 (5 trips), Growth ₹3,499 (15 trips), Professional ₹5,999 (30 trips), Enterprise ₹9,999 (50 trips). New organizers get 2-month free trial.",
+      "tags": ["organizer", "dashboard", "crm", "bookings"],
+      "url": "/organizer/crm"
+    },
+    {
+      "id": "support-human-agent-1",
+      "title": "Talk to Human Agent",
+      "category": "support",
+      "content": "To talk to a human agent: 1) Click chat icon (bottom right). 2) Type your question. 3) Click '🧑‍💼 Talk to a Human Agent' button. 4) A support ticket is created automatically. 5) An agent will respond via email and WhatsApp. 6) Track your ticket status in /my-bookings. For urgent issues, email support@trektribe.com or call emergency support. Typical response time: 2 hours during business hours.",
+      "tags": ["support", "human-agent", "help", "ticket"],
+      "url": "/help"
+    },
+    {
+      "id": "payment-methods-1",
+      "title": "Payment Methods and Process",
+      "category": "payment",
+      "content": "Trek Tribe accepts: UPI (Google Pay, PhonePe, Paytm), Credit/Debit Cards, Net Banking via Razorpay. For UPI: 1) Get organizer's QR code. 2) Scan and pay exact amount. 3) Upload payment screenshot with transaction ID. 4) Verification takes 12-24 hours. For Card: Complete payment directly in checkout. All payments are secure (PCI DSS compliant). Refunds processed in 5-7 business days to original payment method. Keep transaction ID for reference.",
+      "tags": ["payment", "upi", "card", "razorpay"],
+      "url": "/subscribe"
+    },
+    {
+      "id": "cancellation-refund-1",
+      "title": "Cancellation and Refund Policy",
+      "category": "policy",
+      "content": "Standard cancellation policy: Full refund if cancelled 7+ days before trip start, 50% refund if 3-7 days before, No refund within 3 days of trip start (except in case of organizer cancellation or force majeure). Refunds processed within 5-7 business days to original payment method. Some trips have custom policies - check trip details. For emergencies, contact support@trektribe.com.",
+      "tags": ["cancellation", "refund", "policy"],
+      "url": "/terms"
+    },
+    {
+      "id": "safety-tips-1",
+      "title": "Safety Tips for Treks",
+      "category": "safety",
+      "content": "Trek safety guidelines: 1) Always inform someone of your trip details. 2) Carry adequate water, food, first aid kit. 3) Start early, finish before dark. 4) Stay on marked trails. 5) Wear appropriate gear (shoes, layers, rain protection). 6) Check weather forecast before departure. 7) Know signs of altitude sickness (headache, nausea, dizziness). 8) Carry emergency contact numbers. 9) Have travel insurance. 10) Never trek alone in remote areas.",
+      "tags": ["safety", "trek", "tips", "preparation"],
+      "url": "/help"
+    },
+    {
+      "id": "fitness-prep-1",
+      "title": "Fitness Preparation for Trekking",
+      "category": "preparation",
+      "content": "Prepare for trekking by: 1) Start training 4-6 weeks before trek. 2) Do cardio: running, cycling, swimming for 30-45 mins daily. 3) Strengthen legs: squats, lunges, calf raises. 4) Practice hiking with backpack on weekends. 5) For altitude: practice breathing exercises. 6) Test your gear beforehand. 7) Get medical check-up if over 50 or have health issues. 8) Consult doctor about medications. Easy treks need basic fitness, difficult treks need good cardiovascular fitness.",
+      "tags": ["fitness", "preparation", "training", "health"],
+      "url": "/help"
+    }
+  ]
+}

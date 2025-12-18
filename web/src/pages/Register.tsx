@@ -15,6 +15,7 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
   const { user } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
+    username: '',
     email: '',
     phoneNumber: '',
     password: '',
@@ -24,6 +25,7 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
   const [error, setError] = useState('');
   const [passwordHint, setPasswordHint] = useState('Use at least 10 characters with upper, lower, number, and symbol.');
   const [loading, setLoading] = useState(false);
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle');
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [showEmailVerification, setShowEmailVerification] = useState(false);
   const [userId, setUserId] = useState('');
@@ -43,12 +45,68 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
     }
   }, [user, navigate]);
 
+  const slugifyUsername = (value: string) => {
+    return value
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9-_]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+  };
+
+  const validateUsername = (value: string) => {
+    const candidate = slugifyUsername(value);
+    if (!candidate || candidate.length < 3) return { valid: false, message: 'Username must be at least 3 characters.' };
+    if (candidate.length > 30) return { valid: false, message: 'Username must be under 30 characters.' };
+    if (!/^[a-z0-9-_]+$/.test(candidate)) return { valid: false, message: 'Only letters, numbers, hyphens, and underscores allowed.' };
+    return { valid: true, value: candidate };
+  };
+
+  const checkUsernameAvailability = async (rawValue?: string) => {
+    const candidate = validateUsername(rawValue ?? formData.username);
+    if (!candidate.valid) {
+      setUsernameStatus('invalid');
+      setError(candidate.message || 'Please choose a valid username.');
+      return false;
+    }
+
+    setError('');
+    setUsernameStatus('checking');
+
+    try {
+      await api.get(`/public/${candidate.value}`);
+      // If we got 200, username already exists
+      setUsernameStatus('taken');
+      setError('This username is already taken. Try another one.');
+      return false;
+    } catch (availabilityError: any) {
+      if (availabilityError?.response?.status === 404) {
+        setUsernameStatus('available');
+        return true;
+      }
+      setUsernameStatus('invalid');
+      setError('Unable to check username availability. Please try again.');
+      return false;
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     // Clear error when user starts typing (indicates they're trying again)
     if (error) {
       setError('');
     }
     const { name, value } = e.target;
+
+    if (name === 'username') {
+      const slugged = slugifyUsername(value);
+      setFormData({
+        ...formData,
+        username: slugged
+      });
+      setUsernameStatus('idle');
+      return;
+    }
+
     setFormData({
       ...formData,
       [name]: value
@@ -78,6 +136,12 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
 
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
+      setLoading(false);
+      return;
+    }
+
+    const usernameOk = await checkUsernameAvailability();
+    if (!usernameOk) {
       setLoading(false);
       return;
     }
@@ -143,6 +207,24 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
     try {
       const result = await onLogin(formData.email, formData.password);
       if (result.success) {
+        // Reserve unique URL immediately after login
+        try {
+          const baseName = validateUsername(formData.username).valid ? slugifyUsername(formData.username) : slugifyUsername(formData.name);
+          const targetUserId = userId || (await api.get('/auth/me')).data?.user?._id;
+          if (targetUserId) {
+            const claimResponse = await api.post(`/public/generate-url/${targetUserId}`, { baseName });
+            const claimedSlug = claimResponse?.data?.data?.suggestion || baseName;
+            if (formData.role === 'organizer') {
+              await api.put('/profile/enhanced', {
+                organizerProfile: {
+                  uniqueUrl: claimedSlug
+                }
+              });
+            }
+          }
+        } catch (claimError) {
+          console.warn('Unique URL claim skipped:', claimError);
+        }
         // If organizer, push initial organizer basics
         if ((formData.role === 'organizer') && organizerDraft) {
           try {
@@ -267,6 +349,29 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
                 />
               </div>
               
+              <div>
+                <label htmlFor="username" className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
+                  🔗 Username (profile URL)
+                </label>
+                <input
+                  id="username"
+                  name="username"
+                  type="text"
+                  value={formData.username}
+                  onChange={handleChange}
+                  onBlur={() => checkUsernameAvailability(formData.username)}
+                  className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
+                  placeholder="e.g., trekker-jane"
+                  required
+                />
+                <p className="text-xs text-forest-600 mt-1">
+                  This becomes your profile link: trektribe.com/profile/{formData.username || 'your-name'}
+                  {usernameStatus === 'checking' && ' • Checking availability...'}
+                  {usernameStatus === 'available' && ' • Available!'}
+                  {usernameStatus === 'taken' && ' • Already taken'}
+                </p>
+              </div>
+
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
                   📧 Email address

@@ -3,11 +3,15 @@ export interface User {
   email: string;
   name: string;
   role: 'traveler' | 'organizer' | 'admin' | 'agent';
+  uniqueUrl?: string;
   phone?: string;
   phoneVerified?: boolean;
   profilePhoto?: string;
   location?: string;
   bio?: string;
+  organizerProfile?: {
+    uniqueUrl?: string;
+  };
   createdAt: string;
 }
 
