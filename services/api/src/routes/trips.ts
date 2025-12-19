@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { Trip } from '../models/Trip';
 import { User } from '../models/User';
+import { OrganizerSubscription } from '../models/OrganizerSubscription';
 import { authenticateJwt, requireRole } from '../middleware/auth';
 import { socketService } from '../services/socketService';
 import { trackTripView } from '../middleware/tripViewTracker';
@@ -157,9 +158,14 @@ const asyncHandler = (fn: Function) => (req: any, res: any, next: any) => {
 
 router.post('/', authenticateJwt, requireRole(['organizer','admin']), asyncHandler(async (req: any, res: any) => {
   try {
+    const organizerId = req.auth.userId;
+    const userRole = req.auth.role;
+    
     console.log('📥 Received trip creation request:', {
       title: req.body.title,
       destination: req.body.destination,
+      organizerId,
+      role: userRole,
       price: req.body.price,
       capacity: req.body.capacity,
       startDate: req.body.startDate,
@@ -169,6 +175,78 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), asyncHandl
       hasSchedule: !!req.body.schedule,
       hasPaymentConfig: !!req.body.paymentConfig
     });
+    
+    // ========== SUBSCRIPTION CHECK (Skip for admins) ==========
+    if (userRole === 'organizer') {
+      console.log('🔍 Checking subscription for organizer:', organizerId);
+      
+      const subscription = await OrganizerSubscription.findOne({
+        organizerId: new mongoose.Types.ObjectId(organizerId),
+        status: { $in: ['active', 'trial'] }
+      }).sort({ createdAt: -1 });
+      
+      if (!subscription) {
+        console.log('❌ No active subscription found');
+        return res.status(402).json({
+          success: false,
+          error: 'Subscription required',
+          message: 'You need an active subscription to create trips. Start your free 60-day trial or choose a plan.',
+          requiresSubscription: true,
+          trialAvailable: true,
+          actionUrl: '/organizer/subscription'
+        });
+      }
+      
+      // Check if expired
+      const expiryDate = subscription.subscriptionEndDate || subscription.trialEndDate;
+      if (expiryDate && expiryDate < new Date()) {
+        console.log('❌ Subscription expired on:', expiryDate);
+        return res.status(402).json({
+          success: false,
+          error: 'Subscription expired',
+          message: 'Your subscription has expired. Please renew to continue creating trips.',
+          expiredDate: expiryDate,
+          requiresRenewal: true,
+          actionUrl: '/organizer/subscription'
+        });
+      }
+      
+      // Check payment status for paid subscriptions
+      if (subscription.status === 'active' && subscription.payments?.length > 0) {
+        const lastPayment = subscription.payments[subscription.payments.length - 1];
+        if (lastPayment.status !== 'completed') {
+          console.log('❌ Payment not completed. Status:', lastPayment.status);
+          return res.status(402).json({
+            success: false,
+            error: 'Payment pending',
+            message: 'Please complete your subscription payment to create trips.',
+            paymentStatus: lastPayment.status,
+            requiresPayment: true,
+            actionUrl: '/organizer/subscription'
+          });
+        }
+      }
+      
+      // Check trip limit
+      const tripsUsed = subscription.tripsUsed || 0;
+      const tripsPerCycle = subscription.tripsPerCycle || 5;
+      
+      if (tripsUsed >= tripsPerCycle) {
+        console.log('❌ Trip limit reached:', tripsUsed, '/', tripsPerCycle);
+        return res.status(403).json({
+          success: false,
+          error: 'Trip limit reached',
+          message: `You have reached your plan limit of ${tripsPerCycle} trips. Please upgrade your subscription.`,
+          tripsUsed,
+          tripsPerCycle,
+          currentPlan: subscription.plan,
+          requiresUpgrade: true,
+          actionUrl: '/organizer/subscription'
+        });
+      }
+      
+      console.log('✅ Subscription valid. Trips used:', tripsUsed, '/', tripsPerCycle);
+    }
 
     // In test environment require stricter validation to match test expectations
     if (process.env.NODE_ENV === 'test') {
@@ -213,11 +291,11 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), asyncHandl
     }
     
     const body = parsed;
-    const organizerId = req.auth.userId;
+    // organizerId and userRole already declared at the top of the function
     
     // Check if organizer has uploaded at least one QR code for payment
     // In test environment we skip this requirement to make integration tests deterministic
-    if (req.auth.role === 'organizer' && process.env.NODE_ENV !== 'test') {
+    if (userRole === 'organizer' && process.env.NODE_ENV !== 'test') {
       const usesManualCollection = (body.paymentConfig as any)?.collectionMode === 'manual';
       const organizer = await User.findById(organizerId);
       if (!organizer) {
@@ -282,6 +360,28 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), asyncHandl
     const trip = await Promise.race([createPromise, timeoutPromise]) as any;
 
     console.log('✅ Trip created successfully:', trip._id);
+    
+    // ========== INCREMENT SUBSCRIPTION TRIP COUNT (Organizers only) ==========
+    if (userRole === 'organizer') {
+      try {
+        const subscription = await OrganizerSubscription.findOne({
+          organizerId: new mongoose.Types.ObjectId(organizerId),
+          status: { $in: ['active', 'trial'] }
+        }).sort({ createdAt: -1 });
+        
+        if (subscription) {
+          subscription.tripsUsed = (subscription.tripsUsed || 0) + 1;
+          subscription.updatedAt = new Date();
+          await subscription.save();
+          
+          const remaining = (subscription.tripsPerCycle || 5) - subscription.tripsUsed;
+          console.log(`✅ Trip count incremented. Used: ${subscription.tripsUsed}/${subscription.tripsPerCycle}. Remaining: ${remaining}`);
+        }
+      } catch (error: any) {
+        console.error('❌ Failed to increment trip count:', error);
+        // Don't fail the request, trip was already created
+      }
+    }
 
     // Broadcast real-time update
     socketService.broadcastTripUpdate(trip, 'created');
