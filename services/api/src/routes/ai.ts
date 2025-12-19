@@ -1832,7 +1832,7 @@ router.post('/rag/query', async (req: Request, res: Response) => {
     );
     
     res.json({
-      ...response.data,
+      ...(response.data as Record<string, any>),
       source: 'rag'
     });
   } catch (error: any) {
