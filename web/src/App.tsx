@@ -67,12 +67,12 @@ function AppContent() {
           <Routes>
             <Route path="/" element={user ? <Navigate to="/home" /> : <Register onLogin={handleLogin} />} />
             <Route path="/home" element={user ? <Home user={user} /> : <Navigate to="/" />} />
-            <Route 
-            <Route 
-              path="/u/:userId" 
-              element={<EnhancedProfilePage />} 
+            <Route
+              path="/u/:userId"
+              element={<EnhancedProfilePage />}
             />
-              path="/login" 
+            <Route
+              path="/login"
               element={user ? <Navigate to="/home" /> : <Login onLogin={handleLogin} />} 
             />
             <Route 
