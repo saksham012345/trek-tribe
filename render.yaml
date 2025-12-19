@@ -22,20 +22,38 @@ services:
         value: https://trek-tribe-web.onrender.com
       - key: CORS_ORIGIN
         value: https://trek-tribe-web.onrender.com
+      - key: SOCKET_ORIGIN
+        value: https://trek-tribe-web.onrender.com
       - key: AI_SERVICE_URL
         value: https://trek-tribe-ai-service.onrender.com
       - key: AI_SERVICE_KEY
         sync: false
+      - key: AI_PROXY_TIMEOUT_MS
+        value: 120000
       - key: RAZORPAY_KEY_ID
         sync: false
       - key: RAZORPAY_KEY_SECRET
         sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+      - key: PLATFORM_COMMISSION_RATE
+        value: 5
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
       - key: REDIS_URL
         sync: false
       - key: GMAIL_USER
         sync: false
       - key: GMAIL_APP_PASSWORD
         sync: false
+      - key: DISABLE_EMAIL
+        value: false
+      - key: API_URL
+        value: https://trek-tribe-api.onrender.com
+      - key: LOG_LEVEL
+        value: info
 
   # AI Service
   - type: web
@@ -53,7 +71,7 @@ services:
         value: 8000
       - key: CORS_ORIGINS
         value: https://trek-tribe-web.onrender.com,https://trek-tribe-api.onrender.com
-      - key: API_KEY
+      - key: AI_SERVICE_KEY
         generateValue: true
       - key: REQUIRE_API_KEY
         value: true
@@ -61,6 +79,22 @@ services:
         value: google/flan-t5-base
       - key: MODEL_LOCAL_ENABLED
         value: true
+      - key: MODEL_INSTRUCTION_TUNED
+        value: true
+      - key: MODEL_DIR
+        value: /app/models/google_flan-t5-base
+      - key: DATA_DIR
+        value: /app/data
+      - key: MAX_GENERATION_TOKENS
+        value: 256
+      - key: AI_GEN_TIMEOUT
+        value: 50
+      - key: AI_MAX_INPUT_TOKENS
+        value: 800
+      - key: AI_RATE_LIMIT
+        value: 20
+      - key: AI_RATE_WINDOW
+        value: 60
       - key: REDIS_URL
         sync: false
       - key: LOG_LEVEL
@@ -96,11 +130,17 @@ services:
     envVars:
       - key: REACT_APP_API_URL
         value: https://trek-tribe-api.onrender.com
+      - key: REACT_APP_SOCKET_URL
+        value: https://trek-tribe-api.onrender.com
       - key: REACT_APP_AI_SERVICE_URL
         value: https://trek-tribe-ai-service.onrender.com
+      - key: REACT_APP_RAZORPAY_KEY_ID
+        sync: false
       - key: REACT_APP_APP_NAME
         value: Trek Tribe
       - key: REACT_APP_VERSION
         value: 1.0.0
       - key: NODE_ENV
         value: production
+      - key: GENERATE_SOURCEMAP
+        value: false
