@@ -545,33 +545,21 @@ router.get('/customers/:userId', async (req, res) => {
   }
 });
 
-// Send WhatsApp message to customer
+// Send WhatsApp message to customer - DISABLED
+// Reason: WhatsApp Web.js credentials were exposed in git history
+// Alternative: Use WhatsApp Business API instead
 const whatsappMessageSchema = z.object({
   phone: z.string(),
   message: z.string().min(1).max(1000)
 });
 
 router.post('/whatsapp/send', async (req, res) => {
-  try {
-    const parsed = whatsappMessageSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ error: 'Invalid message data', details: parsed.error.flatten() });
-    }
-
-    const { phone, message } = parsed.data;
-
-    if (!whatsappService.isServiceReady()) {
-      return res.status(503).json({ error: 'WhatsApp service not available' });
-    }
-
-    const sent = await whatsappService.sendMessage(phone, message);
-    
-    if (sent) {
-      logger.info('WhatsApp message sent by agent', { agentId: (req as any).auth.userId, phone, messageLength: message.length });
-      res.json({ message: 'WhatsApp message sent successfully' });
-    } else {
-      res.status(500).json({ error: 'Failed to send WhatsApp message' });
-    }
+  // WhatsApp service disabled for security reasons
+  return res.status(503).json({
+    error: 'WhatsApp service disabled',
+    message: 'WhatsApp Web.js credentials were exposed. Please use WhatsApp Business API instead.',
+    recommendation: 'https://www.whatsapp.com/business/api'
+  });
 
   } catch (error: any) {
     logger.error('Error sending WhatsApp message', { error: error.message });
