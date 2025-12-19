@@ -291,6 +291,23 @@ class TrekTribeAI {
       (Array.isArray(context?.relatedBookings) && context.relatedBookings.length > 0)
     );
 
+    // Check if topic requires human agent (refunds, cancellations, complaints, disputes)
+    const sensitiveTopics = ['refund', 'cancel', 'complaint', 'dispute', 'fraud', 'scam', 'cheat', 'problem with payment', 'didn\'t receive', 'unauthorized', 'charge back', 'money back'];
+    const requiresHumanAgent = sensitiveTopics.some(topic => lowerMessage.includes(topic));
+
+    if (requiresHumanAgent) {
+      const humanResponse = {
+        response: "This matter requires human assistance. I'm creating a support ticket for you right now with high priority. A support agent will contact you shortly to help resolve this issue.",
+        requiresHumanAgent: true,
+        confidence: 'low',
+        reason: 'sensitive_topic',
+        suggestions: ['View my bookings', 'Check payment status', 'Contact support'],
+        actions: { create_ticket: true, ticket_summary: `Sensitive inquiry: ${message.substring(0, 100)}` }
+      };
+      aiCacheService.setChatResponse(messageHash, humanResponse);
+      return humanResponse;
+    }
+
     // Handle weather queries with disclaimer
     const weatherKeywords = ['weather', 'temperature', 'rain', 'snow', 'wind', 'forecast', 'climate', 'monsoon', 'condition'];
     const isWeatherQuery = weatherKeywords.some(k => lowerMessage.includes(k));
@@ -1775,7 +1792,7 @@ router.post('/conversations/cleanup', async (req: Request, res: Response) => {
 });
 
 // RAG System Proxy Endpoints
-import axios from 'axios';
+// axios already imported at top of file
 
 /**
  * POST /api/ai/rag/query

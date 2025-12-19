@@ -40,6 +40,14 @@ const AIChatWidgetClean: React.FC = () => {
   const [previewSuggestion, setPreviewSuggestion] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [showPreferenceModal, setShowPreferenceModal] = useState(false);
+  const [preferences, setPreferences] = useState({
+    destination: '',
+    tripType: 'all',
+    minPrice: '',
+    maxPrice: '',
+    daysAhead: '30'
+  });
 
   const socketRef = useRef<any | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -92,6 +100,85 @@ const AIChatWidgetClean: React.FC = () => {
       const parts = [name, place && `(${place})`, price && `~ ${price}`, note].filter(Boolean);
       return `${idx + 1}. ${parts.join(' - ')}`;
     })].join('\n');
+  };
+
+  const formatAvailability = (trips: any[]) => {
+    if (!trips || trips.length === 0) {
+      return 'No upcoming availability found for your criteria. Try adjusting dates, destination, or trip type.';
+    }
+
+    const lines: string[] = [];
+    lines.push('Upcoming availability by trip:');
+    const now = new Date();
+
+    trips.slice(0, 10).forEach((t: any, idx: number) => {
+      const start = t.startDate ? new Date(t.startDate) : null;
+      const dateStr = start ? start.toLocaleDateString() : 'TBD';
+      const dest = t.destination || 'Unknown';
+      const title = t.title || `Trip ${idx + 1}`;
+      const price = t.price ? `₹${t.price}` : '';
+      const capacity = typeof t.capacity === 'number' ? t.capacity : undefined;
+      const participants = Array.isArray(t.participants) ? t.participants.length : 0;
+      const spotsLeft = capacity !== undefined ? Math.max(capacity - participants, 0) : undefined;
+      const spotsStr = spotsLeft !== undefined ? `${spotsLeft} spots left` : 'Spots info unavailable';
+      const cat = Array.isArray(t.categories) && t.categories.length ? ` • ${t.categories[0]}` : '';
+      lines.push(`• ${title} (${dest})${cat} — ${dateStr} — ${spotsStr}${price ? ` — ${price}` : ''}`);
+    });
+
+    lines.push('\nTell me your preferences (destination, dates, budget, type) to refine availability.');
+    return lines.join('\n');
+  };
+
+  const fetchAvailabilityWithPreferences = async (prefs?: typeof preferences) => {
+    const p = prefs || preferences;
+    if (actionLoading) return;
+    setActionLoading('availability');
+    try {
+      const today = new Date();
+      const daysAhead = parseInt(p.daysAhead, 10) || 90;
+      const toDate = new Date(today.getTime() + daysAhead * 24 * 60 * 60 * 1000);
+      const params: Record<string, string> = {
+        from: today.toISOString(),
+        to: toDate.toISOString(),
+        limit: '50'
+      };
+
+      if (p.destination) {
+        params.dest = p.destination;
+      } else if (user?.location) {
+        params.dest = user.location;
+      }
+
+      if (p.minPrice) {
+        params.minPrice = p.minPrice;
+      }
+      if (p.maxPrice) {
+        params.maxPrice = p.maxPrice;
+      }
+      if (p.tripType && p.tripType !== 'all') {
+        params.category = p.tripType;
+      }
+
+      const query = new URLSearchParams(params).toString();
+      const resp = await api.get(`/api/trips?${query}`);
+      const trips = Array.isArray(resp.data) ? resp.data : [];
+      const upcoming = trips.filter((t: any) => {
+        try {
+          return new Date(t.startDate) >= today;
+        } catch {
+          return true;
+        }
+      });
+
+      const msgText = formatAvailability(upcoming);
+      const msg: ChatMessage = { id: `avail_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: msgText, timestamp: new Date() };
+      setMessages((s) => [...s, msg]);
+      setShowPreferenceModal(false);
+    } catch (e: any) {
+      const err: ChatMessage = { id: `availerr_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: 'Unable to fetch availability right now. Please try again later or specify your destination and dates.', timestamp: new Date() };
+      setMessages((s) => [...s, err]);
+    }
+    setActionLoading(null);
   };
 
   const formatAnalytics = (data: any) => {
@@ -157,6 +244,12 @@ const AIChatWidgetClean: React.FC = () => {
       const resp = await api.post('/api/ai/generate', { prompt: text, max_tokens: 256 });
       const data = resp.data || {};
       const aiText = (data && ((data as any).text ?? data)) || JSON.stringify(data);
+      
+      // Check if response indicates low confidence or requires human agent
+      const requiresHuman = (data as any).requiresHumanAgent === true || 
+                           (data as any).confidence === 'low' ||
+                           (typeof aiText === 'string' && aiText.toLowerCase().includes('i\'m not sure'));
+      
       const chatMsg: ChatMessage = {
         id: `ai_${Date.now()}`,
         senderId: 'ai',
@@ -167,48 +260,56 @@ const AIChatWidgetClean: React.FC = () => {
       };
       setMessages((s) => [...s, chatMsg]);
 
-      // If AI indicates a ticket should be created, call support endpoint
-      try {
-        const actions = (data && (data as any).actions) || null;
-        if (actions && actions.create_ticket) {
-          // Build ticket payload: prefer assistant-provided summary, fall back to user text
-          const subject = actions.ticket_summary || (text.length > 100 ? text.slice(0, 100) + '...' : text);
-          const description = `User asked: ${text}\n\nAssistant suggested creating a ticket.\nAssistant text:\n${typeof aiText === 'string' ? aiText : JSON.stringify(aiText)}`;
+      // Only create ticket if AI indicates it should OR if topic is sensitive (refund, cancellation, complaint)
+      const sensitiveKeywords = ['refund', 'cancel', 'complaint', 'dispute', 'fraud', 'scam', 'unauthorized'];
+      const isSensitive = sensitiveKeywords.some(kw => text.toLowerCase().includes(kw));
+      
+      const shouldCreateTicket = requiresHuman || 
+                                 isSensitive ||
+                                 ((data as any).actions && (data as any).actions.create_ticket);
 
-          try {
-            const ticketResp = await api.post('/api/support/tickets', {
-              subject,
-              description,
-              category: 'ai-assist',
-              priority: 'medium'
-            });
+      if (shouldCreateTicket) {
+        try {
+          const subject = (data as any).actions?.ticket_summary || 
+                         (isSensitive ? `Sensitive inquiry: ${text.substring(0, 80)}...` : 
+                          text.length > 100 ? text.slice(0, 100) + '...' : text);
+          const description = `User asked: ${text}\n\nReason: ${
+            requiresHuman ? 'Low AI confidence' : 
+            isSensitive ? 'Sensitive topic (refund/cancellation/complaint)' : 
+            'AI suggested human assistance'
+          }\n\nAssistant response:\n${typeof aiText === 'string' ? aiText : JSON.stringify(aiText)}`;
 
-            const ticketData = ticketResp.data?.ticket;
-            const systemMsg: ChatMessage = {
-              id: `sys_${Date.now()}`,
-              senderId: 'system',
-              senderName: 'System',
-              senderRole: 'ai',
-              message: ticketData ? `Support ticket created (ID: ${ticketData.ticketId}). An agent will follow up.` : 'Support ticket requested; failed to create automatically.',
-              timestamp: new Date(),
-            };
-              setMessages((s) => [...s, systemMsg]);
-              // remember created ticket id for quick AI resolution actions
-              if (ticketData && ticketData.ticketId) setCurrentTicketId(ticketData.ticketId);
-          } catch (err) {
-            const sysErr: ChatMessage = {
-              id: `syserr_${Date.now()}`,
-              senderId: 'system',
-              senderName: 'System',
-              senderRole: 'ai',
-              message: 'AI suggested creating a support ticket, but automatic creation failed. Please try again or contact support.',
-              timestamp: new Date(),
-            };
-            setMessages((s) => [...s, sysErr]);
-          }
+          const ticketResp = await api.post('/api/support/tickets', {
+            subject,
+            description,
+            category: isSensitive ? 'refund-cancellation' : 'ai-assist',
+            priority: isSensitive ? 'high' : 'medium'
+          });
+
+          const ticketData = ticketResp.data?.ticket;
+          const systemMsg: ChatMessage = {
+            id: `sys_${Date.now()}`,
+            senderId: 'system',
+            senderName: 'System',
+            senderRole: 'ai',
+            message: ticketData ? 
+              `🎫 Support ticket created (ID: ${ticketData.ticketId}). ${isSensitive ? 'Due to the sensitive nature of your request, ' : ''}A human agent will assist you shortly.` : 
+              'Support ticket requested; failed to create automatically.',
+            timestamp: new Date(),
+          };
+          setMessages((s) => [...s, systemMsg]);
+          if (ticketData && ticketData.ticketId) setCurrentTicketId(ticketData.ticketId);
+        } catch (err) {
+          const sysErr: ChatMessage = {
+            id: `syserr_${Date.now()}`,
+            senderId: 'system',
+            senderName: 'System',
+            senderRole: 'ai',
+            message: 'AI suggested creating a support ticket, but automatic creation failed. Please use the "Talk to a Human Agent" button below.',
+            timestamp: new Date(),
+          };
+          setMessages((s) => [...s, sysErr]);
         }
-      } catch (e) {
-        // Non-fatal: don't break chat flow
       }
     } catch (err: any) {
       // If AI proxy unavailable, provide a lightweight local fallback so widget remains useful
@@ -472,10 +573,7 @@ const AIChatWidgetClean: React.FC = () => {
                 setActionLoading(null);
               }}>🚀 Get Recommendations</button>
 
-              <button className="smart-action-btn" onClick={() => {
-                // Check Availability: simple prompt to AI chat
-                setInputMessage('Check availability for upcoming trips from my location');
-              }}>📅 Check Availability</button>
+              <button className="smart-action-btn" onClick={() => setShowPreferenceModal(true)}>📅 Check Availability</button>
 
               <button className="smart-action-btn" onClick={async () => {
                 if (actionLoading) return;
@@ -557,6 +655,102 @@ const AIChatWidgetClean: React.FC = () => {
                 )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Preference Modal */}
+      {showPreferenceModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold">Refine Trip Search</h3>
+              <button onClick={() => setShowPreferenceModal(false)} className="text-gray-500 hover:text-gray-700">✕</button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Destination</label>
+                <input
+                  type="text"
+                  placeholder="e.g., Himachal, Goa, Kerala"
+                  value={preferences.destination}
+                  onChange={(e) => setPreferences({ ...preferences, destination: e.target.value })}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Trip Type</label>
+                <select
+                  value={preferences.tripType}
+                  onChange={(e) => setPreferences({ ...preferences, tripType: e.target.value })}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Types</option>
+                  <option value="trekking">Trekking</option>
+                  <option value="adventure">Adventure</option>
+                  <option value="cultural">Cultural</option>
+                  <option value="beach">Beach</option>
+                  <option value="mountain">Mountain</option>
+                  <option value="heritage">Heritage</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Min Price (₹)</label>
+                  <input
+                    type="number"
+                    placeholder="Min"
+                    value={preferences.minPrice}
+                    onChange={(e) => setPreferences({ ...preferences, minPrice: e.target.value })}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Max Price (₹)</label>
+                  <input
+                    type="number"
+                    placeholder="Max"
+                    value={preferences.maxPrice}
+                    onChange={(e) => setPreferences({ ...preferences, maxPrice: e.target.value })}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Search Ahead (Days)</label>
+                <select
+                  value={preferences.daysAhead}
+                  onChange={(e) => setPreferences({ ...preferences, daysAhead: e.target.value })}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="7">Next 7 Days</option>
+                  <option value="14">Next 2 Weeks</option>
+                  <option value="30">Next Month</option>
+                  <option value="60">Next 2 Months</option>
+                  <option value="90">Next 3 Months</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-2 mt-6">
+              <button
+                onClick={() => setShowPreferenceModal(false)}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => fetchAvailabilityWithPreferences()}
+                disabled={actionLoading === 'availability'}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium disabled:opacity-50"
+              >
+                {actionLoading === 'availability' ? 'Searching...' : 'Search'}
+              </button>
+            </div>
           </div>
         </div>
       )}
