@@ -233,16 +233,10 @@ export async function start() {
     // Connect to database with retry logic
     await connectToDatabase();
     
-    // Initialize WhatsApp service (non-blocking; gated by env)
-    const whatsappEnabled = (process.env.WHATSAPP_ENABLED || 'false').toLowerCase() === 'true';
-    if (whatsappEnabled) {
-      whatsappService.initialize().catch((error) => {
-        console.error('❌ Failed to initialize WhatsApp service:', error.message);
-        console.log('ℹ️  WhatsApp notifications will be disabled');
-      });
-    } else {
-      console.log('ℹ️  WhatsApp service disabled (WHATSAPP_ENABLED is not true)');
-    }
+    // Initialize WhatsApp service DISABLED
+    // Reason: WhatsApp credentials were exposed in git history
+    // Alternative: Use WhatsApp Business API instead
+    console.log('ℹ️  WhatsApp service disabled (credentials compromised - use WhatsApp Business API instead)');
     
     // Initialize Socket.IO service
     socketService.initialize(server);
