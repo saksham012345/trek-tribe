@@ -27,7 +27,18 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    // Try to restore user from localStorage on initial load
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      try {
+        return JSON.parse(savedUser);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -40,19 +51,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           const userData = response.data?.user || response.data;
           if (userData && userData._id) {
             setUser(userData as User);
+            // Persist user data to localStorage for faster restoration
+            localStorage.setItem('user', JSON.stringify(userData));
           } else {
             localStorage.removeItem('token');
+            localStorage.removeItem('user');
           }
         })
         .catch((error) => {
           console.error('Failed to restore session:', error);
           localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          setUser(null);
           setLoading(false);
         })
         .finally(() => {
           setLoading(false);
         });
     } else {
+      localStorage.removeItem('user');
       setLoading(false);
     }
   }, []);
@@ -78,6 +95,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const { token, user: userData } = responseData;
       
       localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
       
       return { success: true };
@@ -91,7 +109,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const setSession = async (token: string, userData?: User) => {
     localStorage.setItem('token', token);
     if (userData) {
-      setUser(userData);
+      localStorage.setItem('user', JSON.stringify(userData));
       return;
     }
 
@@ -101,6 +119,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const user = resp.data?.user || resp.data;
       if (user && user._id) {
         setUser(user as User);
+        localStorage.setItem('user', JSON.stringify(user){
+        setUser(user as User);
       }
     } catch (e) {
       // If fetching user fails, at least keep token in storage and let app handle next steps
@@ -109,14 +129,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const refreshUser = async () => {
-    try {
-      const resp = await api.get('/auth/me');
-      if (resp.data?.user) setUser(resp.data.user as User);
+    trconst userData = resp.data?.user || resp.data;
+      if (userData && userData._id) {
+        setUser(userData as User);
+        localStorage.setItem('user', JSON.stringify(userData));
+      }
     } catch (e) {
       console.warn('refreshUser: failed to refresh user');
     }
   };
 
+  const logout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user
   const logout = () => {
     localStorage.removeItem('token');
     setUser(null);
