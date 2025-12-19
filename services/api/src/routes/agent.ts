@@ -560,11 +560,6 @@ router.post('/whatsapp/send', async (req, res) => {
     message: 'WhatsApp Web.js credentials were exposed. Please use WhatsApp Business API instead.',
     recommendation: 'https://www.whatsapp.com/business/api'
   });
-
-  } catch (error: any) {
-    logger.error('Error sending WhatsApp message', { error: error.message });
-    res.status(500).json({ error: 'Failed to send WhatsApp message' });
-  }
 });
 
 // Get service status for agent dashboard
