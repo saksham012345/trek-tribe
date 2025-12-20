@@ -17,7 +17,7 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: MONGODB_URI
-        value: mongodb+srv://tanejasaksham384_db_user:Saksham4700@trekk.wphfse5.mongodb.net/?appName=Trekk
+        sync: true
       - key: FRONTEND_URL
         value: https://trek-tribe-web.onrender.com
       - key: CORS_ORIGIN
