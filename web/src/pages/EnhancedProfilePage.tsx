@@ -625,7 +625,7 @@ const EnhancedProfilePage: React.FC = () => {
           <div className="p-6">
             {activeTab === 'posts' && (
               <div className="space-y-6">
-                {posts.length === 0 ? (
+                {(posts?.length || 0) === 0 ? (
                   <div className="text-center py-12">
                     <div className="text-6xl mb-4">📝</div>
                     <h3 className="text-xl font-semibold text-gray-900 mb-2">No posts yet</h3>
@@ -651,7 +651,7 @@ const EnhancedProfilePage: React.FC = () => {
 
             {activeTab === 'past-trips' && (
               <div className="space-y-4">
-                {pastTrips.length === 0 ? (
+                {(pastTrips?.length || 0) === 0 ? (
                   <div className="text-center py-12">
                     <div className="text-6xl mb-4">🏔️</div>
                     <h3 className="text-xl font-semibold text-gray-900 mb-2">No past trips</h3>
@@ -683,7 +683,7 @@ const EnhancedProfilePage: React.FC = () => {
 
             {activeTab === 'links' && (
               <div className="space-y-4">
-                {userLinks.length === 0 ? (
+                {(userLinks?.length || 0) === 0 ? (
                   <div className="text-center py-12">
                     <div className="text-6xl mb-4">🔗</div>
                     <h3 className="text-xl font-semibold text-gray-900 mb-2">No links shared</h3>
