@@ -54,6 +54,8 @@ services:
         value: https://trek-tribe-api.onrender.com
       - key: LOG_LEVEL
         value: info
+      - key: SEED_TOKEN
+        sync: true
 
   # AI Service
   - type: web
