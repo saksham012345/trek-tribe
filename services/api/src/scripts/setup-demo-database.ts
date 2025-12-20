@@ -9,7 +9,7 @@ import { User } from '../models/User';
 import { OrganizerSubscription } from '../models/OrganizerSubscription';
 import { Trip } from '../models/Trip';
 import { SupportTicket } from '../models/SupportTicket';
-import { Notification } from '../models/Notification';
+import Notification from '../models/Notification';
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/trekk-tribe';
 
