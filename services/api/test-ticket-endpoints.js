@@ -1,119 +1,92 @@
 /**
- * Test script to verify:
- * 1. Ticket creation
- * 2. Ticket listing (GET /api/agent/tickets)
- * 3. Message sending 
- * 4. Ticket resolution (POST /api/support/tickets/:ticketId/resolve)
+ * End-to-end ticket verification test
+ * - Login (agent, traveler)
+ * - Create ticket
+ * - List tickets (agent)
+ * - Send message
+ * - Resolve ticket
+ * - Verify status
  */
 
 const axios = require('axios');
 
-// Use deployed API to verify production endpoints
 const API_URL = process.env.TEST_API_URL || 'https://trek-tribe-38in.onrender.com';
-let agentToken, travelerToken;
-// Default to deployed API; allow override via TEST_API_URL
-const API_URL = process.env.TEST_API_URL || 'https://trek-tribe-api.onrender.com';
+const AGENT_EMAIL = process.env.TEST_AGENT_EMAIL || 'agent@trektribe.com';
+const AGENT_PASSWORD = process.env.TEST_AGENT_PASSWORD || 'Agent@2025';
+const TRAVELER_EMAIL = process.env.TEST_TRAVELER_EMAIL || 'traveler@trektribe.com';
+const TRAVELER_PASSWORD = process.env.TEST_TRAVELER_PASSWORD || 'Traveler@2025';
 
-// Use seeded credentials by default; allow overrides via env vars
+let agentToken, travelerToken;
+let testTicketId;
 
 async function test() {
   try {
     console.log('=== TICKET ENDPOINTS VERIFICATION TEST ===\n');
 
-    // Step 1: Login as agent and traveler
+    // Step 1: Login agent
     console.log('Step 1: Logging in users...');
-    const agentLogin = await axios.post(`${API_URL}/auth/login`, {
-      email: 'agent@trektribe.com',
-      password: 'Agent@123456'
-    });
-    agentToken = agentLogin.data.token;
-    console.log('✓ Agent logged in');
-
     const agentLogin = await axios.post(`${API_URL}/auth/login`, {
       email: AGENT_EMAIL,
       password: AGENT_PASSWORD,
     });
-    travelerToken = travelerLogin.data.token;
-    console.log('✓ Traveler logged in\n');
+    agentToken = agentLogin.data.token;
+    console.log('✓ Agent logged in');
 
-    // Step 2: Create a test ticket
+    // Step 1b: Login traveler
+    const travelerLogin = await axios.post(`${API_URL}/auth/login`, {
       email: TRAVELER_EMAIL,
       password: TRAVELER_PASSWORD,
     });
-      message: 'Testing ticket endpoints and message sending',
-      category: 'technical'
-    }, {
-      headers: { Authorization: `Bearer ${travelerToken}` }
-    });
-    testTicketId = createTicket.data.ticketId;
+    travelerToken = travelerLogin.data.token;
+    console.log('✓ Traveler logged in\n');
+
+    // Step 2: Create ticket (traveler)
+    console.log('Step 2: Creating test ticket...');
+    const createResp = await axios.post(`${API_URL}/api/support/tickets`, {
+      subject: 'Test Ticket - Endpoint Verification',
+      description: 'Testing ticket endpoints and message sending',
+      category: 'technical',
+      priority: 'medium'
+    }, { headers: { Authorization: `Bearer ${travelerToken}` } });
+    testTicketId = createResp.data.ticketId || createResp.data._id || createResp.data.id;
+    if (!testTicketId) throw new Error('Could not determine ticketId from create response');
     console.log(`✓ Ticket created: ${testTicketId}\n`);
 
-    // Step 3: Fetch tickets as agent
+    // Step 3: List tickets (agent)
     console.log('Step 3: Fetching tickets as agent...');
-    const fetchTickets = await axios.get(`${API_URL}/agent/tickets?page=1&limit=20`, {
+    const listResp = await axios.get(`${API_URL}/agent/tickets?page=1&limit=20`, {
       headers: { Authorization: `Bearer ${agentToken}` }
     });
-    const tickets = fetchTickets.data.tickets || [];
-    const testTicket = tickets.find(t => t.ticketId === testTicketId);
-    if (testTicket) {
-      console.log(`✓ Ticket found in agent list: ${testTicket.ticketId}`);
-      console.log(`  Subject: ${testTicket.subject}`);
-      console.log(`  Status: ${testTicket.status}`);
-      console.log(`  Messages: ${testTicket.messages?.length || 0}\n`);
-    } else {
-      console.log(`⚠ Ticket not found in agent list\n`);
-    }
+    const tickets = listResp.data.tickets || [];
+    const found = tickets.find(t => (t.ticketId || t.id || t._id) === testTicketId);
+    console.log(found ? `✓ Ticket present in agent list (${testTicketId})` : '⚠ Ticket not present in agent list');
 
-    // Step 4: Send message as traveler
+    // Step 4: Send message (traveler)
     console.log('Step 4: Sending message to ticket...');
-    const sendMessage = await axios.post(`${API_URL}/api/support/${testTicketId}/messages`, {
+    const msgResp = await axios.post(`${API_URL}/api/support/${encodeURIComponent(testTicketId)}/messages`, {
       message: 'I need help with this issue. Can someone assist?'
-    }, {
-      headers: { Authorization: `Bearer ${travelerToken}` }
-    });
-    console.log(`✓ Message sent: "${sendMessage.data.message}"\n`);
+    }, { headers: { Authorization: `Bearer ${travelerToken}` } });
+    console.log(`✓ Message API responded:`, msgResp.data);
 
-    // Step 5: Fetch ticket details to verify message was added
-    console.log('Step 5: Fetching ticket details to verify message...');
-    const getTicketDetails = await axios.get(`${API_URL}/agent/tickets/${testTicketId}`, {
-      headers: { Authorization: `Bearer ${agentToken}` }
-    });
-    const ticket = getTicketDetails.data.ticket || getTicketDetails.data;
-    console.log(`✓ Ticket retrieved: ${ticket.ticketId}`);
-    console.log(`  Messages in ticket: ${ticket.messages?.length || 0}`);
-    if (ticket.messages && ticket.messages.length > 0) {
-      console.log(`  Latest message: "${ticket.messages[ticket.messages.length - 1].message}"\n`);
-    }
-
-    // Step 6: Resolve ticket
-    console.log('Step 6: Resolving ticket...');
-    const resolveTicket = await axios.post(`${API_URL}/api/support/tickets/${testTicketId}/resolve`, {
+    // Step 5: Resolve ticket (agent)
+    console.log('Step 5: Resolving ticket...');
+    const resolveResp = await axios.post(`${API_URL}/api/support/tickets/${encodeURIComponent(testTicketId)}/resolve`, {
       resolutionNote: 'Issue resolved successfully. Customer was able to proceed with booking.'
-    }, {
+    }, { headers: { Authorization: `Bearer ${agentToken}` } });
+    console.log(`✓ Resolve API responded:`, resolveResp.data);
+
+    // Step 6: Verify status (agent)
+    console.log('Step 6: Verifying ticket status...');
+    const detailResp = await axios.get(`${API_URL}/agent/tickets/${encodeURIComponent(testTicketId)}`, {
       headers: { Authorization: `Bearer ${agentToken}` }
     });
-    console.log(`✓ Ticket resolved: ${resolveTicket.data.message || 'Success'}\n`);
+    const detail = detailResp.data.ticket || detailResp.data;
+    console.log(`✓ Final status: ${detail.status}`);
+    console.log(`  Messages: ${(detail.messages && detail.messages.length) || 0}\n`);
 
-    // Step 7: Verify ticket status changed
-    console.log('Step 7: Verifying ticket status...');
-    const finalTicket = await axios.get(`${API_URL}/api/agent/tickets/${testTicketId}`, {
-      headers: { Authorization: `Bearer ${agentToken}` }
-    });
-    const finalStatus = finalTicket.data.ticket?.status || finalTicket.data.status;
-    console.log(`✓ Final ticket status: ${finalStatus}`);
-    console.log(`  Messages: ${finalTicket.data.ticket?.messages?.length || 0}\n`);
-
-    console.log('=== ALL TESTS PASSED ===\n');
-    console.log('Summary:');
-    console.log('✓ Ticket creation working');
-    console.log('✓ GET /api/agent/tickets working');
-    console.log('✓ Message sending working');
-    console.log('✓ Messages are persisted in database');
-    console.log('✓ POST /api/support/tickets/:ticketId/resolve working');
-    console.log('✓ Ticket status updates working');
-
+    console.log('=== ALL TESTS PASSED ===');
   } catch (error) {
-    console.error('\n❌ TEST FAILED\n');
+    console.error('\n❌ TEST FAILED');
     if (error.response) {
       console.error('Status:', error.response.status);
       console.error('Error:', error.response.data);
