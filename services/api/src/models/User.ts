@@ -96,6 +96,7 @@ export interface UserDocument extends Document {
   email: string;
   passwordHash: string;
   name: string;
+  username?: string;
   role: UserRole;
   phone?: string;
   bio?: string;
@@ -176,6 +177,16 @@ const userSchema = new Schema(
     email: { type: String, required: true, unique: true, lowercase: true, index: true },
     passwordHash: { type: String, required: true },
     name: { type: String, required: true },
+    username: { 
+      type: String, 
+      unique: true, 
+      sparse: true, 
+      lowercase: true,
+      index: true,
+      match: /^[a-z0-9-_]+$/,
+      minlength: 3,
+      maxlength: 30
+    },
     role: { 
       type: String, 
       enum: ['traveler', 'organizer', 'admin', 'agent'], 

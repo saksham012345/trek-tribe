@@ -2,6 +2,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  username?: string;
   role: 'traveler' | 'organizer' | 'admin' | 'agent';
   uniqueUrl?: string;
   phone?: string;

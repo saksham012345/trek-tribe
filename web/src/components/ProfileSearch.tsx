@@ -7,6 +7,7 @@ interface ProfileSearchResult {
   _id: string;
   name: string;
   email: string;
+  username?: string;
   profilePhoto?: string;
   role: string;
   location?: string;
@@ -141,7 +142,9 @@ const ProfileSearch: React.FC<ProfileSearchProps> = ({
       onClose();
     }
     
-    navigate(`/profile/${profile._id}`);
+    // Use username if available, otherwise use _id
+    const identifier = profile.username || profile._id;
+    navigate(`/profile/${identifier}`);
   };
 
   const getRoleIcon = (role: string) => {

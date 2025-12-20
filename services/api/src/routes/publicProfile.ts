@@ -11,7 +11,7 @@ const router = express.Router();
 
 /**
  * @route GET /api/public/:uniqueUrl
- * @description Get public user profile by unique URL
+ * @description Get public user profile by unique URL or username
  * @access Public
  */
 router.get('/:uniqueUrl', async (req, res) => {
@@ -41,8 +41,13 @@ router.get('/:uniqueUrl', async (req, res) => {
       requesterId = null;
     }
 
-    // Find user by unique URL
-    const user = await User.findOne({ uniqueUrl })
+    // Find user by unique URL or username
+    const user = await User.findOne({ 
+      $or: [
+        { uniqueUrl },
+        { username: uniqueUrl.toLowerCase() }
+      ]
+    })
       .select('-passwordHash -resetPasswordToken -emergencyContact -verificationDocuments')
       .lean();
 

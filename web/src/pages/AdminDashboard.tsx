@@ -57,6 +57,22 @@ interface DashboardStats {
     revenue: number;
     recentBookings: any[];
   };
+  subscriptions?: {
+    total: number;
+    active: number;
+    byPlan: { plan: string; count: number; revenue: number }[];
+    revenue: {
+      total: number;
+      thisMonth: number;
+    };
+  };
+  tickets?: {
+    total: number;
+    byStatus: { status: string; count: number }[];
+    open: number;
+    inProgress: number;
+    resolved: number;
+  };
   system: {
     uptime: number;
     memoryUsage: any;
@@ -157,6 +173,8 @@ const AdminDashboard: React.FC = () => {
       const data = statsRes.data as {
         users: { total: number; byRole: any[]; recentUsers: any[] };
         trips: { total: number; byStatus: any[]; recentTrips: any[]; totalBookings?: number; totalRevenue?: number; recentBookings?: any[] };
+        subscriptions?: { total: number; active: number; byPlan: any[]; revenue: { total: number; thisMonth: number } };
+        tickets?: { total: number; byStatus: any[]; open: number; inProgress: number; resolved: number };
       };
       setStats({
         users: data.users,
@@ -166,6 +184,8 @@ const AdminDashboard: React.FC = () => {
           revenue: data.trips.totalRevenue || 0,
           recentBookings: data.trips.recentBookings || []
         },
+        subscriptions: data.subscriptions,
+        tickets: data.tickets,
         system: {
           uptime: 0,
           memoryUsage: {},
@@ -578,13 +598,97 @@ const AdminDashboard: React.FC = () => {
                   <span className="text-2xl">💰</span>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Total Revenue</p>
+                  <p className="text-sm font-medium text-gray-500">Trip Revenue</p>
                   <p className="text-2xl font-bold text-gray-900">₹{stats?.bookings.revenue?.toLocaleString() || 0}</p>
                 </div>
               </div>
             </div>
 
+            <div className="bg-white p-6 rounded-lg shadow-sm border">
+              <div className="flex items-center">
+                <div className="p-3 rounded-full bg-emerald-100">
+                  <span className="text-2xl">📊</span>
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-500">Subscription Revenue</p>
+                  <p className="text-2xl font-bold text-gray-900">₹{stats?.subscriptions?.revenue.total?.toLocaleString() || 0}</p>
+                  <p className="text-xs text-emerald-600 mt-1">
+                    ₹{stats?.subscriptions?.revenue.thisMonth?.toLocaleString() || 0} this month
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-lg shadow-sm border">
+              <div className="flex items-center">
+                <div className="p-3 rounded-full bg-orange-100">
+                  <span className="text-2xl">🎫</span>
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-500">Support Tickets</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats?.tickets?.total || 0}</p>
+                  <p className="text-xs text-orange-600 mt-1">
+                    {stats?.tickets?.open || 0} open, {stats?.tickets?.inProgress || 0} in progress
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* Charts Section */}
+            <div className="col-span-full grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+              {/* Subscription Revenue by Plan */}
+              <div className="bg-white p-6 rounded-lg shadow-sm border">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">💎 Revenue by Subscription Plan</h3>
+                <div className="space-y-3">
+                  {stats?.subscriptions?.byPlan && stats.subscriptions.byPlan.length > 0 ? stats.subscriptions.byPlan.map((item) => (
+                    <div key={item.plan} className="flex justify-between items-center">
+                      <div className="flex flex-col">
+                        <span className="text-sm text-gray-600 capitalize font-medium">{item.plan}</span>
+                        <span className="text-xs text-gray-400">{item.count} active</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-24 bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-emerald-600 h-2 rounded-full" 
+                            style={{width: `${(item.revenue / (stats?.subscriptions?.revenue.total || 1)) * 100}%`}}
+                          ></div>
+                        </div>
+                        <span className="text-sm font-medium text-gray-900 min-w-[80px] text-right">
+                          ₹{item.revenue?.toLocaleString() || 0}
+                        </span>
+                      </div>
+                    </div>
+                  )) : <p className="text-sm text-gray-400">No subscription data available</p>}
+                </div>
+              </div>
+
+              {/* Tickets by Status */}
+              <div className="bg-white p-6 rounded-lg shadow-sm border">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">🎫 Support Tickets</h3>
+                <div className="space-y-3">
+                  {stats?.tickets?.byStatus && stats.tickets.byStatus.length > 0 ? stats.tickets.byStatus.map((item) => (
+                    <div key={item.status} className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600 capitalize">{item.status.replace(/-/g, ' ')}</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-16 bg-gray-200 rounded-full h-2">
+                          <div 
+                            className={`h-2 rounded-full ${
+                              item.status === 'open' ? 'bg-red-600' : 
+                              item.status === 'in-progress' ? 'bg-yellow-600' : 
+                              item.status === 'resolved' ? 'bg-green-600' : 'bg-blue-600'
+                            }`}
+                            style={{width: `${(item.count / (stats?.tickets?.total || 1)) * 100}%`}}
+                          ></div>
+                        </div>
+                        <span className="text-sm font-medium text-gray-900">{item.count}</span>
+                      </div>
+                    </div>
+                  )) : <p className="text-sm text-gray-400">No ticket data available</p>}
+                </div>
+              </div>
+            </div>
+
+            {/* Existing Charts Section */}
             <div className="col-span-full grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
               {/* Users by Role */}
               <div className="bg-white p-6 rounded-lg shadow-sm border">

@@ -48,12 +48,11 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const validateForm = (): boolean => {
     const errors: typeof validationErrors = {};
     
-    // Email validation
+    // Email or username validation
     if (!formData.email) {
-      errors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.email = 'Please enter a valid email address';
+      errors.email = 'Email or username is required';
     }
+    // No format validation - can be email or username
     
     // Password validation
     if (!formData.password) {
@@ -176,10 +175,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               </div>
             )}
             
-            {/* Email Field */}
+            {/* Email or Username Field */}
             <div className="space-y-2">
               <label htmlFor="email" className="block text-sm font-semibold text-forest-700">
-                Email Address
+                Email or Username
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -190,8 +189,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <input
                   id="email"
                   name="email"
-                  type="email"
-                  autoComplete="email"
+                  type="text"
+                  autoComplete="email username"
                   required
                   value={formData.email}
                   onChange={handleChange}
@@ -200,7 +199,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                       ? 'border-red-400 focus:ring-red-300 focus:border-red-500' 
                       : 'border-forest-200 focus:ring-nature-500 focus:border-nature-500 hover:border-forest-300'
                   }`}
-                  placeholder="you@example.com"
+                  placeholder="username or you@example.com"
                 />
               </div>
               {validationErrors.email && (

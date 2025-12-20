@@ -149,6 +149,7 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
     try {
       const response = await api.post('/auth/register', {
         name: formData.name,
+        username: formData.username,
         email: formData.email,
         phone: formData.phoneNumber,
         password: formData.password,
