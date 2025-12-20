@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import api from '../config/api';
 import { User } from '../types';
 
@@ -26,7 +26,7 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(() => {
     // Try to restore user from localStorage on initial load
     const savedUser = localStorage.getItem('user');
@@ -110,17 +110,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.setItem('token', token);
     if (userData) {
       localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
       return;
     }
 
     try {
       const resp = await api.get('/auth/me');
       // Handle both { user: User } and direct User object formats
-      const user = resp.data?.user || resp.data;
-      if (user && user._id) {
-        setUser(user as User);
-        localStorage.setItem('user', JSON.stringify(user){
-        setUser(user as User);
+      const fetchedUser = resp.data?.user || resp.data;
+      if (fetchedUser && fetchedUser._id) {
+        setUser(fetchedUser as User);
+        localStorage.setItem('user', JSON.stringify(fetchedUser));
       }
     } catch (e) {
       // If fetching user fails, at least keep token in storage and let app handle next steps
@@ -129,27 +129,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const refreshUser = async () => {
-    trconst userData = resp.data?.user || resp.data;
+    try {
+      const resp = await api.get('/auth/me');
+      const userData = resp.data?.user || resp.data;
       if (userData && userData._id) {
         setUser(userData as User);
         localStorage.setItem('user', JSON.stringify(userData));
       }
     } catch (e) {
-      console.warn('refreshUser: failed to refresh user');
+      console.warn('refreshUser: failed to refresh user', e);
     }
   };
 
   const logout = () => {
     localStorage.removeItem('token');
-    localStorage.removeItem('user
-  const logout = () => {
-    localStorage.removeItem('token');
+    localStorage.removeItem('user');
     setUser(null);
   };
 
   const updateUser = (userData: Partial<User>) => {
     if (user) {
-      setUser({ ...user, ...userData });
+      const updated = { ...user, ...userData } as User;
+      setUser(updated);
+      localStorage.setItem('user', JSON.stringify(updated));
     }
   };
 
@@ -168,4 +170,4 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       {children}
     </AuthContext.Provider>
   );
-};
+}
