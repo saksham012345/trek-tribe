@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 interface ProfileUser {
   _id: string;
   name: string;
+  username?: string;
   email?: string;
   role: string;
   phone?: string;
@@ -111,9 +112,9 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
 
   const handleShareProfile = async () => {
     try {
-      const profileUrl = profile.uniqueUrl 
-        ? `${window.location.origin}/profile/${profile.uniqueUrl}`
-        : `${window.location.origin}/profile/${profile._id}`;
+      // Prefer username, then uniqueUrl, then fall back to _id
+      const identifier = profile.username || profile.uniqueUrl || profile._id;
+      const profileUrl = `${window.location.origin}/profile/${identifier}`;
       
       if (navigator.share) {
         // Use native share API if available
@@ -131,9 +132,8 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
       console.error('Error sharing profile:', error);
       // Fallback to clipboard
       try {
-        const profileUrl = profile.uniqueUrl 
-          ? `${window.location.origin}/profile/${profile.uniqueUrl}`
-          : `${window.location.origin}/profile/${profile._id}`;
+        const identifier = profile.username || profile.uniqueUrl || profile._id;
+        const profileUrl = `${window.location.origin}/profile/${identifier}`;
         await navigator.clipboard.writeText(profileUrl);
         alert('Profile link copied to clipboard!');
       } catch (clipboardError) {
@@ -165,12 +165,17 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
           </div>
           
           <div className="text-white pb-4">
-            <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
+            <h1 className="text-3xl font-bold mb-1 flex items-center gap-2">
               {profile.name}
               {profile.isVerified && (
                 <span className="text-2xl" title="Verified Profile">✅</span>
               )}
             </h1>
+            {profile.username && (
+              <p className="text-white text-sm opacity-80 mb-2">
+                @{profile.username}
+              </p>
+            )}
             <p className="text-white text-lg capitalize flex items-center gap-2 opacity-90">
               <span className="text-xl">{getRoleIcon(profile.role)}</span>
               {profile.role}

@@ -9,6 +9,11 @@ const router = express.Router();
 // Update profile validation schema
 const updateProfileSchema = z.object({
   name: z.string().min(1).max(100).optional(),
+  username: z.string()
+    .min(3, { message: 'Username must be at least 3 characters long.' })
+    .max(30, { message: 'Username must be under 30 characters.' })
+    .regex(/^[a-z0-9-_]+$/, { message: 'Username can only contain lowercase letters, numbers, hyphens, and underscores.' })
+    .optional(),
   phone: z.string().min(10).max(15).optional(),
   bio: z.string().max(500).optional(),
   location: z.string().max(100).optional(),
@@ -60,7 +65,7 @@ router.get('/search', async (req, res) => {
     }
 
     const profiles = await User.find(query)
-      .select('name bio profilePhoto location role socialLinks isVerified createdAt')
+      .select('name username bio profilePhoto location role socialLinks isVerified createdAt socialStats')
       .limit(20)
       .sort({ lastActive: -1 });
 
@@ -184,6 +189,25 @@ router.put('/me', authenticateJwt, async (req, res) => {
     }
 
     const updateData = parsed.data;
+
+    // Check if username is being changed and if it's already taken
+    if (updateData.username) {
+      const existingUsername = await User.findOne({ 
+        username: updateData.username.toLowerCase(),
+        _id: { $ne: userId } // Exclude current user
+      });
+      
+      if (existingUsername) {
+        return res.status(409).json({ 
+          error: 'Username already taken',
+          message: 'This username is already in use. Please choose a different one.',
+          field: 'username'
+        });
+      }
+      
+      // Convert to lowercase for consistency
+      (updateData as any).username = updateData.username.toLowerCase();
+    }
 
     // Convert date string to Date object if provided
     if (updateData.dateOfBirth) {

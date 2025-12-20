@@ -39,6 +39,11 @@ const registerSchema = z.object({
   email: z.string().email({ message: 'Invalid email format. Please check and try again.' }),
   password: strongPasswordSchema,
   name: z.string().min(1, { message: 'Name is required and cannot be empty.' }),
+  username: z.string()
+    .min(3, { message: 'Username must be at least 3 characters long.' })
+    .max(30, { message: 'Username must be under 30 characters.' })
+    .regex(/^[a-z0-9-_]+$/, { message: 'Username can only contain lowercase letters, numbers, hyphens, and underscores.' })
+    .optional(),
   // Keep phone optional to remain compatible with existing tests and clients
   phone: z.string().regex(/^[+]?[1-9]\d{1,14}$/, { message: 'Invalid phone number format. Use international format (e.g., +919876543210).' }).optional(),
   role: z.enum(['traveler', 'organizer', 'admin', 'agent'], { 
@@ -68,7 +73,7 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    const { email, password, name, phone, role, bio, location, experience, specialties, languages, yearsOfExperience } = parsed.data;
+    const { email, password, name, username, phone, role, bio, location, experience, specialties, languages, yearsOfExperience } = parsed.data;
 
     // Check for existing email
     const existing = await User.findOne({ email });
@@ -79,6 +84,19 @@ router.post('/register', async (req, res) => {
         message: 'This email address is already registered. Please use a different email or try logging in.',
         field: 'email'
       });
+    }
+
+    // Check if username already in use (only if username is provided)
+    if (username) {
+      const existingUsername = await User.findOne({ username: username.toLowerCase() });
+      if (existingUsername) {
+        return res.status(409).json({ 
+          success: false,
+          error: 'Username already taken',
+          message: 'This username is already taken. Please choose a different username.',
+          field: 'username'
+        });
+      }
     }
 
     // Check if phone already in use (only if phone is provided)
@@ -105,6 +123,7 @@ router.post('/register', async (req, res) => {
       email,
       passwordHash,
       name,
+      username: username?.toLowerCase(),
       phone,
       role: userRole,
       bio,
@@ -240,7 +259,7 @@ router.post('/register', async (req, res) => {
 });
 
 const loginSchema = z.object({
-  email: z.string().email({ message: 'Invalid email format. Please check and try again.' }),
+  email: z.string().min(1, { message: 'Email or username is required.' }),
   password: z.string().min(1, { message: 'Password is required.' })
 });
 
@@ -249,15 +268,23 @@ router.post('/login', async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({
       error: parsed.error.flatten(),
-      message: 'Invalid email or password format. Please check and try again.'
+      message: 'Invalid email/username or password format. Please check and try again.'
     });
   }
   const { email, password } = parsed.data;
-  const user = await User.findOne({ email });
+  
+  // Find user by email or username
+  const user = await User.findOne({
+    $or: [
+      { email: email.toLowerCase() },
+      { username: email.toLowerCase() }
+    ]
+  });
+  
   if (!user) {
     return res.status(401).json({
       error: 'User does not exist',
-      message: 'No account found for this email. Please sign up.',
+      message: 'No account found with this email or username. Please sign up.',
       code: 'USER_NOT_FOUND'
     });
   }

@@ -20,6 +20,7 @@ interface RoleBasedData {
 interface ProfileUser {
   _id: string;
   name: string;
+  username?: string;
   email?: string;
   role: string;
   phone?: string;
@@ -107,6 +108,7 @@ const EnhancedProfilePage: React.FC = () => {
 
   const [editForm, setEditForm] = useState({
     name: '',
+    username: '',
     phone: '',
     bio: '',
     location: '',
@@ -190,6 +192,7 @@ const EnhancedProfilePage: React.FC = () => {
       if (viewingOwnProfile) {
         setEditForm({
           name: userData.name || '',
+          username: userData.username || '',
           phone: userData.phone || '',
           bio: userData.bio || '',
           location: userData.location || '',
@@ -439,6 +442,23 @@ const EnhancedProfilePage: React.FC = () => {
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Username
+                </label>
+                <input
+                  type="text"
+                  value={editForm.username}
+                  onChange={(e) => setEditForm({ ...editForm, username: e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, '') })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="your-username"
+                  pattern="[a-z0-9-_]+"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Your profile URL: {window.location.origin}/profile/{editForm.username || 'username'}
+                </p>
               </div>
 
               <div>

@@ -450,7 +450,8 @@ const AIChatWidgetClean: React.FC = () => {
       
       // Create support ticket for human agent
       const resp = await api.post('/api/support/human-agent/request', {
-        message: inputMessage || 'User requested to speak with a human agent',
+        subject: 'Chat Support Request - Human Agent Needed',
+        description: inputMessage || 'User requested to speak with a human agent',
         category: 'chat_request',
         priority: 'medium'
       });

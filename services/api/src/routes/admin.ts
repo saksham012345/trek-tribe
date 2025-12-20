@@ -3,6 +3,8 @@ import { User } from '../models/User';
 import { Trip } from '../models/Trip';
 import { Review } from '../models/Review';
 import { Wishlist } from '../models/Wishlist';
+import CRMSubscription from '../models/CRMSubscription';
+import { SupportTicket } from '../models/SupportTicket';
 import { authenticateJwt, requireRole } from '../middleware/auth';
 import { logger } from '../utils/logger';
 import { emailService } from '../services/emailService';
@@ -19,11 +21,13 @@ router.use(requireRole(['admin']));
 router.get('/stats', async (req, res) => {
   try {
     // Get basic counts
-    const [totalUsers, totalTrips, totalReviews, totalWishlists] = await Promise.all([
+    const [totalUsers, totalTrips, totalReviews, totalWishlists, totalTickets, activeSubscriptions] = await Promise.all([
       User.countDocuments(),
       Trip.countDocuments(),
       Review.countDocuments(),
-      Wishlist.countDocuments()
+      Wishlist.countDocuments(),
+      SupportTicket.countDocuments(),
+      CRMSubscription.countDocuments({ status: 'active' })
     ]);
 
     // Get users by role
@@ -38,15 +42,43 @@ router.get('/stats', async (req, res) => {
       { $project: { status: '$_id', count: 1, _id: 0 } }
     ]);
 
-    // Calculate total bookings and revenue
+    // Calculate total bookings and revenue from trips
     const tripsWithParticipants = await Trip.find({}, 'participants price');
     let totalBookings = 0;
-    let totalRevenue = 0;
+    let totalTripRevenue = 0;
     
     tripsWithParticipants.forEach(trip => {
       totalBookings += trip.participants.length;
-      totalRevenue += trip.participants.length * trip.price;
+      totalTripRevenue += trip.participants.length * trip.price;
     });
+
+    // Calculate subscription revenue
+    const subscriptions = await CRMSubscription.find({});
+    let totalSubscriptionRevenue = 0;
+    let thisMonthSubscriptionRevenue = 0;
+    const currentDate = new Date();
+    const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+
+    subscriptions.forEach(sub => {
+      const revenue = sub.totalPaid || 0;
+      totalSubscriptionRevenue += revenue;
+      
+      if (sub.createdAt >= firstDayOfMonth) {
+        thisMonthSubscriptionRevenue += revenue;
+      }
+    });
+
+    // Get subscription stats by plan
+    const subscriptionsByPlan = await CRMSubscription.aggregate([
+      { $group: { _id: '$planType', count: { $sum: 1 }, revenue: { $sum: '$totalPaid' } } },
+      { $project: { plan: '$_id', count: 1, revenue: 1, _id: 0 } }
+    ]);
+
+    // Get ticket stats
+    const ticketsByStatus = await SupportTicket.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+      { $project: { status: '$_id', count: 1, _id: 0 } }
+    ]);
 
     // Get recent data
     const recentUsers = await User.find({}, 'name email role createdAt')
@@ -59,6 +91,8 @@ router.get('/stats', async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(5);
 
+    const totalRevenue = totalTripRevenue + totalSubscriptionRevenue;
+
     res.json({
       overview: {
         totalUsers,
@@ -66,12 +100,15 @@ router.get('/stats', async (req, res) => {
         totalBookings,
         totalRevenue,
         totalReviews,
-        totalWishlists
+        totalWishlists,
+        totalTickets,
+        activeSubscriptions
       },
       users: {
         total: totalUsers,
         byRole: usersByRole,
         organizers: usersByRole.find(role => role.role === 'organizer')?.count || 0,
+        agents: usersByRole.find(role => role.role === 'agent')?.count || 0,
         recentUsers
       },
       trips: {
@@ -79,7 +116,23 @@ router.get('/stats', async (req, res) => {
         byStatus: tripsByStatus,
         recentTrips,
         totalBookings,
-        totalRevenue
+        totalRevenue: totalTripRevenue
+      },
+      subscriptions: {
+        total: subscriptions.length,
+        active: activeSubscriptions,
+        byPlan: subscriptionsByPlan,
+        revenue: {
+          total: totalSubscriptionRevenue,
+          thisMonth: thisMonthSubscriptionRevenue
+        }
+      },
+      tickets: {
+        total: totalTickets,
+        byStatus: ticketsByStatus,
+        open: ticketsByStatus.find(t => t.status === 'open')?.count || 0,
+        inProgress: ticketsByStatus.find(t => t.status === 'in-progress')?.count || 0,
+        resolved: ticketsByStatus.find(t => t.status === 'resolved')?.count || 0
       }
     });
   } catch (error: any) {

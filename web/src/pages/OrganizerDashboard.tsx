@@ -254,6 +254,50 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
         </div>
       )}
 
+      {/* Earnings Summary */}
+      <div className="max-w-7xl mx-auto mb-8">
+        <div className="bg-gradient-to-r from-emerald-500 to-green-600 rounded-2xl shadow-xl p-6 text-white">
+          <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+            💰 Your Earnings Overview
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Total Revenue */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+              <p className="text-emerald-100 text-sm mb-1">Total Revenue</p>
+              <p className="text-3xl font-bold">
+                ₹{trips.reduce((total, trip) => total + ((trip.participants?.length || 0) * trip.price), 0).toLocaleString()}
+              </p>
+              <p className="text-emerald-100 text-xs mt-2">From all confirmed bookings</p>
+            </div>
+            
+            {/* Active Trips Revenue */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+              <p className="text-emerald-100 text-sm mb-1">Active Trips Revenue</p>
+              <p className="text-3xl font-bold">
+                ₹{trips
+                  .filter(trip => trip.status === 'active')
+                  .reduce((total, trip) => total + ((trip.participants?.length || 0) * trip.price), 0)
+                  .toLocaleString()}
+              </p>
+              <p className="text-emerald-100 text-xs mt-2">
+                {trips.filter(trip => trip.status === 'active').length} active trip{trips.filter(trip => trip.status === 'active').length !== 1 ? 's' : ''}
+              </p>
+            </div>
+            
+            {/* Total Participants */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+              <p className="text-emerald-100 text-sm mb-1">Total Participants</p>
+              <p className="text-3xl font-bold">
+                {trips.reduce((total, trip) => total + (trip.participants?.length || 0), 0)}
+              </p>
+              <p className="text-emerald-100 text-xs mt-2">
+                Across {trips.length} trip{trips.length !== 1 ? 's' : ''}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="max-w-7xl mx-auto grid lg:grid-cols-3 gap-8">
         {/* Trip Overview */}
         <div className="lg:col-span-2 space-y-6">
@@ -288,7 +332,7 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
                       </div>
                     </div>
                     
-                    <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div className="grid grid-cols-4 gap-4 text-sm">
                       <div>
                         <span className="text-forest-600">📅 Dates:</span>
                         <p className="font-medium text-forest-800">
@@ -302,9 +346,15 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
                         </p>
                       </div>
                       <div>
-                        <span className="text-forest-600">💰 Price:</span>
-                        <p className="font-bold text-nature-600 text-lg">
+                        <span className="text-forest-600">💰 Price/Person:</span>
+                        <p className="font-medium text-nature-600">
                           ₹{trip.price.toLocaleString()}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-forest-600">💵 Trip Revenue:</span>
+                        <p className="font-bold text-emerald-600 text-lg">
+                          ₹{((trip.participants?.length || 0) * trip.price).toLocaleString()}
                         </p>
                       </div>
                     </div>
