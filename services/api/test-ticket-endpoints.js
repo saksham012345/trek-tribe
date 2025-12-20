@@ -48,7 +48,7 @@ async function test() {
       category: 'technical',
       priority: 'medium'
     }, { headers: { Authorization: `Bearer ${travelerToken}` } });
-    testTicketId = createResp.data.ticketId || createResp.data._id || createResp.data.id;
+    testTicketId = (createResp.data.ticket && createResp.data.ticket.ticketId) || createResp.data.ticketId || createResp.data._id || createResp.data.id;
     if (!testTicketId) throw new Error('Could not determine ticketId from create response');
     console.log(`✓ Ticket created: ${testTicketId}\n`);
 
