@@ -364,8 +364,8 @@ const AdminDashboard: React.FC = () => {
                                   {category}
                                 </span>
                               ))}
-                              {trip.categories.length > 3 && (
-                                <span className="text-xs text-gray-400">+{trip.categories.length - 3} more</span>
+                              {(trip.categories?.length || 0) > 3 && (
+                                <span className="text-xs text-gray-400">+{(trip.categories?.length || 0) - 3} more</span>
                               )}
                             </div>
                           )}

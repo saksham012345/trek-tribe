@@ -462,12 +462,12 @@ const Home: React.FC<HomeProps> = ({ user }) => {
                       </div>
                       <div className="flex items-center text-forest-500">
                         <span className="mr-2">👥</span>
-                        <span className="text-sm">{trip.participants.length}/{trip.capacity} adventurers</span>
+                        <span className="text-sm">{trip.participants?.length || 0}/{trip.capacity} adventurers</span>
                         <div className="flex-1"></div>
                         <div className="w-16 bg-forest-100 rounded-full h-2">
                           <div 
                             className="bg-blue-500 h-2 rounded-full transition-all duration-500"
-                            style={{width: `${(trip.participants.length / trip.capacity) * 100}%`}}
+                            style={{width: `${((trip.participants?.length || 0) / trip.capacity) * 100}%`}}
                           ></div>
                         </div>
                       </div>
@@ -478,7 +478,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
                     </div>
                     
                     <div className="flex flex-wrap gap-2 mb-4">
-                      {trip.categories && trip.categories.length > 0 ? trip.categories.map((category, catIndex) => (
+                      {trip.categories && trip.categories.length > 0 ? trip.categories?.map((category, catIndex) => (
                         <span key={catIndex} className="px-2 py-1 bg-forest-100 text-forest-700 text-xs rounded-full font-medium">
                           {category}
                         </span>
