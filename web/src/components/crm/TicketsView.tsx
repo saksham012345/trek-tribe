@@ -1,4 +1,31 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'open':
+        return 'bg-red-500';
+      case 'in-progress':
+        return 'bg-yellow-500';
+      case 'waiting-customer':
+        return 'bg-blue-500';
+      case 'resolved':
+        return 'bg-green-500';
+      default:
+        return 'bg-gray-500';
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'urgent':
+        return 'bg-red-600';
+      case 'high':
+        return 'bg-orange-500';
+      case 'medium':
+        return 'bg-yellow-600';
+      default:
+        return 'bg-gray-500';
+    }
+  };
 import api from '../../config/api';
 
 type Ticket = {
@@ -133,19 +160,10 @@ export default function TicketsView() {
                   <p className="text-sm text-gray-700 mt-1">{ticket.description}</p>
                 </div>
                 <div className="text-right">
-                  <span className={`inline-block px-3 py-1 rounded text-white text-sm ${
-                    ticket.status === 'open' ? 'bg-red-500' :
-                    ticket.status === 'in-progress' ? 'bg-yellow-500' :
-                    ticket.status === 'waiting-customer' ? 'bg-blue-500' :
-                    ticket.status === 'resolved' ? 'bg-green-500' : 'bg-gray-500'
-                  }`}>
+                  <span className={`inline-block px-3 py-1 rounded text-white text-sm ${getStatusColor(ticket.status)}`}>
                     {ticket.status}
                   </span>
-                  <span className={`inline-block ml-2 px-2 py-1 rounded text-white text-xs ${
-                    ticket.priority === 'urgent' ? 'bg-red-600' :
-                    ticket.priority === 'high' ? 'bg-orange-500' :
-                    ticket.priority === 'medium' ? 'bg-yellow-600' : 'bg-gray-500'
-                  }`}>
+                  <span className={`inline-block ml-2 px-2 py-1 rounded text-white text-xs ${getPriorityColor(ticket.priority)}`}>
                     {ticket.priority}
                   </span>
                 </div>
@@ -168,7 +186,8 @@ export default function TicketsView() {
                   <button
                     className="px-4 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
                     onClick={() => {
-                      const note = (document.getElementById(`resolve-${ticket._id}`) as HTMLTextAreaElement)?.value || '';
+                      const textarea = document.getElementById(`resolve-${ticket._id}`) as HTMLTextAreaElement;
+                      const note = textarea?.value || '';
                       resolveTicket(ticket.ticketId, note);
                     }}
                   >
@@ -201,11 +220,6 @@ export default function TicketsView() {
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-        </div>
-      )}
     </div>
   );
 }
