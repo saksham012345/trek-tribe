@@ -8,6 +8,8 @@ import * as bcrypt from 'bcryptjs';
 import { User } from '../models/User';
 import { OrganizerSubscription } from '../models/OrganizerSubscription';
 import { Trip } from '../models/Trip';
+import { SupportTicket } from '../models/SupportTicket';
+import { Notification } from '../models/Notification';
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/trekk-tribe';
 
@@ -21,7 +23,9 @@ async function setupDemoDatabase() {
     await User.deleteMany({});
     await OrganizerSubscription.deleteMany({});
     await Trip.deleteMany({});
-    console.log('✅ Database cleaned');
+    await SupportTicket.deleteMany({});
+    await Notification.deleteMany({});
+    console.log('✅ Database cleaned (Users, Subscriptions, Trips, Tickets, Notifications)');
 
     console.log('\n👥 Creating demo users...');
 
