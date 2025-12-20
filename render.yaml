@@ -131,9 +131,9 @@ services:
         destination: /index.html
     envVars:
       - key: REACT_APP_API_URL
-        value: https://trek-tribe-api.onrender.com
+        value: https://trek-tribe-38in.onrender.com
       - key: REACT_APP_SOCKET_URL
-        value: https://trek-tribe-api.onrender.com
+        value: https://trek-tribe-38in.onrender.com
       - key: REACT_APP_AI_SERVICE_URL
         value: https://trek-tribe-ai-service.onrender.com
       - key: REACT_APP_RAZORPAY_KEY_ID

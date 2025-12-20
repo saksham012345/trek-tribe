@@ -2,6 +2,22 @@
   "buildCommand": "cd web && npm install && npm run build",
   "outputDirectory": "web/build",
   "installCommand": "npm install",
+  "env": {
+    "REACT_APP_API_URL": "https://trek-tribe-38in.onrender.com",
+    "REACT_APP_SOCKET_URL": "https://trek-tribe-38in.onrender.com",
+    "REACT_APP_AI_SERVICE_URL": "https://trek-tribe-ai-service.onrender.com",
+    "REACT_APP_APP_NAME": "Trek Tribe",
+    "REACT_APP_VERSION": "1.0.0",
+    "GENERATE_SOURCEMAP": "false"
+  },
+  "build": {
+    "env": {
+      "REACT_APP_API_URL": "https://trek-tribe-38in.onrender.com",
+      "REACT_APP_SOCKET_URL": "https://trek-tribe-38in.onrender.com",
+      "REACT_APP_AI_SERVICE_URL": "https://trek-tribe-ai-service.onrender.com",
+      "GENERATE_SOURCEMAP": "false"
+    }
+  },
   "rewrites": [
     {
       "source": "/(.*)",

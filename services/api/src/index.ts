@@ -126,6 +126,7 @@ const allowedOrigins = process.env.NODE_ENV === 'production'
       'https://trek-tribe-38in.onrender.com',
       'https://trek-tribe-web.onrender.com',
       'https://trek-tribe.vercel.app',
+      'https://trekktribe.vercel.app',
       process.env.FRONTEND_URL,
       process.env.CORS_ORIGIN,
       process.env.WEB_URL,
