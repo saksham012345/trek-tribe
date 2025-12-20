@@ -8,7 +8,8 @@
 
 const axios = require('axios');
 
-const API_URL = 'http://localhost:3001';
+// Use deployed API to verify production endpoints
+const API_URL = process.env.TEST_API_URL || 'https://trek-tribe-38in.onrender.com';
 let agentToken, travelerToken;
 let testTicketId;
 
@@ -18,14 +19,14 @@ async function test() {
 
     // Step 1: Login as agent and traveler
     console.log('Step 1: Logging in users...');
-    const agentLogin = await axios.post(`${API_URL}/api/auth/login`, {
+    const agentLogin = await axios.post(`${API_URL}/auth/login`, {
       email: 'agent@trektribe.com',
       password: 'Agent@123456'
     });
     agentToken = agentLogin.data.token;
     console.log('✓ Agent logged in');
 
-    const travelerLogin = await axios.post(`${API_URL}/api/auth/login`, {
+    const travelerLogin = await axios.post(`${API_URL}/auth/login`, {
       email: 'traveler@trektribe.com',
       password: 'Traveler@123456'
     });
@@ -46,7 +47,7 @@ async function test() {
 
     // Step 3: Fetch tickets as agent
     console.log('Step 3: Fetching tickets as agent...');
-    const fetchTickets = await axios.get(`${API_URL}/api/agent/tickets?page=1&limit=20`, {
+    const fetchTickets = await axios.get(`${API_URL}/agent/tickets?page=1&limit=20`, {
       headers: { Authorization: `Bearer ${agentToken}` }
     });
     const tickets = fetchTickets.data.tickets || [];
@@ -71,7 +72,7 @@ async function test() {
 
     // Step 5: Fetch ticket details to verify message was added
     console.log('Step 5: Fetching ticket details to verify message...');
-    const getTicketDetails = await axios.get(`${API_URL}/api/agent/tickets/${testTicketId}`, {
+    const getTicketDetails = await axios.get(`${API_URL}/agent/tickets/${testTicketId}`, {
       headers: { Authorization: `Bearer ${agentToken}` }
     });
     const ticket = getTicketDetails.data.ticket || getTicketDetails.data;
