@@ -3,8 +3,18 @@ import { apiCache } from '../utils/apiCache';
 
 // API Configuration
 // Priority: explicit env → hosted API (Render/Vercel)
-const API_BASE_URL = process.env.REACT_APP_API_URL
-  || 'https://trek-tribe-38in.onrender.com';
+let API_BASE_URL = process.env.REACT_APP_API_URL || '';
+
+// Robust fallback: prefer the primary Render API domain
+if (!API_BASE_URL) {
+  const host = (typeof window !== 'undefined' ? window.location.hostname : '');
+  // If running on Vercel or unknown, default to Render API service
+  API_BASE_URL = 'https://trek-tribe-api.onrender.com';
+  // If explicitly on render web domain, keep same
+  if (host.includes('onrender.com')) {
+    API_BASE_URL = 'https://trek-tribe-api.onrender.com';
+  }
+}
 
 // Create axios instance with default configuration
 const api: any = axios.create({
