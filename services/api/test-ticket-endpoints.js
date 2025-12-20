@@ -11,7 +11,10 @@ const axios = require('axios');
 // Use deployed API to verify production endpoints
 const API_URL = process.env.TEST_API_URL || 'https://trek-tribe-38in.onrender.com';
 let agentToken, travelerToken;
-let testTicketId;
+// Default to deployed API; allow override via TEST_API_URL
+const API_URL = process.env.TEST_API_URL || 'https://trek-tribe-api.onrender.com';
+
+// Use seeded credentials by default; allow overrides via env vars
 
 async function test() {
   try {
@@ -26,17 +29,17 @@ async function test() {
     agentToken = agentLogin.data.token;
     console.log('✓ Agent logged in');
 
-    const travelerLogin = await axios.post(`${API_URL}/auth/login`, {
-      email: 'traveler@trektribe.com',
-      password: 'Traveler@123456'
+    const agentLogin = await axios.post(`${API_URL}/auth/login`, {
+      email: AGENT_EMAIL,
+      password: AGENT_PASSWORD,
     });
     travelerToken = travelerLogin.data.token;
     console.log('✓ Traveler logged in\n');
 
     // Step 2: Create a test ticket
-    console.log('Step 2: Creating test ticket...');
-    const createTicket = await axios.post(`${API_URL}/api/support/tickets`, {
-      subject: 'Test Ticket - Endpoint Verification',
+      email: TRAVELER_EMAIL,
+      password: TRAVELER_PASSWORD,
+    });
       message: 'Testing ticket endpoints and message sending',
       category: 'technical'
     }, {
