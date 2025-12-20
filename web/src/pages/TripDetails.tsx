@@ -87,7 +87,7 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
 
   const isParticipant = trip && user && trip.participants.includes(user.id);
   const isOrganizer = trip && user && trip.organizerId === user.id;
-  const canJoin = trip && user && !isParticipant && !isOrganizer && trip.participants.length < trip.capacity;
+  const canJoin = trip && user && !isParticipant && !isOrganizer && (trip.participants?.length || 0) < trip.capacity;
   const hasEnded = trip && new Date(trip.endDate) < new Date();
   const canReview = isParticipant && !isOrganizer && !!hasEnded; // Only participants after trip end
 
@@ -208,7 +208,7 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
                 <div className="absolute bottom-6 left-6 text-white">
                   <div className="flex items-center space-x-2 mb-2">
-                    {trip.categories.map((category, index) => (
+                    {trip.categories?.map((category, index) => (
                       <span key={index} className="px-2 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-medium">
                         {category}
                       </span>
@@ -309,7 +309,7 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
                     <span className="mr-3 text-xl">👥</span>
                     <div>
                       <div className="font-semibold">Group Size</div>
-                      <div className="text-sm text-forest-600">{trip.participants.length}/{trip.capacity} adventurers</div>
+                      <div className="text-sm text-forest-600">{trip.participants?.length || 0}/{trip.capacity} adventurers</div>
                     </div>
                   </div>
                   <div className="flex items-center text-forest-700">
@@ -339,7 +339,7 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
                         What's Included
                       </h3>
                       <ul className="space-y-2">
-                        {trip.includedItems.map((item, index) => (
+                        {trip.includedItems?.map((item, index) => (
                           <li key={index} className="flex items-center text-forest-700">
                             <span className="mr-2 text-nature-500">•</span>
                             {item}
@@ -356,7 +356,7 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
                         Requirements
                       </h3>
                       <ul className="space-y-2">
-                        {trip.requirements.map((req, index) => (
+                        {trip.requirements?.map((req, index) => (
                           <li key={index} className="flex items-center text-forest-700">
                             <span className="mr-2 text-amber-500">•</span>
                             {req}
@@ -394,7 +394,7 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
                 
                 {trip.schedule && trip.schedule.length > 0 ? (
                   <div className="space-y-6">
-                    {trip.schedule.map((day, index) => (
+                    {trip.schedule?.map((day, index) => (
                       <div key={index} className="flex space-x-4">
                         <div className="flex-shrink-0">
                           <div className="w-10 h-10 bg-gradient-to-br from-nature-500 to-forest-600 rounded-full flex items-center justify-center text-white font-bold">
@@ -405,7 +405,7 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
                           <h4 className="font-semibold text-forest-800 mb-2">{day.title}</h4>
                           {day.activities && day.activities.length > 0 && (
                             <ul className="space-y-1">
-                              {day.activities.map((activity, actIndex) => (
+                              {day.activities?.map((activity, actIndex) => (
                                 <li key={actIndex} className="text-forest-600 text-sm flex items-start">
                                   <span className="mr-2 text-nature-500 mt-1">→</span>
                                   {activity}
@@ -448,7 +448,7 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
               <div className="space-y-4 mb-6">
                 <div className="flex justify-between text-sm">
                   <span className="text-forest-600">Available spots:</span>
-                  <span className="font-semibold text-forest-800">{trip.capacity - trip.participants.length}/{trip.capacity}</span>
+                  <span className="font-semibold text-forest-800">{trip.capacity - (trip.participants?.length || 0)}/{trip.capacity}</span>
                 </div>
                 {trip.minimumAge && (
                   <div className="flex justify-between text-sm">
@@ -459,7 +459,7 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
                 <div className="w-full bg-forest-100 rounded-full h-2">
                   <div
                     className="bg-nature-500 h-2 rounded-full transition-all duration-500"
-                    style={{ width: `${(trip.participants.length / trip.capacity) * 100}%` }}
+                    style={{ width: `${((trip.participants?.length || 0) / trip.capacity) * 100}%` }}
                   ></div>
                 </div>
               </div>
@@ -487,7 +487,7 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
                       Edit Trip
                     </Link>
                   </div>
-                ) : trip.participants.length >= trip.capacity ? (
+                ) : (trip.participants?.length || 0) >= trip.capacity ? (
                   <div className="text-center py-4 text-amber-600 font-semibold">
                     🎆 This adventure is fully booked
                   </div>

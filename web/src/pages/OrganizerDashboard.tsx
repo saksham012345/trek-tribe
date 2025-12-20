@@ -270,7 +270,7 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
               </div>
             ) : (
               <div className="space-y-4">
-                {trips.map((trip) => (
+                {trips?.map((trip) => (
                   <div key={trip._id} className="bg-gradient-to-r from-forest-50 to-nature-50 rounded-xl p-4 border border-forest-200">
                     <div className="flex justify-between items-start mb-3">
                       <div>
@@ -298,7 +298,7 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
                       <div>
                         <span className="text-forest-600">👥 Participants:</span>
                         <p className="font-medium text-forest-800">
-                          {trip.participants.length} / {trip.capacity}
+                          {trip.participants?.length || 0} / {trip.capacity}
                         </p>
                       </div>
                       <div>
@@ -338,7 +338,7 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
               </div>
             ) : (
               <div className="space-y-4">
-                {pendingBookings.map((booking) => (
+                {pendingBookings?.map((booking) => (
                   <div key={booking._id} className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200">
                     <div className="flex justify-between items-start mb-3">
                       <div>
@@ -359,7 +359,7 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
                       <div className="text-sm">
                         <p className="text-forest-600 mb-1">Travelers:</p>
                         <div className="space-y-1">
-                          {booking.participants.map((participant, index) => (
+                          {booking.participants?.map((participant, index) => (
                             <div key={index} className="flex justify-between bg-white rounded-lg p-2">
                               <span className="font-medium">{participant.name}</span>
                               <span className="text-forest-600">{participant.phone}</span>

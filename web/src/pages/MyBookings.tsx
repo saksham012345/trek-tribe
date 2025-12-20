@@ -167,7 +167,7 @@ const MyBookings: React.FC = () => {
           </div>
         ) : (
           <div className="grid gap-6">
-            {bookings.map((booking) => (
+            {bookings?.map((booking) => (
               <div key={booking.bookingId} className="bg-white rounded-2xl shadow-lg overflow-hidden">
                 <div className="flex flex-col md:flex-row">
                   {/* Trip Image */}

@@ -435,7 +435,7 @@ const Profile: React.FC<ProfileProps> = ({ user: initialUser }) => {
                       </div>
                       <div className="flex items-center text-sm text-gray-500">
                         <span className="mr-2">👥</span>
-                        {trip.participants.length}/{trip.capacity} participants
+                        {trip.participants?.length || 0}/{trip.capacity} participants
                       </div>
                       <div className="flex items-center text-sm text-gray-500">
                         <span className="mr-2">💰</span>
@@ -444,7 +444,7 @@ const Profile: React.FC<ProfileProps> = ({ user: initialUser }) => {
                     </div>
 
                     <div className="flex flex-wrap gap-2 mb-4">
-                      {trip.categories.map((category, index) => (
+                      {trip.categories?.map((category, index) => (
                         <span key={index} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
                           {category}
                         </span>

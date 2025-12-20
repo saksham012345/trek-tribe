@@ -122,7 +122,7 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
         case 'date':
           return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
         case 'popularity':
-          return b.participants.length - a.participants.length;
+          return (b.participants?.length || 0) - (a.participants?.length || 0);
         case 'newest':
         default:
           return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
@@ -406,12 +406,12 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
                     </div>
                     <div className="flex items-center text-sm text-gray-500">
                       <span className="mr-2">👥</span>
-                      {trip.participants.length}/{trip.capacity} spots filled
+                      {trip.participants?.length || 0}/{trip.capacity} spots filled
                     </div>
                   </div>
 
                   <div className="flex flex-wrap gap-2 mb-4">
-                    {trip.categories.map((category, index) => (
+                    {trip.categories?.map((category, index) => (
                       <span key={index} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
                         {category}
                       </span>
@@ -435,14 +435,14 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
                       >
                         👁️ View Details
                       </Link>
-                      {trip.participants.includes(user?.id || '') ? (
+                      {trip.participants?.includes(user?.id || '') ? (
                         <button
                           onClick={() => handleLeaveTrip(trip._id)}
                           className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-4 py-2 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 text-sm"
                         >
                           🚪 Leave Trip
                         </button>
-                      ) : trip.participants.length >= trip.capacity ? (
+                      ) : (trip.participants?.length || 0) >= trip.capacity ? (
                         <button
                           disabled
                           className="bg-gray-400 cursor-not-allowed text-white px-4 py-2 rounded-xl font-medium text-sm"
