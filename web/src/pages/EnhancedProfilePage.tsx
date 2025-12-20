@@ -596,9 +596,9 @@ const EnhancedProfilePage: React.FC = () => {
             <div className="border-b border-gray-200">
               <nav className="flex space-x-8 px-6">
                 {[
-                  { id: 'posts', label: 'Posts', icon: '📝', count: posts.length, show: roleBasedData.postsVisible },
-                  { id: 'past-trips', label: 'Past Trips', icon: '🏔️', count: pastTrips.length, show: roleBasedData.showPastTrips && isOwnProfile },
-                  { id: 'links', label: 'Links', icon: '🔗', count: userLinks.length, show: roleBasedData.showWishlists && isOwnProfile }
+                  { id: 'posts', label: 'Posts', icon: '📝', count: posts?.length || 0, show: roleBasedData.postsVisible },
+                  { id: 'past-trips', label: 'Past Trips', icon: '🏔️', count: pastTrips?.length || 0, show: roleBasedData.showPastTrips && isOwnProfile },
+                  { id: 'links', label: 'Links', icon: '🔗', count: userLinks?.length || 0, show: roleBasedData.showWishlists && isOwnProfile }
                 ].filter(tab => tab.show).map((tab) => (
                 <button
                   key={tab.id}
@@ -642,7 +642,7 @@ const EnhancedProfilePage: React.FC = () => {
                     )}
                   </div>
                 ) : (
-                  posts.map((post) => (
+                  posts?.map((post) => (
                     <PostCard key={post._id} post={post} onLikeUpdate={fetchPosts} />
                   ))
                 )}
@@ -660,7 +660,7 @@ const EnhancedProfilePage: React.FC = () => {
                     </p>
                   </div>
                 ) : (
-                  pastTrips.map((trip) => (
+                  pastTrips?.map((trip) => (
                     <div key={trip._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                       <div className="flex items-center justify-between">
                         <div>
@@ -692,7 +692,7 @@ const EnhancedProfilePage: React.FC = () => {
                     </p>
                   </div>
                 ) : (
-                  userLinks.map((link, index) => (
+                  userLinks?.map((link, index) => (
                     <div key={index} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                       <div className="flex items-center justify-between">
                         <div className="flex-1">

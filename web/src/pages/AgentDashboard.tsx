@@ -562,7 +562,7 @@ const AgentDashboard: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {tickets.map((ticket) => (
+                  {tickets?.map((ticket) => (
                     <tr key={ticket._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button
@@ -784,7 +784,7 @@ const AgentDashboard: React.FC = () => {
           <h3 className="text-lg font-medium text-gray-900 mb-4">Conversation</h3>
           
           <div className="space-y-4 max-h-96 overflow-y-auto mb-4">
-            {selectedTicket.messages.map((message, index) => (
+            {selectedTicket.messages?.map((message, index) => (
               <div
                 key={index}
                 className={`flex ${message.sender === 'agent' ? 'justify-end' : 'justify-start'}`}
@@ -847,7 +847,7 @@ const AgentDashboard: React.FC = () => {
         
         {customerSearchResults.length > 0 && (
           <div className="mt-4 space-y-2">
-            {customerSearchResults.map((customer) => (
+            {customerSearchResults?.map((customer) => (
               <div key={customer._id} className="flex items-center justify-between p-3 border rounded-lg">
                 <div>
                   <p className="font-medium">{customer.name}</p>

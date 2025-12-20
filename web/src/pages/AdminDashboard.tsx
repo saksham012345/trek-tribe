@@ -347,7 +347,7 @@ const AdminDashboard: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {trips.map((trip) => (
+                {trips?.map((trip) => (
                   <tr key={trip._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div className="flex items-start">
@@ -359,7 +359,7 @@ const AdminDashboard: React.FC = () => {
                           </div>
                           {trip.categories && trip.categories.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-1">
-                              {trip.categories.slice(0, 3).map((category, idx) => (
+                              {trip.categories?.slice(0, 3).map((category, idx) => (
                                 <span key={idx} className="inline-flex px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full">
                                   {category}
                                 </span>
@@ -401,10 +401,10 @@ const AdminDashboard: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-900">
-                        <span className="font-medium">{trip.participants.length}</span> participants
+                        <span className="font-medium">{trip.participants?.length || 0}</span> participants
                       </div>
                       <div className="text-xs text-gray-500">
-                        Revenue: ₹{(trip.participants.length * trip.price).toLocaleString()}
+                        Revenue: ₹{((trip.participants?.length || 0) * trip.price).toLocaleString()}
                       </div>
                     </td>
                     <td className="px-6 py-4">

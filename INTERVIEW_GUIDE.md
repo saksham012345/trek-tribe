@@ -30,7 +30,7 @@
 ┌─────────────────────────────────────────────────────┐
 │ Backend API (Render)                                │
 │ Node.js + Express + TypeScript + Socket.IO          │
-│ Helmet, CORS, Rate Limiting, JWT Auth              │
+│ Helmet, CORS, Rate Limiting, JWT Auth               │
 └──────────────────┬──────────────────────────────────┘
                    │
          ┌─────────┴──────────┬─────────────┐
