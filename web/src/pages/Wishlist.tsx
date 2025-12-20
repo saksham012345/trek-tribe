@@ -201,7 +201,7 @@ const Wishlist: React.FC = () => {
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {wishlistItems.map((item) => (
+            {wishlistItems?.map((item) => (
               <div key={item._id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
                 <div className="relative h-48">
                   {item.tripId.coverImage || (item.tripId.images && item.tripId.images.length > 0) ? (
@@ -245,9 +245,9 @@ const Wishlist: React.FC = () => {
                     </div>
                   </div>
 
-                  {item.tags.length > 0 && (
+                  {(item.tags?.length || 0) > 0 && (
                     <div className="flex flex-wrap gap-2 mb-4">
-                      {item.tags.map((tag, idx) => (
+                      {item.tags?.map((tag, idx) => (
                         <span key={idx} className="px-2 py-1 bg-forest-100 text-forest-700 text-xs rounded-full flex items-center gap-1">
                           <Tag className="w-3 h-3" />
                           {tag}
