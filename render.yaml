@@ -27,27 +27,27 @@ services:
       - key: AI_SERVICE_URL
         value: https://trek-tribe-ai-service.onrender.com
       - key: AI_SERVICE_KEY
-        sync: false
+        sync: true
       - key: AI_PROXY_TIMEOUT_MS
         value: 120000
       - key: RAZORPAY_KEY_ID
-        sync: false
+        sync: true
       - key: RAZORPAY_KEY_SECRET
-        sync: false
+        sync: true
       - key: RAZORPAY_WEBHOOK_SECRET
-        sync: false
+        sync: true
       - key: PLATFORM_COMMISSION_RATE
         value: 5
       - key: ENCRYPTION_KEY
-        sync: false
+        sync: true
       - key: SESSION_SECRET
         generateValue: true
       - key: REDIS_URL
-        sync: false
+        sync: true
       - key: GMAIL_USER
-        sync: false
+        sync: true
       - key: GMAIL_APP_PASSWORD
-        sync: false
+        sync: true
       - key: DISABLE_EMAIL
         value: false
       - key: API_URL
@@ -96,7 +96,7 @@ services:
       - key: AI_RATE_WINDOW
         value: 60
       - key: REDIS_URL
-        sync: false
+        sync: true
       - key: LOG_LEVEL
         value: INFO
 
@@ -135,7 +135,7 @@ services:
       - key: REACT_APP_AI_SERVICE_URL
         value: https://trek-tribe-ai-service.onrender.com
       - key: REACT_APP_RAZORPAY_KEY_ID
-        sync: false
+        sync: true
       - key: REACT_APP_APP_NAME
         value: Trek Tribe
       - key: REACT_APP_VERSION
