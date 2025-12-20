@@ -1,32 +1,33 @@
 import { useEffect, useState } from 'react';
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'open':
-        return 'bg-red-500';
-      case 'in-progress':
-        return 'bg-yellow-500';
-      case 'waiting-customer':
-        return 'bg-blue-500';
-      case 'resolved':
-        return 'bg-green-500';
-      default:
-        return 'bg-gray-500';
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent':
-        return 'bg-red-600';
-      case 'high':
-        return 'bg-orange-500';
-      case 'medium':
-        return 'bg-yellow-600';
-      default:
-        return 'bg-gray-500';
-    }
-  };
 import api from '../../config/api';
+
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case 'open':
+      return 'bg-red-500';
+    case 'in-progress':
+      return 'bg-yellow-500';
+    case 'waiting-customer':
+      return 'bg-blue-500';
+    case 'resolved':
+      return 'bg-green-500';
+    default:
+      return 'bg-gray-500';
+  }
+};
+
+const getPriorityColor = (priority: string) => {
+  switch (priority) {
+    case 'urgent':
+      return 'bg-red-600';
+    case 'high':
+      return 'bg-orange-500';
+    case 'medium':
+      return 'bg-yellow-600';
+    default:
+      return 'bg-gray-500';
+  }
+};
 
 type Ticket = {
   _id: string;
