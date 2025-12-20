@@ -1,4 +1,5 @@
 import 'dotenv/config';
+// Force Render redeploy with MongoDB Atlas connection (December 20, 2025)
 import express, { Request, Response, NextFunction } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
