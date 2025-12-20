@@ -76,7 +76,7 @@ export default function TicketsView() {
         status: statusFilter !== 'all' ? statusFilter : 'all',
         priority: priorityFilter !== 'all' ? priorityFilter : 'all'
       });
-      const res = await api.get(`/agent/tickets?${params.toString()}`);
+      const res = await api.get(`/api/agent/tickets?${params.toString()}`);
       if (res.status === 200) {
         setTickets(res.data.tickets || res.data.data || []);
         setPages(res.data.pagination?.pages || 1);
@@ -91,7 +91,7 @@ export default function TicketsView() {
 
   async function resolveTicket(ticketId: string, resolutionNote: string) {
     try {
-      const res = await api.post(`/support/tickets/${ticketId}/resolve`, { resolutionNote });
+      const res = await api.post(`/api/support/tickets/${ticketId}/resolve`, { resolutionNote });
       if (res.status === 200) {
         alert('Ticket resolved successfully');
         fetchTickets();
