@@ -15,6 +15,7 @@ import bookingRoutes from './routes/bookings';
 import adminRoutes from './routes/admin';
 import profileRoutes from './routes/profile';
 import agentRoutes from './routes/agent';
+import organizerRoutes from './routes/organizer';
 import chatSupportRoutes from './routes/chatSupportRoutes';
 import enhancedProfileRoutes from './routes/enhancedProfile';
 import publicProfileRoutes from './routes/publicProfile';
@@ -360,6 +361,11 @@ export async function start() {
     app.use('/api/dashboard', dashboardRoutes);
     console.log('✅ Dashboard routes mounted at /api/dashboard');
     logMessage('INFO', 'Dashboard routes registered');
+    
+    // Organizer Routes
+    app.use('/api/organizer', organizerRoutes);
+    console.log('✅ Organizer routes mounted at /api/organizer');
+    logMessage('INFO', 'Organizer routes registered');
     
     // Payment Verification Routes (Organizer QR code payment verification)
     app.use('/api/payment-verification', paymentVerificationRoutes);
