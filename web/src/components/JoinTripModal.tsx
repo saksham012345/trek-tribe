@@ -162,7 +162,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
         setLoading(false);
         return;
       }
-      if (!traveler.phone || traveler.phone.length < 10) {
+      if (!traveler.phone || !traveler.phone.length || traveler.phone.length < 10) {
         setError(`Please provide a valid phone number for traveler ${i + 1} (minimum 10 digits)`);
         setLoading(false);
         return;
@@ -187,7 +187,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
       return;
     }
     
-    if (!formData.emergencyContactPhone || formData.emergencyContactPhone.length < 10) {
+    if (!formData.emergencyContactPhone || !formData.emergencyContactPhone.length || formData.emergencyContactPhone.length < 10) {
       setError('Please provide a valid emergency contact phone number (minimum 10 digits)');
       setLoading(false);
       return;
@@ -420,7 +420,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                   🎁 Choose Your Package
                 </h3>
                 <div className="grid gap-4">
-                  {trip.packages.filter(pkg => pkg.isActive).map((packageOption) => (
+                  {(trip.packages || []).filter(pkg => pkg.isActive).map((packageOption) => (
                     <div
                       key={packageOption.id}
                       className={`border-2 rounded-xl p-4 cursor-pointer transition-all duration-300 ${
@@ -451,7 +451,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                       <p className="text-forest-600 mb-3">{packageOption.description}</p>
                       
                       <div className="grid md:grid-cols-2 gap-4">
-                        {packageOption.inclusions && packageOption.inclusions.length > 0 && (
+                        {Array.isArray(packageOption.inclusions) && packageOption.inclusions.length > 0 && (
                           <div>
                             <p className="font-medium text-forest-700 text-sm mb-2">✅ Included:</p>
                             <ul className="text-sm text-forest-600 space-y-1">
@@ -464,7 +464,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                           </div>
                         )}
                         
-                        {packageOption.exclusions && packageOption.exclusions.length > 0 && (
+                        {Array.isArray(packageOption.exclusions) && packageOption.exclusions.length > 0 && (
                           <div>
                             <p className="font-medium text-forest-700 text-sm mb-2">❌ Not Included:</p>
                             <ul className="text-sm text-forest-600 space-y-1">
@@ -535,7 +535,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                 <h3 className="text-lg font-semibold text-forest-800 flex items-center gap-2">
                   👤 Traveler Details
                 </h3>
-                {travelerDetails.map((traveler, index) => (
+                {(travelerDetails || []).map((traveler, index) => (
                   <div key={index} className="bg-gradient-to-r from-forest-50 to-nature-50 rounded-xl p-4 border border-forest-200">
                     <h4 className="font-medium text-forest-700 mb-3">
                       {index === 0 ? '👑 Primary Traveler (You)' : `👤 Traveler ${index + 1}`}
@@ -738,7 +738,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                     {trip.paymentConfig?.advanceAmount && (
                       <p><strong>Amount to Pay Now:</strong> ₹{trip.paymentConfig.advanceAmount.toLocaleString()}</p>
                     )}
-                    <p><strong>Accepted Methods:</strong> {trip.paymentConfig?.paymentMethods?.join(', ') || 'UPI, Bank Transfer'}</p>
+                    <p><strong>Accepted Methods:</strong> {Array.isArray(trip.paymentConfig?.paymentMethods) ? trip.paymentConfig.paymentMethods.join(', ') : 'UPI, Bank Transfer'}</p>
                     {trip.paymentConfig?.instructions && (
                       <p><strong>Instructions:</strong> {trip.paymentConfig.instructions}</p>
                     )}
