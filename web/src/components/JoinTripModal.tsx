@@ -393,13 +393,13 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                 <div>
                   <span className="text-forest-600">👥 Available Spots:</span>
                   <p className="font-medium text-forest-800">
-                    {trip.capacity - trip.participants.length} of {trip.capacity}
+                    {Math.max(0, trip.capacity - ((trip.participants?.length) || 0))} of {trip.capacity}
                   </p>
                 </div>
                 <div>
                   <span className="text-forest-600">🎯 Categories:</span>
                   <p className="font-medium text-forest-800">
-                    {trip.categories.join(', ')}
+                    {Array.isArray(trip.categories) ? trip.categories.join(', ') : ''}
                   </p>
                 </div>
                 {trip.minimumAge && (
@@ -516,8 +516,8 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                   className="w-full px-3 py-2 border-2 border-forest-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300"
                 >
                   {[1,2,3,4,5,6,7,8].map(num => (
-                    <option key={num} value={num} disabled={num > (trip.capacity - trip.participants.length)}>
-                      {num} {num === 1 ? 'traveler' : 'travelers'} {num > (trip.capacity - trip.participants.length) && '(Not available)'}
+                    <option key={num} value={num} disabled={num > (trip.capacity - ((trip.participants?.length) || 0))}>
+                      {num} {num === 1 ? 'traveler' : 'travelers'} {num > (trip.capacity - ((trip.participants?.length) || 0)) && '(Not available)'}
                     </option>
                   ))}
                 </select>
