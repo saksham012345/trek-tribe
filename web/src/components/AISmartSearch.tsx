@@ -213,7 +213,7 @@ const AISmartSearch: React.FC<AISmartSearchProps> = ({
               </div>
             )}
 
-            {searchResult.suggestions.length > 0 && (
+            {Array.isArray(searchResult.suggestions) && searchResult.suggestions.length > 0 && (
               <div>
                 <p className="text-sm text-gray-600 mb-2">Smart Suggestions:</p>
                 <div className="flex flex-wrap gap-2">
@@ -231,7 +231,7 @@ const AISmartSearch: React.FC<AISmartSearchProps> = ({
             )}
 
             {/* Applied Filters */}
-            {Object.keys(searchResult.filters).length > 0 && (
+            {searchResult.filters && Object.keys(searchResult.filters).length > 0 && (
               <div>
                 <p className="text-sm text-gray-600 mb-2">Applied Filters:</p>
                 <div className="flex flex-wrap gap-2">
