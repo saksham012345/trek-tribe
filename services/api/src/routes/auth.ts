@@ -46,8 +46,8 @@ const registerSchema = z.object({
     .optional(),
   // Keep phone optional to remain compatible with existing tests and clients
   phone: z.string().regex(/^[+]?[1-9]\d{1,14}$/, { message: 'Invalid phone number format. Use international format (e.g., +919876543210).' }).optional(),
-  role: z.enum(['traveler', 'organizer', 'admin', 'agent'], { 
-    errorMap: () => ({ message: 'Invalid role. Allowed values: traveler, organizer, admin, agent.' }) 
+  role: z.enum(['traveler', 'organizer'], { 
+    errorMap: () => ({ message: 'Invalid role. Allowed values: traveler or organizer. Admins and agents must be created by system administrators.' }) 
   }).optional(),
   // Optional profile data that can be provided during registration
   bio: z.string().optional(),
@@ -118,6 +118,17 @@ router.post('/register', async (req, res) => {
     // Determine final role (default to traveler)
     const userRole = role ?? 'traveler';
     
+    // Enforce role restrictions: only traveler and organizer allowed during registration
+    const ALLOWED_REGISTRATION_ROLES = ['traveler', 'organizer'];
+    if (!ALLOWED_REGISTRATION_ROLES.includes(userRole)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid role for registration',
+        message: `Role '${userRole}' is not allowed during registration. Only traveler and organizer roles are available. Administrative roles must be created by system administrators.`,
+        field: 'role'
+      });
+    }
+    
     // Create base user object
     const userData: any = {
       email,
@@ -149,12 +160,6 @@ router.post('/register', async (req, res) => {
           autoPayEnabled: false
         }
       };
-    } else if (userRole === 'agent') {
-      // Agents might have specific initialization
-      userData.bio = bio || 'Customer support agent';
-    } else if (userRole === 'admin') {
-      // Admins might have specific initialization
-      userData.bio = bio || 'Platform administrator';
     }
     // travelers use default user fields
     
