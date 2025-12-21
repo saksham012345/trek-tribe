@@ -63,10 +63,15 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
         console.log('🔍 Fetching trips with params:', params.toString());
         
         const response = await api.get(`/trips?${params.toString()}`);
-        const tripsData = response.data as Trip[];
-        
+        const raw = response.data as any;
+        const tripsData: Trip[] = Array.isArray(raw?.data)
+          ? (raw.data as Trip[])
+          : Array.isArray(raw)
+            ? (raw as Trip[])
+            : [];
+
         console.log(`✅ Received ${tripsData.length} trips from API:`, tripsData.map(t => ({ id: t._id, title: t.title })));
-        
+
         setTrips(tripsData);
         
         // Calculate price range
@@ -149,7 +154,12 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
         await api.post(`/trips/${tripId}/leave`);
         // Refresh trips list
         const response = await api.get('/trips');
-        const tripsData = response.data as Trip[];
+        const raw = response.data as any;
+        const tripsData: Trip[] = Array.isArray(raw?.data)
+          ? (raw.data as Trip[])
+          : Array.isArray(raw)
+            ? (raw as Trip[])
+            : [];
         setTrips(tripsData);
         alert('Successfully left the trip!');
       } catch (error: any) {

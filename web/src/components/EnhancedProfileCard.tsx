@@ -442,7 +442,13 @@ const FollowersList: React.FC<{ userId: string }> = ({ userId }) => {
   const fetchFollowers = async () => {
     try {
       const response = await api.get(`/api/follow/${userId}/followers`);
-      setFollowers((response.data as any).followers);
+      const raw = response.data as any;
+      const followersData: any[] = Array.isArray(raw?.followers)
+        ? raw.followers
+        : Array.isArray(raw?.data)
+          ? raw.data
+          : [];
+      setFollowers(followersData);
     } catch (error) {
       console.error('Error fetching followers:', error);
     } finally {
@@ -495,7 +501,13 @@ const FollowingList: React.FC<{ userId: string }> = ({ userId }) => {
   const fetchFollowing = async () => {
     try {
       const response = await api.get(`/api/follow/${userId}/following`);
-      setFollowing((response.data as any).following);
+      const raw = response.data as any;
+      const followingData: any[] = Array.isArray(raw?.following)
+        ? raw.following
+        : Array.isArray(raw?.data)
+          ? raw.data
+          : [];
+      setFollowing(followingData);
     } catch (error) {
       console.error('Error fetching following:', error);
     } finally {
