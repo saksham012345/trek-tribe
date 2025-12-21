@@ -382,18 +382,18 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                 <div>
                   <span className="text-forest-600">💰 Price per person:</span>
                   <p className="font-bold text-nature-600 text-lg">
-                    ₹{formData.selectedPackage ? formData.selectedPackage.price.toLocaleString() : trip.price.toLocaleString()}
+                    ₹{formData.selectedPackage ? formData.selectedPackage.price.toLocaleString() : (trip.price || 0).toLocaleString()}
                   </p>
                   {formData.numberOfGuests > 1 && (
                     <p className="text-sm text-forest-500">
-                      Total: ₹{((formData.selectedPackage ? formData.selectedPackage.price : trip.price) * formData.numberOfGuests).toLocaleString()}
+                      Total: ₹{((formData.selectedPackage ? formData.selectedPackage.price : (trip.price || 0)) * formData.numberOfGuests).toLocaleString()}
                     </p>
                   )}
                 </div>
                 <div>
                   <span className="text-forest-600">👥 Available Spots:</span>
                   <p className="font-medium text-forest-800">
-                    {Math.max(0, trip.capacity - ((trip.participants?.length) || 0))} of {trip.capacity}
+                    {Math.max(0, (trip.capacity || 0) - ((trip.participants?.length) || 0))} of {trip.capacity || 0}
                   </p>
                 </div>
                 <div>
@@ -734,12 +734,12 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200">
                   <h4 className="font-semibold text-blue-800 mb-2">💰 Payment Details</h4>
                   <div className="text-sm text-blue-700 space-y-1">
-                    <p><strong>Payment Type:</strong> {trip.paymentConfig.paymentType === 'advance' ? 'Advance Payment Required' : 'Full Payment'}</p>
-                    {trip.paymentConfig.advanceAmount && (
+                    <p><strong>Payment Type:</strong> {trip.paymentConfig?.paymentType === 'advance' ? 'Advance Payment Required' : 'Full Payment'}</p>
+                    {trip.paymentConfig?.advanceAmount && (
                       <p><strong>Amount to Pay Now:</strong> ₹{trip.paymentConfig.advanceAmount.toLocaleString()}</p>
                     )}
-                    <p><strong>Accepted Methods:</strong> {trip.paymentConfig.paymentMethods?.join(', ') || 'UPI, Bank Transfer'}</p>
-                    {trip.paymentConfig.instructions && (
+                    <p><strong>Accepted Methods:</strong> {trip.paymentConfig?.paymentMethods?.join(', ') || 'UPI, Bank Transfer'}</p>
+                    {trip.paymentConfig?.instructions && (
                       <p><strong>Instructions:</strong> {trip.paymentConfig.instructions}</p>
                     )}
                   </div>
@@ -757,7 +757,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                 <h4 className="font-semibold text-amber-800 mb-2">📋 Important Terms</h4>
                 <ul className="text-sm text-amber-700 space-y-1">
-                  <li>• Full payment of ₹{((formData.selectedPackage ? formData.selectedPackage.price : trip.price) * formData.numberOfGuests).toLocaleString()} is required upon confirmation</li>
+                  <li>• Full payment of ₹{((formData.selectedPackage ? formData.selectedPackage.price : (trip.price || 0)) * formData.numberOfGuests).toLocaleString()} is required upon confirmation</li>
                   <li>• Cancellation policy: 7 days notice for full refund, 3 days for 50% refund</li>
                   <li>• Travel insurance is recommended but not mandatory</li>
                   <li>• All participants must follow safety guidelines and organizer instructions</li>
@@ -794,7 +794,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
               </button>
               <button
                 type="submit"
-                disabled={loading || !formData.agreeToTerms || (trip.packages && trip.packages.length > 0 && !formData.selectedPackage) || !formData.emergencyContactPhone}
+                disabled={loading || !formData.agreeToTerms || (trip.packages && trip.packages.length > 0 && !formData.selectedPackage) || !formData.emergencyContactPhone || !trip.capacity}
                 className="flex-1 px-6 py-3 bg-gradient-to-r from-forest-600 to-nature-600 hover:from-forest-700 hover:to-nature-700 text-white rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
                 {loading ? (
