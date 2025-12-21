@@ -28,5 +28,8 @@
     "colors": "^1.4.0",
     "pip": "^0.0.1",
     "python": "^0.0.4"
+  },
+  "devDependencies": {
+    "cross-env": "^10.1.0"
   }
 }
