@@ -5,6 +5,9 @@ export interface ICRMSubscription extends Document {
   planType: 'trip_package_5' | 'trip_package_10' | 'trip_package_20' | 'trip_package_50' | 'crm_bundle' | 'trial';
   status: 'active' | 'expired' | 'cancelled' | 'pending_payment';
   
+  // Computed field: total amount paid across all completed payments
+  totalPaid?: number;
+  
   // Trip Package Details
   tripPackage?: {
     packageType: '5_trips' | '10_trips' | '20_trips' | '50_trips';
@@ -179,6 +182,20 @@ const CRMSubscriptionSchema: Schema = new Schema(
     timestamps: true,
   }
 );
+
+// Virtual field for totalPaid: sum of all completed payments
+CRMSubscriptionSchema.virtual('totalPaid').get(function(this: any) {
+  if (!this.payments || (this.payments as any[]).length === 0) {
+    return 0;
+  }
+  return (this.payments as any[])
+    .filter(p => p.status === 'completed')
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
+});
+
+// Ensure virtuals are included when converting to JSON/Object
+CRMSubscriptionSchema.set('toJSON', { virtuals: true });
+CRMSubscriptionSchema.set('toObject', { virtuals: true });
 
 // Indexes
 CRMSubscriptionSchema.index({ organizerId: 1 });
