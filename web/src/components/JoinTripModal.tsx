@@ -516,8 +516,8 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                   className="w-full px-3 py-2 border-2 border-forest-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300"
                 >
                   {[1,2,3,4,5,6,7,8].map(num => (
-                    <option key={num} value={num} disabled={num > (trip.capacity - ((trip.participants?.length) || 0))}>
-                      {num} {num === 1 ? 'traveler' : 'travelers'} {num > (trip.capacity - ((trip.participants?.length) || 0)) && '(Not available)'}
+                    <option key={num} value={num} disabled={num > ((trip.capacity || 0) - ((trip.participants?.length) || 0))}>
+                      {num} {num === 1 ? 'traveler' : 'travelers'} {num > ((trip.capacity || 0) - ((trip.participants?.length) || 0)) && '(Not available)'}
                     </option>
                   ))}
                 </select>
