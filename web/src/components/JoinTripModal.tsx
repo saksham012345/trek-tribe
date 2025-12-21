@@ -337,7 +337,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
     );
   }
 
-  if (!isOpen) return null;
+  if (!isOpen || !trip) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -349,7 +349,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                 Join Adventure
               </h2>
               <p className="text-forest-600">
-                <span className="font-semibold">{trip.title}</span> • {trip.destination}
+                <span className="font-semibold">{trip.title || 'Trip'}</span> • {trip.destination || 'Destination'}
               </p>
             </div>
             <button
