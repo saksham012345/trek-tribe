@@ -58,6 +58,10 @@ import metrics from './middleware/metrics';
 
 const app = express();
 const server = createServer(app);
+
+// Trust proxy for Render deployment (required for express-rate-limit)
+app.set('trust proxy', 1);
+
 // Export the express app for testing and programmatic use
 export default app;
 
