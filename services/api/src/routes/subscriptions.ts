@@ -69,15 +69,18 @@ const SUBSCRIPTION_PLANS = {
     price: 2199,
     trips: 6,
     duration: 30, // days (+ 2 months free)
-    crmAccess: false,
-    leadCapture: false,
-    phoneNumbers: false,
+    crmAccess: true,
+    leadCapture: true,
+    phoneNumbers: true,
     features: [
       'List up to 6 trips',
       'Advanced analytics',
       'Priority support',
       'AI assistant tools',
       'Email templates',
+      '✨ Full CRM Access',
+      '✨ Lead Capture & Management',
+      '✨ Phone Numbers in Leads',
       '2 months free service included',
       '60-day free trial available'
     ],

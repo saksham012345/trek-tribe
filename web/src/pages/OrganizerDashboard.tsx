@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
 import api from '../config/api';
 import { User } from '../types';
@@ -44,6 +45,7 @@ interface OrganizerDashboardProps {
 }
 
 const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
+  const navigate = useNavigate();
   const [trips, setTrips] = useState<TripSummary[]>([]);
   const [pendingBookings, setPendingBookings] = useState<BookingVerification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,6 +54,7 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
   const [socket, setSocket] = useState<any | null>(null);
   const [notifications, setNotifications] = useState<Array<{ id: string; message: string; type: 'success' | 'info' | 'error'; timestamp: Date }>>([]);
   const [crmSubscription, setCrmSubscription] = useState<any | null>(null);
+  const [hasCRMAccess, setHasCRMAccess] = useState(false);
 
   // Sample CRM preview so organizers can see what they'll get before purchasing
   const sampleCrm = {
@@ -141,6 +144,15 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
       } catch (crmErr: any) {
         // Not critical; ignore if user has no crm subscription
         setCrmSubscription(null);
+      }
+
+      // Check CRM access from subscription plans
+      try {
+        const accessRes = await api.get('/api/subscriptions/verify-crm-access');
+        setHasCRMAccess(accessRes.data?.hasCRMAccess || false);
+      } catch (accessErr: any) {
+        // Not critical; default to no access
+        setHasCRMAccess(false);
       }
     } catch (error: any) {
       setError(error.response?.data?.error || 'Failed to load dashboard data');
@@ -467,7 +479,17 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
       {/* CRM Subscription Panel */}
       <div className="max-w-7xl mx-auto mt-8">
         <div className="bg-white rounded-2xl shadow-xl p-6">
-          <h2 className="text-2xl font-bold text-forest-800 mb-4">📋 CRM Access</h2>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-forest-800">📋 CRM Access</h2>
+            {hasCRMAccess && (
+              <button
+                onClick={() => navigate('/organizer/crm')}
+                className="px-6 py-2 bg-gradient-to-r from-forest-600 to-nature-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all"
+              >
+                📊 Open CRM Dashboard
+              </button>
+            )}
+          </div>
           {!crmSubscription ? (
             <div className="space-y-4">
               <div className="text-sm text-forest-600">
@@ -547,6 +569,21 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
                   </div>
                   <p className="text-xs text-forest-600 mt-3">Unlock full CRM to track leads, tasks, tickets, billing and more.</p>
                 </div>
+              </div>
+
+              <div className="mt-6 flex gap-4">
+                <button
+                  onClick={() => navigate('/subscribe')}
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-forest-600 to-nature-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all"
+                >
+                  ✨ Upgrade to Professional Plan (₹2,199)
+                </button>
+                <button
+                  onClick={() => navigate('/organizer/subscriptions')}
+                  className="flex-1 px-6 py-3 bg-white border-2 border-forest-600 text-forest-600 font-semibold rounded-lg hover:bg-forest-50 transition-all"
+                >
+                  📊 View All Plans
+                </button>
               </div>
             </div>
           ) : (
