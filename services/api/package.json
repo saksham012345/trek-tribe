@@ -28,6 +28,7 @@
     "db:clean": "ts-node src/scripts/clean-and-seed.ts",
     "db:clean:prod": "node dist/scripts/clean-and-seed.js",
     "demo:tickets": "ts-node seed-demo-tickets.ts",
+    "demo:tickets:unsolved": "ts-node seed-unsolved-tickets.ts",
     "test": "jest --config jest.config.js",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
