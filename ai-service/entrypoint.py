@@ -35,8 +35,28 @@ if not os.path.exists(index_path):
     except Exception as e:
         print("Ingestion failed:", e)
 
-# Exec uvicorn with passed PORT or default
+# Start uvicorn server directly
 PORT = os.environ.get('PORT','8000')
-print(f"Starting uvicorn on port {PORT}")
-args = ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", PORT, "--log-level", "info", "--workers", "1"]
-os.execvp("uvicorn", args)
+print(f"Starting uvicorn server on port {PORT}")
+print(f"Command: uvicorn app.main:app --host 0.0.0.0 --port {PORT} --log-level info --workers 1")
+
+# Use subprocess instead of os.execvp for better logging
+try:
+    result = subprocess.run([
+        sys.executable, "-m", "uvicorn",
+        "app.main:app",
+        "--host", "0.0.0.0",
+        "--port", str(PORT),
+        "--log-level", "info",
+        "--workers", "1"
+    ], check=True)
+    sys.exit(result.returncode)
+except FileNotFoundError as e:
+    print(f"ERROR: Could not find uvicorn: {e}", file=sys.stderr)
+    sys.exit(1)
+except subprocess.CalledProcessError as e:
+    print(f"ERROR: uvicorn exited with code {e.returncode}", file=sys.stderr)
+    sys.exit(e.returncode)
+except Exception as e:
+    print(f"ERROR: {e}", file=sys.stderr)
+    sys.exit(1)
