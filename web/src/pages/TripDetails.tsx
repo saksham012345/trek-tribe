@@ -85,9 +85,10 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
     alert('Thank you for your review!');
   };
 
-  const isParticipant = trip && user && trip.participants.includes(user.id);
-  const isOrganizer = trip && user && trip.organizerId === user.id;
-  const canJoin = trip && user && !isParticipant && !isOrganizer && (trip.participants?.length || 0) < trip.capacity;
+  const participants = trip?.participants ?? [];
+  const isParticipant = !!(trip && user && participants.includes(user.id));
+  const isOrganizer = !!(trip && user && trip.organizerId === user.id);
+  const canJoin = trip && user && !isParticipant && !isOrganizer && participants.length < trip.capacity;
   const hasEnded = trip && new Date(trip.endDate) < new Date();
   const canReview = isParticipant && !isOrganizer && !!hasEnded; // Only participants after trip end
 
