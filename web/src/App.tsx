@@ -11,34 +11,93 @@ import FloatingJoinCTA from './components/FloatingJoinCTA';
 import { Trip } from './types';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
-// Lazy load heavy components to reduce initial bundle size
-const Trips = React.lazy(() => import('./pages/Trips'));
-const CreateTrip = React.lazy(() => import('./pages/CreateTrip'));
-const EnhancedEditTrip = React.lazy(() => import('./pages/EnhancedEditTrip'));
-const Profile = React.lazy(() => import('./pages/Profile'));
-const TripDetails = React.lazy(() => import('./pages/TripDetails'));
-const AdminDashboard = React.lazy(() => import('./pages/AdminDashboard'));
-const EnhancedProfile = React.lazy(() => import('./pages/EnhancedProfile'));
-const EnhancedProfilePage = React.lazy(() => import('./pages/EnhancedProfilePage'));
-const SearchPage = React.lazy(() => import('./pages/SearchPage'));
-const AgentDashboard = React.lazy(() => import('./pages/AgentDashboard'));
-const MyBookings = React.lazy(() => import('./pages/MyBookings'));
-const Wishlist = React.lazy(() => import('./pages/Wishlist'));
-const ForgotPassword = React.lazy(() => import('./components/auth/ForgotPassword'));
-const ResetPassword = React.lazy(() => import('./components/auth/ResetPassword'));
-const CookieSettings = React.lazy(() => import('./components/CookieSettings'));
-const PrivacyPolicy = React.lazy(() => import('./pages/PrivacyPolicy'));
-const TermsConditions = React.lazy(() => import('./pages/TermsConditions'));
-const AIShowcase = React.lazy(() => import('./pages/AIShowcase'));
-const OrganizerCRM = React.lazy(() => import('./pages/OrganizerCRM'));
-const ProfessionalCRMDashboard = React.lazy(() => import('./pages/ProfessionalCRMDashboard'));
-const EnhancedCRMDashboard = React.lazy(() => import('./pages/EnhancedCRMDashboard'));
-const PaymentVerificationDashboard = React.lazy(() => import('./pages/PaymentVerificationDashboard'));
-const OrganizerRouteOnboarding = React.lazy(() => import('./pages/OrganizerRouteOnboarding'));
-const OrganizerSettlements = React.lazy(() => import('./pages/OrganizerSettlements'));
-const MarketplaceCheckout = React.lazy(() => import('./pages/MarketplaceCheckout'));
-const JoinTheTribe = React.lazy(() => import('./pages/JoinTheTribe'));
-const Subscribe = React.lazy(() => import('./pages/Subscribe'));
+// Retry logic for lazy loading chunks
+const retryLazyLoad = (
+  componentImport: () => Promise<any>,
+  retries = 3,
+  interval = 1000
+): Promise<{ default: React.ComponentType<any> }> => {
+  return new Promise((resolve, reject) => {
+    componentImport()
+      .then(resolve)
+      .catch((error) => {
+        setTimeout(() => {
+          if (retries === 1) {
+            // Final retry failed, force reload
+            window.location.reload();
+            reject(error);
+            return;
+          }
+          retryLazyLoad(componentImport, retries - 1, interval).then(resolve, reject);
+        }, interval);
+      });
+  });
+};
+
+// Lazy load heavy components with retry logic
+const Trips = React.lazy(() => retryLazyLoad(() => import('./pages/Trips')));
+const CreateTrip = React.lazy(() => retryLazyLoad(() => import('./pages/CreateTrip')));
+const EnhancedEditTrip = React.lazy(() => retryLazyLoad(() => import('./pages/EnhancedEditTrip')));
+const Profile = React.lazy(() => retryLazyLoad(() => import('./pages/Profile')));
+const TripDetails = React.lazy(() => retryLazyLoad(() => import('./pages/TripDetails')));
+const AdminDashboard = React.lazy(() => retryLazyLoad(() => import('./pages/AdminDashboard')));
+const EnhancedProfile = React.lazy(() => retryLazyLoad(() => import('./pages/EnhancedProfile')));
+const EnhancedProfilePage = React.lazy(() => retryLazyLoad(() => import('./pages/EnhancedProfilePage')));
+const SearchPage = React.lazy(() => retryLazyLoad(() => import('./pages/SearchPage')));
+const AgentDashboard = React.lazy(() => retryLazyLoad(() => import('./pages/AgentDashboard')));
+const MyBookings = React.lazy(() => retryLazyLoad(() => import('./pages/MyBookings')));
+const Wishlist = React.lazy(() => retryLazyLoad(() => import('./pages/Wishlist')));
+const ForgotPassword = React.lazy(() => retryLazyLoad(() => import('./components/auth/ForgotPassword')));
+const ResetPassword = React.lazy(() => retryLazyLoad(() => import('./components/auth/ResetPassword')));
+const CookieSettings = React.lazy(() => retryLazyLoad(() => import('./components/CookieSettings')));
+const PrivacyPolicy = React.lazy(() => retryLazyLoad(() => import('./pages/PrivacyPolicy')));
+const TermsConditions = React.lazy(() => retryLazyLoad(() => import('./pages/TermsConditions')));
+const AIShowcase = React.lazy(() => retryLazyLoad(() => import('./pages/AIShowcase')));
+const OrganizerCRM = React.lazy(() => retryLazyLoad(() => import('./pages/OrganizerCRM')));
+const ProfessionalCRMDashboard = React.lazy(() => retryLazyLoad(() => import('./pages/ProfessionalCRMDashboard')));
+const EnhancedCRMDashboard = React.lazy(() => retryLazyLoad(() => import('./pages/EnhancedCRMDashboard')));
+const PaymentVerificationDashboard = React.lazy(() => retryLazyLoad(() => import('./pages/PaymentVerificationDashboard')));
+const OrganizerRouteOnboarding = React.lazy(() => retryLazyLoad(() => import('./pages/OrganizerRouteOnboarding')));
+const OrganizerSettlements = React.lazy(() => retryLazyLoad(() => import('./pages/OrganizerSettlements')));
+const MarketplaceCheckout = React.lazy(() => retryLazyLoad(() => import('./pages/MarketplaceCheckout')));
+const JoinTheTribe = React.lazy(() => retryLazyLoad(() => import('./pages/JoinTheTribe')));
+const Subscribe = React.lazy(() => retryLazyLoad(() => import('./pages/Subscribe')));
+
+// Error Boundary for lazy loading failures
+class ChunkErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    if (error.name === 'ChunkLoadError') {
+      console.error('Chunk load error detected, reloading page...');
+      window.location.reload();
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-forest-50">
+          <div className="text-center p-8">
+            <h2 className="text-2xl font-bold text-forest-900 mb-4">Loading...</h2>
+            <p className="text-forest-700">The page will refresh automatically.</p>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function AppContent() {
   const { user, loading, login: handleLogin, logout: handleLogout } = useAuth();
@@ -203,9 +262,11 @@ function AppContent() {
 
 function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <ChunkErrorBoundary>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </ChunkErrorBoundary>
   );
 }
 
