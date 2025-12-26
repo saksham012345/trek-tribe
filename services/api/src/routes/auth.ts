@@ -322,31 +322,10 @@ router.post('/login', async (req, res) => {
   // Update last active timestamp
   user.lastActive = new Date();
   
-  // Track first login for organizers and initialize auto-pay setup
+  // Track first login for organizers (but don't start 60-day trial yet)
   if (user.role === 'organizer' && !user.firstOrganizerLogin) {
     user.firstOrganizerLogin = new Date();
-    
-    // Initialize auto-pay setup for organizer
-    if (!user.organizerProfile) {
-      user.organizerProfile = {};
-    }
-    
-    const scheduledPaymentDate = new Date();
-    scheduledPaymentDate.setDate(scheduledPaymentDate.getDate() + 60); // 60 days from first login
-    
-    user.organizerProfile.autoPay = {
-      isSetupRequired: true,
-      isSetupCompleted: false,
-      firstLoginDate: new Date(),
-      scheduledPaymentDate: scheduledPaymentDate,
-      paymentAmount: 149900, // Default: ₹1499 in paise
-      autoPayEnabled: false
-    };
-    
-    logger.info('First organizer login tracked, auto-pay scheduled', { 
-      userId: user._id, 
-      scheduledDate: scheduledPaymentDate 
-    });
+    logger.info('First organizer login tracked', { userId: user._id });
   }
   
   await user.save();
@@ -1112,23 +1091,7 @@ router.post('/complete-profile', authenticateJwt, async (req, res) => {
       // Initialize auto-pay if not already set (for Google auth organizers)
       if (!user.firstOrganizerLogin) {
         user.firstOrganizerLogin = new Date();
-        
-        const scheduledPaymentDate = new Date();
-        scheduledPaymentDate.setDate(scheduledPaymentDate.getDate() + 60);
-        
-        user.organizerProfile.autoPay = {
-          isSetupRequired: true,
-          isSetupCompleted: false,
-          firstLoginDate: new Date(),
-          scheduledPaymentDate: scheduledPaymentDate,
-          paymentAmount: 149900,
-          autoPayEnabled: false
-        };
-        
-        logger.info('Auto-pay initialized for Google auth organizer', { 
-          userId, 
-          scheduledDate: scheduledPaymentDate 
-        });
+        logger.info('First organizer login tracked (Google auth)', { userId });
       }
     }
 
