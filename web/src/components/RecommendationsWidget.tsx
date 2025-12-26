@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
+import api from '../config/api';
 import '../styles/Recommendations.css';
 
 interface Trip {
@@ -27,17 +27,15 @@ interface UserRecommendation {
 }
 
 export const RecommendationsWidget: React.FC = () => {
-  const { token } = useAuth();
+  const { user } = useAuth();
   const [tripRecommendations, setTripRecommendations] = useState<Trip[]>([]);
   const [userRecommendations, setUserRecommendations] = useState<UserRecommendation[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'trips' | 'users'>('trips');
 
   useEffect(() => {
-    if (token) {
-      fetchRecommendations();
-    }
-  }, [token]);
+    fetchRecommendations();
+  }, [user]);
 
   const fetchRecommendations = async () => {
     try {
@@ -45,12 +43,8 @@ export const RecommendationsWidget: React.FC = () => {
 
       // Fetch both trip and user recommendations
       const [tripsRes, usersRes] = await Promise.all([
-        axios.get('/api/recommendations/trips?limit=5', {
-          headers: { Authorization: `Bearer ${token}` }
-        }).catch(() => ({ data: { recommendations: [] } })),
-        axios.get('/api/recommendations/users?limit=5', {
-          headers: { Authorization: `Bearer ${token}` }
-        }).catch(() => ({ data: { recommendations: [] } }))
+        api.get('/api/recommendations/trips?limit=5').catch(() => ({ data: { recommendations: [] } })),
+        api.get('/api/recommendations/users?limit=5').catch(() => ({ data: { recommendations: [] } }))
       ]);
 
       setTripRecommendations(tripsRes.data.recommendations || []);
