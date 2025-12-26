@@ -10,12 +10,18 @@ import { OrganizerSubscription } from '../models/OrganizerSubscription';
 import { Trip } from '../models/Trip';
 import { SupportTicket } from '../models/SupportTicket';
 import Notification from '../models/Notification';
+import dotenv from 'dotenv';
+import path from 'path';
+
+// Load environment variables from services/api/.env
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/trekk-tribe';
 
 async function setupDemoDatabase() {
   try {
     console.log('🚀 Connecting to MongoDB...');
+    console.log('📍 Using connection:', MONGODB_URI.substring(0, 30) + '...');
     await mongoose.connect(MONGODB_URI);
     console.log('✅ Connected to MongoDB');
 
@@ -139,7 +145,7 @@ async function setupDemoDatabase() {
         startDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
         endDate: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000),
         minimumAge: 16,
-        difficulty: 'Moderate',
+        difficulty: 'moderate',
         schedule: [
           { day: 1, title: 'Manali to Chika', activities: ['Drive to Chika', 'Acclimatization walk', 'Camp setup'] },
           { day: 2, title: 'Chika to Balu Ka Ghera', activities: ['Morning trek', 'River crossing', 'Camp at Balu Ka Ghera'] },
@@ -174,7 +180,7 @@ async function setupDemoDatabase() {
         startDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         endDate: new Date(Date.now() + 35 * 24 * 60 * 60 * 1000),
         minimumAge: 14,
-        difficulty: 'Easy to Moderate',
+        difficulty: 'easy',
         schedule: [
           { day: 1, title: 'Dehradun to Sankri', activities: ['Drive to Sankri', 'Evening briefing'] },
           { day: 2, title: 'Sankri to Juda Ka Talab', activities: ['Trek through pine forests', 'Camp at Juda Ka Talab'] },
