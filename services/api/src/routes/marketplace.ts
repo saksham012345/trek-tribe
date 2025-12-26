@@ -3,6 +3,7 @@ import { body, validationResult } from 'express-validator';
 import { z } from 'zod';
 import { authenticateJwt, requireRole } from '../middleware/auth';
 import { razorpayRouteService } from '../services/razorpayRouteService';
+import { razorpaySubmerchantService } from '../services/razorpaySubmerchantService';
 import { OrganizerPayoutConfig } from '../models/OrganizerPayoutConfig';
 import { MarketplaceOrder } from '../models/MarketplaceOrder';
 import { MarketplaceTransfer } from '../models/MarketplaceTransfer';
@@ -10,46 +11,29 @@ import { MarketplaceRefund } from '../models/MarketplaceRefund';
 import { PayoutLedger } from '../models/PayoutLedger';
 import { OrganizerSubscription } from '../models/OrganizerSubscription';
 import { logger } from '../utils/logger';
+import { organizerOnboardingSchema, validatePaymentInput } from '../validators/paymentValidators';
 
 const router = Router();
 
 // POST /api/marketplace/organizer/onboard
 router.post('/organizer/onboard', authenticateJwt, requireRole(['organizer', 'admin']), async (req: Request, res: Response) => {
-  // Additional validation to guard against malformed inputs
-  await Promise.all([
-    body('legalBusinessName').isString().trim().isLength({ min: 2, max: 120 }).run(req),
-    body('businessType').isString().isIn(['proprietorship', 'partnership', 'llp', 'pvt_ltd']).run(req),
-    body('bankAccount.accountNumber').isString().isLength({ min: 6, max: 20 }).run(req),
-    body('bankAccount.ifscCode').isString().matches(/^[A-Z]{4}0[A-Z0-9]{6}$/i).run(req),
-    body('bankAccount.accountHolderName').isString().trim().isLength({ min: 2, max: 120 }).run(req),
-    body('bankAccount.bankName').optional().isString().trim().isLength({ max: 120 }).run(req),
-    body('commissionRate').optional().isFloat({ min: 0, max: 50 }).run(req),
-  ]);
-  const vErrors = validationResult(req);
-  if (!vErrors.isEmpty()) {
-    return res.status(400).json({ errors: vErrors.array() });
-  }
-  const schema = {
-    parse: (data: any) => {
-      // Lightweight runtime validation mirroring previous Zod schema
-      const errs: string[] = [];
-      if (typeof data.legalBusinessName !== 'string' || data.legalBusinessName.length < 2) errs.push('legalBusinessName');
-      if (!['proprietorship','partnership','llp','pvt_ltd'].includes(data.businessType)) errs.push('businessType');
-      const ba = data.bankAccount || {};
-      if (typeof ba.accountNumber !== 'string' || ba.accountNumber.length < 6) errs.push('bankAccount.accountNumber');
-      if (typeof ba.ifscCode !== 'string' || ba.ifscCode.length < 5) errs.push('bankAccount.ifscCode');
-      if (typeof ba.accountHolderName !== 'string' || ba.accountHolderName.length < 2) errs.push('bankAccount.accountHolderName');
-      if (data.commissionRate !== undefined && (typeof data.commissionRate !== 'number' || data.commissionRate < 0 || data.commissionRate > 50)) errs.push('commissionRate');
-      if (errs.length) throw new Error(`Invalid fields: ${errs.join(', ')}`);
-      return data;
-    }
-  };
-
   try {
-    const body = schema.parse(req.body);
     const organizerId = req.user?.id as string;
+    const userEmail = (req as any).user?.email || 'organizer@trektribe.in';
+    const userPhone = (req as any).user?.phone || '';
 
-    // Block onboarding unless subscription active or trial active
+    // Validate input
+    const validation = validatePaymentInput(req.body, organizerOnboardingSchema);
+    if (!validation.valid) {
+      return res.status(400).json({ 
+        error: 'Validation failed',
+        details: validation.errors 
+      });
+    }
+
+    const validatedData = validation.data;
+
+    // Check subscription requirement
     const activeSub = await OrganizerSubscription.findOne({ 
       organizerId, 
       $or: [
@@ -59,28 +43,54 @@ router.post('/organizer/onboard', authenticateJwt, requireRole(['organizer', 'ad
     }).sort({ createdAt: -1 });
     
     if (!activeSub) {
-      return res.status(402).json({ error: 'Subscription required before onboarding. Please activate a subscription plan first.' });
+      return res.status(402).json({ 
+        error: 'Subscription required before onboarding',
+        message: 'Please activate a subscription plan first to enable marketplace features.'
+      });
     }
 
-    const result = await razorpayRouteService.onboardOrganizer({
+    logger.info(`Starting organizer onboarding for ${organizerId}`);
+
+    // Create submerchant account using the new service
+    const accountResult = await razorpaySubmerchantService.createSubmerchantAccount({
       organizerId,
-      email: (req as any).user?.email || 'organizer@trektribe.in',
-      phone: undefined,
-      legalBusinessName: body.legalBusinessName,
-      businessType: body.businessType,
-      bankAccount: {
-        accountNumber: body.bankAccount.accountNumber,
-        ifscCode: body.bankAccount.ifscCode,
-        accountHolderName: body.bankAccount.accountHolderName,
-        bankName: body.bankAccount.bankName,
-      },
-      commissionRate: body.commissionRate,
+      email: userEmail,
+      phone: userPhone || '+919876177839', // Fallback to default
+      legalBusinessName: validatedData.legalBusinessName,
+      businessType: validatedData.businessType,
+      pan: validatedData.personalDetails?.panNumber || 'PENDING',
+      bankAccount: validatedData.bankAccount,
+      addressDetails: validatedData.addressDetails,
+      businessRegistrationNumber: validatedData.businessRegistration?.number,
+      settlementCycle: validatedData.settlementCycle,
     });
 
-    res.json({ success: true, accountId: result.accountId, status: result.onboardingStatus });
+    logger.info(`Submerchant account created: ${accountResult.accountId}`);
+
+    // Return account details
+    res.json({
+      success: true,
+      accountId: accountResult.accountId,
+      status: accountResult.status,
+      kycStatus: accountResult.kycStatus,
+      message: 'Organizer account created successfully. Please complete KYC verification.',
+      nextSteps: [
+        'Complete KYC verification via email',
+        'Verify bank account details',
+        'Activate account',
+        'Start receiving payments'
+      ]
+    });
+
   } catch (error: any) {
-    logger.error('Organizer onboarding failed', { error: error.message });
-    res.status(400).json({ error: error.message });
+    logger.error('Organizer onboarding failed', { 
+      error: error.message,
+      userId: req.user?.id
+    });
+    res.status(400).json({ 
+      error: 'Onboarding failed',
+      message: error.message 
+    });
   }
 });
 
@@ -88,19 +98,41 @@ router.post('/organizer/onboard', authenticateJwt, requireRole(['organizer', 'ad
 router.get('/organizer/status/:id?', authenticateJwt, requireRole(['organizer', 'admin']), async (req: Request, res: Response) => {
   try {
     const organizerId = req.params.id || req.user?.id;
-    const config = await OrganizerPayoutConfig.findOne({ organizerId });
-    if (!config) {
-      return res.json({ onboarded: false, status: 'pending' });
+    
+    // Use new submerchant service to get account status
+    const accountStatus = await razorpaySubmerchantService.getAccountStatus(organizerId);
+    
+    if (!accountStatus) {
+      return res.json({ 
+        onboarded: false, 
+        status: 'pending',
+        message: 'No account found. Start onboarding to create an account.'
+      });
     }
+
+    // Get settlement ledger
+    const settlementLedger = await razorpaySubmerchantService.getSettlementLedger(organizerId, 5);
+
     res.json({
-      onboarded: !!config.razorpayAccountId,
-      accountId: config.razorpayAccountId,
-      status: config.onboardingStatus,
-      commissionRate: config.commissionRate,
-      kycStatus: config.kycStatus,
+      success: true,
+      onboarded: !!accountStatus.accountId,
+      accountId: accountStatus.accountId,
+      status: accountStatus.status,
+      kycStatus: accountStatus.kycStatus,
+      routeId: accountStatus.routeId,
+      createdAt: accountStatus.createdAt,
+      recentSettlements: settlementLedger,
+      nextSettlementDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Weekly
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    logger.error('Failed to get organizer status', { 
+      error: error.message,
+      organizerId: req.params.id || req.user?.id
+    });
+    res.status(500).json({ 
+      error: 'Failed to retrieve organizer status',
+      message: error.message 
+    });
   }
 });
 
