@@ -134,6 +134,13 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
           return;
         }
 
+        // Check if user is premium (demo account) OR has active subscription
+        if (user?.isPremium) {
+          setHasSubscription(true);
+          setSubscriptionChecked(true);
+          return;
+        }
+
         const response = await api.get('/api/subscriptions/my');
         const hasActive = response.data?.hasSubscription && response.data?.subscription?.isActive;
         setHasSubscription(hasActive);
@@ -152,6 +159,12 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
         setSubscriptionChecked(true);
       } catch (error) {
         console.error('Failed to check subscription:', error);
+        // For premium organizers, allow anyway
+        if (user?.isPremium) {
+          setHasSubscription(true);
+          setSubscriptionChecked(true);
+          return;
+        }
         navigate('/subscribe', { 
           state: { 
             message: 'Please subscribe to create trips',

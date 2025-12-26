@@ -292,7 +292,8 @@ class RazorpayService {
    */
   generateReceiptId(userId: string, packageType: string): string {
     const timestamp = Date.now();
-    return `rcpt_${userId.slice(-6)}_${packageType}_${timestamp}`;
+    const random = Math.random().toString(36).slice(-4);
+    return `rcpt_${userId.slice(-6)}_${packageType}_${timestamp}_${random}`;
   }
 }
 

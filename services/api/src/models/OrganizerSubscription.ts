@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document, Model, Types } from 'mongoose';
 
 export type SubscriptionStatus = 'trial' | 'active' | 'expired' | 'cancelled';
-export type SubscriptionPlan = 'free-trial' | 'basic' | 'pro' | 'enterprise';
+export type SubscriptionPlan = 'trial' | 'free-trial' | 'basic' | 'pro' | 'enterprise';
 
 export interface PaymentRecord {
   amount: number;
@@ -123,7 +123,7 @@ const organizerSubscriptionSchema = new Schema(
     // Subscription plan
     plan: { 
       type: String, 
-      enum: ['free-trial', 'basic', 'pro', 'enterprise'], 
+      enum: ['trial', 'free-trial', 'basic', 'pro', 'enterprise'], 
       default: 'free-trial' 
     },
     status: { 

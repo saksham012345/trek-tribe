@@ -226,6 +226,9 @@ const PublicProfile: React.FC = () => {
   }
 
   const { user, stats, isOrganizer, organizedTrips, participatedTrips } = profile;
+  const contactHref = user.email
+    ? `mailto:${user.email}?subject=Inquiry%20from%20TrekkTribe`
+    : (user.phone ? `tel:${user.phone}` : undefined);
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -340,9 +343,25 @@ const PublicProfile: React.FC = () => {
               <IconButton onClick={handleShare}>
                 <Share />
               </IconButton>
-              <Button variant="contained" startIcon={<Message />}>
-                Contact
-              </Button>
+              {contactHref ? (
+                <Button
+                  variant="contained"
+                  startIcon={<Message />}
+                  component="a"
+                  href={contactHref}
+                >
+                  Contact
+                </Button>
+              ) : (
+                <Button
+                  variant="contained"
+                  startIcon={<Message />}
+                  component={Link}
+                  to="/support"
+                >
+                  Contact
+                </Button>
+              )}
             </Box>
           </Grid>
         </Grid>

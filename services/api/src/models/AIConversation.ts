@@ -8,6 +8,11 @@ export interface ICompressedMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: Date;
+  // Optional fields used by analytics-only calculations
+  responseTime?: number;
+  topic?: string;
+  requiresHumanAgent?: boolean;
+  sender?: string;
   // Optional metadata for important context
   metadata?: {
     intent?: string; // e.g., 'booking', 'safety', 'recommendation'
@@ -197,8 +202,7 @@ const AIConversationSchema: Schema = new Schema(
     
     // Auto-expire conversations after 30 days of inactivity
     expiresAt: { 
-      type: Date,
-      index: true
+      type: Date
     }
   },
   {
@@ -207,7 +211,6 @@ const AIConversationSchema: Schema = new Schema(
 );
 
 // Indexes for performance
-AIConversationSchema.index({ sessionId: 1 });
 AIConversationSchema.index({ userId: 1, lastInteractionAt: -1 });
 AIConversationSchema.index({ 'escalation.escalated': 1, 'escalation.assignedAgent': 1 });
 AIConversationSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // TTL index for auto-cleanup

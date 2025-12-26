@@ -39,10 +39,13 @@ export const getTripShareUrl = (tripId: string): string => {
 /**
  * Generate a shareable user profile URL
  * @param userId - The user ID
+ * @param username - The user's username (optional, preferred)
  * @returns Full shareable URL for the user profile
  */
-export const getUserProfileShareUrl = (userId: string): string => {
-  return `${getWebsiteUrl()}/profile/${userId}`;
+export const getUserProfileShareUrl = (userId: string, username?: string): string => {
+  // Prefer username for cleaner shareable links
+  const identifier = username || userId;
+  return `${getWebsiteUrl()}/profile/${identifier}`;
 };
 
 /**

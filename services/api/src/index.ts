@@ -49,6 +49,8 @@ import dashboardRoutes from './routes/dashboard';
 import paymentVerificationRoutes from './routes/paymentVerification';
 import marketplaceRoutes from './routes/marketplace';
 import seedRoutes from './routes/seed';
+import groupsRoutes from './routes/groups';
+import eventsRoutes from './routes/events';
 import { apiLimiter, authLimiter, otpLimiter } from './middleware/rateLimiter';
 import { cronScheduler } from './services/cronScheduler';
 import { chargeRetryWorker } from './services/chargeRetryWorker';
@@ -116,7 +118,8 @@ app.use(helmet({
     }
   } : false,
   crossOriginEmbedderPolicy: true,
-  crossOriginOpenerPolicy: { policy: 'same-origin' }
+  // Relax COOP to allow OAuth popups and cross-origin postMessage (Google Sign-In)
+  crossOriginOpenerPolicy: { policy: 'unsafe-none' }
 }));
 
 // Enable rate limiting in non-test environments for brute-force protection
@@ -132,6 +135,7 @@ const allowedOrigins = process.env.NODE_ENV === 'production'
       'https://trek-tribe-web.onrender.com',
       'https://trek-tribe.vercel.app',
       'https://trekktribe.vercel.app',
+      'https://trekktribe.onrender.com',
       process.env.FRONTEND_URL,
       process.env.CORS_ORIGIN,
       process.env.WEB_URL,
@@ -258,17 +262,19 @@ export async function start() {
     }
     
     // Initialize Cron Scheduler for auto-pay and other scheduled tasks
-    cronScheduler.init();
-    console.log('✅ Cron scheduler initialized');
-    logMessage('INFO', 'Cron scheduler initialized');
+    if (process.env.NODE_ENV !== 'test') {
+      cronScheduler.init();
+      console.log('✅ Cron scheduler initialized');
+      logMessage('INFO', 'Cron scheduler initialized');
 
-    // Start charge retry worker
-    try {
-      chargeRetryWorker.start();
-      console.log('✅ Charge retry worker started');
-      logMessage('INFO', 'Charge retry worker started');
-    } catch (err: any) {
-      console.warn('⚠️ Failed to start charge retry worker', err.message);
+      // Start charge retry worker
+      try {
+        chargeRetryWorker.start();
+        console.log('✅ Charge retry worker started');
+        logMessage('INFO', 'Charge retry worker started');
+      } catch (err: any) {
+        console.warn('⚠️ Failed to start charge retry worker', err.message);
+      }
     }
     
     // Routes
@@ -301,6 +307,8 @@ export async function start() {
     app.use('/', viewsRoutes);
     app.use('/api/follow', followRoutes);
     app.use('/api/posts', postsRoutes);
+    app.use('/api/groups', groupsRoutes);
+    app.use('/api/events', eventsRoutes);
     app.use('/api/search', searchRoutes);
     app.use('/support', supportRoutes);
     app.use('/api/support', supportRoutes); // Also mount at /api/support for consistency

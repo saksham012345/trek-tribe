@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import request from 'supertest';
 import express from 'express';
 import authRoutes from '../routes/auth';
@@ -7,6 +8,11 @@ import { User } from '../models/User';
 const app = express();
 app.use(express.json());
 app.use('/auth', authRoutes);
+
+// Ensure each auth test starts from a clean user collection
+beforeEach(async () => {
+  await User.deleteMany({});
+});
 
 describe('Authentication API', () => {
   describe('POST /auth/register', () => {
@@ -67,7 +73,7 @@ describe('Authentication API', () => {
         .send(userData)
         .expect(400);
 
-      expect(response.body.error).toContain('already exists');
+      expect(response.body.error).toContain('already registered');
     });
 
     it('should return 400 for weak password', async () => {

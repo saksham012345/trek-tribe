@@ -188,6 +188,10 @@ router.get('/booking/:bookingId/preview', authenticateJwt, async (req: Request, 
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
+    if (booking.paymentStatus !== 'completed') {
+      return res.status(400).json({ error: 'Payment not completed for this booking' });
+    }
+
     const organizer = await User.findById(trip.organizerId);
 
     res.json({

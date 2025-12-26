@@ -1,6 +1,12 @@
 const mongoose = require('mongoose');
 
-const uri = 'mongodb+srv://tanejasaksham384_db_user:Saksham4700@trekk.wphfse5.mongodb.net/?appName=Trekk';
+// NOTE: Use environment variable to avoid committing credentials.
+const uri = process.env.MONGODB_URI;
+
+if (!uri) {
+  console.error('Missing MONGODB_URI env variable. Aborting to avoid using hardcoded credentials.');
+  process.exit(1);
+}
 
 mongoose.connect(uri, { serverSelectionTimeoutMS: 5000 })
   .then(() => {

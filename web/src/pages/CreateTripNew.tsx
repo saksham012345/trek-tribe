@@ -30,6 +30,17 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 4;
+
+  // Check if user can create trips (organizer + premium or active subscription)
+  React.useEffect(() => {
+    if (user?.role !== 'organizer') {
+      navigate('/');
+      return;
+    }
+    
+    // Allow premium organizers without subscription check
+    // Non-premium organizers will be handled by API
+  }, [user, navigate]);
   
   const [formData, setFormData] = useState({
     title: '',

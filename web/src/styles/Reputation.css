@@ -1,0 +1,233 @@
+/* Reputation Widget */
+.reputation-widget {
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 25px;
+  margin-bottom: 25px;
+}
+
+.reputation-header {
+  margin-bottom: 20px;
+}
+
+.reputation-header h3 {
+  margin: 0;
+  color: #1a365d;
+  font-size: 1.3rem;
+}
+
+/* Level Card */
+.level-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 12px;
+  padding: 25px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 25px;
+}
+
+.level-number {
+  font-size: 3.5rem;
+  font-weight: 900;
+  min-width: 80px;
+  text-align: center;
+}
+
+.level-info {
+  flex: 1;
+}
+
+.level-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+
+.points-display {
+  font-size: 1.1rem;
+  opacity: 0.9;
+  font-weight: 500;
+}
+
+/* Progress Section */
+.progress-section {
+  margin-bottom: 25px;
+}
+
+.progress-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+  color: #4a5568;
+  font-weight: 600;
+}
+
+.progress-percent {
+  background: #edf2f7;
+  padding: 2px 10px;
+  border-radius: 12px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+/* Badges Section */
+.badges-section {
+  margin-bottom: 25px;
+  padding-bottom: 25px;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.badges-section h4 {
+  margin: 0 0 12px 0;
+  color: #2d3748;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badges-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.badge-item {
+  background: #f7fafc;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.badge-item:hover {
+  border-color: #3182ce;
+  background: #edf2f7;
+  transform: translateY(-2px);
+}
+
+.badge-icon {
+  font-size: 1.8rem;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.badge-text {
+  display: block;
+  font-size: 0.8rem;
+  color: #4a5568;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+/* Achievements Section */
+.achievements-section {
+  margin-bottom: 25px;
+  padding-bottom: 25px;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.achievements-section h4 {
+  margin: 0 0 12px 0;
+  color: #2d3748;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.achievements-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.achievement-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  background: #f7fafc;
+  border-radius: 8px;
+  border-left: 4px solid #fbbf24;
+}
+
+.achievement-icon {
+  font-size: 1.5rem;
+  min-width: 30px;
+}
+
+.achievement-details {
+  flex: 1;
+}
+
+.achievement-type {
+  font-weight: 600;
+  color: #1a365d;
+  margin-bottom: 4px;
+}
+
+.achievement-description {
+  font-size: 0.85rem;
+  color: #718096;
+  line-height: 1.4;
+}
+
+/* Level Guide */
+.level-guide {
+  padding-top: 15px;
+}
+
+.level-guide h4 {
+  margin: 0 0 12px 0;
+  color: #2d3748;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.level-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.level-item {
+  font-size: 0.85rem;
+  padding: 6px 10px;
+  background: #f7fafc;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .level-card {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .level-number {
+    font-size: 2.5rem;
+  }
+
+  .badges-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  }
+}

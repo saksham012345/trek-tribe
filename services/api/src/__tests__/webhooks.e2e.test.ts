@@ -1,6 +1,13 @@
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import request from 'supertest';
 import crypto from 'crypto';
 import app from '../serverless';
+import WebhookEvent from '../models/WebhookEvent';
+
+beforeEach(async () => {
+  // Clear webhook events before each test to ensure idempotency works
+  await WebhookEvent.deleteMany({});
+});
 
 describe('Razorpay Webhooks E2E', () => {
   const webhookPath = '/api/webhooks/razorpay';

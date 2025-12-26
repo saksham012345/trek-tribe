@@ -146,13 +146,16 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
         setCrmSubscription(null);
       }
 
-      // Check CRM access from subscription plans
+      // Check CRM access from subscription plans OR organizer profile
       try {
         const accessRes = await api.get('/api/subscriptions/verify-crm-access');
-        setHasCRMAccess(accessRes.data?.hasCRMAccess || false);
+        const hasCRMFromPlan = accessRes.data?.hasCRMAccess || false;
+        const hasCRMFromProfile = user?.organizerProfile?.crmEnabled || user?.organizerProfile?.crmAccess || false;
+        setHasCRMAccess(hasCRMFromPlan || hasCRMFromProfile);
       } catch (accessErr: any) {
-        // Not critical; default to no access
-        setHasCRMAccess(false);
+        // Fall back to checking organizer profile
+        const hasCRMFromProfile = user?.organizerProfile?.crmEnabled || user?.organizerProfile?.crmAccess || false;
+        setHasCRMAccess(hasCRMFromProfile);
       }
     } catch (error: any) {
       setError(error.response?.data?.error || 'Failed to load dashboard data');

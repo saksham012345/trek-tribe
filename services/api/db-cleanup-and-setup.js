@@ -1,7 +1,13 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-const uri = 'mongodb+srv://tanejasaksham384_db_user:Saksham4700@trekk.wphfse5.mongodb.net/?appName=Trekk';
+// NOTE: Use environment variable to avoid committing credentials.
+const uri = process.env.MONGODB_URI;
+
+if (!uri) {
+  console.error('Missing MONGODB_URI env variable. Aborting to avoid using hardcoded credentials.');
+  process.exit(1);
+}
 
 async function main() {
   try {
@@ -86,15 +92,40 @@ async function main() {
         role: user.role,
         passwordHash,
         isVerified: true,
+        emailVerified: true,
         isPremium: user.isPremium || false,
         createdAt: new Date(),
         updatedAt: new Date()
       };
+
+      // Add organizer profile with CRM access for organizers
+      if (user.role === 'organizer') {
+        doc.organizerProfile = {
+          companyName: user.name,
+          businessType: 'solo',
+          bio: `${user.isPremium ? 'Premium' : 'Basic'} Trip Organizer`,
+          languages: ['English', 'Hindi'],
+          specialties: ['Trekking', 'Adventure', 'Cultural'],
+          verification: {
+            status: 'verified',
+            verifiedAt: new Date(),
+            documents: []
+          },
+          crmEnabled: true, // Enable CRM access
+          crmAccess: true
+        };
+      }
+
       const result = await usersCollection.insertOne(doc);
       createdUsers.push({ ...doc, _id: result.insertedId });
       console.log(`✓ Created: ${user.email} (${user.role})`);
       console.log(`  Password: ${user.password}`);
-      console.log(`  Premium: ${user.isPremium || false}\n`);
+      console.log(`  Premium: ${user.isPremium || false}`);
+      if (user.role === 'organizer') {
+        console.log(`  CRM Access: ✅ YES\n`);
+      } else {
+        console.log('');
+      }
     }
 
     // Step 6: Create sample trips

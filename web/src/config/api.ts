@@ -7,7 +7,7 @@ let API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
 // Robust fallback to the working Render API host
 if (!API_BASE_URL) {
-  API_BASE_URL = 'https://trek-tribe-38in.onrender.com';
+  API_BASE_URL = 'https://trekktribe.onrender.com';
 }
 
 // Create axios instance with default configuration

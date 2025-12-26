@@ -80,6 +80,11 @@ class AIMetricsService {
   private requestCounts: { [key: string]: number } = {};
 
   constructor() {
+    // In test mode, skip background timers/logging to avoid open handles
+    if (process.env.NODE_ENV === 'test') {
+      return;
+    }
+
     // Start aggregation interval
     setInterval(() => {
       this.aggregateMetrics();

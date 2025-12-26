@@ -207,6 +207,37 @@ def extract_last_json(text: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+def _compose_retrieval_answer(retrieved_items: List[tuple], prompt: str) -> str:
+    """Create a deterministic, retrieval-only answer when model generation is unavailable.
+
+    Summarizes the top retrieved sources and echoes guidance tied to the user's prompt.
+    """
+    contact_line = (
+        "Our AI agent is not available right now. "
+        "Please contact tanejasaksham44@gmail.com or call 9876177839 for immediate help."
+    )
+
+    if not retrieved_items:
+        return (
+            contact_line + " "
+            "We couldn't generate a full response, but you can ask more specific questions "
+            "or try again shortly."
+        )
+    lines: List[str] = []
+    lines.append(contact_line)
+    lines.append("Here are the most relevant details I found:")
+    for score, doc in retrieved_items[:3]:
+        src = doc.get("source", "unknown")
+        txt = (doc.get("text") or doc.get("excerpt") or "").strip()
+        if txt:
+            # Keep the excerpt concise to avoid overwhelming the user
+            snippet = txt[:500]
+            lines.append(f"- From {src}: {snippet}")
+    if prompt:
+        lines.append("\nIf you want, I can search for more specifics related to: " + prompt[:200])
+    return "\n".join(lines)
+
+
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
     logger.exception("Unhandled exception: %s", exc)
@@ -244,6 +275,35 @@ def startup_event():
             logger.info("Retrieval index loaded with meta: %s", meta)
     except Exception:
         logger.exception("Failed to load retrieval index at startup")
+
+    # If no TF-IDF index is available, attempt to bootstrap from bundled docs
+    try:
+        if not RETRIEVAL_INDEX_LOADED:
+            docs_path = None
+            # Prefer configured DOCS_PATH; otherwise check common fallback locations
+            if os.path.exists(DOCS_PATH):
+                docs_path = DOCS_PATH
+            elif os.path.exists("/app/rag_data/documents.json"):
+                docs_path = "/app/rag_data/documents.json"
+            else:
+                # relative fallback in dev environments
+                here = os.path.dirname(__file__)
+                candidate = os.path.abspath(os.path.join(here, "..", "rag_data", "documents.json"))
+                if os.path.exists(candidate):
+                    docs_path = candidate
+
+            if docs_path:
+                with open(docs_path, 'r', encoding='utf-8') as f:
+                    docs = json.load(f)
+                texts = [d.get('text', '') for d in docs]
+                meta = [{k: v for k, v in d.items() if k != 'text'} for d in docs]
+                build_index_from_texts(texts, meta, model_name=MODEL_NAME, tokenizer_version='unknown')
+                reload_index()
+                logger.info('Bootstrapped TF-IDF index from %s (documents=%d)', docs_path, len(texts))
+            else:
+                logger.warning('No retrieval docs found to bootstrap index; RAG will be disabled until an index is built')
+    except Exception as e:
+        logger.warning('Failed to bootstrap retrieval index: %s', e)
 
 
 @app.get("/health")
@@ -354,30 +414,39 @@ def generate(req: GenerateRequest, request: Request, x_api_key: Optional[str] = 
         logger.exception("Generation failed: %s", e)
         raw_text = FallbackGenerator().generate(prompt_with_instruction, max_tokens)
 
+    # Detect fallback mode explicitly (no local model or fallback output signature)
+    is_fallback_mode = (not MODEL_LOCAL_ENABLED) or (not is_model_loaded()) or (raw_text or "").startswith("[fallback]")
+
     # Extract final JSON object robustly
-    json_obj = extract_last_json(raw_text)
+    if is_fallback_mode:
+        # In fallback mode, avoid any escalation and provide a retrieval-based answer
+        text_out = _compose_retrieval_answer(retrieved, prompt)
+        validated_actions: List[Dict[str, Any]] = []
+    else:
+        json_obj = extract_last_json(raw_text)
 
-    text_out = raw_text
-    actions: List[Dict[str, Any]] = []
-    if json_obj and isinstance(json_obj, dict):
-        text_out = json_obj.get("text") or text_out
-        actions = json_obj.get("actions") or []
+        text_out = raw_text
+        actions: List[Dict[str, Any]] = []
+        if json_obj and isinstance(json_obj, dict):
+            text_out = json_obj.get("text") or text_out
+            actions = json_obj.get("actions") or []
 
-    # Ensure actions is an array and validate schema
-    validated_actions: List[Dict[str, Any]] = []
-    for a in (actions or []):
-        if isinstance(a, dict) and "type" in a:
-            a_type = str(a.get("type"))
-            a_summary = str(a.get("summary"))[:1000] if a.get("summary") else ""
-            # Only allow known action types
-            if a_type in ("create_ticket",):
-                validated_actions.append({"type": a_type, "summary": a_summary})
+        # Ensure actions is an array and validate schema
+        validated_actions: List[Dict[str, Any]] = []
+        for a in (actions or []):
+            if isinstance(a, dict) and "type" in a:
+                a_type = str(a.get("type"))
+                a_summary = str(a.get("summary"))[:1000] if a.get("summary") else ""
+                # Only allow known action types
+                if a_type in ("create_ticket",):
+                    validated_actions.append({"type": a_type, "summary": a_summary})
 
     payload = {
         "text": text_out,
         "actions": validated_actions,
         "raw": raw_text,
         "retrieved_sources": [{"source": d.get("source", "unknown"), "score": float(s)} for s, d in retrieved] if retrieved else [],
+        "mode": "fallback" if is_fallback_mode else "model",
     }
 
     return make_response(payload)
@@ -419,18 +488,30 @@ def admin_build_index(x_api_key: Optional[str] = Header(None)):
     """
     require_api_key(x_api_key, AI_SERVICE_KEY)
     try:
-        # Load docs file (expects list of {"text":..., "source":...} entries)
-        if not os.path.exists(DOCS_PATH):
-            logger.warning('No docs file found at %s to build index', DOCS_PATH)
+        # Resolve docs source (prefers configured DOCS_PATH, falls back to bundled rag_data)
+        docs_path = None
+        if os.path.exists(DOCS_PATH):
+            docs_path = DOCS_PATH
+        elif os.path.exists("/app/rag_data/documents.json"):
+            docs_path = "/app/rag_data/documents.json"
+        else:
+            here = os.path.dirname(__file__)
+            candidate = os.path.abspath(os.path.join(here, "..", "rag_data", "documents.json"))
+            if os.path.exists(candidate):
+                docs_path = candidate
+
+        if not docs_path:
+            logger.warning('No docs file found at %s and no fallback documents available', DOCS_PATH)
             raise HTTPException(status_code=404, detail='Docs file for index not found')
-        with open(DOCS_PATH, 'r', encoding='utf-8') as f:
+
+        with open(docs_path, 'r', encoding='utf-8') as f:
             docs = json.load(f)
 
         texts = [d.get('text', '') for d in docs]
         meta = [{k: v for k, v in d.items() if k != 'text'} for d in docs]
         build_index_from_texts(texts, meta, model_name=MODEL_NAME, tokenizer_version='unknown')
-        logger.info('Index build complete from %s (documents=%d)', DOCS_PATH, len(texts))
-        return make_response({'built': True, 'count': len(texts)})
+        logger.info('Index build complete from %s (documents=%d)', docs_path, len(texts))
+        return make_response({'built': True, 'count': len(texts), 'source': docs_path})
     except HTTPException:
         raise
     except Exception as e:
