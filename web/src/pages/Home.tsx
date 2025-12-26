@@ -35,115 +35,34 @@ interface Post {
   title: string;
   content: string;
   images?: string[];
-  likes: any[];
-  comments: any[];
-  createdAt: string;
 }
 
 interface HomeProps {
-  user: User | null;
+  user?: User | null;
 }
 
-const Home: React.FC<HomeProps> = ({ user }) => {
+const Home: React.FC<HomeProps> = ({ user: userProp }) => {
   const { user: currentUser } = useAuth();
-  const [featuredTrips, setFeaturedTrips] = useState<Trip[]>([]);
-  const [recentPosts, setRecentPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    totalTrips: 0,
-    totalUsers: 0,
-    totalOrganizers: 0,
-    totalBookings: 0,
-    countries: 0
-  });
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const user = (userProp ?? (currentUser as User | null)) as User | null;
 
-  // Background images for hero carousel
-  const heroImages = [
-    'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?q=80&w=2071',
-    'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?q=80&w=2070', 
-    'https://images.unsplash.com/photo-1469474968028-56623f02e42e?q=80&w=2069'
+  const heroImages: string[] = [
+    'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1469474968028-56623f02e42e?q=80&w=1600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1500534314209-a26db0f5b361?q=80&w=1600&auto=format&fit=crop'
   ];
 
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [stats, setStats] = useState({ totalTrips: 0, totalUsers: 0, totalOrganizers: 0 });
+  const [featuredTrips, setFeaturedTrips] = useState<Trip[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [recentPosts, setRecentPosts] = useState<Post[]>([]);
+
   useEffect(() => {
-    // Fetch real data from the API (for all users)
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const tripsRes = await api.get('/trips?limit=6');
-        
-        // Fetch recent organizer posts for community feed
-        try {
-          const postsRes = await api.get('/api/posts?limit=6');
-          const postsData = postsRes.data;
-          if (postsData && Array.isArray(postsData.posts)) {
-            setRecentPosts(postsData.posts);
-          }
-        } catch (postsError: any) {
-          console.log('Posts endpoint not available or empty');
-          setRecentPosts([]);
-        }
-        
-        // Try to fetch stats, handle 404 gracefully
-        let statsRes;
-        try {
-          statsRes = await api.get('/stats');
-        } catch (statsError: any) {
-          console.log('Stats endpoint not available, using fallback data');
-          statsRes = { data: null };
-        }
-        
-        const tripsData = tripsRes.data;
-        // Ensure tripsData is an array to prevent 's.map is not a function' errors
-        if (Array.isArray(tripsData)) {
-          setFeaturedTrips(tripsData);
-        } else if (tripsData && typeof tripsData === 'object' && Array.isArray((tripsData as any).data)) {
-          // Handle case where trips are nested in a data property
-          setFeaturedTrips((tripsData as any).data);
-        } else {
-          console.warn('Invalid trips data format received:', tripsData);
-          setFeaturedTrips([]);
-        }
-        
-        const statsData = statsRes.data as { trips?: { total?: number; totalBookings?: number }; users?: { total?: number; organizers?: number } };
-        console.log('Stats data received:', statsData);
-        
-        // Calculate real-time stats from actual data
-        const realTimeStats = {
-          totalTrips: (tripsData as any[]).length || 0,
-          totalUsers: statsData?.users?.total || 0,
-          totalOrganizers: statsData?.users?.organizers || 0,
-          totalBookings: statsData?.trips?.totalBookings || 0,
-          countries: new Set((tripsData as any[]).map((trip: any) => trip.destination?.split(',')[0]?.trim()).filter(Boolean)).size || 15
-        };
-        
-        setStats(realTimeStats);
-      } catch (error: any) {
-        console.error('Error fetching data:', error.message || error);
-        // Set fallback values when stats endpoint is not available
-        setStats({ 
-          totalTrips: 12, 
-          totalUsers: 156, 
-          totalOrganizers: 8, 
-          totalBookings: 45, 
-          countries: 15 
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchData();
-    
-    // Hero image carousel
     const interval = setInterval(() => {
       setCurrentImageIndex((prev) => (prev + 1) % heroImages.length);
     }, 5000);
-    
     return () => clearInterval(interval);
-  }, [heroImages.length, currentUser]);
-
-  // Home page now requires authentication (handled by routing)
+  }, [heroImages.length]);
 
   return (
     <div className="min-h-screen bg-forest-50">
@@ -549,47 +468,6 @@ const Home: React.FC<HomeProps> = ({ user }) => {
         </div>
       </section>
 
-      {/* AI-Powered Features Section */}
-      <section className="py-20 bg-gradient-to-br from-purple-50 to-blue-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-800 mb-6">
-              🤖 AI-Powered 
-              <span className="text-purple-600">Travel Intelligence</span>
-            </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-              Experience the future of travel planning with our advanced AI features
-            </p>
-          </div>
-          
-          <div className="grid lg:grid-cols-2 gap-12">
-            {/* AI Recommendations */}
-            <div className="space-y-6">
-              <AIRecommendations className="w-full" maxRecommendations={3} />
-            </div>
-            
-            {/* AI Analytics */}
-            <div className="space-y-6">
-              <AIAnalyticsDashboard className="w-full" compact={true} />
-            </div>
-          </div>
-          
-          <div className="text-center mt-12">
-            <Link
-              to="/ai-showcase"
-              className="inline-flex items-center gap-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-8 py-3 rounded-full text-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg"
-            >
-              <span>🚀</span>
-              Explore All AI Features
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-
       {/* Safety & Sustainability Section */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -602,8 +480,8 @@ const Home: React.FC<HomeProps> = ({ user }) => {
               We're committed to responsible adventure tourism that protects both our adventurers and the precious wilderness we explore
             </p>
           </div>
-          
-          <div className="grid md:grid-cols-2 gap-12 items-center">
+
+          <div className="grid md:grid-cols-2 gap-12 items-start">
             <div>
               <div className="space-y-8">
                 <div className="flex items-start">
@@ -615,7 +493,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
                     <p className="text-forest-600 leading-relaxed">All our guides are certified wilderness professionals with first aid training. We maintain the highest safety standards and carry emergency equipment on every expedition.</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-start">
                   <div className="w-12 h-12 bg-gradient-to-br from-forest-500 to-blue-500 rounded-full flex items-center justify-center mr-4 flex-shrink-0">
                     <span className="text-white text-xl">🌱</span>
@@ -625,7 +503,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
                     <p className="text-forest-600 leading-relaxed">We offset 100% of our carbon footprint through verified reforestation projects. Every adventure contributes to protecting the wilderness we love to explore.</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-start">
                   <div className="w-12 h-12 bg-gradient-to-br from-forest-500 to-blue-500 rounded-full flex items-center justify-center mr-4 flex-shrink-0">
                     <span className="text-white text-xl">🌍</span>
@@ -635,7 +513,7 @@ const Home: React.FC<HomeProps> = ({ user }) => {
                     <p className="text-forest-600 leading-relaxed">We partner with local communities and indigenous guides, ensuring tourism benefits the people who call these wilderness areas home.</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-start">
                   <div className="w-12 h-12 bg-gradient-to-br from-forest-500 to-blue-500 rounded-full flex items-center justify-center mr-4 flex-shrink-0">
                     <span className="text-white text-xl">🐾</span>
@@ -645,111 +523,15 @@ const Home: React.FC<HomeProps> = ({ user }) => {
                     <p className="text-forest-600 leading-relaxed">We follow strict Leave No Trace principles and contribute to wildlife conservation efforts. Our presence helps fund protection of endangered species and habitats.</p>
                   </div>
                 </div>
-          Community Posts Feed Section */}
-      {recentPosts.length > 0 && (
-        <section className="py-20 bg-gradient-to-br from-blue-50 to-purple-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl md:text-5xl font-bold text-forest-800 mb-6">
-                Stories from 
-                <span className="text-blue-600"> Our Community</span>
-              </h2>
-              <p className="text-xl text-forest-600 max-w-3xl mx-auto leading-relaxed">
-                Get inspired by fellow adventurers sharing their wilderness experiences and travel stories
-              </p>
+              </div>
             </div>
-            
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {recentPosts.map((post) => (
-                <Link 
-                  key={post._id} 
-                  to={`/profile/${post.authorId._id}`}
-                  className="group bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2"
-                >
-                  {/* Post Image */}
-                  {post.images && post.images.length > 0 && (
-                    <div className="h-48 overflow-hidden">
-                      <img
-                        src={post.images[0]}
-                        alt={post.title}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                      />
-                    </div>
-                  )}
-                  
-                  {/* Post Content */}
-                  <div className="p-6">
-                    {/* Author Info */}
-                    <div className="flex items-center mb-4">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-forest-400 to-blue-500 flex items-center justify-center mr-3 overflow-hidden">
-                        {post.authorId.profilePhoto ? (
-                          <img src={post.authorId.profilePhoto} alt={post.authorId.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-white text-sm">
-                            {post.authorId.role === 'organizer' ? '🗺️' : '🎒'}
-                          </span>
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-forest-800">{post.authorId.name}</p>
-                        <p className="text-xs text-forest-500 capitalize">{post.authorId.role}</p>
-                      </div>
-                    </div>
-                    
-                    {/* Post Title & Type */}
-                    <div className="mb-2">
-                      <span className="inline-block px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-700 mb-2">
-                        {post.type.replace('_', ' ').toUpperCase()}
-                      </span>
-                      <h3 className="text-xl font-bold text-forest-800 mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
-                        {post.title}
-                      </h3>
-                    </div>
-                    
-                    {/* Post Content */}
-                    <p className="text-forest-600 text-sm mb-4 line-clamp-3">
-                      {post.content}
-                    </p>
-                    
-                    {/* Engagement Stats */}
-                    <div className="flex items-center gap-4 text-sm text-forest-500 pt-4 border-t border-forest-100">
-                      <span className="flex items-center gap-1">
-                        ❤️ {post.likes.length}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        💬 {post.comments.length}
-                      </span>
-                      <span className="ml-auto text-xs">
-                        {new Date(post.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-            
-            {/* View All Posts Link */}
-            <div className="text-center mt-12">
-              <Link
-                to="/search"
-                className="inline-block px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
-              >
-                <span className="flex items-center gap-2">
-                  🌟 Explore More Stories
-                </span>
-              </Link>
-            </div>
-          </div>
-        </section>
-      )}
 
-      {/*     </div>
-            </div>
-            
-            <div className="text-center">
-              <p className="text-lg text-forest-600">
-                Our commitment to sustainable adventure travel ensures every journey contributes positively to conservation and local communities.
-              </p>
+            <div>
+              <div className="p-6 bg-forest-50 rounded-xl">
+                <p className="text-lg text-forest-700">
+                  Our commitment to sustainable adventure travel ensures every journey contributes positively to conservation and local communities.
+                </p>
+              </div>
             </div>
           </div>
         </div>

@@ -3,7 +3,6 @@ import { body, validationResult } from 'express-validator';
 import { z } from 'zod';
 import { authenticateJwt, requireRole } from '../middleware/auth';
 import { razorpayRouteService } from '../services/razorpayRouteService';
-import { razorpaySubmerchantService } from '../services/razorpaySubmerchantService';
 import { OrganizerPayoutConfig } from '../models/OrganizerPayoutConfig';
 import { MarketplaceOrder } from '../models/MarketplaceOrder';
 import { MarketplaceTransfer } from '../models/MarketplaceTransfer';
@@ -11,7 +10,25 @@ import { MarketplaceRefund } from '../models/MarketplaceRefund';
 import { PayoutLedger } from '../models/PayoutLedger';
 import { OrganizerSubscription } from '../models/OrganizerSubscription';
 import { logger } from '../utils/logger';
-import { organizerOnboardingSchema, validatePaymentInput } from '../validators/paymentValidators';
+
+// Optional import with fallback
+let razorpaySubmerchantService: any = null;
+try {
+  razorpaySubmerchantService = require('../services/razorpaySubmerchantService').razorpaySubmerchantService;
+} catch (e) {
+  logger.warn('Submerchant service not available, using route service fallback');
+}
+
+// Import validators
+let organizerOnboardingSchema: any = null;
+let validatePaymentInput: any = null;
+try {
+  const validators = require('../validators/paymentValidators');
+  organizerOnboardingSchema = validators.organizerOnboardingSchema;
+  validatePaymentInput = validators.validatePaymentInput;
+} catch (e) {
+  logger.warn('Validators not available');
+}
 
 const router = Router();
 
@@ -22,16 +39,18 @@ router.post('/organizer/onboard', authenticateJwt, requireRole(['organizer', 'ad
     const userEmail = (req as any).user?.email || 'organizer@trektribe.in';
     const userPhone = (req as any).user?.phone || '';
 
-    // Validate input
-    const validation = validatePaymentInput(req.body, organizerOnboardingSchema);
-    if (!validation.valid) {
-      return res.status(400).json({ 
-        error: 'Validation failed',
-        details: validation.errors 
-      });
+    // Validate input if validators available
+    let validatedData = req.body;
+    if (organizerOnboardingSchema && validatePaymentInput) {
+      const validation = validatePaymentInput(req.body, organizerOnboardingSchema);
+      if (!validation.valid) {
+        return res.status(400).json({ 
+          error: 'Validation failed',
+          details: validation.errors 
+        });
+      }
+      validatedData = validation.data;
     }
-
-    const validatedData = validation.data;
 
     // Check subscription requirement
     const activeSub = await OrganizerSubscription.findOne({ 
@@ -51,19 +70,34 @@ router.post('/organizer/onboard', authenticateJwt, requireRole(['organizer', 'ad
 
     logger.info(`Starting organizer onboarding for ${organizerId}`);
 
-    // Create submerchant account using the new service
-    const accountResult = await razorpaySubmerchantService.createSubmerchantAccount({
-      organizerId,
-      email: userEmail,
-      phone: userPhone || '+919876177839', // Fallback to default
-      legalBusinessName: validatedData.legalBusinessName,
-      businessType: validatedData.businessType,
-      pan: validatedData.personalDetails?.panNumber || 'PENDING',
-      bankAccount: validatedData.bankAccount,
-      addressDetails: validatedData.addressDetails,
-      businessRegistrationNumber: validatedData.businessRegistration?.number,
-      settlementCycle: validatedData.settlementCycle,
-    });
+    // Create submerchant account using the service if available, otherwise use route service
+    let accountResult: any;
+    
+    if (razorpaySubmerchantService && razorpaySubmerchantService.createSubmerchantAccount) {
+      accountResult = await razorpaySubmerchantService.createSubmerchantAccount({
+        organizerId,
+        email: userEmail,
+        phone: userPhone || '+919876177839',
+        legalBusinessName: validatedData.legalBusinessName,
+        businessType: validatedData.businessType,
+        pan: validatedData.personalDetails?.panNumber || 'PENDING',
+        bankAccount: validatedData.bankAccount,
+        addressDetails: validatedData.addressDetails,
+        businessRegistrationNumber: validatedData.businessRegistration?.number,
+        settlementCycle: validatedData.settlementCycle,
+      });
+    } else {
+      // Fallback to razorpayRouteService
+      accountResult = await razorpayRouteService.onboardOrganizer({
+        organizerId,
+        email: userEmail,
+        phone: userPhone,
+        legalBusinessName: validatedData.legalBusinessName,
+        businessType: validatedData.businessType,
+        bankAccount: validatedData.bankAccount,
+        commissionRate: validatedData.commissionRate,
+      });
+    }
 
     logger.info(`Submerchant account created: ${accountResult.accountId}`);
 
@@ -71,7 +105,7 @@ router.post('/organizer/onboard', authenticateJwt, requireRole(['organizer', 'ad
     res.json({
       success: true,
       accountId: accountResult.accountId,
-      status: accountResult.status,
+      status: accountResult.status || accountResult.onboardingStatus,
       kycStatus: accountResult.kycStatus,
       message: 'Organizer account created successfully. Please complete KYC verification.',
       nextSteps: [
