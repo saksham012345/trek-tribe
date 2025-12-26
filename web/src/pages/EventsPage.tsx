@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
 import '../styles/Events.css';
 
@@ -25,7 +25,7 @@ const EVENT_TYPES = ['trip', 'meetup', 'workshop', 'webinar', 'other'];
 const EVENT_STATUSES = ['upcoming', 'ongoing', 'completed', 'cancelled'];
 
 export const EventsPage: React.FC = () => {
-  const { token, user } = useAuth();
+  const { user } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -51,7 +51,7 @@ export const EventsPage: React.FC = () => {
 
   useEffect(() => {
     fetchEvents();
-  }, [page, selectedType, selectedStatus, token]);
+  }, [page, selectedType, selectedStatus]);
 
   const fetchEvents = async () => {
     try {
@@ -63,9 +63,7 @@ export const EventsPage: React.FC = () => {
       });
       if (selectedType) params.append('eventType', selectedType);
 
-      const response = await axios.get(`/api/events?${params}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      });
+      const response = await api.get(`/api/events?${params}`);
 
       setEvents(response.data.events);
       setTotalPages(response.data.pagination.totalPages);
@@ -79,20 +77,20 @@ export const EventsPage: React.FC = () => {
 
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
+    const token = localStorage.getItem('token');
     if (!token) {
       setError('Please log in to create an event');
       return;
     }
 
     try {
-      await axios.post(
+      await api.post(
         '/api/events',
         {
           ...formData,
           capacity: formData.capacity ? parseInt(formData.capacity) : undefined,
           price: formData.price ? parseFloat(formData.price) : undefined
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
+        }
       );
 
       setSuccessMessage('✅ Event created successfully! +30 reputation points');
@@ -107,16 +105,16 @@ export const EventsPage: React.FC = () => {
   };
 
   const handleRsvp = async (eventId: string) => {
+    const token = localStorage.getItem('token');
     if (!token) {
       setError('Please log in to RSVP');
       return;
     }
 
     try {
-      await axios.post(
+      await api.post(
         `/api/events/${eventId}/rsvp`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
+        {}
       );
 
       setSuccessMessage('✅ RSVP confirmed! +10 reputation points');
@@ -130,13 +128,13 @@ export const EventsPage: React.FC = () => {
   };
 
   const handleCancelRsvp = async (eventId: string) => {
+    const token = localStorage.getItem('token');
     if (!token) return;
 
     try {
-      await axios.post(
+      await api.post(
         `/api/events/${eventId}/cancel-rsvp`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
+        {}
       );
 
       const newRsvps = new Set(userRsvps);
@@ -189,7 +187,7 @@ export const EventsPage: React.FC = () => {
           <h1>📅 Events & Calendar</h1>
           <p>Discover and join upcoming trips, meetups, and workshops</p>
         </div>
-        {token && user?.role === 'organizer' && (
+        {localStorage.getItem('token') && user?.role === 'organizer' && (
           <button
             className="btn-create-event"
             onClick={() => setShowCreateForm(!showCreateForm)}
@@ -429,7 +427,7 @@ export const EventsPage: React.FC = () => {
                 </div>
 
                 <div className="event-actions">
-                  {event.status === 'upcoming' && token ? (
+                  {event.status === 'upcoming' && localStorage.getItem('token') ? (
                     <>
                       {isUserRsvped(event._id) ? (
                         <>
