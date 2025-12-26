@@ -63,12 +63,20 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
               🤖 AI Features
             </Link>
             {user?.role === 'organizer' && (
-              <Link 
-                to="/create-trip" 
-                className="text-forest-700 hover:text-nature-600 hover:bg-forest-50 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2"
-              >
-                ➕ Create Adventure
-              </Link>
+              <>
+                <Link 
+                  to="/create-trip" 
+                  className="text-forest-700 hover:text-nature-600 hover:bg-forest-50 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2"
+                >
+                  ➕ Create Adventure
+                </Link>
+                <Link 
+                  to="/crm" 
+                  className="text-blue-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2 border border-blue-200"
+                >
+                  📊 CRM Dashboard
+                </Link>
+              </>
             )}
             {user?.role === 'admin' && (
               <Link 
@@ -188,13 +196,22 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
               
               {/* Role-based links */}
               {user?.role === 'organizer' && (
-                <Link 
-                  to="/create-trip" 
-                  onClick={closeMobileMenu}
-                  className="block text-forest-700 hover:text-nature-600 hover:bg-forest-50 px-4 py-3 rounded-xl text-base font-medium transition-all duration-300"
-                >
-                  ➕ Create Adventure
-                </Link>
+                <>
+                  <Link 
+                    to="/create-trip" 
+                    onClick={closeMobileMenu}
+                    className="block text-forest-700 hover:text-nature-600 hover:bg-forest-50 px-4 py-3 rounded-xl text-base font-medium transition-all duration-300"
+                  >
+                    ➕ Create Adventure
+                  </Link>
+                  <Link 
+                    to="/crm" 
+                    onClick={closeMobileMenu}
+                    className="block text-blue-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-3 rounded-xl text-base font-medium transition-all duration-300 border border-blue-200"
+                  >
+                    📊 CRM Dashboard
+                  </Link>
+                </>
               )}
               {user?.role === 'admin' && (
                 <Link 

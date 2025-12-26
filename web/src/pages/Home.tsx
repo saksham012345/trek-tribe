@@ -605,6 +605,173 @@ const Home: React.FC<HomeProps> = ({ user: userProp }) => {
         </div>
       </section>
 
+      {/* CRM Preview Section for Organizers */}
+      {user && user.role === 'organizer' && (
+        <section className="py-20 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-bold mb-4 text-forest-900">
+                Manage Your Business with 
+                <span className="text-blue-600"> Professional CRM</span>
+              </h2>
+              <p className="text-xl text-forest-700 max-w-3xl mx-auto">
+                {(user as any)?.isPremium ? 
+                  'Unlock the full power of CRM tools to manage leads, track conversions, and grow your tour business.' :
+                  'Upgrade to Premium and get exclusive CRM tools to manage leads and grow your tour business.'}
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-12 items-center">
+              {/* CRM Features */}
+              <div className="space-y-6">
+                <div className="flex gap-4 items-start">
+                  <div className="text-3xl">📊</div>
+                  <div>
+                    <h3 className="text-xl font-bold text-forest-900 mb-2">Lead Management</h3>
+                    <p className="text-forest-700">{(user as any)?.isPremium ? 'Capture and manage leads from travelers interested in your trips' : 'See how premium members capture and track all their potential customers'}</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 items-start">
+                  <div className="text-3xl">📈</div>
+                  <div>
+                    <h3 className="text-xl font-bold text-forest-900 mb-2">Analytics & Insights</h3>
+                    <p className="text-forest-700">{(user as any)?.isPremium ? 'Track conversion rates and identify your best performing trips' : 'Premium members get detailed analytics on their trip performance'}</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 items-start">
+                  <div className="text-3xl">🎯</div>
+                  <div>
+                    <h3 className="text-xl font-bold text-forest-900 mb-2">Conversion Tracking</h3>
+                    <p className="text-forest-700">{(user as any)?.isPremium ? 'Monitor lead statuses from new to qualified customers' : 'See how premium members track their sales pipeline'}</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 items-start">
+                  <div className="text-3xl">📧</div>
+                  <div>
+                    <h3 className="text-xl font-bold text-forest-900 mb-2">Email Marketing</h3>
+                    <p className="text-forest-700">{(user as any)?.isPremium ? 'Send targeted campaigns to your leads and followers' : 'Premium members can email their entire customer base'}</p>
+                  </div>
+                </div>
+
+                {(user as any)?.isPremium ? (
+                  <Link
+                    to="/crm"
+                    className="inline-flex items-center gap-2 mt-8 px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-bold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg"
+                  >
+                    🚀 Go to CRM Dashboard
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </Link>
+                ) : (
+                  <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                    <p className="text-blue-900 font-semibold mb-3">💎 Unlock Premium CRM</p>
+                    <Link
+                      to="/subscriptions"
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-bold transition-all duration-300 transform hover:scale-105"
+                    >
+                      Upgrade to Premium
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </Link>
+                  </div>
+                )}
+              </div>
+
+              {/* CRM Visual Preview */}
+              <div className="relative">
+                <div className="bg-gradient-to-br from-blue-50 to-forest-50 rounded-2xl p-8 shadow-xl border border-blue-200">
+                  {(user as any)?.isPremium ? (
+                    <>
+                      <div className="bg-white rounded-xl p-6 mb-6 border border-blue-100">
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                          <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                            <div className="text-2xl font-bold text-blue-600">24</div>
+                            <div className="text-sm text-forest-700 mt-1">Total Leads</div>
+                          </div>
+                          <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                            <div className="text-2xl font-bold text-green-600">68%</div>
+                            <div className="text-sm text-forest-700 mt-1">Conversion Rate</div>
+                          </div>
+                        </div>
+                        <div className="bg-gradient-to-r from-blue-100 to-green-100 h-24 rounded-lg flex items-center justify-center">
+                          <div className="text-center">
+                            <div className="text-4xl mb-2">📊</div>
+                            <div className="text-sm font-semibold text-forest-700">Your Lead Performance</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between bg-white p-4 rounded-lg border border-gray-200">
+                          <div className="flex items-center gap-3">
+                            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                            <span className="font-semibold text-forest-800">New leads</span>
+                          </div>
+                          <span className="text-lg font-bold text-forest-900">8</span>
+                        </div>
+                        <div className="flex items-center justify-between bg-white p-4 rounded-lg border border-gray-200">
+                          <div className="flex items-center gap-3">
+                            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                            <span className="font-semibold text-forest-800">Interested</span>
+                          </div>
+                          <span className="text-lg font-bold text-forest-900">12</span>
+                        </div>
+                        <div className="flex items-center justify-between bg-white p-4 rounded-lg border border-gray-200">
+                          <div className="flex items-center gap-3">
+                            <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                            <span className="font-semibold text-forest-800">Qualified</span>
+                          </div>
+                          <span className="text-lg font-bold text-forest-900">4</span>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="space-y-6">
+                      <div className="bg-white rounded-lg p-6 border border-blue-200">
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className="text-4xl">🔒</div>
+                          <div>
+                            <h3 className="font-bold text-forest-900">Premium Feature</h3>
+                            <p className="text-sm text-forest-700">Available for Premium members</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 opacity-70">
+                        <div className="bg-white rounded-lg p-4 text-center border border-gray-200">
+                          <div className="text-2xl mb-2">📊</div>
+                          <div className="text-xs font-semibold text-forest-700">Lead Stats</div>
+                        </div>
+                        <div className="bg-white rounded-lg p-4 text-center border border-gray-200">
+                          <div className="text-2xl mb-2">📈</div>
+                          <div className="text-xs font-semibold text-forest-700">Analytics</div>
+                        </div>
+                        <div className="bg-white rounded-lg p-4 text-center border border-gray-200">
+                          <div className="text-2xl mb-2">🎯</div>
+                          <div className="text-xs font-semibold text-forest-700">Conversion</div>
+                        </div>
+                        <div className="bg-white rounded-lg p-4 text-center border border-gray-200">
+                          <div className="text-2xl mb-2">📧</div>
+                          <div className="text-xs font-semibold text-forest-700">Email Tools</div>
+                        </div>
+                      </div>
+                      <div className="bg-blue-100 border border-blue-300 rounded-lg p-4 text-center">
+                        <p className="text-sm text-blue-900 font-semibold">
+                          Upgrade to Premium to see your live CRM dashboard and start managing leads.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Call to Action Section */}
       <section className="py-20 bg-gradient-to-br from-forest-800 to-nature-800 text-white relative overflow-hidden">
         <div className="absolute inset-0">
