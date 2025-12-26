@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeAll, afterAll, afterEach } from '@jest/globals';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import Client from 'socket.io-client';
@@ -16,7 +17,10 @@ beforeAll(async () => {
   const uri = mongoServer.getUri();
   process.env.MONGODB_URI = uri;
   process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret-that-is-long-enough-1234567890';
-  await mongoose.connect(uri);
+  // Only connect if not already connected (setup.ts may have connected us)
+  if (mongoose.connection.readyState === 0) {
+    await mongoose.connect(uri);
+  }
 
   const server = createServer(app as any);
   socketService.initialize(server);

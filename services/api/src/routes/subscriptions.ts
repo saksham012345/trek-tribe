@@ -663,6 +663,8 @@ router.get('/check-eligibility', authenticateJwt, requireRole(['organizer']), as
         eligible: false,
         reason: 'no_subscription',
         message: 'Please subscribe to post trips',
+        canPost: false,
+        remaining: 0
       });
     }
 
@@ -673,6 +675,8 @@ router.get('/check-eligibility', authenticateJwt, requireRole(['organizer']), as
         message: 'Trip limit reached. Upgrade your plan to post more trips.',
         tripsUsed: subscription.tripsUsed,
         tripsAllowed: subscription.tripsPerCycle,
+        canPost: false,
+        remaining: 0
       });
     }
 
@@ -680,6 +684,8 @@ router.get('/check-eligibility', authenticateJwt, requireRole(['organizer']), as
       eligible: true,
       tripsRemaining: subscription.tripsRemaining,
       planName: subscription.plan,
+      canPost: true,
+      remaining: subscription.tripsRemaining ?? (subscription.tripsPerCycle - subscription.tripsUsed)
     });
   } catch (error: any) {
     console.error('❌ Error checking eligibility:', error);

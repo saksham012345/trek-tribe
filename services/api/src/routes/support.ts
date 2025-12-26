@@ -387,7 +387,8 @@ router.post('/tickets/:ticketId/resolve', async (req, res, next) => {
 });
 
 // Create a human agent ticket from AI chat
-router.post('/human-agent/request', ticketCreateValidators, handleValidationErrors, async (req, res) => {
+// For human-agent requests, validate only the 'message' field (subject/description are generated)
+router.post('/human-agent/request', messageValidators, handleValidationErrors, async (req, res) => {
   try {
     const { message, category, priority } = req.body;
     const userId = (req as any).auth.userId;

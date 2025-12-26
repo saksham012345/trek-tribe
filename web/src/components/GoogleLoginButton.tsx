@@ -110,7 +110,8 @@ const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
         text: 'signin_with',
         shape: 'rectangular',
         logo_alignment: 'left',
-        width: '100%',
+        // Google Identity requires a numeric width; avoid '100%'
+        width: 320,
       });
       setGisReady(true);
     }

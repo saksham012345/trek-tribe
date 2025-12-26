@@ -270,10 +270,15 @@ const AIChatWidgetClean: React.FC = () => {
 
       if (shouldCreateTicket) {
         try {
+          const lastUserMessage = (() => {
+            const userMessages = messages.filter(m => m.senderRole === 'user');
+            return userMessages.length ? userMessages[userMessages.length - 1].message : undefined;
+          })();
+
           const subject = (data as any).actions?.ticket_summary || 
                          (isSensitive ? `Sensitive inquiry: ${text.substring(0, 80)}...` : 
                           text.length > 100 ? text.slice(0, 100) + '...' : text);
-          const description = `User asked: ${text}\n\nReason: ${
+          const description = `User asked: ${lastUserMessage || text}\n\nReason: ${
             requiresHuman ? 'Low AI confidence' : 
             isSensitive ? 'Sensitive topic (refund/cancellation/complaint)' : 
             'AI suggested human assistance'
@@ -447,11 +452,17 @@ const AIChatWidgetClean: React.FC = () => {
 
     try {
       setIsLoading(true);
+
+      const lastUserMessage = (() => {
+        const userMessages = messages.filter(m => m.senderRole === 'user');
+        return userMessages.length ? userMessages[userMessages.length - 1].message : undefined;
+      })();
+      const description = inputMessage || lastUserMessage || 'User requested to speak with a human agent';
       
       // Create support ticket for human agent
       const resp = await api.post('/api/support/human-agent/request', {
         subject: 'Chat Support Request - Human Agent Needed',
-        description: inputMessage || 'User requested to speak with a human agent',
+        description,
         category: 'chat_request',
         priority: 'medium'
       });

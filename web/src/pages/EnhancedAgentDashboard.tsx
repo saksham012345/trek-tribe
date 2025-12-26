@@ -251,8 +251,9 @@ const EnhancedAgentDashboard: React.FC<AgentDashboardProps> = ({ user }) => {
     const matchesSearch = searchQuery === '' || 
       trip.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       trip.destination.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesCategory = categoryFilter === 'all' || trip.categories.includes(categoryFilter);
+
+    const categories = Array.isArray(trip.categories) ? trip.categories : [];
+    const matchesCategory = categoryFilter === 'all' || categories.includes(categoryFilter);
     const matchesPrice = trip.price >= priceRange.min && trip.price <= priceRange.max;
     
     return matchesSearch && matchesCategory && matchesPrice;

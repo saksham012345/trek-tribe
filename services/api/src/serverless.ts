@@ -8,6 +8,7 @@ import tripRoutes from './routes/trips';
 import reviewRoutes from './routes/reviews';
 import wishlistRoutes from './routes/wishlist';
 import fileRoutes from './routes/files';
+import webhookRoutes from './routes/webhooks';
 
 const app = express();
 import { logger } from './utils/logger';
@@ -50,6 +51,11 @@ const mongoUri = process.env.MONGODB_URI || 'mongodb+srv://your-connection-strin
 let cachedConnection: typeof mongoose | null = null;
 
 const connectToDatabase = async (): Promise<typeof mongoose> => {
+  // In test environment, reuse existing connection to the in-memory server
+  if (process.env.NODE_ENV === 'test' && mongoose.connection.readyState === 1) {
+    return mongoose;
+  }
+
   if (cachedConnection && mongoose.connection.readyState === 1) {
     console.log('Using cached database connection');
     return cachedConnection;
@@ -75,8 +81,10 @@ const connectToDatabase = async (): Promise<typeof mongoose> => {
   }
 };
 
-// Initialize database connection
-connectToDatabase().catch(console.error);
+// Initialize database connection (skip auto-connect in test to avoid conflicting URIs)
+if (process.env.NODE_ENV !== 'test') {
+  connectToDatabase().catch(console.error);
+}
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -84,6 +92,7 @@ app.use('/api/trips', tripRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/files', fileRoutes);
+app.use('/api/webhooks', webhookRoutes);
 
 // Legacy routes (without /api prefix for backward compatibility)
 app.use('/auth', authRoutes);
@@ -91,6 +100,7 @@ app.use('/trips', tripRoutes);
 app.use('/reviews', reviewRoutes);
 app.use('/wishlist', wishlistRoutes);
 app.use('/files', fileRoutes);
+app.use('/webhooks', webhookRoutes);
 
 // Health check endpoint with detailed info
 app.get('/health', asyncErrorHandler(async (_req: Request, res: Response) => {

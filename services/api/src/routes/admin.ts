@@ -806,4 +806,222 @@ router.post('/cleanup', async (req, res) => {
   }
 });
 
+// ============================================
+// ORGANIZER VERIFICATION SYSTEM
+// ============================================
+
+/**
+ * GET /api/admin/organizer-verifications/pending
+ * Get all pending organizer verification requests
+ */
+router.get('/organizer-verifications/pending', async (req, res) => {
+  try {
+    const pendingVerifications = await User.find({
+      role: 'organizer',
+      organizerVerificationStatus: 'pending'
+    })
+      .select('name email phone organizerProfile.bio organizerProfile.experience organizerProfile.specialties organizerVerificationSubmittedAt')
+      .sort({ organizerVerificationSubmittedAt: -1 });
+
+    res.json({
+      success: true,
+      count: pendingVerifications.length,
+      verifications: pendingVerifications
+    });
+  } catch (error: any) {
+    logger.error('Error fetching pending verifications', { error: error.message });
+    res.status(500).json({ error: 'Failed to fetch pending verifications' });
+  }
+});
+
+/**
+ * POST /api/admin/organizer-verifications/:userId/approve
+ * Approve an organizer verification request
+ */
+router.post('/organizer-verifications/:userId/approve', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const adminId = (req as any).auth.userId;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.role !== 'organizer') {
+      return res.status(400).json({ error: 'User is not an organizer' });
+    }
+
+    if (user.organizerVerificationStatus !== 'pending') {
+      return res.status(400).json({ error: 'Verification is not pending' });
+    }
+
+    user.organizerVerificationStatus = 'approved';
+    user.organizerVerificationApprovedAt = new Date();
+    user.organizerVerificationReviewedBy = adminId;
+    user.isVerified = true;
+
+    // Award reputation points for becoming verified
+    if (!user.reputation) {
+      user.reputation = {
+        points: 0,
+        level: 1,
+        levelName: 'Explorer',
+        badges: [],
+        achievements: []
+      };
+    }
+    user.reputation.points += 500; // Bonus for verification
+    user.reputation.badges.push('verified_organizer');
+    user.reputation.achievements.push({
+      type: 'verification_approved',
+      earnedAt: new Date(),
+      description: 'Successfully verified as an organizer'
+    });
+
+    await user.save();
+
+    // Send email notification
+    try {
+      await emailService.sendEmail({
+        to: user.email,
+        subject: 'Congratulations! Your Organizer Account is Verified',
+        html: `
+          <h1>Welcome to Trek Tribe Verified Organizers!</h1>
+          <p>Dear ${user.name},</p>
+          <p>Great news! Your organizer account has been approved and verified by our admin team.</p>
+          <p>You can now:</p>
+          <ul>
+            <li>Create and manage trips</li>
+            <li>Build your organizer profile</li>
+            <li>Access premium organizer features</li>
+            <li>Gain credibility with the verified badge</li>
+          </ul>
+          <p>You've earned <strong>500 reputation points</strong> for becoming verified!</p>
+          <p>Start your journey by creating your first trip!</p>
+          <p>Best regards,<br>Trek Tribe Team</p>
+        `
+      });
+    } catch (emailError) {
+      logger.error('Failed to send verification approval email', { error: emailError });
+    }
+
+    logger.info('Organizer verification approved', { userId, adminId });
+
+    res.json({
+      success: true,
+      message: 'Organizer verified successfully',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        verificationStatus: user.organizerVerificationStatus
+      }
+    });
+  } catch (error: any) {
+    logger.error('Error approving organizer verification', { error: error.message });
+    res.status(500).json({ error: 'Failed to approve verification' });
+  }
+});
+
+/**
+ * POST /api/admin/organizer-verifications/:userId/reject
+ * Reject an organizer verification request
+ */
+router.post('/organizer-verifications/:userId/reject', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { reason } = req.body;
+    const adminId = (req as any).auth.userId;
+
+    if (!reason) {
+      return res.status(400).json({ error: 'Rejection reason is required' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.role !== 'organizer') {
+      return res.status(400).json({ error: 'User is not an organizer' });
+    }
+
+    if (user.organizerVerificationStatus !== 'pending') {
+      return res.status(400).json({ error: 'Verification is not pending' });
+    }
+
+    user.organizerVerificationStatus = 'rejected';
+    user.organizerVerificationRejectedAt = new Date();
+    user.organizerVerificationRejectionReason = reason;
+    user.organizerVerificationReviewedBy = adminId;
+
+    await user.save();
+
+    // Send email notification with rejection reason
+    try {
+      await emailService.sendEmail({
+        to: user.email,
+        subject: 'Trek Tribe Organizer Verification Update',
+        html: `
+          <h1>Organizer Verification Status Update</h1>
+          <p>Dear ${user.name},</p>
+          <p>Thank you for your interest in becoming a verified organizer on Trek Tribe.</p>
+          <p>Unfortunately, we are unable to approve your verification request at this time.</p>
+          <p><strong>Reason:</strong> ${reason}</p>
+          <p>If you believe this was an error or would like to resubmit with additional information, please contact our support team.</p>
+          <p>Best regards,<br>Trek Tribe Admin Team</p>
+        `
+      });
+    } catch (emailError) {
+      logger.error('Failed to send verification rejection email', { error: emailError });
+    }
+
+    logger.info('Organizer verification rejected', { userId, adminId, reason });
+
+    res.json({
+      success: true,
+      message: 'Organizer verification rejected',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        verificationStatus: user.organizerVerificationStatus,
+        rejectionReason: reason
+      }
+    });
+  } catch (error: any) {
+    logger.error('Error rejecting organizer verification', { error: error.message });
+    res.status(500).json({ error: 'Failed to reject verification' });
+  }
+});
+
+/**
+ * GET /api/admin/organizer-verifications/all
+ * Get all organizer verification requests (pending, approved, rejected)
+ */
+router.get('/organizer-verifications/all', async (req, res) => {
+  try {
+    const { status } = req.query;
+    
+    const filter: any = { role: 'organizer' };
+    if (status && ['pending', 'approved', 'rejected'].includes(status as string)) {
+      filter.organizerVerificationStatus = status;
+    }
+
+    const verifications = await User.find(filter)
+      .select('name email phone organizerProfile organizerVerificationStatus organizerVerificationSubmittedAt organizerVerificationApprovedAt organizerVerificationRejectedAt organizerVerificationRejectionReason')
+      .sort({ organizerVerificationSubmittedAt: -1 });
+
+    res.json({
+      success: true,
+      count: verifications.length,
+      verifications
+    });
+  } catch (error: any) {
+    logger.error('Error fetching organizer verifications', { error: error.message });
+    res.status(500).json({ error: 'Failed to fetch verifications' });
+  }
+});
+
 export default router;

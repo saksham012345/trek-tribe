@@ -31,12 +31,15 @@
     "demo:tickets:unsolved": "ts-node seed-unsolved-tickets.ts",
     "demo:organizer:premium": "ts-node create-premium-organizer.ts",
     "demo:organizer:crm": "ts-node create-crm-organizer.ts",
-    "test": "jest --config jest.config.js",
+    "test": "jest --config jest.config.js --runInBand",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:verbose": "jest --verbose",
     "train:ai": "ts-node src/scripts/trainAIWithMovieData.ts",
-    "train:ai:prod": "node dist/scripts/trainAIWithMovieData.js"
+    "train:ai:prod": "node dist/scripts/trainAIWithMovieData.js",
+    "local:create-ticket": "ts-node src/scripts/localCreateTicket.ts",
+    "local:create-ticket:direct": "ts-node src/scripts/createTicketDirect.ts",
+    "test:chat-widget-ticket": "ts-node src/scripts/testChatWidgetTicket.ts"
   },
   "dependencies": {
     "@sentry/node": "^7.58.0",

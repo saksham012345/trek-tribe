@@ -248,10 +248,12 @@ const EnhancedProfilePage: React.FC = () => {
       const allTrips = response.data;
       
       // Filter for completed trips where user participated
-      const completedTrips = (allTrips as any[]).filter((trip: any) =>
-        trip.status === 'completed' && 
-        (trip.organizerId === currentUser?.id || trip.participants.includes(currentUser?.id))
-      );
+      const completedTrips = (allTrips as any[]).filter((trip: any) => {
+        const participants = Array.isArray(trip.participants) ? trip.participants : [];
+
+        return trip.status === 'completed' && 
+          (trip.organizerId === currentUser?.id || participants.includes(currentUser?.id));
+      });
       
       setPastTrips(completedTrips);
     } catch (error) {

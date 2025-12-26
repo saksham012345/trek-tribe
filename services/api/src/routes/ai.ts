@@ -8,6 +8,7 @@ import { Review } from '../models/Review';
 import { aiConfig, getScaledScore, isHighConfidence } from '../config/ai';
 import { aiCacheService } from '../services/aiCacheService';
 import { aiMetricsService, aiMetricsMiddleware } from '../services/aiMetricsService';
+import aiConversationAnalyticsService from '../services/aiConversationAnalytics';
 import { aiConversationService } from '../services/aiConversationService';
 import OpenAI from 'openai';
 import { answerGeneralQuery } from '../services/generalKnowledge';
@@ -1793,6 +1794,135 @@ router.post('/conversations/cleanup', async (req: Request, res: Response) => {
 
 // RAG System Proxy Endpoints
 // axios already imported at top of file
+
+/**
+ * GET /api/ai/analytics/insights
+ * Get comprehensive conversation insights
+ */
+router.get('/analytics/insights', async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).auth?.userId;
+    const { days = 30 } = req.query;
+    
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - parseInt(days as string));
+
+    const insights = await aiConversationAnalyticsService.getConversationInsights(
+      startDate,
+      endDate,
+      userId
+    );
+
+    res.json({
+      success: true,
+      insights,
+      period: `${days} days`,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('Error getting conversation insights:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get conversation insights',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/ai/analytics/engagement/:userId
+ * Get user engagement metrics
+ */
+router.get('/analytics/engagement/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const currentUserId = (req as any).auth?.userId;
+
+    // Users can only view their own metrics unless admin
+    if (userId !== currentUserId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Unauthorized to view other user metrics'
+      });
+    }
+
+    const metrics = await aiConversationAnalyticsService.getUserEngagementMetrics(userId);
+
+    res.json({
+      success: true,
+      metrics,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('Error getting engagement metrics:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get engagement metrics',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/ai/analytics/performance
+ * Get AI performance metrics (admin only)
+ */
+router.get('/analytics/performance', async (req: Request, res: Response) => {
+  try {
+    const { days = 30 } = req.query;
+    
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - parseInt(days as string));
+
+    const performance = await aiConversationAnalyticsService.getPerformanceMetrics(
+      startDate,
+      endDate
+    );
+
+    res.json({
+      success: true,
+      performance,
+      period: `${days} days`,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('Error getting performance metrics:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get performance metrics',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/ai/analytics/trends
+ * Get conversation trend analysis
+ */
+router.get('/analytics/trends', async (req: Request, res: Response) => {
+  try {
+    const { days = 30 } = req.query;
+    
+    const trends = await aiConversationAnalyticsService.getTrendAnalysis(
+      parseInt(days as string)
+    );
+
+    res.json({
+      success: true,
+      trends,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('Error getting trend analysis:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get trend analysis',
+      message: error.message
+    });
+  }
+});
 
 /**
  * POST /api/ai/rag/query

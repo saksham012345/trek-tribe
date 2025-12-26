@@ -83,6 +83,7 @@ export interface TripDocument extends Document {
   organizerId: Types.ObjectId;
   title: string;
   description: string;
+  difficulty?: string;
   categories: string[];
   destination: string;
   location?: { type: 'Point'; coordinates: [number, number] };
@@ -211,6 +212,7 @@ const tripSchema = new Schema(
     organizerId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     title: { type: String, required: true, index: true },
     description: { type: String, required: true },
+    difficulty: { type: String, enum: ['easy', 'moderate', 'hard'], default: 'moderate', index: true },
     categories: [{ type: String, index: true }],
     destination: { type: String, required: true, index: true },
     location: {

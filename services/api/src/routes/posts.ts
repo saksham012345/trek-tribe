@@ -252,6 +252,108 @@ router.get('/:postId/comments', async (req, res) => {
   }
 });
 
+// Like/Unlike a comment
+router.post('/comments/:commentId/like', authenticateJwt, async (req, res) => {
+  try {
+    const userId = (req as any).auth.userId;
+    const commentId = req.params.commentId;
+
+    const comment = await Comment.findById(commentId);
+    if (!comment) {
+      return res.status(404).json({ error: 'Comment not found' });
+    }
+
+    const isLiked = comment.likes.includes(userId);
+
+    if (isLiked) {
+      // Unlike
+      comment.likes = comment.likes.filter(id => id.toString() !== userId);
+    } else {
+      // Like
+      comment.likes.push(userId);
+    }
+
+    await comment.save();
+
+    res.json({
+      message: isLiked ? 'Comment unliked' : 'Comment liked',
+      likesCount: comment.likes.length,
+      isLiked: !isLiked
+    });
+  } catch (error: any) {
+    logger.error('Error toggling comment like', { error: error.message });
+    res.status(500).json({ error: 'Failed to toggle comment like' });
+  }
+});
+
+// Get social engagement metrics
+router.get('/metrics/engagement', authenticateJwt, async (req, res) => {
+  try {
+    const userId = (req as any).auth.userId;
+    const days = parseInt(req.query.days as string) || 30;
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    // Get user's posts
+    const userPosts = await Post.find({ 
+      authorId: userId,
+      createdAt: { $gte: startDate }
+    });
+
+    const postIds = userPosts.map(p => p._id);
+
+    // Calculate metrics
+    const totalPosts = userPosts.length;
+    const totalLikes = userPosts.reduce((sum, post) => sum + post.likes.length, 0);
+    const totalComments = await Comment.countDocuments({ postId: { $in: postIds } });
+    const totalViews = userPosts.reduce((sum, post) => sum + ((post as any).views || 0), 0);
+
+    // Engagement by post type
+    const engagementByType: any = {};
+    for (const post of userPosts) {
+      if (!engagementByType[post.type]) {
+        engagementByType[post.type] = { posts: 0, likes: 0, comments: 0 };
+      }
+      engagementByType[post.type].posts++;
+      engagementByType[post.type].likes += post.likes.length;
+      const commentCount = await Comment.countDocuments({ postId: post._id });
+      engagementByType[post.type].comments += commentCount;
+    }
+
+    // Top performing posts
+    const topPosts = userPosts
+      .sort((a, b) => (b.likes.length + b.comments.length) - (a.likes.length + a.comments.length))
+      .slice(0, 5)
+      .map(post => ({
+        id: post._id,
+        title: post.title,
+        type: post.type,
+        likes: post.likes.length,
+        comments: post.comments.length,
+        engagement: post.likes.length + post.comments.length
+      }));
+
+    res.json({
+      period: `${days} days`,
+      summary: {
+        totalPosts,
+        totalLikes,
+        totalComments,
+        totalViews,
+        averageLikesPerPost: totalPosts > 0 ? (totalLikes / totalPosts).toFixed(2) : 0,
+        averageCommentsPerPost: totalPosts > 0 ? (totalComments / totalPosts).toFixed(2) : 0,
+        totalEngagement: totalLikes + totalComments
+      },
+      engagementByType,
+      topPosts
+    });
+  } catch (error: any) {
+    logger.error('Error fetching engagement metrics', { error: error.message });
+    res.status(500).json({ error: 'Failed to fetch engagement metrics' });
+  }
+});
+
 // Delete a post (only by author)
 router.delete('/:postId', authenticateJwt, async (req, res) => {
   try {
@@ -277,6 +379,70 @@ router.delete('/:postId', authenticateJwt, async (req, res) => {
   } catch (error: any) {
     logger.error('Error deleting post', { error: error.message });
     res.status(500).json({ error: 'Failed to delete post' });
+  }
+});
+
+// Get posts from followed users (Follow Feed)
+router.get('/feed/following', authenticateJwt, async (req, res) => {
+  try {
+    const userId = (req as any).auth.userId;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const skip = (page - 1) * limit;
+
+    // Get user's following list
+    const user = await User.findById(userId).select('following');
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const followingIds = user.following || [];
+
+    if (followingIds.length === 0) {
+      return res.json({
+        posts: [],
+        pagination: {
+          currentPage: page,
+          totalPages: 0,
+          totalPosts: 0,
+          hasNext: false,
+          hasPrev: false
+        },
+        message: 'You are not following anyone yet'
+      });
+    }
+
+    // Get posts from followed users
+    const posts = await Post.find({
+      authorId: { $in: followingIds },
+      isPublic: true
+    })
+      .populate('authorId', 'name profilePhoto role')
+      .populate('likes', 'name')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const totalPosts = await Post.countDocuments({
+      authorId: { $in: followingIds },
+      isPublic: true
+    });
+
+    logger.info('Follow feed fetched', { userId, postsCount: posts.length });
+
+    res.json({
+      posts,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalPosts / limit),
+        totalPosts,
+        hasNext: page < Math.ceil(totalPosts / limit),
+        hasPrev: page > 1
+      }
+    });
+  } catch (error: any) {
+    logger.error('Error fetching follow feed', { error: error.message });
+    res.status(500).json({ error: 'Failed to fetch follow feed' });
   }
 });
 

@@ -117,6 +117,39 @@ export interface UserDocument extends Document {
     followingCount: number;
     postsCount: number;
   };
+  followers?: mongoose.Types.ObjectId[];
+  following?: mongoose.Types.ObjectId[];
+  
+  // Organizer Verification (Admin Approval Required)
+  organizerVerificationStatus?: 'pending' | 'approved' | 'rejected';
+  organizerVerificationSubmittedAt?: Date;
+  organizerVerificationApprovedAt?: Date;
+  organizerVerificationRejectedAt?: Date;
+  organizerVerificationRejectionReason?: string;
+  organizerVerificationReviewedBy?: mongoose.Types.ObjectId;
+  
+  // User Reputation & Level System
+  reputation?: {
+    points: number;
+    level: number;
+    levelName: string;
+    badges: string[];
+    achievements: Array<{
+      type: string;
+      earnedAt: Date;
+      description: string;
+    }>;
+  };
+  
+  // Behavioral Tracking for Recommendations
+  activityLog?: Array<{
+    action: string;
+    targetType: string;
+    targetId: mongoose.Types.ObjectId;
+    timestamp: Date;
+    metadata?: any;
+  }>;
+  
   isVerified?: boolean;
   emailVerified?: boolean;
   emailVerificationOtp?: string;
@@ -381,7 +414,49 @@ const userSchema = new Schema(
       },
       required: false
     },
-    lastActive: { type: Date, default: Date.now },
+    // Social graph relations
+    followers: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+    following: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+    
+    // Organizer Verification Fields
+    organizerVerificationStatus: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: undefined
+    },
+    organizerVerificationSubmittedAt: { type: Date },
+    organizerVerificationApprovedAt: { type: Date },
+    organizerVerificationRejectedAt: { type: Date },
+    organizerVerificationRejectionReason: { type: String },
+    organizerVerificationReviewedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    
+    // Reputation & Level System
+    reputation: {
+      type: {
+        points: { type: Number, default: 0, min: 0 },
+        level: { type: Number, default: 1, min: 1 },
+        levelName: { type: String, default: 'Explorer' },
+        badges: [{ type: String }],
+        achievements: [{
+          type: {
+            type: { type: String, required: true },
+            earnedAt: { type: Date, default: Date.now },
+            description: { type: String, required: true }
+          }
+        }]
+      },
+      required: false
+    },
+    
+    // Activity Log for Recommendations
+    activityLog: [{
+      action: { type: String, required: true },
+      targetType: { type: String, required: true },
+      targetId: { type: Schema.Types.ObjectId, required: true },
+      timestamp: { type: Date, default: Date.now },
+      metadata: { type: Schema.Types.Mixed }
+    }],
+    
     resetPasswordToken: { type: String },
     resetPasswordExpires: { type: Date },
     firstOrganizerLogin: { type: Date }

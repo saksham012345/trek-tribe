@@ -23,6 +23,23 @@ interface Trip {
   endDate: string;
 }
 
+interface Post {
+  _id: string;
+  authorId: {
+    _id: string;
+    name: string;
+    profilePhoto?: string;
+    role: string;
+  };
+  type: 'trip_memory' | 'general_post' | 'link_share' | 'experience';
+  title: string;
+  content: string;
+  images?: string[];
+  likes: any[];
+  comments: any[];
+  createdAt: string;
+}
+
 interface HomeProps {
   user: User | null;
 }
@@ -30,6 +47,7 @@ interface HomeProps {
 const Home: React.FC<HomeProps> = ({ user }) => {
   const { user: currentUser } = useAuth();
   const [featuredTrips, setFeaturedTrips] = useState<Trip[]>([]);
+  const [recentPosts, setRecentPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalTrips: 0,
@@ -53,6 +71,18 @@ const Home: React.FC<HomeProps> = ({ user }) => {
       try {
         setLoading(true);
         const tripsRes = await api.get('/trips?limit=6');
+        
+        // Fetch recent organizer posts for community feed
+        try {
+          const postsRes = await api.get('/api/posts?limit=6');
+          const postsData = postsRes.data;
+          if (postsData && Array.isArray(postsData.posts)) {
+            setRecentPosts(postsData.posts);
+          }
+        } catch (postsError: any) {
+          console.log('Posts endpoint not available or empty');
+          setRecentPosts([]);
+        }
         
         // Try to fetch stats, handle 404 gracefully
         let statsRes;
@@ -615,7 +645,105 @@ const Home: React.FC<HomeProps> = ({ user }) => {
                     <p className="text-forest-600 leading-relaxed">We follow strict Leave No Trace principles and contribute to wildlife conservation efforts. Our presence helps fund protection of endangered species and habitats.</p>
                   </div>
                 </div>
-              </div>
+          Community Posts Feed Section */}
+      {recentPosts.length > 0 && (
+        <section className="py-20 bg-gradient-to-br from-blue-50 to-purple-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-bold text-forest-800 mb-6">
+                Stories from 
+                <span className="text-blue-600"> Our Community</span>
+              </h2>
+              <p className="text-xl text-forest-600 max-w-3xl mx-auto leading-relaxed">
+                Get inspired by fellow adventurers sharing their wilderness experiences and travel stories
+              </p>
+            </div>
+            
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {recentPosts.map((post) => (
+                <Link 
+                  key={post._id} 
+                  to={`/profile/${post.authorId._id}`}
+                  className="group bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2"
+                >
+                  {/* Post Image */}
+                  {post.images && post.images.length > 0 && (
+                    <div className="h-48 overflow-hidden">
+                      <img
+                        src={post.images[0]}
+                        alt={post.title}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Post Content */}
+                  <div className="p-6">
+                    {/* Author Info */}
+                    <div className="flex items-center mb-4">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-forest-400 to-blue-500 flex items-center justify-center mr-3 overflow-hidden">
+                        {post.authorId.profilePhoto ? (
+                          <img src={post.authorId.profilePhoto} alt={post.authorId.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-white text-sm">
+                            {post.authorId.role === 'organizer' ? '🗺️' : '🎒'}
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-forest-800">{post.authorId.name}</p>
+                        <p className="text-xs text-forest-500 capitalize">{post.authorId.role}</p>
+                      </div>
+                    </div>
+                    
+                    {/* Post Title & Type */}
+                    <div className="mb-2">
+                      <span className="inline-block px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-700 mb-2">
+                        {post.type.replace('_', ' ').toUpperCase()}
+                      </span>
+                      <h3 className="text-xl font-bold text-forest-800 mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
+                        {post.title}
+                      </h3>
+                    </div>
+                    
+                    {/* Post Content */}
+                    <p className="text-forest-600 text-sm mb-4 line-clamp-3">
+                      {post.content}
+                    </p>
+                    
+                    {/* Engagement Stats */}
+                    <div className="flex items-center gap-4 text-sm text-forest-500 pt-4 border-t border-forest-100">
+                      <span className="flex items-center gap-1">
+                        ❤️ {post.likes.length}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        💬 {post.comments.length}
+                      </span>
+                      <span className="ml-auto text-xs">
+                        {new Date(post.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+            
+            {/* View All Posts Link */}
+            <div className="text-center mt-12">
+              <Link
+                to="/search"
+                className="inline-block px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+              >
+                <span className="flex items-center gap-2">
+                  🌟 Explore More Stories
+                </span>
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/*     </div>
             </div>
             
             <div className="text-center">
