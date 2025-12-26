@@ -101,6 +101,40 @@ router.post('/organizer/onboard', authenticateJwt, requireRole(['organizer', 'ad
 
     logger.info(`Submerchant account created: ${accountResult.accountId}`);
 
+    // Initialize 60-day trial after route creation (not on first login)
+    const User = require('../models/User').default;
+    const organizer = await User.findById(organizerId);
+    
+    if (organizer && organizer.role === 'organizer') {
+      // Initialize auto-pay setup for organizer on route creation
+      if (!organizer.organizerProfile) {
+        organizer.organizerProfile = {};
+      }
+      
+      // Only initialize if not already set
+      if (!organizer.organizerProfile.autoPay || !organizer.organizerProfile.autoPay.isSetupRequired) {
+        const scheduledPaymentDate = new Date();
+        scheduledPaymentDate.setDate(scheduledPaymentDate.getDate() + 60); // 60 days from route creation
+        
+        organizer.organizerProfile.autoPay = {
+          isSetupRequired: true,
+          isSetupCompleted: false,
+          firstLoginDate: organizer.firstOrganizerLogin || new Date(),
+          routeCreationDate: new Date(),
+          scheduledPaymentDate: scheduledPaymentDate,
+          paymentAmount: 149900, // Default: ₹1499 in paise
+          autoPayEnabled: false
+        };
+        
+        await organizer.save();
+        
+        logger.info('60-day trial started on route creation, auto-pay scheduled', { 
+          userId: organizerId, 
+          scheduledDate: scheduledPaymentDate 
+        });
+      }
+    }
+
     // Return account details
     res.json({
       success: true,
