@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
 import '../styles/Groups.css';
 
@@ -19,7 +19,7 @@ interface Group {
 const CATEGORIES = ['trekking', 'camping', 'backpacking', 'mountaineering', 'photography', 'wildlife', 'cultural', 'adventure', 'other'];
 
 export const GroupsPage: React.FC = () => {
-  const { token, user } = useAuth();
+  const { user } = useAuth();
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -39,7 +39,7 @@ export const GroupsPage: React.FC = () => {
 
   useEffect(() => {
     fetchGroups();
-  }, [page, selectedCategory, token]);
+  }, [page, selectedCategory]);
 
   const fetchGroups = async () => {
     try {
@@ -50,9 +50,7 @@ export const GroupsPage: React.FC = () => {
       });
       if (selectedCategory) params.append('category', selectedCategory);
 
-      const response = await axios.get(`/api/groups?${params}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      });
+      const response = await api.get(`/api/groups?${params}`);
 
       setGroups(response.data.groups);
       setTotalPages(response.data.pagination.totalPages);
@@ -66,19 +64,19 @@ export const GroupsPage: React.FC = () => {
 
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
+    const token = localStorage.getItem('token');
     if (!token) {
       setError('Please log in to create a group');
       return;
     }
 
     try {
-      const response = await axios.post(
+      const response = await api.post(
         '/api/groups',
         {
           ...formData,
           tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean)
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
+        }
       );
 
       setSuccessMessage('✅ Group created successfully! +50 reputation points');
@@ -93,16 +91,16 @@ export const GroupsPage: React.FC = () => {
   };
 
   const handleJoinGroup = async (groupId: string) => {
+    const token = localStorage.getItem('token');
     if (!token) {
       setError('Please log in to join a group');
       return;
     }
 
     try {
-      await axios.post(
+      await api.post(
         `/api/groups/${groupId}/join`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
+        {}
       );
 
       setSuccessMessage('✅ Joined group! +10 reputation points');
@@ -115,13 +113,13 @@ export const GroupsPage: React.FC = () => {
   };
 
   const handleLeaveGroup = async (groupId: string) => {
+    const token = localStorage.getItem('token');
     if (!token) return;
 
     try {
-      await axios.post(
+      await api.post(
         `/api/groups/${groupId}/leave`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
+        {}
       );
 
       const newGroups = new Set(userGroups);
@@ -144,7 +142,7 @@ export const GroupsPage: React.FC = () => {
           <h1>👥 Communities & Groups</h1>
           <p>Join interest-based communities of travelers and organizers</p>
         </div>
-        {token && (
+        {localStorage.getItem('token') && (
           <button
             className="btn-create-group"
             onClick={() => setShowCreateForm(!showCreateForm)}
@@ -286,7 +284,7 @@ export const GroupsPage: React.FC = () => {
                       <span>👥 {group.memberCount} members</span>
                     </div>
 
-                    {token ? (
+                    {localStorage.getItem('token') ? (
                       <button
                         className={`btn-join ${isMember(group._id) ? 'joined' : ''}`}
                         onClick={() =>

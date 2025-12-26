@@ -150,11 +150,21 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
       try {
         const accessRes = await api.get('/api/subscriptions/verify-crm-access');
         const hasCRMFromPlan = accessRes.data?.hasCRMAccess || false;
-        const hasCRMFromProfile = user?.organizerProfile?.crmEnabled || user?.organizerProfile?.crmAccess || false;
+        const hasCRMFromProfile = Boolean(
+          user?.organizerProfile && (
+            ('crmEnabled' in (user.organizerProfile as any) && (user.organizerProfile as any).crmEnabled) ||
+            ('crmAccess' in (user.organizerProfile as any) && (user.organizerProfile as any).crmAccess)
+          )
+        );
         setHasCRMAccess(hasCRMFromPlan || hasCRMFromProfile);
       } catch (accessErr: any) {
         // Fall back to checking organizer profile
-        const hasCRMFromProfile = user?.organizerProfile?.crmEnabled || user?.organizerProfile?.crmAccess || false;
+        const hasCRMFromProfile = Boolean(
+          user?.organizerProfile && (
+            ('crmEnabled' in (user.organizerProfile as any) && (user.organizerProfile as any).crmEnabled) ||
+            ('crmAccess' in (user.organizerProfile as any) && (user.organizerProfile as any).crmAccess)
+          )
+        );
         setHasCRMAccess(hasCRMFromProfile);
       }
     } catch (error: any) {

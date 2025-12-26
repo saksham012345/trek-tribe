@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
 import '../styles/OrganizerVerification.css';
 
@@ -18,7 +18,7 @@ interface OrganizerVerification {
 }
 
 export const OrganizerVerificationDashboard: React.FC = () => {
-  const { token, user } = useAuth();
+  const { user } = useAuth();
   const [verifications, setVerifications] = useState<OrganizerVerification[]>([]);
   const [selectedVerification, setSelectedVerification] = useState<OrganizerVerification | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
@@ -33,7 +33,7 @@ export const OrganizerVerificationDashboard: React.FC = () => {
       return;
     }
     fetchVerifications();
-  }, [token, user, filter]);
+  }, [user, filter]);
 
   const fetchVerifications = async () => {
     try {
@@ -42,9 +42,7 @@ export const OrganizerVerificationDashboard: React.FC = () => {
         ? '/api/admin/organizer-verifications/all'
         : '/api/admin/organizer-verifications/all?status=' + filter;
 
-      const response = await axios.get(endpoint, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get(endpoint);
 
       setVerifications(response.data.verifications || []);
       setError('');
@@ -57,10 +55,9 @@ export const OrganizerVerificationDashboard: React.FC = () => {
 
   const handleApprove = async (userId: string) => {
     try {
-      await axios.post(
+      await api.post(
         `/api/admin/organizer-verifications/${userId}/approve`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
+        {}
       );
 
       setSuccessMessage('Organizer approved successfully! Email notification sent.');
@@ -80,10 +77,9 @@ export const OrganizerVerificationDashboard: React.FC = () => {
     }
 
     try {
-      await axios.post(
+      await api.post(
         `/api/admin/organizer-verifications/${userId}/reject`,
-        { reason: rejectionReason },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { reason: rejectionReason }
       );
 
       setSuccessMessage('Organizer rejected. Email notification sent with reason.');
