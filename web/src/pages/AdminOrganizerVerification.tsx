@@ -109,7 +109,7 @@ const AdminVerificationDashboard: React.FC = () => {
   const fetchVerificationRequests = async () => {
     try {
       setLoading(true);
-      const response = await api.get<VerificationResponse>('/admin/verification-requests', {
+      const response = await api.get('/admin/verification-requests', {
         params: {
           status: statusFilter === 'all' ? undefined : statusFilter,
           page: currentPage,
@@ -117,10 +117,11 @@ const AdminVerificationDashboard: React.FC = () => {
         }
       });
 
-      if (response.data.success) {
-        setRequests(response.data.data);
-        setSummary(response.data.summary);
-        setTotalPages(response.data.pagination.totalPages);
+      const data = response.data as VerificationResponse;
+      if (data.success) {
+        setRequests(data.data);
+        setSummary(data.summary);
+        setTotalPages(data.pagination.totalPages);
       }
     } catch (error: any) {
       console.error('Error fetching verification requests:', error);
