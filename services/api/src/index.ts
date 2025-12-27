@@ -134,18 +134,57 @@ if (process.env.NODE_ENV !== 'test') {
   app.use(apiLimiter);
   console.log('✅ Rate limiting enabled');
 }
-const allowedOrigins = process.env.NODE_ENV === 'production'
-  ? [
-      process.env.FRONTEND_URL,
-      process.env.CORS_ORIGIN,
-      process.env.WEB_URL,
-      process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined,
-      // Add any production domains as environment variables, not hardcoded
-    ].filter(Boolean) as string[]
-  : '*';
+// CORS configuration - must specify exact origins when credentials are enabled
+const getAllowedOrigins = (): string[] => {
+  const origins: string[] = [];
+  
+  // Add environment variable origins
+  if (process.env.FRONTEND_URL) origins.push(process.env.FRONTEND_URL);
+  if (process.env.CORS_ORIGIN) origins.push(process.env.CORS_ORIGIN);
+  if (process.env.WEB_URL) origins.push(process.env.WEB_URL);
+  if (process.env.VERCEL_URL) origins.push(`https://${process.env.VERCEL_URL}`);
+  
+  // In production, always include common production domains
+  if (process.env.NODE_ENV === 'production') {
+    origins.push('https://trektribe.in');
+    origins.push('https://www.trektribe.in');
+  }
+  
+  // In development, allow localhost origins
+  if (process.env.NODE_ENV === 'development') {
+    origins.push('http://localhost:3000');
+    origins.push('http://localhost:3001');
+    origins.push('http://127.0.0.1:3000');
+  }
+  
+  return [...new Set(origins)]; // Remove duplicates
+};
+
 app.use(cors({
-  origin: allowedOrigins as any,
-  credentials: true 
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or Postman)
+    if (!origin) {
+      return callback(null, true);
+    }
+    
+    const allowedOrigins = getAllowedOrigins();
+    
+    // In development, be more permissive
+    if (process.env.NODE_ENV === 'development') {
+      return callback(null, true);
+    }
+    
+    // Check if the origin is in the allowed list
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`CORS blocked origin: ${origin}. Allowed origins: ${allowedOrigins.join(', ')}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-api-key'],
 }));
 // Capture raw body for webhook signature verification (Razorpay requires exact bytes)
 // Cookie parser for httpOnly cookies (security: JWT storage)
