@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../config/api';
 import { User } from '../types';
 import PaymentUpload from './PaymentUpload';
+import IdVerificationUpload from './IdVerificationUpload';
 
 interface PackageOption {
   id: string;
@@ -86,6 +87,31 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
   const [error, setError] = useState('');
   const [bookingResult, setBookingResult] = useState<any>(null);
   const [showPaymentUpload, setShowPaymentUpload] = useState(false);
+  const [showIdVerification, setShowIdVerification] = useState(false);
+  const [idVerificationStatus, setIdVerificationStatus] = useState<string>('');
+
+  useEffect(() => {
+    // Check ID verification status when modal opens
+    const checkIdVerification = async () => {
+      try {
+        const response = await api.get('/id-verification/status');
+        const status = response.data.status || 'not_submitted';
+        setIdVerificationStatus(status);
+        
+        // If ID verification is required and not verified, show upload modal
+        if (status !== 'verified') {
+          setShowIdVerification(true);
+        }
+      } catch (error) {
+        console.log('ID verification check failed, continuing without verification');
+        // Don't block booking if verification check fails
+      }
+    };
+    
+    if (isOpen) {
+      checkIdVerification();
+    }
+  }, [isOpen]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -812,6 +838,36 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
           </form>
         </div>
       </div>
+      
+      {/* ID Verification Modal - Show if ID not verified */}
+      {showIdVerification && idVerificationStatus !== 'verified' && (
+        <IdVerificationUpload
+          userId={user._id}
+          onSuccess={() => {
+            setIdVerificationStatus('verified');
+            setShowIdVerification(false);
+          }}
+          onCancel={() => {
+            setShowIdVerification(false);
+            // Close join trip modal as well since ID is required
+            onClose();
+          }}
+        />
+      )}
+      
+      {/* Payment Upload Modal - Show after successful booking if payment upload required */}
+      {showPaymentUpload && bookingResult && (
+        <PaymentUpload
+          bookingId={bookingResult.booking._id}
+          amount={bookingResult.booking.totalAmount}
+          organizerUpiId={bookingResult.booking.organizerUpiId}
+          onUploadSuccess={() => {
+            setShowPaymentUpload(false);
+            onSuccess();
+            onClose();
+          }}
+        />
+      )}
     </div>
   );
 };

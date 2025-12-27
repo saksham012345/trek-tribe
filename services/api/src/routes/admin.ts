@@ -5,11 +5,13 @@ import { Review } from '../models/Review';
 import { Wishlist } from '../models/Wishlist';
 import CRMSubscription from '../models/CRMSubscription';
 import { SupportTicket } from '../models/SupportTicket';
+import { VerificationRequest } from '../models/VerificationRequest';
 import { authenticateJwt, requireRole } from '../middleware/auth';
 import { logger } from '../utils/logger';
 import { emailService } from '../services/emailService';
 import { retryQueueService } from '../services/retryQueueService';
 import RetryJob from '../models/RetryJob';
+import TrustScoreService from '../services/trustScoreService';
 
 const router = express.Router();
 
@@ -1021,6 +1023,568 @@ router.get('/organizer-verifications/all', async (req, res) => {
   } catch (error: any) {
     logger.error('Error fetching organizer verifications', { error: error.message });
     res.status(500).json({ error: 'Failed to fetch verifications' });
+  }
+});
+
+// ============================================================================
+// ORGANIZER VERIFICATION REQUEST ENDPOINTS
+// ============================================================================
+
+/**
+ * GET /admin/verification-requests
+ * List all verification requests with filtering
+ */
+router.get('/verification-requests', async (req, res) => {
+  try {
+    const { 
+      status, 
+      requestType, 
+      priority,
+      page = 1, 
+      limit = 20,
+      sortBy = 'createdAt',
+      sortOrder = 'desc'
+    } = req.query;
+
+    const query: any = {};
+    if (status) query.status = status;
+    if (requestType) query.requestType = requestType;
+    if (priority) query.priority = priority;
+
+    const skip = (Number(page) - 1) * Number(limit);
+    const sort: any = { [sortBy as string]: sortOrder === 'desc' ? -1 : 1 };
+
+    const [requests, total] = await Promise.all([
+      VerificationRequest.find(query)
+        .populate('organizerId', 'name email phone createdAt')
+        .populate('reviewedBy', 'name email')
+        .sort(sort)
+        .skip(skip)
+        .limit(Number(limit))
+        .lean(),
+      VerificationRequest.countDocuments(query)
+    ]);
+
+    // Get counts by status for summary
+    const statusCounts = await VerificationRequest.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } }
+    ]);
+
+    const summary = {
+      pending: statusCounts.find(s => s._id === 'pending')?.count || 0,
+      under_review: statusCounts.find(s => s._id === 'under_review')?.count || 0,
+      approved: statusCounts.find(s => s._id === 'approved')?.count || 0,
+      rejected: statusCounts.find(s => s._id === 'rejected')?.count || 0,
+      total
+    };
+
+    res.json({
+      success: true,
+      data: requests,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        totalPages: Math.ceil(total / Number(limit))
+      },
+      summary
+    });
+
+    logger.info('Admin fetched verification requests', {
+      adminId: (req as any).auth.userId,
+      filters: { status, requestType, priority },
+      count: requests.length
+    });
+  } catch (error: any) {
+    logger.error('Error fetching verification requests', { error: error.message });
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch verification requests' 
+    });
+  }
+});
+
+/**
+ * GET /admin/verification-requests/:id
+ * Get detailed information about a specific verification request
+ */
+router.get('/verification-requests/:id', async (req, res) => {
+  try {
+    const request = await VerificationRequest.findById(req.params.id)
+      .populate('organizerId', 'name email phone createdAt organizerProfile')
+      .populate('reviewedBy', 'name email')
+      .lean();
+
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        error: 'Verification request not found'
+      });
+    }
+
+    // Get organizer's trip history if exists
+    const organizer = request.organizerId as any;
+    let tripHistory = [];
+    if (organizer && organizer._id) {
+      tripHistory = await Trip.find({ organizerId: organizer._id })
+        .select('title destination price status startDate participants createdAt')
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .lean();
+    }
+
+    res.json({
+      success: true,
+      data: {
+        ...request,
+        tripHistory
+      }
+    });
+
+    logger.info('Admin viewed verification request details', {
+      adminId: (req as any).auth.userId,
+      requestId: req.params.id
+    });
+  } catch (error: any) {
+    logger.error('Error fetching verification request details', { 
+      error: error.message,
+      requestId: req.params.id 
+    });
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch verification request details' 
+    });
+  }
+});
+
+/**
+ * POST /admin/verification-requests/:id/approve
+ * Approve an organizer verification request
+ */
+router.post('/verification-requests/:id/approve', async (req, res) => {
+  try {
+    const { 
+      trustScore, 
+      verificationBadge, 
+      enableRouting = false, 
+      adminNotes 
+    } = req.body;
+
+    // Validate trust score
+    if (typeof trustScore !== 'number' || trustScore < 0 || trustScore > 100) {
+      return res.status(400).json({
+        success: false,
+        error: 'Trust score must be a number between 0 and 100'
+      });
+    }
+
+    // Validate verification badge
+    const validBadges = ['none', 'bronze', 'silver', 'gold', 'platinum'];
+    if (verificationBadge && !validBadges.includes(verificationBadge)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid verification badge'
+      });
+    }
+
+    const request = await VerificationRequest.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        error: 'Verification request not found'
+      });
+    }
+
+    if (request.status === 'approved') {
+      return res.status(400).json({
+        success: false,
+        error: 'Verification request already approved'
+      });
+    }
+
+    const organizer = await User.findById(request.organizerId);
+    if (!organizer) {
+      return res.status(404).json({
+        success: false,
+        error: 'Organizer not found'
+      });
+    }
+
+    // Calculate badge based on trust score if not provided
+    let badge = verificationBadge;
+    if (!badge) {
+      if (trustScore >= 95) badge = 'platinum';
+      else if (trustScore >= 85) badge = 'gold';
+      else if (trustScore >= 70) badge = 'silver';
+      else if (trustScore >= 50) badge = 'bronze';
+      else badge = 'none';
+    }
+
+    // Update organizer profile with trust score
+    if (!organizer.organizerProfile) {
+      organizer.organizerProfile = {} as any;
+    }
+
+    organizer.organizerProfile.trustScore = {
+      overall: trustScore,
+      breakdown: {
+        documentVerified: Math.min(trustScore * 0.2, 20),
+        bankVerified: Math.min(trustScore * 0.2, 20),
+        experienceYears: Math.min(trustScore * 0.15, 15),
+        completedTrips: 0, // Will be updated as they complete trips
+        userReviews: 0,    // Will be updated based on reviews
+        responseTime: Math.min(trustScore * 0.1, 10),
+        refundRate: Math.min(trustScore * 0.05, 5)
+      },
+      lastCalculated: new Date()
+    };
+
+    organizer.organizerProfile.verificationBadge = badge as any;
+    organizer.organizerProfile.routingEnabled = enableRouting;
+
+    // Update verification status
+    organizer.organizerVerificationStatus = 'approved';
+    organizer.organizerVerificationApprovedAt = new Date();
+    organizer.organizerVerificationApprovedBy = (req as any).auth.userId;
+
+    await organizer.save();
+
+    // Update verification request
+    request.status = 'approved';
+    request.reviewedBy = (req as any).auth.userId;
+    request.reviewedAt = new Date();
+    request.adminNotes = adminNotes || '';
+    request.initialTrustScore = trustScore;
+
+    await request.save();
+
+    // Send approval email to organizer
+    try {
+      await emailService.sendEmail({
+        to: organizer.email,
+        subject: '🎉 Your TrekTribe Organizer Account is Approved!',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #10b981;">Congratulations! Your Account is Approved</h2>
+            <p>Dear ${organizer.name},</p>
+            <p>Great news! Your TrekTribe organizer account has been approved by our admin team.</p>
+            
+            <div style="background-color: #f0fdf4; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0;">
+              <h3 style="margin-top: 0; color: #059669;">Your Verification Details:</h3>
+              <p><strong>Trust Score:</strong> ${trustScore}/100</p>
+              <p><strong>Verification Badge:</strong> ${badge.charAt(0).toUpperCase() + badge.slice(1)}</p>
+              <p><strong>Payment Routing:</strong> ${enableRouting ? 'Enabled ✅' : 'Disabled (Main Platform Account)'}</p>
+            </div>
+
+            <p>You can now:</p>
+            <ul>
+              <li>✅ Create and publish trips</li>
+              <li>✅ Manage bookings and participants</li>
+              <li>✅ Receive payments ${enableRouting ? 'directly to your account' : 'through platform payouts'}</li>
+              <li>✅ Access organizer dashboard</li>
+            </ul>
+
+            ${adminNotes ? `
+              <div style="background-color: #f9fafb; padding: 15px; margin: 20px 0; border-radius: 8px;">
+                <p><strong>Admin Notes:</strong></p>
+                <p style="margin: 5px 0;">${adminNotes}</p>
+              </div>
+            ` : ''}
+
+            <p>Start creating amazing travel experiences for our community!</p>
+            
+            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/organizer/dashboard" 
+               style="display: inline-block; background-color: #10b981; color: white; padding: 12px 24px; 
+                      text-decoration: none; border-radius: 6px; margin-top: 20px;">
+              Go to Dashboard
+            </a>
+
+            <p style="margin-top: 30px; color: #6b7280; font-size: 14px;">
+              Need help? Contact us at support@trektribe.com
+            </p>
+          </div>
+        `
+      });
+    } catch (emailError: any) {
+      logger.error('Failed to send approval email', {
+        organizerId: organizer._id,
+        error: emailError.message
+      });
+      // Don't fail the approval if email fails
+    }
+
+    res.json({
+      success: true,
+      message: 'Organizer approved successfully',
+      data: {
+        organizerId: organizer._id,
+        trustScore,
+        verificationBadge: badge,
+        routingEnabled: enableRouting,
+        approvedAt: new Date()
+      }
+    });
+
+    logger.info('Admin approved organizer verification', {
+      adminId: (req as any).auth.userId,
+      organizerId: organizer._id,
+      requestId: req.params.id,
+      trustScore,
+      badge,
+      routingEnabled: enableRouting
+    });
+  } catch (error: any) {
+    logger.error('Error approving verification request', { 
+      error: error.message,
+      requestId: req.params.id 
+    });
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to approve verification request' 
+    });
+  }
+});
+
+/**
+ * POST /admin/verification-requests/:id/reject
+ * Reject an organizer verification request
+ */
+router.post('/verification-requests/:id/reject', async (req, res) => {
+  try {
+    const { rejectionReason, adminNotes } = req.body;
+
+    if (!rejectionReason || rejectionReason.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Rejection reason is required'
+      });
+    }
+
+    const request = await VerificationRequest.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        error: 'Verification request not found'
+      });
+    }
+
+    if (request.status === 'rejected') {
+      return res.status(400).json({
+        success: false,
+        error: 'Verification request already rejected'
+      });
+    }
+
+    const organizer = await User.findById(request.organizerId);
+    if (!organizer) {
+      return res.status(404).json({
+        success: false,
+        error: 'Organizer not found'
+      });
+    }
+
+    // Update organizer verification status
+    organizer.organizerVerificationStatus = 'rejected';
+    organizer.organizerVerificationRejectedAt = new Date();
+    organizer.organizerVerificationRejectionReason = rejectionReason;
+
+    await organizer.save();
+
+    // Update verification request
+    request.status = 'rejected';
+    request.reviewedBy = (req as any).auth.userId;
+    request.reviewedAt = new Date();
+    request.adminNotes = adminNotes || rejectionReason;
+
+    await request.save();
+
+    // Send rejection email to organizer
+    try {
+      await emailService.sendEmail({
+        to: organizer.email,
+        subject: 'TrekTribe Organizer Account - Verification Update',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #dc2626;">Organizer Verification Update</h2>
+            <p>Dear ${organizer.name},</p>
+            <p>Thank you for your interest in becoming a TrekTribe organizer.</p>
+            
+            <p>After careful review, we are unable to approve your organizer account at this time.</p>
+
+            <div style="background-color: #fef2f2; border-left: 4px solid #dc2626; padding: 15px; margin: 20px 0;">
+              <p><strong>Reason:</strong></p>
+              <p style="margin: 5px 0;">${rejectionReason}</p>
+            </div>
+
+            <p>You may reapply for organizer verification after addressing the issues mentioned above.</p>
+            
+            <p>If you have questions or would like more information, please contact our support team.</p>
+
+            <p style="margin-top: 30px; color: #6b7280; font-size: 14px;">
+              Contact us at support@trektribe.com
+            </p>
+          </div>
+        `
+      });
+    } catch (emailError: any) {
+      logger.error('Failed to send rejection email', {
+        organizerId: organizer._id,
+        error: emailError.message
+      });
+      // Don't fail the rejection if email fails
+    }
+
+    res.json({
+      success: true,
+      message: 'Organizer verification rejected',
+      data: {
+        organizerId: organizer._id,
+        rejectionReason,
+        rejectedAt: new Date()
+      }
+    });
+
+    logger.info('Admin rejected organizer verification', {
+      adminId: (req as any).auth.userId,
+      organizerId: organizer._id,
+      requestId: req.params.id,
+      reason: rejectionReason
+    });
+  } catch (error: any) {
+    logger.error('Error rejecting verification request', { 
+      error: error.message,
+      requestId: req.params.id 
+    });
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to reject verification request' 
+    });
+  }
+});
+
+/**
+ * PUT /admin/verification-requests/:id/status
+ * Update verification request status (e.g., mark as under review)
+ */
+router.put('/verification-requests/:id/status', async (req, res) => {
+  try {
+    const { status, priority, adminNotes } = req.body;
+
+    const validStatuses = ['pending', 'under_review', 'approved', 'rejected'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid status. Must be: pending, under_review, approved, or rejected'
+      });
+    }
+
+    const request = await VerificationRequest.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        error: 'Verification request not found'
+      });
+    }
+
+    request.status = status;
+    if (priority) request.priority = priority;
+    if (adminNotes) request.adminNotes = adminNotes;
+    
+    // Set reviewed fields when status changes to approved/rejected
+    if (['approved', 'rejected'].includes(status)) {
+      request.reviewedBy = (req as any).auth.userId;
+      request.reviewedAt = new Date();
+    }
+
+    await request.save();
+
+    res.json({
+      success: true,
+      message: 'Verification request status updated',
+      data: request
+    });
+
+    logger.info('Admin updated verification request status', {
+      adminId: (req as any).auth.userId,
+      requestId: req.params.id,
+      newStatus: status
+    });
+  } catch (error: any) {
+    logger.error('Error updating verification request status', { 
+      error: error.message,
+      requestId: req.params.id 
+    });
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to update verification request status' 
+    });
+  }
+});
+
+/**
+ * POST /admin/verification-requests/:id/recalculate-score
+ * Recalculate trust score for an organizer
+ */
+router.post('/verification-requests/:id/recalculate-score', async (req, res) => {
+  try {
+    const request = await VerificationRequest.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        error: 'Verification request not found'
+      });
+    }
+
+    const organizer = await User.findById(request.organizerId);
+    if (!organizer) {
+      return res.status(404).json({
+        success: false,
+        error: 'Organizer not found'
+      });
+    }
+
+    // Calculate new trust score
+    const trustScore = await TrustScoreService.calculateTrustScore(request.organizerId.toString());
+    
+    // Update organizer profile
+    if (!organizer.organizerProfile) {
+      organizer.organizerProfile = {} as any;
+    }
+    
+    organizer.organizerProfile.trustScore = trustScore;
+    organizer.organizerProfile.verificationBadge = TrustScoreService.getBadgeForScore(trustScore.overall);
+    
+    await organizer.save();
+
+    // Get improvement recommendations
+    const recommendations = TrustScoreService.getImprovementRecommendations(trustScore.breakdown);
+
+    res.json({
+      success: true,
+      message: 'Trust score recalculated successfully',
+      data: {
+        trustScore,
+        verificationBadge: organizer.organizerProfile.verificationBadge,
+        isEligibleForRouting: TrustScoreService.isEligibleForRouting(trustScore.overall),
+        recommendations
+      }
+    });
+
+    logger.info('Admin recalculated organizer trust score', {
+      adminId: (req as any).auth.userId,
+      organizerId: organizer._id,
+      oldScore: organizer.organizerProfile.trustScore?.overall || 0,
+      newScore: trustScore.overall
+    });
+  } catch (error: any) {
+    logger.error('Error recalculating trust score', { 
+      error: error.message,
+      requestId: req.params.id 
+    });
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to recalculate trust score' 
+    });
   }
 });
 

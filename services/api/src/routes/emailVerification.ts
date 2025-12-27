@@ -111,10 +111,21 @@ router.post('/verify-otp', async (req, res) => {
       { expiresIn: '7d' }
     );
 
+    // Set secure httpOnly cookie
+    const isProduction = process.env.NODE_ENV === 'production';
+    const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'strict' : 'lax',
+      maxAge: maxAge,
+      path: '/'
+    });
+
     return res.status(200).json({ 
       message: result.message,
       verified: true,
-      token,
+      token, // Still return token for backward compatibility
       user: {
         id: user._id,
         email: user.email,

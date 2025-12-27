@@ -34,6 +34,12 @@ const CompleteProfileModal: React.FC<CompleteProfileModalProps> = ({ open, onCom
 
   if (!open) return null;
 
+  const handleRoleSelect = (selectedRole: 'traveler' | 'organizer') => {
+    setRole(selectedRole);
+    setError('');
+    setStep('phone');
+  };
+
   const handleSendOtp = async () => {
     if (!phone || phone.length < 10) {
       setError('Please enter a valid phone number');
@@ -133,10 +139,49 @@ const CompleteProfileModal: React.FC<CompleteProfileModalProps> = ({ open, onCom
 
         {/* Content */}
         <div className="p-6 space-y-6">
-          {/* Progress Indicator */}
-          <div className="flex items-center justify-between">
-            <div className={`flex items-center gap-2 ${step === 'role' ? 'text-nature-600 font-semibold' : 'text-gray-400'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'role' ? 'bg-nature-600 text-white' : 'bg-gray-200'}`}>1</div>
+          {/* Step: Role Selection */}
+          {step === 'role' && (
+            <div className="space-y-6">
+              <div className="text-center">
+                <h4 className="text-lg font-semibold text-gray-900 mb-2">Choose Your Role</h4>
+                <p className="text-sm text-gray-600">Select how you want to use TrekTribe</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  type="button"
+                  onClick={() => handleRoleSelect('traveler')}
+                  className="p-6 border-2 border-gray-200 rounded-xl hover:border-nature-500 hover:bg-nature-50 transition-all group"
+                >
+                  <div className="text-4xl mb-3">🎒</div>
+                  <h5 className="font-semibold text-gray-900 mb-1">Traveler</h5>
+                  <p className="text-xs text-gray-600">Join adventures and explore destinations</p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleRoleSelect('organizer')}
+                  className="p-6 border-2 border-gray-200 rounded-xl hover:border-nature-500 hover:bg-nature-50 transition-all group"
+                >
+                  <div className="text-4xl mb-3">🗺️</div>
+                  <h5 className="font-semibold text-gray-900 mb-1">Organizer</h5>
+                  <p className="text-xs text-gray-600">Create and manage adventures</p>
+                </button>
+              </div>
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                  {error}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Progress Indicator - Show only after role selection */}
+          {step !== 'role' && (
+            <div className="flex items-center justify-between">
+            <div className={`flex items-center gap-2 text-green-600`}>
+              <div className="w-8 h-8 rounded-full flex items-center justify-center bg-green-600 text-white">✓</div>
               <span className="text-sm">Role</span>
             </div>
             <div className="flex-1 h-1 bg-gray-200 mx-2">

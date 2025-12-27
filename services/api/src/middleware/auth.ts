@@ -18,14 +18,20 @@ declare global {
 }
 
 export function authenticateToken(req: Request, res: Response, next: NextFunction) {
-  // Support multiple header patterns and alternate token header
-  const rawAuth = (req.headers.authorization as string) || (req.headers['x-access-token'] as string) || '';
+  // Priority: Cookie (httpOnly, secure) > Authorization header (for backward compatibility)
   let token: string | undefined;
-
-  if (rawAuth.startsWith('Bearer ')) {
-    token = rawAuth.slice(7).trim();
-  } else if (rawAuth) {
-    token = rawAuth.trim();
+  
+  // First, try to get token from httpOnly cookie (secure method)
+  token = req.cookies?.token || req.cookies?.authToken;
+  
+  // Fallback to Authorization header for backward compatibility
+  if (!token) {
+    const rawAuth = (req.headers.authorization as string) || (req.headers['x-access-token'] as string) || '';
+    if (rawAuth.startsWith('Bearer ')) {
+      token = rawAuth.slice(7).trim();
+    } else if (rawAuth) {
+      token = rawAuth.trim();
+    }
   }
 
   if (!token) {

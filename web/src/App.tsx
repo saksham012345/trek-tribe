@@ -62,6 +62,7 @@ const OrganizerSettlements = React.lazy(() => retryLazyLoad(() => import('./page
 const MarketplaceCheckout = React.lazy(() => retryLazyLoad(() => import('./pages/MarketplaceCheckout')));
 const JoinTheTribe = React.lazy(() => retryLazyLoad(() => import('./pages/JoinTheTribe')));
 const Subscribe = React.lazy(() => retryLazyLoad(() => import('./pages/Subscribe')));
+const AdminOrganizerVerification = React.lazy(() => retryLazyLoad(() => import('./pages/AdminOrganizerVerification')));
 
 // Error Boundary for lazy loading failures
 class ChunkErrorBoundary extends React.Component<
@@ -180,6 +181,14 @@ function AppContent() {
             <Route 
               path="/admin" 
               element={user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/home" />}
+            />
+            <Route 
+              path="/admin/dashboard" 
+              element={user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/home" />}
+            />
+            <Route 
+              path="/admin/organizer-verification" 
+              element={user?.role === 'admin' ? <AdminOrganizerVerification /> : <Navigate to="/home" />}
             />
             <Route 
               path="/agent" 

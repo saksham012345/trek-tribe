@@ -4,6 +4,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import mongoose from 'mongoose';
+import cookieParser from 'cookie-parser';
 // Optional in-memory MongoDB for local dev/testing
 import { createServer } from 'http';
 import authRoutes from './routes/auth';
@@ -93,13 +94,14 @@ app.use(logger.requestLogger());
 app.use(metrics.metricsMiddleware());
 app.use(timeoutMiddleware);
 app.use(helmet({
-  contentSecurityPolicy: process.env.NODE_ENV === 'production' ? {
+  // Enable CSP in all environments for better security (can be more lenient in development)
+  contentSecurityPolicy: {
     useDefaults: true,
     directives: {
       ...helmet.contentSecurityPolicy.getDefaultDirectives(),
       "default-src": ["'self'"],
       // Only allow Razorpay checkout script; disallow inline scripts
-      "script-src": ["'self'", 'https://checkout.razorpay.com'],
+      "script-src": ["'self'", 'https://checkout.razorpay.com', ...(process.env.NODE_ENV === 'development' ? ["'unsafe-eval'", "'unsafe-inline'"] : [])],
       // Allow Razorpay checkout to be framed
       "frame-src": ['https://checkout.razorpay.com'],
       // Images from self and data URLs; https generally
@@ -108,15 +110,20 @@ app.use(helmet({
       "connect-src": [
         "'self'",
         'https:',
+        process.env.NODE_ENV === 'development' ? 'http:' : '',
         process.env.FRONTEND_URL || '',
         process.env.BACKEND_URL || '',
         process.env.AI_SERVICE_URL || '',
         'https://api.razorpay.com'
       ].filter(Boolean),
       // Block embedding of objects completely
-      "object-src": ["'none'"]
-    }
-  } : false,
+      "object-src": ["'none'"],
+      // Allow styles from self and inline styles in development (for React development tools)
+      "style-src": ["'self'", "'unsafe-inline'"]
+    },
+    // Only report violations in production, allow in development for easier debugging
+    reportOnly: process.env.NODE_ENV === 'development'
+  },
   crossOriginEmbedderPolicy: true,
   // Relax COOP to allow OAuth popups and cross-origin postMessage (Google Sign-In)
   crossOriginOpenerPolicy: { policy: 'unsafe-none' }
@@ -147,6 +154,9 @@ app.use(cors({
   credentials: true 
 }));
 // Capture raw body for webhook signature verification (Razorpay requires exact bytes)
+// Cookie parser for httpOnly cookies (security: JWT storage)
+app.use(cookieParser());
+
 app.use(express.json({ 
   limit: '10mb',
   verify: (req: any, _res, buf: Buffer, encoding: string) => {

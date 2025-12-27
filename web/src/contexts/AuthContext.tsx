@@ -42,36 +42,40 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      // Verify token and get user info (api instance handles auth headers)
-      api.get('/auth/me')
-        .then(response => {
-          // Handle both { user: User } and direct User object formats
-          const userData = response.data?.user || response.data;
-          if (userData && userData._id) {
-            setUser(userData as User);
-            // Persist user data to localStorage for faster restoration
-            localStorage.setItem('user', JSON.stringify(userData));
-          } else {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-          }
-        })
-        .catch((error) => {
-          console.error('Failed to restore session:', error);
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          setUser(null);
-          setLoading(false);
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-    } else {
-      localStorage.removeItem('user');
-      setLoading(false);
+    // Try to restore user from localStorage first (for faster UI)
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      try {
+        const parsedUser = JSON.parse(savedUser);
+        setUser(parsedUser);
+      } catch (e) {
+        // Invalid data, clear it
+        localStorage.removeItem('user');
+      }
     }
+
+    // Always verify session with backend (cookie-based auth)
+    api.get('/auth/me')
+      .then(response => {
+        // Handle both { user: User } and direct User object formats
+        const userData = response.data?.user || response.data;
+        if (userData && userData._id) {
+          setUser(userData as User);
+          // Persist user data to localStorage for faster restoration (non-sensitive)
+          localStorage.setItem('user', JSON.stringify(userData));
+        } else {
+          localStorage.removeItem('user');
+        }
+      })
+      .catch((error) => {
+        // Session invalid or expired - clear user data
+        console.error('Failed to restore session:', error);
+        localStorage.removeItem('user');
+        setUser(null);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
   const login = async (emailOrCredential: string, passwordOrProvider?: string): Promise<{ success: boolean; error?: string }> => {
@@ -91,10 +95,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         });
       }
 
-      const responseData = response.data as { token: string; user: User };
-      const { token, user: userData } = responseData;
+      const responseData = response.data as { token?: string; user: User };
+      const userData = responseData.user;
       
-      localStorage.setItem('token', token);
+      // Token is now in httpOnly cookie, no need to store it
+      // Only store user data (non-sensitive) for faster UI loading
       localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
       
@@ -107,7 +112,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const setSession = async (token: string, userData?: User) => {
-    localStorage.setItem('token', token);
+    // Token is now in httpOnly cookie (set by backend), no need to store it
     if (userData) {
       localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
@@ -123,8 +128,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         localStorage.setItem('user', JSON.stringify(fetchedUser));
       }
     } catch (e) {
-      // If fetching user fails, at least keep token in storage and let app handle next steps
-      console.warn('setSession: failed to fetch user after setting token', e);
+      console.warn('setSession: failed to fetch user', e);
     }
   };
 
@@ -141,8 +145,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
+  const logout = async () => {
+    try {
+      // Call backend logout endpoint to clear httpOnly cookie
+      await api.post('/auth/logout');
+    } catch (error) {
+      console.warn('Logout API call failed, clearing local data anyway:', error);
+    }
+    // Clear local user data
     localStorage.removeItem('user');
     setUser(null);
   };

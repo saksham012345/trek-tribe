@@ -353,4 +353,59 @@ router.get('/orders/:id', authenticateJwt, requireRole(['organizer', 'admin']), 
   }
 });
 
+// GET /api/marketplace/config
+// Get Razorpay configuration (public key and status)
+router.get('/config', authenticateJwt, requireRole(['organizer', 'admin']), async (req: Request, res: Response) => {
+  try {
+    const organizerId = req.user?.id as string;
+    
+    // Get organizer's payout configuration
+    const payoutConfig = await OrganizerPayoutConfig.findOne({ organizerId });
+    
+    // Check subscription status
+    const subscription = await OrganizerSubscription.findOne({ 
+      organizerId, 
+      $or: [
+        { status: 'active' },
+        { status: 'trial', isTrialActive: true }
+      ]
+    }).sort({ createdAt: -1 });
+
+    // Get account status
+    let accountStatus = null;
+    try {
+      if (razorpaySubmerchantService && razorpaySubmerchantService.getAccountStatus) {
+        accountStatus = await razorpaySubmerchantService.getAccountStatus(organizerId);
+      }
+    } catch (error: any) {
+      logger.warn('Could not fetch account status', { error: error.message });
+    }
+
+    const config = {
+      razorpay: {
+        keyId: process.env.RAZORPAY_KEY_ID || '',
+        mode: process.env.RAZORPAY_MODE || 'test',
+      },
+      organizer: {
+        hasActiveSubscription: !!subscription,
+        subscriptionStatus: subscription?.status || 'none',
+        isOnboarded: !!accountStatus?.accountId,
+        accountStatus: accountStatus?.status || 'pending',
+        routingEnabled: payoutConfig?.routingEnabled || false,
+      }
+    };
+
+    res.json({ success: true, config });
+  } catch (error: any) {
+    logger.error('Failed to get marketplace config', { 
+      error: error.message,
+      organizerId: req.user?.id
+    });
+    res.status(500).json({ 
+      error: 'Failed to retrieve configuration',
+      message: error.message 
+    });
+  }
+});
+
 export default router;

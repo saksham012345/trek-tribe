@@ -64,8 +64,7 @@ export const GroupsPage: React.FC = () => {
 
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
-    const token = localStorage.getItem('token');
-    if (!token) {
+    if (!user) {
       setError('Please log in to create a group');
       return;
     }
@@ -91,8 +90,7 @@ export const GroupsPage: React.FC = () => {
   };
 
   const handleJoinGroup = async (groupId: string) => {
-    const token = localStorage.getItem('token');
-    if (!token) {
+    if (!user) {
       setError('Please log in to join a group');
       return;
     }
@@ -113,8 +111,7 @@ export const GroupsPage: React.FC = () => {
   };
 
   const handleLeaveGroup = async (groupId: string) => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!user) return;
 
     try {
       await api.post(
@@ -142,7 +139,7 @@ export const GroupsPage: React.FC = () => {
           <h1>👥 Communities & Groups</h1>
           <p>Join interest-based communities of travelers and organizers</p>
         </div>
-        {localStorage.getItem('token') && (
+        {user && (
           <button
             className="btn-create-group"
             onClick={() => setShowCreateForm(!showCreateForm)}
@@ -284,7 +281,7 @@ export const GroupsPage: React.FC = () => {
                       <span>👥 {group.memberCount} members</span>
                     </div>
 
-                    {localStorage.getItem('token') ? (
+                    {user ? (
                       <button
                         className={`btn-join ${isMember(group._id) ? 'joined' : ''}`}
                         onClick={() =>
