@@ -2,12 +2,12 @@ import axios from 'axios';
 import { apiCache } from '../utils/apiCache';
 
 // API Configuration
-// Priority: explicit env → hosted API (Render/Vercel)
+// Priority: explicit env → localhost fallback for development
 let API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
-// Robust fallback to the working Render API host
-if (!API_BASE_URL) {
-  API_BASE_URL = 'https://trekktribe.onrender.com';
+// Development fallback (only for local development)
+if (!API_BASE_URL && process.env.NODE_ENV !== 'production') {
+  API_BASE_URL = 'http://localhost:5000';
 }
 
 // Create axios instance with default configuration

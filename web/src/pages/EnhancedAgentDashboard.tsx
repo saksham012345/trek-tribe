@@ -83,7 +83,7 @@ const EnhancedAgentDashboard: React.FC<AgentDashboardProps> = ({ user }) => {
     if (!user) return; // Use user from AuthContext instead of token
 
     // Cookies are sent automatically, no need to pass token in auth
-    const newSocket = io(process.env.REACT_APP_API_URL || 'https://trek-tribe-38in.onrender.com', {
+    const newSocket = io(process.env.REACT_APP_API_URL || process.env.REACT_APP_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : ''), {
       path: '/socket.io/',
       withCredentials: true // Send cookies
     });

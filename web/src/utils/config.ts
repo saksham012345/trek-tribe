@@ -64,11 +64,16 @@ export const getApiUrl = (): string => {
     return process.env.REACT_APP_API_URL;
   }
   
-  // In production, use production API
-  if (process.env.NODE_ENV === 'production') {
-    return 'https://trek-tribe-38in.onrender.com';
+  // Development default - use localhost for local development
+  if (process.env.NODE_ENV === 'development') {
+    return 'http://localhost:5000';
   }
   
-  // Development default - use production API for consistency
-  return 'https://trek-tribe-38in.onrender.com';
+  // Production fallback - should be set via environment variable
+  // This is a last resort fallback - always set REACT_APP_API_URL in production
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+  
+  return '';
 };
