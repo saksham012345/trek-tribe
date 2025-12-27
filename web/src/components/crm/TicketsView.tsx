@@ -106,6 +106,7 @@ export default function TicketsView() {
   return (
     <div className="bg-white rounded shadow p-6">
       <h2 className="text-2xl font-bold mb-4">Support Tickets</h2>
+      {error && <div className="text-red-600 mb-2">{error}</div>}
 
       {/* Filters */}
       <div className="flex gap-4 mb-4 flex-wrap">

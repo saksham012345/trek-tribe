@@ -25,6 +25,7 @@ export default function LeadsList() {
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
+  const [error, setError] = useState<string | null>(null);
   const limit = 10;
 
   useEffect(() => {
@@ -36,6 +37,7 @@ export default function LeadsList() {
 
   async function fetchLeads() {
     setLoading(true);
+    setError(null);
     try {
       const params = new URLSearchParams({ page: String(page), limit: String(limit) });
       if (query) params.set('q', query);
@@ -47,6 +49,7 @@ export default function LeadsList() {
       setPages(data.pagination?.pages || 1);
     } catch (e) {
       console.error(e);
+      setError('Failed to load leads. You may not have access or the server is down.');
     } finally {
       setLoading(false);
     }
@@ -64,6 +67,7 @@ export default function LeadsList() {
 
   return (
     <div className="bg-white rounded shadow p-4">
+      {error && <div className="text-red-600 mb-2">{error}</div>}
       <div className="flex items-center gap-2 mb-4">
         <input
           className="border rounded px-2 py-1 flex-1"
