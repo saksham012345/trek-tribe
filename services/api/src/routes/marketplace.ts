@@ -9,6 +9,7 @@ import { MarketplaceTransfer } from '../models/MarketplaceTransfer';
 import { MarketplaceRefund } from '../models/MarketplaceRefund';
 import { PayoutLedger } from '../models/PayoutLedger';
 import { OrganizerSubscription } from '../models/OrganizerSubscription';
+import { User } from '../models/User';
 import { logger } from '../utils/logger';
 
 // Optional import with fallback
@@ -362,6 +363,9 @@ router.get('/config', authenticateJwt, requireRole(['organizer', 'admin']), asyn
     // Get organizer's payout configuration
     const payoutConfig = await OrganizerPayoutConfig.findOne({ organizerId });
     
+    // Get organizer user to check routingEnabled
+    const organizer = await User.findById(organizerId);
+    
     // Check subscription status
     const subscription = await OrganizerSubscription.findOne({ 
       organizerId, 
@@ -391,7 +395,7 @@ router.get('/config', authenticateJwt, requireRole(['organizer', 'admin']), asyn
         subscriptionStatus: subscription?.status || 'none',
         isOnboarded: !!accountStatus?.accountId,
         accountStatus: accountStatus?.status || 'pending',
-        routingEnabled: payoutConfig?.routingEnabled || false,
+        routingEnabled: organizer?.organizerProfile?.routingEnabled || false,
       }
     };
 
