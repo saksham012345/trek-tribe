@@ -26,7 +26,7 @@ services:
         destination: /index.html
     envVars:
       - key: REACT_APP_API_URL
-        value: https://trek-tribe-api.onrender.com
+        value: //
       - key: REACT_APP_APP_NAME
         value: Trek Tribe
       - key: REACT_APP_VERSION
