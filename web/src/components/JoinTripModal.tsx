@@ -842,7 +842,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
       {/* ID Verification Modal - Show if ID not verified */}
       {showIdVerification && idVerificationStatus !== 'verified' && (
         <IdVerificationUpload
-          userId={user._id}
+          userId={user.id}
           onSuccess={() => {
             setIdVerificationStatus('verified');
             setShowIdVerification(false);
@@ -859,13 +859,15 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
       {showPaymentUpload && bookingResult && (
         <PaymentUpload
           bookingId={bookingResult.booking._id}
-          amount={bookingResult.booking.totalAmount}
-          organizerUpiId={bookingResult.booking.organizerUpiId}
+          totalAmount={bookingResult.booking.totalAmount}
+          organizerId={bookingResult.booking.organizerUpiId}
+          tripTitle={bookingResult.booking.tripTitle}
           onUploadSuccess={() => {
             setShowPaymentUpload(false);
             onSuccess();
             onClose();
           }}
+          onCancel={() => setShowPaymentUpload(false)}
         />
       )}
     </div>
