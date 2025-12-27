@@ -157,7 +157,7 @@ const Home: React.FC<HomeProps> = ({ user: userProp }) => {
           
           <div className="flex flex-col sm:flex-row gap-6 justify-center">
             <Link
-              to="/trips"
+              to={user ? "/trips" : "/login"}
               className="group relative px-10 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
             >
               <span className="flex items-center justify-center gap-2">
