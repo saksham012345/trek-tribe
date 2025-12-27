@@ -59,14 +59,17 @@ app.use(helmet({
   contentSecurityPolicy: false, // Disable CSP for EJS templates
 }));
 app.use(cors({ 
-  origin: process.env.NODE_ENV === 'production' ? [
-    'https://www.trektribe.in',
-    'https://trektribe.in',
-    'https://trek-tribe.vercel.app',
-    process.env.FRONTEND_URL || 'http://localhost:3000',
-    process.env.CORS_ORIGIN || 'http://localhost:3000'
-  ] : '*',
-  credentials: true 
+  origin: process.env.NODE_ENV === 'production'
+    ? [
+        'https://www.trektribe.in',
+        'https://trektribe.in',
+        'https://trek-tribe.vercel.app',
+        'https://trek-tribe-9zk3-adae0jb1z-saksham-s-projects-76ba6bcc.vercel.app', // Add your deployed Vercel frontend
+        process.env.FRONTEND_URL || 'http://localhost:3000',
+        process.env.CORS_ORIGIN || 'http://localhost:3000'
+      ]
+    : 'http://localhost:3000',
+  credentials: true
 }));
 
 // Session middleware
@@ -76,6 +79,7 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
