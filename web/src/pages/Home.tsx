@@ -57,6 +57,46 @@ const Home: React.FC<HomeProps> = ({ user: userProp }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [recentPosts, setRecentPosts] = useState<Post[]>([]);
 
+  // Fetch platform stats and featured trips
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        // Fetch stats
+        try {
+          const statsResponse = await api.get('/stats');
+          const statsData = statsResponse.data;
+          setStats({
+            totalTrips: statsData.totalTrips || 0,
+            totalUsers: statsData.totalUsers || 0,
+            totalOrganizers: statsData.totalOrganizers || 0,
+          });
+        } catch (error) {
+          console.error('Failed to fetch stats:', error);
+          // Silently fail - stats are not critical
+        }
+        
+        // Fetch featured trips (limit to 6 for homepage)
+        try {
+          const tripsResponse = await api.get('/trips?limit=6');
+          const tripsData = tripsResponse.data;
+          const trips = Array.isArray(tripsData?.data) 
+            ? tripsData.data 
+            : Array.isArray(tripsData) 
+              ? tripsData 
+              : [];
+          setFeaturedTrips(trips.slice(0, 6));
+        } catch (error) {
+          console.error('Failed to fetch featured trips:', error);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, []);
+
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentImageIndex((prev) => (prev + 1) % heroImages.length);
@@ -438,9 +478,12 @@ const Home: React.FC<HomeProps> = ({ user: userProp }) => {
                       )}
                     </div>
                     
-                    <button className="w-full bg-gradient-to-r from-forest-600 to-blue-600 hover:from-forest-700 hover:to-blue-700 text-white py-3 rounded-xl font-semibold transition-all duration-300 transform group-hover:scale-105">
+                    <Link
+                      to={`/trip/${trip._id}`}
+                      className="block w-full bg-gradient-to-r from-forest-600 to-blue-600 hover:from-forest-700 hover:to-blue-700 text-white py-3 rounded-xl font-semibold transition-all duration-300 transform group-hover:scale-105 text-center"
+                    >
                       Join Adventure 🌿
-                    </button>
+                    </Link>
                   </div>
                 </div>
               )) : (
