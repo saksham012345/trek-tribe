@@ -13,12 +13,11 @@ const APIDebugger: React.FC = () => {
 
   const checkDebugInfo = async () => {
     try {
-      const token = localStorage.getItem('token');
-      
+      // Tokens are now in httpOnly cookies, not accessible via JavaScript
       setDebugInfo({
-        hasToken: !!token,
-        tokenLength: token?.length || 0,
-        tokenPreview: token ? `${token.substring(0, 20)}...` : 'No token',
+        hasToken: !!user, // Check user instead of token
+        tokenLength: 0, // Cannot access httpOnly cookie
+        tokenPreview: user ? 'Token in httpOnly cookie (secure)' : 'No authentication',
         user: user,
         apiBaseUrl: process.env.REACT_APP_API_URL,
         currentTime: new Date().toISOString()

@@ -14,19 +14,17 @@ if (!API_BASE_URL) {
 const api: any = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000, // Increased to 30 seconds for Render's slower response times
+  withCredentials: true, // Required to send httpOnly cookies
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor to add auth tokens and check cache
+// Request interceptor - cookies are sent automatically, no need to add token header
 api.interceptors.request.use(
   (config: any) => {
-    const token = localStorage.getItem('token'); // Fixed to match AuthContext
-    if (token) {
-      config.headers = config.headers || {};
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    // Tokens are now in httpOnly cookies, sent automatically by browser
+    // No need to manually add Authorization header
 
     // Check cache for GET requests (excluding sensitive endpoints)
     if (config.method === 'get' && !config.url?.includes('/auth') && !config.url?.includes('/payment')) {
@@ -85,13 +83,9 @@ api.interceptors.response.use(
       const isAuthEndpoint = error.config?.url?.includes('/auth/');
 
       if (!isAuthEndpoint) {
-        const hasToken = Boolean(localStorage.getItem('token'));
-        if (hasToken) {
-          // Token is invalid/expired: clear and redirect to login
-          localStorage.removeItem('token');
-          window.location.href = '/login';
-        }
-        // If there's no token, just reject so the caller can handle it
+        // Session invalid/expired: clear user data and redirect to login
+        localStorage.removeItem('user');
+        window.location.href = '/login';
       } else {
         // For auth endpoints, avoid redirecting to prevent clearing UI error states
         console.warn('Auth 401 (no redirect):', error.config?.url, error.response?.data);

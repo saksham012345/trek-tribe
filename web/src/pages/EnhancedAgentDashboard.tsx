@@ -80,12 +80,12 @@ const EnhancedAgentDashboard: React.FC<AgentDashboardProps> = ({ user }) => {
   }, []);
 
   const initializeSocket = () => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!user) return; // Use user from AuthContext instead of token
 
+    // Cookies are sent automatically, no need to pass token in auth
     const newSocket = io(process.env.REACT_APP_API_URL || 'https://trek-tribe-38in.onrender.com', {
-      auth: { token },
-      path: '/socket.io/'
+      path: '/socket.io/',
+      withCredentials: true // Send cookies
     });
 
     newSocket.on('connect', () => {

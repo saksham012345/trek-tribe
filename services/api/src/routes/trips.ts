@@ -3,11 +3,25 @@ import { z } from 'zod';
 import { Trip } from '../models/Trip';
 import { User } from '../models/User';
 import { OrganizerSubscription } from '../models/OrganizerSubscription';
+import { OrganizerPayoutConfig } from '../models/OrganizerPayoutConfig';
 import { authenticateJwt, requireRole } from '../middleware/auth';
 import { verifyOrganizerApproved } from '../middleware/verifyOrganizer';
 import { socketService } from '../services/socketService';
 import { trackTripView } from '../middleware/tripViewTracker';
+import { logger } from '../utils/logger';
+import { paymentConfig, shouldEnableRoutingForOrganizer } from '../config/payment.config';
+import QRCode from 'qrcode';
+import fs from 'fs';
+import path from 'path';
 import mongoose from 'mongoose';
+
+// Optional Razorpay services
+let razorpaySubmerchantService: any = null;
+try {
+  razorpaySubmerchantService = require('../services/razorpaySubmerchantService').razorpaySubmerchantService;
+} catch (e) {
+  logger.warn('Razorpay submerchant service not available');
+}
 
 const router = Router();
 
@@ -388,6 +402,121 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), verifyOrga
     const trip = await Promise.race([createPromise, timeoutPromise]) as any;
 
     console.log('✅ Trip created successfully:', trip._id);
+    
+    // ========== CREATE RAZORPAY ROUTE & GENERATE QR CODE (Organizers only) ==========
+    if (userRole === 'organizer' && process.env.NODE_ENV !== 'test') {
+      try {
+        const organizer = await User.findById(organizerId);
+        if (!organizer) {
+          logger.warn('Organizer not found for route creation', { organizerId });
+        } else {
+          // Get organizer's trust score
+          const trustScore = organizer.organizerProfile?.trustScore?.overall || 0;
+          const routingEnabledForOrganizer = organizer.organizerProfile?.routingEnabled || false;
+          
+          // Check if routing should be enabled based on config and trust score
+          const shouldEnableRouting = shouldEnableRoutingForOrganizer(trustScore, routingEnabledForOrganizer);
+          
+          logger.info('Payment routing decision', {
+            organizerId,
+            trustScore,
+            routingEnabledForOrganizer,
+            globalRoutingEnabled: paymentConfig.enableRouting,
+            shouldEnableRouting
+          });
+
+          if (shouldEnableRouting && razorpaySubmerchantService && razorpaySubmerchantService.generateQRCode) {
+            // ROUTING ENABLED: Create dedicated route for this organizer
+            let payoutConfig = await OrganizerPayoutConfig.findOne({ organizerId });
+            
+            if (!payoutConfig || !payoutConfig.razorpayAccountId) {
+              logger.info('No Razorpay route account found. Organizer needs to complete onboarding.', {
+                organizerId
+              });
+              // Set flag on trip that routing is pending onboarding
+              (trip as any).paymentRoutingStatus = 'pending_onboarding';
+              await trip.save();
+            } else {
+              // Generate QR code for this trip with organizer's route account
+              try {
+                const qrResult = await razorpaySubmerchantService.generateQRCode(
+                  payoutConfig.razorpayAccountId,
+                  `${organizer.name} - ${body.title}`,
+                  `Payment for ${body.title} trip by ${organizer.name}`
+                );
+
+                logger.info('QR code generated for trip with routing', {
+                  tripId: trip._id,
+                  organizerId,
+                  qrCodeId: qrResult.qrCodeId,
+                  routeAccountId: payoutConfig.razorpayAccountId
+                });
+
+                // Save QR code to organizer profile
+                if (!organizer.organizerProfile) {
+                  organizer.organizerProfile = {};
+                }
+                if (!organizer.organizerProfile.qrCodes) {
+                  organizer.organizerProfile.qrCodes = [];
+                }
+
+                organizer.organizerProfile.qrCodes.push({
+                  filename: `qr-${trip._id}.png`,
+                  originalName: `trip-${trip._id}-qr.png`,
+                  path: qrResult.imageUrl,
+                  paymentMethod: 'upi',
+                  description: `Razorpay QR for trip: ${body.title}`,
+                  uploadedAt: new Date(),
+                  isActive: true
+                });
+
+                // Link QR to the trip
+                (trip as any).paymentQR = qrResult.imageUrl;
+                (trip as any).paymentRoutingStatus = 'active';
+                (trip as any).paymentRouteId = qrResult.qrCodeId;
+                await trip.save();
+
+                await organizer.save();
+
+                console.log(`✅ Routing enabled: QR code created for dedicated route`);
+              } catch (qrError: any) {
+                logger.error('Failed to generate Razorpay QR code', {
+                  tripId: trip._id,
+                  error: qrError.message
+                });
+                // Mark as main account fallback
+                (trip as any).paymentRoutingStatus = 'main_account_fallback';
+                await trip.save();
+              }
+            }
+          } else {
+            // ROUTING DISABLED: Use main Razorpay account
+            logger.info('Using main Razorpay account (routing disabled or trust score too low)', {
+              tripId: trip._id,
+              organizerId,
+              trustScore,
+              reason: !paymentConfig.enableRouting ? 'routing_globally_disabled' : 'trust_score_too_low'
+            });
+            
+            // Mark trip to use main account
+            (trip as any).paymentRoutingStatus = 'main_account';
+            (trip as any).useMainRazorpayAccount = true;
+            await trip.save();
+            
+            console.log(`ℹ️  Main account mode: Manual payout tracking required`);
+          }
+        }
+      } catch (routeError: any) {
+        logger.error('Failed to process payment routing', {
+          tripId: trip._id,
+          organizerId,
+          error: routeError.message
+        });
+        // Don't fail trip creation if routing fails
+        (trip as any).paymentRoutingStatus = 'error';
+        await trip.save();
+      }
+    }
     
     // ========== INCREMENT SUBSCRIPTION TRIP COUNT (Organizers only) ==========
     if (userRole === 'organizer') {

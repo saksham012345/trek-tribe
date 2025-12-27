@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import io from 'socket.io-client';
 import api from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 
 interface UserContact {
   _id: string;
@@ -83,6 +83,7 @@ interface DashboardStats {
 
 const AdminDashboard: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -116,12 +117,12 @@ const AdminDashboard: React.FC = () => {
   }, [user]);
   
   const initializeSocket = () => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!user) return; // Use user from AuthContext instead of token
 
+    // Cookies are sent automatically, no need to pass token in auth
     const newSocket = io(process.env.REACT_APP_API_URL || 'https://trek-tribe-38in.onrender.com', {
-      auth: { token },
-      path: '/socket.io/'
+      path: '/socket.io/',
+      withCredentials: true // Send cookies
     });
 
     newSocket.on('connect', () => {
@@ -512,6 +513,13 @@ const AdminDashboard: React.FC = () => {
               🛠️ Admin Dashboard
             </h1>
             <div className="flex items-center gap-4">
+              <button
+                onClick={() => navigate('/admin/organizer-verification')}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-medium"
+              >
+                <span>🔐</span>
+                Organizer Verification
+              </button>
               <span className="text-sm text-gray-500">
                 Welcome back, {user.name}
               </span>

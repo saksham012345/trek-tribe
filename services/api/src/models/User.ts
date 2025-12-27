@@ -90,6 +90,23 @@ interface OrganizerProfile {
     _id?: any;
   }>;
   autoPay?: AutoPayInfo;
+  // Trust score and verification
+  trustScore?: {
+    overall: number;
+    breakdown: {
+      documentVerified: number;
+      bankVerified: number;
+      experienceYears: number;
+      completedTrips: number;
+      userReviews: number;
+      responseTime: number;
+      refundRate: number;
+    };
+    lastCalculated: Date;
+  };
+  verificationBadge?: 'none' | 'bronze' | 'silver' | 'gold' | 'platinum';
+  routingEnabled?: boolean;  // Admin can enable Razorpay routing for this organizer
+  razorpayRouteId?: string;  // Razorpay route ID if routing enabled
 }
 
 export interface UserDocument extends Document {
@@ -124,6 +141,7 @@ export interface UserDocument extends Document {
   organizerVerificationStatus?: 'pending' | 'approved' | 'rejected';
   organizerVerificationSubmittedAt?: Date;
   organizerVerificationApprovedAt?: Date;
+  organizerVerificationApprovedBy?: mongoose.Types.ObjectId;
   organizerVerificationRejectedAt?: Date;
   organizerVerificationRejectionReason?: string;
   organizerVerificationReviewedBy?: mongoose.Types.ObjectId;
@@ -426,6 +444,7 @@ const userSchema = new Schema(
     },
     organizerVerificationSubmittedAt: { type: Date },
     organizerVerificationApprovedAt: { type: Date },
+    organizerVerificationApprovedBy: { type: Schema.Types.ObjectId, ref: 'User' },
     organizerVerificationRejectedAt: { type: Date },
     organizerVerificationRejectionReason: { type: String },
     organizerVerificationReviewedBy: { type: Schema.Types.ObjectId, ref: 'User' },

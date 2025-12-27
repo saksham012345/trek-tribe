@@ -77,8 +77,7 @@ export const EventsPage: React.FC = () => {
 
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
-    const token = localStorage.getItem('token');
-    if (!token) {
+    if (!user) {
       setError('Please log in to create an event');
       return;
     }
@@ -105,8 +104,7 @@ export const EventsPage: React.FC = () => {
   };
 
   const handleRsvp = async (eventId: string) => {
-    const token = localStorage.getItem('token');
-    if (!token) {
+    if (!user) {
       setError('Please log in to RSVP');
       return;
     }
@@ -128,8 +126,7 @@ export const EventsPage: React.FC = () => {
   };
 
   const handleCancelRsvp = async (eventId: string) => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!user) return;
 
     try {
       await api.post(
@@ -187,7 +184,7 @@ export const EventsPage: React.FC = () => {
           <h1>📅 Events & Calendar</h1>
           <p>Discover and join upcoming trips, meetups, and workshops</p>
         </div>
-        {localStorage.getItem('token') && user?.role === 'organizer' && (
+        {user && user.role === 'organizer' && (
           <button
             className="btn-create-event"
             onClick={() => setShowCreateForm(!showCreateForm)}
@@ -427,7 +424,7 @@ export const EventsPage: React.FC = () => {
                 </div>
 
                 <div className="event-actions">
-                  {event.status === 'upcoming' && localStorage.getItem('token') ? (
+                  {event.status === 'upcoming' && user ? (
                     <>
                       {isUserRsvped(event._id) ? (
                         <>

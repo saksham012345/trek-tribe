@@ -1,8 +1,9 @@
-import { Router } from 'express';
+import { Router, Response } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
+import { VerificationRequest } from '../models/VerificationRequest';
 import { authenticateJwt, requireRole } from '../middleware/auth';
 import { emailService } from '../services/emailService';
 import { logger } from '../utils/logger';
@@ -12,6 +13,30 @@ import { OAuth2Client } from 'google-auth-library';
 import { smsService } from '../services/smsService';
 
 const router = Router();
+
+// Helper function to set secure httpOnly cookie with JWT token
+function setAuthCookie(res: Response, token: string): void {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+  
+  res.cookie('token', token, {
+    httpOnly: true, // Prevents JavaScript access (XSS protection)
+    secure: isProduction, // HTTPS only in production
+    sameSite: isProduction ? 'strict' : 'lax', // CSRF protection
+    maxAge: maxAge,
+    path: '/' // Available on all paths
+  });
+}
+
+// Helper function to clear auth cookie
+function clearAuthCookie(res: Response): void {
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+    path: '/'
+  });
+}
 
 // Basic weak-password blocklist to prevent trivially guessable secrets
 const COMMON_PASSWORDS = new Set([
@@ -159,7 +184,23 @@ router.post('/register', async (req, res) => {
           isSetupRequired: false,
           isSetupCompleted: false,
           autoPayEnabled: false
-        }
+        },
+        // Initialize trust score at 0 - admin will set it upon verification
+        trustScore: {
+          overall: 0,
+          breakdown: {
+            documentVerified: 0,
+            bankVerified: 0,
+            experienceYears: 0,
+            completedTrips: 0,
+            userReviews: 0,
+            responseTime: 0,
+            refundRate: 0
+          },
+          lastCalculated: new Date()
+        },
+        verificationBadge: 'none',
+        routingEnabled: false  // Disabled by default, admin can enable after verification
       };
       
       // Set organizer verification status to pending
@@ -169,6 +210,39 @@ router.post('/register', async (req, res) => {
     // travelers use default user fields
     
     const user = await User.create(userData);
+
+    // Create verification request for organizers
+    if (userRole === 'organizer') {
+      try {
+        await VerificationRequest.create({
+          organizerId: user._id,
+          organizerName: user.name,
+          organizerEmail: user.email,
+          requestType: 'initial',
+          status: 'pending',
+          priority: 'medium',
+          documents: [],
+          kycDetails: {
+            phone: phone || '',
+            businessName: name  // Use provided name as initial business name
+          }
+        });
+        
+        logger.info('Verification request created for new organizer', {
+          userId: user._id,
+          email: user.email
+        });
+
+        // TODO: Send notification to admin about new verification request
+        // This could be an email, webhook, or push notification
+      } catch (verifyError: any) {
+        logger.error('Failed to create verification request', {
+          userId: user._id,
+          error: verifyError.message
+        });
+        // Don't fail registration if verification request creation fails
+      }
+    }
 
     // Generate and store 10-minute OTP for email verification
     const otp = String(crypto.randomInt(100000, 999999));
@@ -202,12 +276,15 @@ router.post('/register', async (req, res) => {
         const jwtSecret = process.env.JWT_SECRET || 'test-jwt-secret-key';
         const token = jwt.sign({ userId: String(user._id), role: user.role }, jwtSecret, { expiresIn: '7d' });
 
+        // Set secure httpOnly cookie
+        setAuthCookie(res, token);
+
         // Return both `_id` and `id` to satisfy different test/client expectations
         return res.status(201).json({
           success: true,
           message: 'Registered (test mode). Auto-verified and logged in.',
           requiresVerification: false,
-          token,
+          token, // Still return token for backward compatibility
           user: {
             _id: user._id,
             id: user._id,
@@ -330,8 +407,11 @@ router.post('/login', async (req, res) => {
   
   await user.save();
   
+  // Set secure httpOnly cookie
+  setAuthCookie(res, token);
+  
   return res.json({ 
-    token,
+    token, // Still return token for backward compatibility (can be removed later)
     user: {
       id: user._id,
       email: user.email,
@@ -443,6 +523,9 @@ router.post('/google', async (req, res) => {
       { expiresIn: '7d' }
     );
 
+    // Set secure httpOnly cookie
+    setAuthCookie(res, token);
+
     // Check if profile is incomplete
     const isNewUser = !user.phone;
     const needsRoleSelection = user.role === 'traveler' && !user.phone; // New Google users need role selection
@@ -451,7 +534,7 @@ router.post('/google', async (req, res) => {
     const isOrganizerNeedsSetup = user.role === 'organizer' && (!user.phone || !user.phoneVerified);
 
     res.json({ 
-      token,
+      token, // Still return token for backward compatibility
       user: {
         id: user._id,
         email: user.email,
@@ -470,6 +553,12 @@ router.post('/google', async (req, res) => {
     logger.error('Google OAuth error', { error: error.message });
     res.status(500).json({ error: 'Authentication failed' });
   }
+});
+
+// Logout route - clears auth cookie
+router.post('/logout', (req, res) => {
+  clearAuthCookie(res);
+  return res.json({ message: 'Logged out successfully' });
 });
 
 router.get('/me', authenticateJwt, async (req, res) => {
@@ -1084,9 +1173,28 @@ router.post('/complete-profile', authenticateJwt, async (req, res) => {
       if (organizerProfile) {
         user.organizerProfile = {
           ...user.organizerProfile,
-          ...organizerProfile
+          ...organizerProfile,
+          trustScore: {
+            overall: 0,
+            breakdown: {
+              documentVerified: 0,
+              bankVerified: 0,
+              experienceYears: 0,
+              completedTrips: 0,
+              userReviews: 0,
+              responseTime: 0,
+              refundRate: 0
+            },
+            lastCalculated: new Date()
+          },
+          verificationBadge: 'none',
+          routingEnabled: false
         };
       }
+      
+      // Set organizer verification status to pending
+      user.organizerVerificationStatus = 'pending';
+      user.organizerVerificationSubmittedAt = new Date();
       
       // Initialize auto-pay if not already set (for Google auth organizers)
       if (!user.firstOrganizerLogin) {
@@ -1096,6 +1204,36 @@ router.post('/complete-profile', authenticateJwt, async (req, res) => {
     }
 
     await user.save();
+
+    // Create verification request for organizers (Google OAuth)
+    if (role === 'organizer') {
+      try {
+        await VerificationRequest.create({
+          organizerId: user._id,
+          organizerName: user.name,
+          organizerEmail: user.email,
+          requestType: 'initial',
+          status: 'pending',
+          priority: 'medium',
+          documents: [],
+          kycDetails: {
+            phone: phone || '',
+            businessName: user.name
+          }
+        });
+        
+        logger.info('Verification request created for Google OAuth organizer', {
+          userId: user._id,
+          email: user.email
+        });
+      } catch (verifyError: any) {
+        logger.error('Failed to create verification request for Google organizer', {
+          userId: user._id,
+          error: verifyError.message
+        });
+        // Don't fail profile completion if verification request creation fails
+      }
+    }
 
     logger.info('Profile completed', { userId, role, hasPhone: !!user.phone });
 

@@ -37,7 +37,7 @@ const AuthChecker: React.FC = () => {
           <strong>Role:</strong> {user?.role || 'None'}
         </div>
         <div>
-          <strong>Token:</strong> {localStorage.getItem('token') ? 'Present' : 'Missing'}
+          <strong>Auth:</strong> {user ? 'Authenticated (cookie-based)' : 'Not authenticated'}
         </div>
         
         <button 

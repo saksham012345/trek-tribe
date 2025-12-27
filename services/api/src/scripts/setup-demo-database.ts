@@ -81,6 +81,7 @@ async function setupDemoDatabase() {
       emailVerified: true,
       phoneNumber: '+919876543210',
       bio: 'Professional trek organizer with premium subscription',
+      organizerVerificationStatus: 'approved',  // Mark as verified for demo
       organizerProfile: {
         organizationName: 'Himalayan Adventures',
         verified: true,

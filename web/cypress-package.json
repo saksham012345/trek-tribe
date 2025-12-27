@@ -1,0 +1,14 @@
+{
+  "name": "trek-tribe-e2e",
+  "version": "1.0.0",
+  "description": "End-to-end testing for TrekTribe with Cypress",
+  "scripts": {
+    "cypress:open": "cypress open",
+    "cypress:run": "cypress run",
+    "test:e2e": "cypress run --spec 'cypress/e2e/**/*.cy.js'",
+    "test:component": "cypress run --component"
+  },
+  "devDependencies": {
+    "cypress": "^13.6.2"
+  }
+}

@@ -15,7 +15,6 @@ interface ChatMessage {
 
 const AIChatWidgetClean: React.FC = () => {
   const { user } = useAuth();
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   const [isOpen, setIsOpen] = useState(false);
   
   // Load messages from localStorage on component mount
@@ -205,11 +204,12 @@ const AIChatWidgetClean: React.FC = () => {
   const initializeSocket = () => {
     try {
       const socketUrl = API_BASE_URL.replace('/api', '') || window.location.origin;
+      // Cookies are sent automatically, no need to pass token in auth
       socketRef.current = io(socketUrl, {
-        auth: { token: token || undefined },
         path: '/socket.io/',
         transports: ['websocket', 'polling'],
         timeout: 20000,
+        withCredentials: true, // Send cookies
       });
 
       const socket = socketRef.current;
@@ -241,7 +241,7 @@ const AIChatWidgetClean: React.FC = () => {
 
   const sendMessageToAIProxy = async (text: string) => {
     try {
-      const resp = await api.post('/api/ai/generate', { prompt: text, max_tokens: 256 });
+      const resp = await api.post('/aiProxy/generate', { prompt: text, max_tokens: 256 });
       const data = resp.data || {};
       const aiText = (data && ((data as any).text ?? data)) || JSON.stringify(data);
       
