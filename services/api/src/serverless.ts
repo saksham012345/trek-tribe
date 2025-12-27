@@ -25,14 +25,35 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 app.use(cors({ 
-  origin: process.env.NODE_ENV === 'production' ? [
-    'https://www.trektribe.in',
-    'https://trektribe.in',
-    process.env.FRONTEND_URL || 'http://localhost:3000',
-    process.env.CORS_ORIGIN || 'http://localhost:3000',
-    'https://trek-tribe.vercel.app'
-  ] : '*',
-  credentials: true 
+  origin: (origin, callback) => {
+    // Allow requests with no origin
+    if (!origin) {
+      return callback(null, true);
+    }
+    
+    const allowedOrigins = [
+      'https://www.trektribe.in',
+      'https://trektribe.in',
+      process.env.FRONTEND_URL,
+      process.env.CORS_ORIGIN,
+      'https://trek-tribe.vercel.app',
+    ].filter(Boolean) as string[];
+    
+    // In development, be more permissive
+    if (process.env.NODE_ENV === 'development') {
+      allowedOrigins.push('http://localhost:3000', 'http://localhost:3001');
+      return callback(null, true);
+    }
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-api-key'],
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
