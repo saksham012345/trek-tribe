@@ -136,17 +136,11 @@ if (process.env.NODE_ENV !== 'test') {
 }
 const allowedOrigins = process.env.NODE_ENV === 'production'
   ? [
-      'https://www.trektribe.in',
-      'https://trektribe.in',
-      'https://trek-tribe-38in.onrender.com',
-      'https://trek-tribe-web.onrender.com',
-      'https://trek-tribe.vercel.app',
-      'https://trekktribe.vercel.app',
-      'https://trekktribe.onrender.com',
       process.env.FRONTEND_URL,
       process.env.CORS_ORIGIN,
       process.env.WEB_URL,
-      process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined
+      process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined,
+      // Add any production domains as environment variables, not hardcoded
     ].filter(Boolean) as string[]
   : '*';
 app.use(cors({

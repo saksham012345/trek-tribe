@@ -42,11 +42,10 @@ class SocketService {
   initialize(server: HttpServer) {
     // Configure allowed origins for Socket.IO
     const allowedOrigins = process.env.NODE_ENV === 'production' ? [
-      'https://www.trektribe.in',
-      'https://trektribe.in',
-      process.env.FRONTEND_URL || 'https://trek-tribe-web.onrender.com',
+      process.env.FRONTEND_URL,
       process.env.SOCKET_ORIGIN,
-      'https://trek-tribe-38in.onrender.com'
+      process.env.CORS_ORIGIN,
+      // Add production domains via environment variables, not hardcoded
     ].filter(Boolean) : ['http://localhost:3000', 'http://localhost:3001'];
 
     this.io = new SocketIOServer(server, {

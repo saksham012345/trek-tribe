@@ -63,9 +63,8 @@ app.use(cors({
     'https://www.trektribe.in',
     'https://trektribe.in',
     'https://trek-tribe.vercel.app',
-    process.env.FRONTEND_URL || 'https://trek-tribe-web.onrender.com',
-    process.env.CORS_ORIGIN || 'https://trek-tribe-web.onrender.com',
-    'https://trek-tribe-38in.onrender.com'
+    process.env.FRONTEND_URL || 'http://localhost:3000',
+    process.env.CORS_ORIGIN || 'http://localhost:3000'
   ] : '*',
   credentials: true 
 }));

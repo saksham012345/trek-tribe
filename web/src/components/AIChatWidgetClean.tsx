@@ -241,7 +241,7 @@ const AIChatWidgetClean: React.FC = () => {
 
   const sendMessageToAIProxy = async (text: string) => {
     try {
-      const resp = await api.post('/aiProxy/generate', { prompt: text, max_tokens: 256 });
+      const resp = await api.post('/api/ai/generate', { prompt: text, max_tokens: 256 });
       const data = resp.data || {};
       const aiText = (data && ((data as any).text ?? data)) || JSON.stringify(data);
       

@@ -17,11 +17,11 @@ services:
       - key: MONGODB_URI
         sync: false
       - key: FRONTEND_URL
-        sync: false
+        value: https://your-frontend-domain.com
       - key: CORS_ORIGIN
-        sync: false
+        value: https://your-frontend-domain.com
       - key: AI_SERVICE_URL
-        sync: false
+        value: https://your-ai-service-domain.com
       - key: AI_SERVICE_KEY
         sync: false
       - key: RAZORPAY_KEY_ID
@@ -34,3 +34,4 @@ services:
         sync: false
       - key: GMAIL_APP_PASSWORD
         sync: false
+
