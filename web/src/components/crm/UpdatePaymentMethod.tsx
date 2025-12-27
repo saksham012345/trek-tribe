@@ -10,10 +10,12 @@ import React, { useState } from 'react';
 export default function UpdatePaymentMethod() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   async function startUpdate() {
     setLoading(true);
     setMessage(null);
+    setError(null);
     try {
       // Request a payment re-collection / tokenization session from the backend
       const res = await fetch('/api/crm/payment-recollect', { method: 'POST' });
@@ -28,7 +30,7 @@ export default function UpdatePaymentMethod() {
       }
     } catch (e: any) {
       console.error(e);
-      setMessage('Error starting payment update');
+      setError('Error starting payment update. You may not have access or the server is down.');
     } finally {
       setLoading(false);
     }
@@ -40,6 +42,7 @@ export default function UpdatePaymentMethod() {
       <div>
         <button onClick={startUpdate} disabled={loading}>{loading ? 'Starting...' : 'Update Payment Method'}</button>
       </div>
+      {error && <div style={{ marginTop: 8, color: 'red' }}>{error}</div>}
       {message && <div style={{ marginTop: 8 }}>{message}</div>}
     </div>
   );

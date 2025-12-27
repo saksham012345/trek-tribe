@@ -16,6 +16,7 @@ type Charge = {
 export default function BillingHistory() {
   const [charges, setCharges] = useState<Charge[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCharges();
@@ -23,6 +24,7 @@ export default function BillingHistory() {
 
   async function fetchCharges() {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch('/api/organizer/billing');
       if (!res.ok) throw new Error('Failed to load billing');
@@ -30,6 +32,7 @@ export default function BillingHistory() {
       setCharges(data || []);
     } catch (e) {
       console.error(e);
+      setError('Failed to load billing history. You may not have access or the server is down.');
     } finally {
       setLoading(false);
     }
@@ -37,6 +40,7 @@ export default function BillingHistory() {
 
   return (
     <div>
+      {error && <div className="text-red-600 mb-2">{error}</div>}
       {loading ? (
         <div>Loading billing history...</div>
       ) : (
