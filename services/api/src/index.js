@@ -58,17 +58,24 @@ app.use(timeoutMiddleware);
 app.use(helmet({
   contentSecurityPolicy: false, // Disable CSP for EJS templates
 }));
-app.use(cors({ 
-  origin: process.env.NODE_ENV === 'production'
-    ? [
-        'https://www.trektribe.in',
-        'https://trektribe.in',
-        'https://trek-tribe.vercel.app',
-        'https://trek-tribe-9zk3-adae0jb1z-saksham-s-projects-76ba6bcc.vercel.app', // Add your deployed Vercel frontend
-        process.env.FRONTEND_URL || 'http://localhost:3000',
-        process.env.CORS_ORIGIN || 'http://localhost:3000'
-      ]
-    : 'http://localhost:3000',
+const allowedOrigins = [
+  'https://www.trektribe.in',
+  'https://trektribe.in',
+  'https://trek-tribe.vercel.app',
+  'https://trek-tribe-9zk3-adae0jb1z-saksham-s-projects-76ba6bcc.vercel.app',
+  process.env.FRONTEND_URL || 'http://localhost:3000',
+  process.env.CORS_ORIGIN || 'http://localhost:3000'
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      return callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 

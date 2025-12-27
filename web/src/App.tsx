@@ -125,8 +125,8 @@ function AppContent() {
             </div>
           }>
           <Routes>
-            <Route path="/" element={user ? <Navigate to="/home" /> : <Register onLogin={handleLogin} />} />
-            <Route path="/home" element={user ? <Home user={user} /> : <Navigate to="/" />} />
+            <Route path="/" element={user ? <Home user={user} /> : <Navigate to="/login" />} />
+            <Route path="/home" element={user ? <Home user={user} /> : <Navigate to="/login" />} />
             <Route
               path="/u/:userId"
               element={<EnhancedProfilePage />}
