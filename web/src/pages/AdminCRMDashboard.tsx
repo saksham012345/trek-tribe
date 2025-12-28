@@ -48,20 +48,20 @@ const AdminCRMDashboard: React.FC = () => {
     setLoading(true);
     try {
       if (activeTab === 'overview' || activeTab === 'analytics') {
-        const response = await api.get('/analytics/dashboard');
+        const response = await api.get('/api/analytics/dashboard');
         setAnalytics(response.data);
       }
       if (activeTab === 'revenue') {
-        const response = await api.get('/analytics/revenue');
-        setRevenueData(response.data.monthlyRevenue || []);
+        const response = await api.get('/api/analytics/revenue');
+        setRevenueData(response.data.monthlyRevenue || response.data.data?.monthlyRevenue || []);
       }
       if (activeTab === 'subscriptions') {
-        const response = await api.get('/admin/subscriptions');
-        setSubscriptions(response.data.subscriptions || []);
+        const response = await api.get('/api/crm/subscriptions');
+        setSubscriptions(response.data.data || response.data.subscriptions || []);
       }
       if (activeTab === 'verifications') {
-        const response = await api.get('/admin/trip-verifications');
-        setVerifications(response.data.verifications || []);
+        const response = await api.get('/api/crm/verifications');
+        setVerifications(response.data.data || response.data.verifications || []);
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);

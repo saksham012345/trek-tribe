@@ -51,16 +51,16 @@ const OrganizerCRMDashboard: React.FC<OrganizerCRMProps> = ({ user }) => {
     setLoading(true);
     try {
       if (activeTab === 'overview' || activeTab === 'analytics') {
-        const response = await api.get('/analytics/dashboard');
+        const response = await api.get('/api/analytics/dashboard');
         setAnalytics(response.data);
       }
       if (activeTab === 'leads') {
-        const response = await api.get('/leads');
-        setLeads(response.data.leads || []);
+        const response = await api.get('/api/crm/leads');
+        setLeads(response.data.data || response.data.leads || []);
       }
       if (activeTab === 'tickets') {
-        const response = await api.get('/tickets');
-        setTickets(response.data.tickets || []);
+        const response = await api.get('/api/crm/tickets');
+        setTickets(response.data.data || response.data.tickets || []);
       }
     } catch (error: any) {
       console.error('Error fetching dashboard data:', error);
