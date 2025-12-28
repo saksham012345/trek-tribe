@@ -121,48 +121,76 @@ const EnhancedCRMDashboard: React.FC = () => {
   const checkCRMAccess = async () => {
     try {
       const response = await api.get('/api/subscriptions/verify-crm-access');
-      if (response.data.hasCRMAccess) {
+      if (response.data?.hasCRMAccess) {
         setHasCRMAccess(true);
         fetchLeads();
         fetchStats();
         fetchSubscription();
       } else {
         setHasCRMAccess(false);
+        setLoading(false);
       }
     } catch (error: any) {
       console.error('Failed to check CRM access:', error);
-      showErrorToast('Failed to verify CRM access. Please upgrade your plan.');
-    } finally {
-      setLoading(false);
+      if (error?.response?.status === 401) {
+        // User not authenticated - will be handled by auth system
+        setHasCRMAccess(false);
+        setLoading(false);
+      } else {
+        showErrorToast('Failed to verify CRM access. Please upgrade your plan.');
+        setHasCRMAccess(false);
+        setLoading(false);
+      }
     }
   };
 
   const fetchLeads = async () => {
     try {
       const response = await api.get('/api/crm/leads');
-      setLeads(response.data.leads || []);
+      // Handle both response formats: { data: [] } or { leads: [] } or direct array
+      const leadsData = response.data?.data || response.data?.leads || response.data || [];
+      setLeads(Array.isArray(leadsData) ? leadsData : []);
       
       // Track leads history for line chart
       const today = new Date().toISOString().split('T')[0];
+      const leadsCount = Array.isArray(leadsData) ? leadsData.length : 0;
       setLeadsHistory(prev => {
         const existing = prev.find(h => h.date === today);
         if (existing) {
-          return prev.map(h => h.date === today ? { ...h, count: response.data.leads?.length || 0 } : h);
+          return prev.map(h => h.date === today ? { ...h, count: leadsCount } : h);
         }
-        return [...prev, { date: today, count: response.data.leads?.length || 0 }].slice(-7);
+        return [...prev, { date: today, count: leadsCount }].slice(-7);
       });
     } catch (error: any) {
       console.error('Failed to fetch leads:', error);
-      showErrorToast('Failed to load leads');
+      if (error?.response?.status !== 401) {
+        showErrorToast('Failed to load leads');
+      }
+      setLeads([]);
     }
   };
 
   const fetchStats = async () => {
     try {
       const response = await api.get('/api/crm/stats');
-      setStats(response.data);
+      // Handle both response formats
+      const statsData = response.data?.data || response.data;
+      if (statsData) {
+        setStats(statsData);
+      }
     } catch (error: any) {
       console.error('Failed to fetch stats:', error);
+      if (error?.response?.status !== 401) {
+        showErrorToast('Failed to load statistics');
+      }
+      // Set default stats on error
+      setStats({
+        totalLeads: 0,
+        newLeads: 0,
+        convertedLeads: 0,
+        lostLeads: 0,
+        conversionRate: 0,
+      });
     }
   };
 
