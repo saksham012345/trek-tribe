@@ -103,10 +103,14 @@ class ChunkErrorBoundary extends React.Component<
 function AppContent() {
   const { user, loading, login: handleLogin, logout: handleLogout } = useAuth();
 
+  // Show loading spinner while checking authentication
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen flex items-center justify-center bg-forest-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-nature-300 border-t-nature-600 mx-auto mb-4"></div>
+          <p className="text-forest-700 font-medium">Loading...</p>
+        </div>
       </div>
     );
   }
@@ -125,8 +129,16 @@ function AppContent() {
             </div>
           }>
           <Routes>
-            <Route path="/" element={<Home user={user || undefined} />} />
-            <Route path="/home" element={<Home user={user || undefined} />} />
+            {/* Default route - redirect to login if not authenticated, home if authenticated */}
+            <Route 
+              path="/" 
+              element={user ? <Navigate to="/home" replace /> : <Navigate to="/login" replace />} 
+            />
+            {/* Home route - requires authentication */}
+            <Route 
+              path="/home" 
+              element={user ? <Home user={user} /> : <Navigate to="/login" replace />} 
+            />
             <Route
               path="/u/:userId"
               element={<EnhancedProfilePage />}

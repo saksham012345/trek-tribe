@@ -55,32 +55,46 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     // Always verify session with backend (cookie-based auth)
-    // Don't fail if 401 - user might just not be logged in yet
-    api.get('/auth/me')
+    // This is critical for session persistence
+    api.get('/auth/me', {
+      // Ensure credentials are sent with the request
+      withCredentials: true
+    })
       .then(response => {
         // Handle both { user: User } and direct User object formats
         const userData = response.data?.user || response.data;
-        if (userData && userData._id) {
+        if (userData && (userData._id || userData.id)) {
+          // User is authenticated - update state and localStorage
           setUser(userData as User);
-          // Persist user data to localStorage for faster restoration (non-sensitive)
           localStorage.setItem('user', JSON.stringify(userData));
+          console.log('Session verified successfully');
         } else {
           // No user data in response - clear local storage
+          console.log('No user data in response, clearing session');
           localStorage.removeItem('user');
           setUser(null);
         }
       })
       .catch((error) => {
-        // 401 is expected when user is not logged in - don't log as error
+        // 401 is expected when user is not logged in - don't clear user immediately
+        // Only clear if we get a definitive 401 after initial load
         if (error?.response?.status === 401) {
-          // User not authenticated - this is fine, just clear local state
-          localStorage.removeItem('user');
-          setUser(null);
+          // Check if we had a user in localStorage - if yes, it might be a session expiry
+          // If no, user was never logged in
+          if (savedUser) {
+            console.log('Session expired or invalid - clearing local user data');
+            localStorage.removeItem('user');
+            setUser(null);
+          } else {
+            // No saved user, so user was never logged in - this is normal
+            setUser(null);
+          }
         } else {
-          // Other errors (network, server) - log but don't fail completely
-          console.warn('Failed to verify session:', error?.response?.status || error?.message);
-          // Keep user from localStorage if exists (might be network issue)
-          // User will be prompted to login if they try to access protected routes
+          // Network or server errors - keep user from localStorage for now
+          // User can still use the app if localStorage has valid user data
+          // Protected routes will verify again
+          console.warn('Failed to verify session (non-401):', error?.response?.status || error?.message);
+          // Don't clear user on network errors - might be temporary
         }
       })
       .finally(() => {
