@@ -84,7 +84,8 @@ const SubscribeInner: React.FC = () => {
     }
 
     if (hasActiveSub) {
-      navigate('/organizer/route-onboarding');
+      // Route onboarding disabled - bank details can be added via profile
+      navigate('/organizer/dashboard');
       return;
     }
 
@@ -100,7 +101,7 @@ const SubscribeInner: React.FC = () => {
         setSubscription({ hasSubscription: true, subscription: data.subscription });
         setStatus(data.message || 'Trial activated');
         add('Trial activated', 'success');
-        setTimeout(() => navigate('/organizer/route-onboarding'), 800);
+        setTimeout(() => navigate('/organizer/dashboard'), 800);
         return;
       }
 
@@ -125,7 +126,7 @@ const SubscribeInner: React.FC = () => {
             const msg = verifyRes.data?.message || 'Subscription activated';
             setStatus(msg);
             add(msg, 'success');
-            setTimeout(() => navigate('/organizer/route-onboarding'), 800);
+            setTimeout(() => navigate('/organizer/dashboard'), 800);
           } catch (err: any) {
             const m = err.response?.data?.error || 'Verification failed';
             setStatus(m);
@@ -202,10 +203,10 @@ const SubscribeInner: React.FC = () => {
             <p className="text-sm">Head to onboarding to connect Razorpay Route and start receiving payouts.</p>
           </div>
           <button
-            onClick={() => navigate('/organizer/route-onboarding')}
+            onClick={() => navigate('/organizer/dashboard')}
             className="px-4 py-2.5 rounded-lg bg-emerald-600 text-white font-semibold shadow-md hover:bg-emerald-700 hover:shadow-lg transition-all duration-200"
           >
-            Go to Onboarding
+            Go to Dashboard
           </button>
         </div>
       )}

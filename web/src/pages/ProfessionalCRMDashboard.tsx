@@ -152,9 +152,36 @@ const ProfessionalCRMDashboard: React.FC = () => {
   const fetchStats = async () => {
     try {
       const response = await api.get('/api/crm/stats');
-      setStats(response.data);
+      // Handle multiple response formats
+      const statsData = response.data?.data || response.data;
+      if (statsData) {
+        setStats(statsData);
+      } else {
+        // Set default stats if no data
+        setStats({
+          totalLeads: 0,
+          newLeads: 0,
+          contactedLeads: 0,
+          interestedLeads: 0,
+          qualifiedLeads: 0,
+          lostLeads: 0,
+          conversionRate: 0,
+        });
+      }
     } catch (error: any) {
       console.error('Failed to fetch stats:', error);
+      if (error?.response?.status !== 401) {
+        // Set default stats on error
+        setStats({
+          totalLeads: 0,
+          newLeads: 0,
+          contactedLeads: 0,
+          interestedLeads: 0,
+          qualifiedLeads: 0,
+          lostLeads: 0,
+          conversionRate: 0,
+        });
+      }
     }
   };
 
@@ -259,25 +286,170 @@ const ProfessionalCRMDashboard: React.FC = () => {
     );
   }
 
+  // Sample CRM data for basic organizers (preview)
+  const sampleCRMData = {
+    stats: {
+      totalLeads: 24,
+      newLeads: 8,
+      contactedLeads: 6,
+      interestedLeads: 5,
+      qualifiedLeads: 4,
+      lostLeads: 1,
+      conversionRate: 16.7,
+    },
+    leads: [
+      { _id: '1', name: 'Priya Sharma', email: 'priya@example.com', phone: '+91 98765 43210', tripName: 'Himalayan Trek', status: 'new', createdAt: new Date().toISOString(), notes: '', verified: false },
+      { _id: '2', name: 'Rahul Mehta', email: 'rahul@example.com', phone: '+91 98765 43211', tripName: 'Beach Adventure', status: 'contacted', createdAt: new Date().toISOString(), notes: 'Interested in group booking', verified: true },
+      { _id: '3', name: 'Sneha Patel', email: 'sneha@example.com', phone: '+91 98765 43212', tripName: 'Desert Safari', status: 'qualified', createdAt: new Date().toISOString(), notes: 'Ready to book', verified: true },
+    ],
+    activities: [
+      { id: '1', type: 'lead_created' as const, leadName: 'Priya Sharma', details: 'Added to Himalayan Trek', timestamp: new Date() },
+      { id: '2', type: 'status_changed' as const, leadName: 'Rahul Mehta', details: 'Moved to Contacted', timestamp: new Date() },
+      { id: '3', type: 'verified' as const, leadName: 'Sneha Patel', details: 'Lead verified', timestamp: new Date() },
+    ],
+    leadsOverTime: [
+      { date: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], count: 3 },
+      { date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], count: 5 },
+      { date: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], count: 4 },
+      { date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], count: 6 },
+      { date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], count: 8 },
+      { date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], count: 10 },
+      { date: new Date().toISOString().split('T')[0], count: 24 },
+    ]
+  };
+
   if (!hasCRMAccess) {
+    // Show sample/preview CRM for basic organizers
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center p-6">
-        <div className="bg-white rounded-2xl shadow-xl p-12 text-center max-w-md">
-          <div className="mb-6">
-            <svg className="mx-auto h-16 w-16 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+        <div className="max-w-7xl mx-auto p-6">
+          {/* Preview Banner */}
+          <div className="mb-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl p-6 shadow-xl">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-2xl font-bold mb-2">✨ CRM Preview Mode</h2>
+                <p className="text-blue-100 mb-4">
+                  You're viewing a sample CRM dashboard. Upgrade to Premium or Enterprise to unlock live data, real-time updates, and advanced analytics.
+                </p>
+                <button
+                  onClick={() => navigate('/subscribe')}
+                  className="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold shadow-md hover:shadow-lg transition-all duration-200"
+                >
+                  Upgrade to Unlock CRM
+                </button>
+              </div>
+              <div className="text-right">
+                <div className="text-4xl mb-2">👁️</div>
+                <p className="text-xs text-blue-100">Preview Only</p>
+              </div>
+            </div>
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-3">CRM Access Required</h2>
-          <p className="text-slate-600 mb-6">
-            Upgrade to Premium or Enterprise plan to unlock the full CRM features.
-          </p>
-          <button
-            onClick={() => navigate('/home')}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
-          >
-            View Plans
-          </button>
+
+          {/* Sample Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {[
+              { title: 'Total Leads', value: sampleCRMData.stats.totalLeads, icon: '👥', color: 'from-blue-500 to-blue-600' },
+              { title: 'New Leads', value: sampleCRMData.stats.newLeads, icon: '⭐', color: 'from-purple-500 to-purple-600' },
+              { title: 'Qualified', value: sampleCRMData.stats.qualifiedLeads, icon: '✅', color: 'from-green-500 to-green-600' },
+              { title: 'Conversion Rate', value: `${sampleCRMData.stats.conversionRate}%`, icon: '🎯', color: 'from-orange-500 to-orange-600' },
+            ].map((card, idx) => (
+              <div key={idx} className={`bg-gradient-to-br ${card.color} rounded-xl p-6 text-white shadow-lg`}>
+                <div className="flex justify-between items-start mb-4">
+                  <span className="text-3xl">{card.icon}</span>
+                  <span className="text-xs bg-white bg-opacity-20 px-2 py-1 rounded-full">Sample</span>
+                </div>
+                <p className="text-sm opacity-90">{card.title}</p>
+                <p className="text-3xl font-bold mt-2">{card.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Sample Leads Table */}
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-slate-900">Sample Leads (Preview)</h3>
+              <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-semibold">Preview Mode</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gradient-to-r from-slate-900 to-slate-800 text-white">
+                  <tr>
+                    <th className="px-6 py-4 text-left font-semibold">Name</th>
+                    <th className="px-6 py-4 text-left font-semibold">Contact</th>
+                    <th className="px-6 py-4 text-left font-semibold">Trip</th>
+                    <th className="px-6 py-4 text-left font-semibold">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {sampleCRMData.leads.map((lead) => (
+                    <tr key={lead._id} className="hover:bg-slate-50">
+                      <td className="px-6 py-4">
+                        <p className="font-semibold text-slate-900">{lead.name}</p>
+                        <p className="text-sm text-slate-600">{lead.email}</p>
+                      </td>
+                      <td className="px-6 py-4 text-slate-600">{lead.phone}</td>
+                      <td className="px-6 py-4">
+                        <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">{lead.tripName}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-3 py-2 rounded-lg font-medium ${getStatusColor(lead.status)}`}>
+                          {getStatusIcon(lead.status)} {lead.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <p className="text-sm text-blue-800">
+                <strong>Unlock Premium Features:</strong> Get real-time lead tracking, conversion analytics, automated follow-ups, and priority support. 
+                <button onClick={() => navigate('/subscribe')} className="ml-2 text-blue-600 font-semibold hover:underline">
+                  Upgrade Now →
+                </button>
+              </p>
+            </div>
+          </div>
+
+          {/* Sample Analytics */}
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <h3 className="text-xl font-bold text-slate-900 mb-4">Sample Analytics (Preview)</h3>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-xl p-6 border-2 border-dashed border-slate-300">
+                <h4 className="font-bold text-slate-900 mb-4">Lead Distribution</h4>
+                <div className="space-y-3">
+                  {[
+                    { label: 'New', value: sampleCRMData.stats.newLeads, color: 'bg-blue-500' },
+                    { label: 'Contacted', value: sampleCRMData.stats.contactedLeads, color: 'bg-purple-500' },
+                    { label: 'Qualified', value: sampleCRMData.stats.qualifiedLeads, color: 'bg-green-500' },
+                  ].map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-3">
+                      <div className={`w-4 h-4 rounded-full ${item.color}`}></div>
+                      <span className="font-medium text-slate-700 w-20">{item.label}</span>
+                      <div className="flex-1 bg-slate-200 rounded-full h-3 overflow-hidden">
+                        <div className={`${item.color} h-full`} style={{ width: `${(item.value / sampleCRMData.stats.totalLeads) * 100}%` }}></div>
+                      </div>
+                      <span className="font-bold text-slate-900 w-12 text-right">{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-gradient-to-br from-slate-50 to-green-50 rounded-xl p-6 border-2 border-dashed border-slate-300">
+                <h4 className="font-bold text-slate-900 mb-4">Leads Over Time (7 Days)</h4>
+                <div className="space-y-2">
+                  {sampleCRMData.leadsOverTime.slice(-7).map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <span className="text-sm text-slate-600 w-16">{new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                      <div className="flex-1 bg-slate-200 rounded-full h-3 overflow-hidden">
+                        <div className="bg-gradient-to-r from-green-500 to-green-400 h-full" style={{ width: `${(item.count / 30) * 100}%` }}></div>
+                      </div>
+                      <span className="text-sm font-bold text-slate-900 w-8 text-right">{item.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );

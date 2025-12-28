@@ -90,15 +90,21 @@ const EnhancedCRMDashboard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!autoRefresh) return;
+    if (!autoRefresh || !hasCRMAccess) return;
     
+    // Initial fetch
+    fetchLeads();
+    fetchStats();
+    setLastRefresh(new Date());
+    
+    // Set up auto-refresh interval (30 seconds)
     const interval = setInterval(() => {
       if (hasCRMAccess) {
         fetchLeads();
         fetchStats();
         setLastRefresh(new Date());
       }
-    }, 30000); // Refresh every 30 seconds
+    }, 30000);
     
     return () => clearInterval(interval);
   }, [autoRefresh, hasCRMAccess]);
