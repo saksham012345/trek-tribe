@@ -4,6 +4,7 @@ import { User } from '../models/User';
 import { Trip } from '../models/Trip';
 import { SupportTicket } from '../models/SupportTicket';
 import { logger } from '../utils/logger';
+import { extractTokenFromHeaders } from '../utils/tokenHelper';
 import multer from 'multer';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -45,19 +46,27 @@ const upload = multer({
 router.get('/enhanced/:userId?', async (req, res) => {
   try {
     // Try to extract user from token if present (optional authentication)
+    // Also check cookies for session-based auth
     let requestingUserId: string | undefined;
-    const token = req.headers.authorization?.split(' ')[1];
+    
+    // Try to extract token from cookies or Authorization header
+    const token = extractTokenFromHeaders(req.headers) || req.cookies?.token || req.cookies?.authToken;
     
     if (token) {
       try {
         const jwt = require('jsonwebtoken');
-        const decoded: any = jwt.verify(token, process.env.JWT_SECRET);
+        const decoded: any = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
         // Handle both 'userId' and 'id' for backward compatibility
-        requestingUserId = decoded.userId || decoded.id;
+        requestingUserId = decoded.userId || decoded.id || decoded._id || decoded.sub;
       } catch (err) {
-        // Invalid token, treat as unauthenticated request
-        logger.error('JWT verification failed in profile route', { error: (err as Error).message });
+        // Invalid token, continue without authentication
+        logger.debug('Token verification failed (optional auth)', { error: (err as Error).message });
       }
+    }
+    
+    // If no token, try to get from req.user if authenticateToken middleware was applied
+    if (!requestingUserId && (req as any).user) {
+      requestingUserId = (req as any).user.id || (req as any).user.userId || (req as any).user._id;
     }
     
     const userId = req.params.userId || requestingUserId;
@@ -65,7 +74,8 @@ router.get('/enhanced/:userId?', async (req, res) => {
     if (!userId) {
       return res.status(400).json({
         success: false,
-        message: 'User ID is required'
+        message: 'User ID is required. Please provide userId in the URL path (e.g., /profile/enhanced/USER_ID) or ensure you are authenticated.',
+        statusCode: 400
       });
     }
 

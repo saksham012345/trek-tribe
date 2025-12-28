@@ -558,7 +558,7 @@ const AIChatWidgetClean: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ width: 10, height: 10, borderRadius: 10, background: '#34D399', boxShadow: '0 0 0 4px rgba(52,211,153,0.08)' }} />
               <div className="chat-header-info">
-                <h3 style={{ margin: 0 }}>Trek Tribe Support</h3>
+                <h3 style={{ margin: 0 }}>TrekTribe Assistant</h3>
                 <div className={`connection-status ${socketFailed ? 'disconnected' : 'connected'}`} style={{ marginTop: 2 }}>{socketFailed ? 'Offline' : 'Online'}</div>
               </div>
             </div>
