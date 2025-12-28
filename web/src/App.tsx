@@ -125,8 +125,8 @@ function AppContent() {
             </div>
           }>
           <Routes>
-            <Route path="/" element={user ? <Home user={user} /> : <Navigate to="/login" />} />
-            <Route path="/home" element={user ? <Home user={user} /> : <Navigate to="/login" />} />
+            <Route path="/" element={<Home user={user || undefined} />} />
+            <Route path="/home" element={<Home user={user || undefined} />} />
             <Route
               path="/u/:userId"
               element={<EnhancedProfilePage />}
@@ -160,8 +160,8 @@ function AppContent() {
               path="/reset-password" 
               element={user ? <Navigate to="/" /> : <ResetPassword />} 
             />
-            <Route path="/trips" element={user ? <Trips user={user} /> : <Navigate to="/" />} />
-            <Route path="/trip/:id" element={user ? <TripDetails user={user} /> : <Navigate to="/" />} />
+            <Route path="/trips" element={user ? <Trips user={user} /> : <Navigate to="/login" />} />
+            <Route path="/trip/:id" element={user ? <TripDetails user={user} /> : <Navigate to="/login" />} />
             <Route 
               path="/create-trip" 
               element={

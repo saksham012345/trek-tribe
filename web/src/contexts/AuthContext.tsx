@@ -55,6 +55,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     // Always verify session with backend (cookie-based auth)
+    // Don't fail if 401 - user might just not be logged in yet
     api.get('/auth/me')
       .then(response => {
         // Handle both { user: User } and direct User object formats
@@ -64,14 +65,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // Persist user data to localStorage for faster restoration (non-sensitive)
           localStorage.setItem('user', JSON.stringify(userData));
         } else {
+          // No user data in response - clear local storage
           localStorage.removeItem('user');
+          setUser(null);
         }
       })
       .catch((error) => {
-        // Session invalid or expired - clear user data
-        console.error('Failed to restore session:', error);
-        localStorage.removeItem('user');
-        setUser(null);
+        // 401 is expected when user is not logged in - don't log as error
+        if (error?.response?.status === 401) {
+          // User not authenticated - this is fine, just clear local state
+          localStorage.removeItem('user');
+          setUser(null);
+        } else {
+          // Other errors (network, server) - log but don't fail completely
+          console.warn('Failed to verify session:', error?.response?.status || error?.message);
+          // Keep user from localStorage if exists (might be network issue)
+          // User will be prompted to login if they try to access protected routes
+        }
       })
       .finally(() => {
         setLoading(false);
