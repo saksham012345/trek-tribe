@@ -90,15 +90,21 @@ const EnhancedCRMDashboard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!autoRefresh) return;
+    if (!autoRefresh || !hasCRMAccess) return;
     
+    // Initial fetch
+    fetchLeads();
+    fetchStats();
+    setLastRefresh(new Date());
+    
+    // Set up auto-refresh interval (30 seconds)
     const interval = setInterval(() => {
       if (hasCRMAccess) {
         fetchLeads();
         fetchStats();
         setLastRefresh(new Date());
       }
-    }, 30000); // Refresh every 30 seconds
+    }, 30000);
     
     return () => clearInterval(interval);
   }, [autoRefresh, hasCRMAccess]);
@@ -121,48 +127,76 @@ const EnhancedCRMDashboard: React.FC = () => {
   const checkCRMAccess = async () => {
     try {
       const response = await api.get('/api/subscriptions/verify-crm-access');
-      if (response.data.hasCRMAccess) {
+      if (response.data?.hasCRMAccess) {
         setHasCRMAccess(true);
         fetchLeads();
         fetchStats();
         fetchSubscription();
       } else {
         setHasCRMAccess(false);
+        setLoading(false);
       }
     } catch (error: any) {
       console.error('Failed to check CRM access:', error);
-      showErrorToast('Failed to verify CRM access. Please upgrade your plan.');
-    } finally {
-      setLoading(false);
+      if (error?.response?.status === 401) {
+        // User not authenticated - will be handled by auth system
+        setHasCRMAccess(false);
+        setLoading(false);
+      } else {
+        showErrorToast('Failed to verify CRM access. Please upgrade your plan.');
+        setHasCRMAccess(false);
+        setLoading(false);
+      }
     }
   };
 
   const fetchLeads = async () => {
     try {
       const response = await api.get('/api/crm/leads');
-      setLeads(response.data.leads || []);
+      // Handle both response formats: { data: [] } or { leads: [] } or direct array
+      const leadsData = response.data?.data || response.data?.leads || response.data || [];
+      setLeads(Array.isArray(leadsData) ? leadsData : []);
       
       // Track leads history for line chart
       const today = new Date().toISOString().split('T')[0];
+      const leadsCount = Array.isArray(leadsData) ? leadsData.length : 0;
       setLeadsHistory(prev => {
         const existing = prev.find(h => h.date === today);
         if (existing) {
-          return prev.map(h => h.date === today ? { ...h, count: response.data.leads?.length || 0 } : h);
+          return prev.map(h => h.date === today ? { ...h, count: leadsCount } : h);
         }
-        return [...prev, { date: today, count: response.data.leads?.length || 0 }].slice(-7);
+        return [...prev, { date: today, count: leadsCount }].slice(-7);
       });
     } catch (error: any) {
       console.error('Failed to fetch leads:', error);
-      showErrorToast('Failed to load leads');
+      if (error?.response?.status !== 401) {
+        showErrorToast('Failed to load leads');
+      }
+      setLeads([]);
     }
   };
 
   const fetchStats = async () => {
     try {
       const response = await api.get('/api/crm/stats');
-      setStats(response.data);
+      // Handle both response formats
+      const statsData = response.data?.data || response.data;
+      if (statsData) {
+        setStats(statsData);
+      }
     } catch (error: any) {
       console.error('Failed to fetch stats:', error);
+      if (error?.response?.status !== 401) {
+        showErrorToast('Failed to load statistics');
+      }
+      // Set default stats on error
+      setStats({
+        totalLeads: 0,
+        newLeads: 0,
+        convertedLeads: 0,
+        lostLeads: 0,
+        conversionRate: 0,
+      });
     }
   };
 
@@ -346,7 +380,7 @@ const EnhancedCRMDashboard: React.FC = () => {
   const filteredLeads = getFilteredLeads();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-emerald-50 to-cyan-50">
       <div className="max-w-7xl mx-auto p-6">
         {/* Organizer Info Verification Warning */}
         {!organizerInfoVerified && (
@@ -425,26 +459,26 @@ const EnhancedCRMDashboard: React.FC = () => {
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
               {[
-                { label: 'Total Leads', value: stats?.totalLeads || 0, icon: '👥', color: 'bg-blue-600' },
-                { label: 'New', value: stats?.newLeads || 0, icon: '⭐', color: 'bg-blue-500' },
-                { label: 'Contacted', value: stats?.contactedLeads || 0, icon: '📞', color: 'bg-purple-500' },
-                { label: 'Interested', value: stats?.interestedLeads || 0, icon: '💭', color: 'bg-yellow-500' },
-                { label: 'Qualified', value: stats?.qualifiedLeads || 0, icon: '✅', color: 'bg-green-500' },
-                { label: 'Conversion', value: `${stats?.conversionRate || 0}%`, icon: '🎯', color: 'bg-indigo-500' },
+                { label: 'Total Leads', value: stats?.totalLeads || 0, icon: '👥', gradient: 'from-teal-700 to-teal-900' },
+                { label: 'New', value: stats?.newLeads || 0, icon: '⭐', gradient: 'from-blue-600 to-blue-800' },
+                { label: 'Contacted', value: stats?.contactedLeads || 0, icon: '📞', gradient: 'from-indigo-600 to-indigo-800' },
+                { label: 'Interested', value: stats?.interestedLeads || 0, icon: '💭', gradient: 'from-amber-500 to-amber-700' },
+                { label: 'Qualified', value: stats?.qualifiedLeads || 0, icon: '✅', gradient: 'from-emerald-600 to-emerald-800' },
+                { label: 'Conversion', value: `${stats?.conversionRate || 0}%`, icon: '🎯', gradient: 'from-purple-600 to-purple-800' },
               ].map((stat, idx) => (
                 <div
                   key={idx}
-                  className={`${stat.color} rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform`}
+                  className={`bg-gradient-to-br ${stat.gradient} rounded-xl shadow-lg p-6 text-white transform hover:scale-105 hover:shadow-xl transition-all duration-300 border border-white/10`}
                 >
                   <p className="text-3xl mb-2">{stat.icon}</p>
-                  <p className="text-3xl font-bold">{stat.value}</p>
-                  <p className="text-sm opacity-90 mt-1">{stat.label}</p>
+                  <p className="text-3xl font-bold mb-1">{stat.value}</p>
+                  <p className="text-sm opacity-90 font-medium">{stat.label}</p>
                 </div>
               ))}
             </div>
 
             {/* Search and Filter */}
-            <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <div className="bg-white rounded-xl shadow-lg p-6 mb-8 border border-gray-100">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="md:col-span-2">
                   <label className="block text-sm font-semibold text-slate-700 mb-2">Search</label>
@@ -487,7 +521,7 @@ const EnhancedCRMDashboard: React.FC = () => {
             </div>
 
             {/* Leads Table */}
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
               {filteredLeads.length === 0 ? (
                 <div className="p-12 text-center">
                   <p className="text-slate-600 text-lg">No leads found. Start creating trips to capture leads!</p>
@@ -495,19 +529,19 @@ const EnhancedCRMDashboard: React.FC = () => {
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-gradient-to-r from-slate-900 to-slate-800 text-white">
+                    <thead className="bg-gradient-to-r from-teal-700 via-teal-800 to-teal-900 text-white">
                       <tr>
-                        <th className="px-6 py-4 text-left font-semibold">Name</th>
-                        <th className="px-6 py-4 text-left font-semibold">Contact</th>
-                        <th className="px-6 py-4 text-left font-semibold">Trip</th>
-                        <th className="px-6 py-4 text-left font-semibold">Status</th>
-                        <th className="px-6 py-4 text-left font-semibold">Verification</th>
-                        <th className="px-6 py-4 text-left font-semibold">Actions</th>
+                        <th className="px-6 py-4 text-left font-semibold text-sm uppercase tracking-wider">Name</th>
+                        <th className="px-6 py-4 text-left font-semibold text-sm uppercase tracking-wider">Contact</th>
+                        <th className="px-6 py-4 text-left font-semibold text-sm uppercase tracking-wider">Trip</th>
+                        <th className="px-6 py-4 text-left font-semibold text-sm uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-4 text-left font-semibold text-sm uppercase tracking-wider">Verification</th>
+                        <th className="px-6 py-4 text-left font-semibold text-sm uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
                       {filteredLeads.map((lead) => (
-                        <tr key={lead._id} className="hover:bg-slate-50 transition-colors">
+                        <tr key={lead._id} className="hover:bg-teal-50/50 transition-colors">
                           <td className="px-6 py-4">
                             <p className="font-semibold text-slate-900">{lead.name}</p>
                             <p className="text-sm text-slate-600 mt-1">{lead.email}</p>

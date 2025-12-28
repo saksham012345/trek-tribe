@@ -19,22 +19,35 @@ function setAuthCookie(res: Response, token: string): void {
   const isProduction = process.env.NODE_ENV === 'production';
   const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
   
+  // Cookie domain handling:
+  // - undefined = current domain only (recommended for same-origin)
+  // - .example.com = works for all subdomains (e.g., app.example.com, api.example.com)
+  // - For Render: leave undefined since frontend and backend are on different subdomains
+  //   but cookies won't be shared across subdomains anyway
+  // - Only set domain if you explicitly need cross-subdomain cookie sharing
+  const cookieDomain = process.env.COOKIE_DOMAIN && process.env.COOKIE_DOMAIN.trim() !== '' 
+    ? process.env.COOKIE_DOMAIN.trim() 
+    : undefined;
+  
   res.cookie('token', token, {
     httpOnly: true, // Prevents JavaScript access (XSS protection)
-    secure: isProduction, // HTTPS only in production
-    sameSite: isProduction ? 'strict' : 'lax', // CSRF protection
+    secure: isProduction, // HTTPS only in production (required for sameSite: 'none')
+    sameSite: isProduction ? 'none' : 'lax', // 'none' for cross-origin in production (requires secure), 'lax' for local
     maxAge: maxAge,
-    path: '/' // Available on all paths
+    path: '/', // Available on all paths
+    domain: cookieDomain // Only set if specified (for shared domains)
   });
 }
 
 // Helper function to clear auth cookie
 function clearAuthCookie(res: Response): void {
+  const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
   res.clearCookie('token', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-    path: '/'
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    path: '/',
+    domain: cookieDomain
   });
 }
 
@@ -563,7 +576,10 @@ router.post('/logout', (req, res) => {
 
 router.get('/me', authenticateJwt, async (req, res) => {
   try {
-    const userId = (req as any).auth.userId;
+    const userId = (req as any).auth?.userId || (req as any).user?.userId || (req as any).user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
     const user = await User.findById(userId).select('-passwordHash').lean();
     if (!user) return res.status(404).json({ error: 'User not found' });
     // Return user object with proper id field for compatibility
@@ -573,7 +589,11 @@ router.get('/me', authenticateJwt, async (req, res) => {
       return res.json(payload);
     }
     return res.json({ user: payload });
-  } catch (error) {
+  } catch (error: any) {
+    console.error('Error in /auth/me:', error);
+    if (error.message?.includes('jwt') || error.message?.includes('token')) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
     return res.status(500).json({ error: 'Server error' });
   }
 });

@@ -390,13 +390,17 @@ router.post('/tickets/:ticketId/resolve', async (req, res, next) => {
 // For human-agent requests, validate only the 'message' field (subject/description are generated)
 router.post('/human-agent/request', messageValidators, handleValidationErrors, async (req, res) => {
   try {
-    const { message, category, priority } = req.body;
-    const userId = (req as any).auth.userId;
+    const { message, category, priority, subject, description } = req.body;
+    const userId = (req as any).auth?.userId || (req as any).user?.id;
     const user = await User.findById(userId);
 
     if (!user) {
       return res.status(401).json({ success: false, error: 'User not found' });
     }
+
+    // Use provided subject/description or generate from message
+    const ticketSubject = subject || `Human Agent Requested - ${category || 'General Support'}`;
+    const ticketDescription = description || message || 'User requested to speak with a human agent';
 
     // Create a new support ticket
     const ticket = new SupportTicket({
@@ -404,8 +408,9 @@ router.post('/human-agent/request', messageValidators, handleValidationErrors, a
       userId: userId,
       customerName: user.name,
       customerEmail: user.email,
-      subject: `Human Agent Requested - ${category || 'General Support'}`,
-      description: message || 'User requested to speak with a human agent',
+      customerPhone: user.phone || undefined,
+      subject: ticketSubject,
+      description: ticketDescription,
       category: category || 'general',
       priority: priority || 'medium',
       status: 'open',
@@ -415,7 +420,7 @@ router.post('/human-agent/request', messageValidators, handleValidationErrors, a
           sender: 'customer',
           senderName: user.name,
           senderId: userId,
-          message: message || 'User initiated human agent chat',
+          message: ticketDescription,
           timestamp: new Date()
         }
       ],
@@ -425,8 +430,28 @@ router.post('/human-agent/request', messageValidators, handleValidationErrors, a
 
     await ticket.save();
 
-    // Notify agents that a new ticket is waiting
-    socketService.notifyNewTicket(ticket);
+    logger.info('Human agent ticket created', { 
+      ticketId: ticket.ticketId, 
+      userId, 
+      category: ticket.category,
+      priority: ticket.priority 
+    });
+
+    // Notify agents that a new ticket is waiting via Socket.IO
+    try {
+      socketService.notifyNewTicket({
+        ticketId: ticket.ticketId,
+        userId: userId,
+        customerName: user.name,
+        customerEmail: user.email,
+        subject: ticketSubject,
+        priority: ticket.priority,
+        category: ticket.category,
+        createdAt: ticket.createdAt
+      });
+    } catch (socketError) {
+      logger.warn('Failed to notify agents via socket', { error: socketError });
+    }
 
     // Send notification to user
     try {
@@ -448,12 +473,17 @@ router.post('/human-agent/request', messageValidators, handleValidationErrors, a
         ticketId: ticket.ticketId,
         status: ticket.status,
         priority: ticket.priority,
+        category: ticket.category,
         createdAt: ticket.createdAt
       }
     });
 
   } catch (error: any) {
-    logger.error('Error creating human agent ticket', { error: error.message });
+    logger.error('Error creating human agent ticket', { 
+      error: error.message,
+      stack: error.stack,
+      body: req.body
+    });
     res.status(500).json({
       success: false,
       error: 'Failed to create support ticket',

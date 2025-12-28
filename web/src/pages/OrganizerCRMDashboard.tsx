@@ -5,6 +5,199 @@ import SubscriptionCard from '../components/crm/SubscriptionCard';
 import { useToast } from '../components/ui/Toast';
 import { Skeleton } from '../components/ui/Skeleton';
 
+// Payments Tab Component
+const PaymentsTab: React.FC<{ user: User }> = ({ user }) => {
+  const { add } = useToast();
+  const [payments, setPayments] = useState<any[]>([]);
+  const [verificationHistory, setVerificationHistory] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeView, setActiveView] = useState<'subscription' | 'verification'>('subscription');
+
+  useEffect(() => {
+    fetchPayments();
+    fetchVerificationHistory();
+  }, []);
+
+  const fetchPayments = async () => {
+    try {
+      const response = await api.get('/api/subscriptions/payment-history');
+      setPayments(response.data?.payments || []);
+    } catch (error: any) {
+      console.error('Failed to fetch payments:', error);
+      if (error?.response?.status !== 401) {
+        add('Failed to load payment history', 'error');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchVerificationHistory = async () => {
+    try {
+      const response = await api.get('/api/payment-verification/history');
+      setVerificationHistory(response.data?.history || []);
+    } catch (error: any) {
+      console.error('Failed to fetch verification history:', error);
+      // Don't show error for 401 or if endpoint doesn't exist
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl shadow-lg p-6">
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-300 border-t-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-500">Loading payment history...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-xl shadow-lg p-6">
+      <div className="mb-6 flex gap-4 border-b border-gray-200">
+        <button
+          onClick={() => setActiveView('subscription')}
+          className={`px-6 py-3 font-semibold transition-colors ${
+            activeView === 'subscription'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          💳 Subscription Payments
+        </button>
+        <button
+          onClick={() => setActiveView('verification')}
+          className={`px-6 py-3 font-semibold transition-colors ${
+            activeView === 'verification'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          ✅ Verified Payments
+        </button>
+      </div>
+
+      {activeView === 'subscription' && (
+        <div>
+          <h3 className="text-xl font-bold text-gray-900 mb-6">Razorpay Subscription Payments</h3>
+          {payments.length === 0 ? (
+            <div className="text-center py-12">
+              <span className="text-4xl">💳</span>
+              <p className="text-gray-500 mt-4">No subscription payments yet</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+                  <tr>
+                    <th className="px-6 py-4 text-left font-semibold">Plan</th>
+                    <th className="px-6 py-4 text-left font-semibold">Amount</th>
+                    <th className="px-6 py-4 text-left font-semibold">Status</th>
+                    <th className="px-6 py-4 text-left font-semibold">Date</th>
+                    <th className="px-6 py-4 text-left font-semibold">Type</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {payments.map((payment: any) => (
+                    <tr key={payment.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4">
+                        <span className="font-semibold text-gray-900 capitalize">{payment.plan || 'N/A'}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="font-bold text-green-600">₹{payment.amount?.toLocaleString() || '0'}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          payment.status === 'active' ? 'bg-green-100 text-green-800' :
+                          payment.status === 'trial' ? 'bg-blue-100 text-blue-800' :
+                          payment.status === 'expired' ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {payment.status || 'N/A'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-gray-600">
+                        {payment.createdAt ? new Date(payment.createdAt).toLocaleDateString('en-IN', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric'
+                        }) : 'N/A'}
+                      </td>
+                      <td className="px-6 py-4">
+                        {payment.isTrial ? (
+                          <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">Trial</span>
+                        ) : (
+                          <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-medium">Paid</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeView === 'verification' && (
+        <div>
+          <h3 className="text-xl font-bold text-gray-900 mb-6">QR Code Verified Payments</h3>
+          {verificationHistory.length === 0 ? (
+            <div className="text-center py-12">
+              <span className="text-4xl">✅</span>
+              <p className="text-gray-500 mt-4">No verified payments yet</p>
+              <p className="text-sm text-gray-400 mt-2">Payments verified via QR codes will appear here</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gradient-to-r from-green-600 to-green-700 text-white">
+                  <tr>
+                    <th className="px-6 py-4 text-left font-semibold">Amount</th>
+                    <th className="px-6 py-4 text-left font-semibold">Payment Method</th>
+                    <th className="px-6 py-4 text-left font-semibold">Transaction ID</th>
+                    <th className="px-6 py-4 text-left font-semibold">Verified At</th>
+                    <th className="px-6 py-4 text-left font-semibold">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {verificationHistory.map((payment: any, idx: number) => (
+                    <tr key={idx} className="hover:bg-gray-50">
+                      <td className="px-6 py-4">
+                        <span className="font-bold text-green-600">
+                          ₹{payment.amount?.toLocaleString() || '0'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-gray-700 capitalize">{payment.paymentMethod || 'UPI'}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="font-mono text-sm text-gray-600">{payment.transactionId || 'N/A'}</span>
+                      </td>
+                      <td className="px-6 py-4 text-gray-600">
+                        {payment.verifiedAt ? new Date(payment.verifiedAt).toLocaleString('en-IN') : 'N/A'}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          payment.status === 'verified' ? 'bg-green-100 text-green-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {payment.status || 'Verified'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 interface OrganizerCRMProps {
   user: User;
 }
@@ -51,16 +244,16 @@ const OrganizerCRMDashboard: React.FC<OrganizerCRMProps> = ({ user }) => {
     setLoading(true);
     try {
       if (activeTab === 'overview' || activeTab === 'analytics') {
-        const response = await api.get('/analytics/dashboard');
+        const response = await api.get('/api/analytics/dashboard');
         setAnalytics(response.data);
       }
       if (activeTab === 'leads') {
-        const response = await api.get('/leads');
-        setLeads(response.data.leads || []);
+        const response = await api.get('/api/crm/leads');
+        setLeads(response.data.data || response.data.leads || []);
       }
       if (activeTab === 'tickets') {
-        const response = await api.get('/tickets');
-        setTickets(response.data.tickets || []);
+        const response = await api.get('/api/crm/tickets');
+        setTickets(response.data.data || response.data.tickets || []);
       }
     } catch (error: any) {
       console.error('Error fetching dashboard data:', error);
@@ -434,13 +627,7 @@ const OrganizerCRMDashboard: React.FC<OrganizerCRMProps> = ({ user }) => {
         )}
 
         {activeTab === 'payments' && (
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h3 className="text-xl font-bold text-gray-900 mb-6">💰 Payment History</h3>
-            <div className="text-center py-12">
-              <span className="text-4xl">💳</span>
-              <p className="text-gray-500 mt-4">Payment history coming soon...</p>
-            </div>
-          </div>
+          <PaymentsTab user={user} />
         )}
       </div>
 
