@@ -241,9 +241,23 @@ const AIChatWidgetClean: React.FC = () => {
 
   const sendMessageToAIProxy = async (text: string) => {
     try {
-      const resp = await api.post('/aiProxy/generate', { prompt: text, max_tokens: 256 });
+      // Use the AI chat endpoint which handles conversation context
+      const resp = await api.post('/api/ai/chat', { 
+        message: text,
+        context: {
+          userId: user?.id,
+          sessionId: socketRef.current?.id || `session_${Date.now()}`
+        }
+      });
       const data = resp.data || {};
-      const aiText = (data && ((data as any).text ?? data)) || JSON.stringify(data);
+      // Handle different response formats from AI service
+      const aiText = (data && (
+        (data as any).message || 
+        (data as any).response || 
+        (data as any).text || 
+        (data as any).content ||
+        data
+      )) || JSON.stringify(data);
       
       // Check if response indicates low confidence or requires human agent
       const requiresHuman = (data as any).requiresHumanAgent === true || 
@@ -460,10 +474,10 @@ const AIChatWidgetClean: React.FC = () => {
       const description = inputMessage || lastUserMessage || 'User requested to speak with a human agent';
       
       // Create support ticket for human agent
+      // The endpoint expects: message, category (optional), priority (optional)
       const resp = await api.post('/api/support/human-agent/request', {
-        subject: 'Chat Support Request - Human Agent Needed',
-        description,
-        category: 'chat_request',
+        message: description,
+        category: 'general',
         priority: 'medium'
       });
 
