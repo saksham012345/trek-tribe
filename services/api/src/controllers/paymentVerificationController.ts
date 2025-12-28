@@ -42,6 +42,15 @@ export const generateAmountPaymentQR = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
+    // Verify Razorpay credentials are configured
+    const razorpayKeyId = process.env.RAZORPAY_KEY_ID;
+    const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET;
+    
+    if (!razorpayKeyId || !razorpayKeySecret) {
+      console.warn('⚠️ Razorpay credentials not configured in environment variables');
+      // Continue with QR generation but mark as unverified
+    }
+
     const numericAmount = Number(amount);
     if (!numericAmount || numericAmount <= 0) {
       return res.status(400).json({ error: 'Valid amount is required' });
@@ -51,7 +60,7 @@ export const generateAmountPaymentQR = async (req: Request, res: Response) => {
     const payload = {
       type: 'RAZORPAY_PAYMENT_REQUEST',
       provider: 'razorpay',
-      trusted: true,
+      trusted: !!(razorpayKeyId && razorpayKeySecret), // Mark as trusted only if credentials exist
       organizerId,
       tripId: tripId || undefined,
       amount: numericAmount,
@@ -59,6 +68,8 @@ export const generateAmountPaymentQR = async (req: Request, res: Response) => {
       purpose: purpose || 'Trip payment',
       referenceId,
       generatedAt: new Date().toISOString(),
+      // Include keyId hash for verification (not the actual key)
+      keyIdHash: razorpayKeyId ? crypto.createHash('sha256').update(razorpayKeyId).digest('hex').substring(0, 8) : undefined,
     };
 
     const qrCodeUrl = await QRCode.toDataURL(JSON.stringify(payload));
@@ -66,10 +77,11 @@ export const generateAmountPaymentQR = async (req: Request, res: Response) => {
     return res.json({
       success: true,
       provider: 'razorpay',
-      trusted: true,
+      trusted: !!(razorpayKeyId && razorpayKeySecret),
       qrCodeUrl,
       referenceId,
       payload,
+      configured: !!(razorpayKeyId && razorpayKeySecret),
     });
   } catch (error: any) {
     console.error('❌ Error generating amount QR:', error);

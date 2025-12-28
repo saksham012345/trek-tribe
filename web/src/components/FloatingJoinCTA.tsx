@@ -9,9 +9,10 @@ const FloatingJoinCTA: React.FC = () => {
   const location = useLocation();
   const [open, setOpen] = useState(false);
 
-  // Don't show for logged-in organizers or on certain pages
+  // Don't show for premium organizers or on certain pages
+  // Show for basic (non-premium) organizers so they can upgrade
   const shouldHide = 
-    (user?.role === 'organizer') || 
+    (user?.role === 'organizer' && (user as any)?.isPremium) || 
     location.pathname.includes('/subscribe') ||
     location.pathname.includes('/login') ||
     location.pathname.includes('/register');

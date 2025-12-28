@@ -56,7 +56,12 @@ router.get('/stats', requireOrganizerOrAdmin, async (req: AuthRequest, res) => {
       tripQuery.organizerId = userId;
       // For bookings, we need to filter by trips owned by the organizer
       const organizerTripIds = await Trip.find({ organizerId: userId }).distinct('_id');
-      bookingQuery.tripId = { $in: organizerTripIds };
+      if (organizerTripIds.length > 0) {
+        bookingQuery.tripId = { $in: organizerTripIds };
+      } else {
+        // If no trips, set empty array to return no bookings
+        bookingQuery.tripId = { $in: [] };
+      }
     }
     
     // Get all leads for this organizer/admin

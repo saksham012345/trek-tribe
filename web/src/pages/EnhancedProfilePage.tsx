@@ -146,11 +146,23 @@ const EnhancedProfilePage: React.FC = () => {
     try {
       const identifier = userId;
       const isHandle = identifier ? !/^[a-f0-9]{24}$/i.test(identifier) : false;
-      const endpoint = !identifier
-        ? '/profile/enhanced'
-        : isHandle
-          ? `/public/${identifier}`
-          : `/profile/enhanced/${identifier}`;
+      
+      // If no identifier and we have currentUser, use currentUser's ID
+      // This ensures we always have a userId for the endpoint
+      let endpoint: string;
+      if (!identifier) {
+        // No userId in URL - check if we have currentUser
+        if (currentUser?.id) {
+          endpoint = `/profile/enhanced/${currentUser.id}`;
+        } else {
+          // No user ID available - try the endpoint without ID (will fail if not authenticated)
+          endpoint = '/profile/enhanced';
+        }
+      } else if (isHandle) {
+        endpoint = `/public/${identifier}`;
+      } else {
+        endpoint = `/profile/enhanced/${identifier}`;
+      }
 
       const response = await api.get(endpoint);
 

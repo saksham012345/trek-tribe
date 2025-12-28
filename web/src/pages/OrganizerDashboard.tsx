@@ -168,8 +168,14 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
         setHasCRMAccess(hasCRMFromProfile);
       }
     } catch (error: any) {
-      setError(error.response?.data?.error || 'Failed to load dashboard data');
-      console.error('Error fetching dashboard data:', error);
+      // Don't set error or show message for 401 - let auth system handle it
+      if (error?.response?.status === 401) {
+        console.log('Authentication required - redirecting to login');
+        // Don't set error state, just let auth interceptor handle redirect
+      } else {
+        setError(error.response?.data?.error || 'Failed to load dashboard data');
+        console.error('Error fetching dashboard data:', error);
+      }
     } finally {
       setLoading(false);
     }

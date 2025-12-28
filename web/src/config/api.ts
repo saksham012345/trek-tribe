@@ -14,10 +14,13 @@ if (!API_BASE_URL && process.env.NODE_ENV !== 'production') {
 const api: any = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000, // Increased to 30 seconds for Render's slower response times
-  withCredentials: true, // Required to send httpOnly cookies
+  withCredentials: true, // CRITICAL: Required to send httpOnly cookies with cross-origin requests
   headers: {
     'Content-Type': 'application/json',
   },
+  // Ensure credentials are always sent
+  xsrfCookieName: 'XSRF-TOKEN',
+  xsrfHeaderName: 'X-XSRF-TOKEN',
 });
 
 // Request interceptor - cookies are sent automatically, no need to add token header
@@ -79,16 +82,18 @@ api.interceptors.response.use(
     }
     
     if (error.response?.status === 401) {
-      // Do not redirect for auth endpoints (e.g., /auth/login). Let the UI handle the error message.
+      // NEVER automatically redirect in the interceptor - let route guards handle it
+      // This prevents redirect loops and allows proper auth checking in components
       const isAuthEndpoint = error.config?.url?.includes('/auth/');
-
-      if (!isAuthEndpoint) {
-        // Session invalid/expired: clear user data and redirect to login
+      
+      if (isAuthEndpoint && error.config?.url?.includes('/auth/me')) {
+        // Expected 401 on /auth/me when not logged in - just log it
+        console.log('Auth 401 on /auth/me - user not authenticated (this is expected if not logged in)');
+      } else if (!isAuthEndpoint) {
+        // For non-auth endpoints, just clear localStorage
+        // Route guards will handle redirects
         localStorage.removeItem('user');
-        window.location.href = '/login';
-      } else {
-        // For auth endpoints, avoid redirecting to prevent clearing UI error states
-        console.warn('Auth 401 (no redirect):', error.config?.url, error.response?.data);
+        console.warn('401 Unauthorized on:', error.config?.url);
       }
     }
     return Promise.reject(error);

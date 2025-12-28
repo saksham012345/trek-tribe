@@ -148,6 +148,8 @@ const getAllowedOrigins = (): string[] => {
   if (process.env.NODE_ENV === 'production') {
     origins.push('https://trektribe.in');
     origins.push('https://www.trektribe.in');
+    origins.push('https://trek-tribe-web.onrender.com');
+    origins.push('https://trek-tribe-api.onrender.com');
   }
   
   // In development, allow localhost origins
@@ -426,6 +428,12 @@ export async function start() {
     app.use('/api/payment-verification', paymentVerificationRoutes);
     console.log('✅ Payment verification routes mounted at /api/payment-verification');
     logMessage('INFO', 'Payment verification routes registered');
+    
+    // Bank Details Routes (Simplified, no route onboarding)
+    const bankDetailsRoutes = require('./routes/bankDetails').default;
+    app.use('/api/bank-details', bankDetailsRoutes);
+    console.log('✅ Bank details routes mounted at /api/bank-details');
+    logMessage('INFO', 'Bank details routes registered');
     
     // Seed Routes under internal namespace
     app.use('/api/internal/seed', seedRoutes);

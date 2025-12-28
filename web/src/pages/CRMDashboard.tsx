@@ -127,7 +127,36 @@ const CRMDashboard: React.FC = () => {
     try {
       // Try to fetch stats from dedicated endpoint
       const response = await api.get('/api/crm/stats');
-      setStats(response.data);
+      const statsData = response.data || {};
+      
+      // Ensure all required fields exist with defaults
+      const formattedStats: CRMStats = {
+        totalLeads: statsData.totalLeads || 0,
+        newLeads: statsData.newLeads || 0,
+        contactedLeads: statsData.contactedLeads || 0,
+        interestedLeads: statsData.interestedLeads || 0,
+        qualifiedLeads: statsData.qualifiedLeads || 0,
+        lostLeads: statsData.lostLeads || 0,
+        conversionRate: statsData.conversionRate || 0,
+        revenue: statsData.revenue || {
+          total: 0,
+          thisMonth: 0,
+          lastMonth: 0,
+          growth: 0,
+          averageBookingValue: 0,
+        },
+        bookings: statsData.bookings || {
+          total: 0,
+          confirmed: 0,
+          pending: 0,
+        },
+        trips: statsData.trips || {
+          total: 0,
+          active: 0,
+        },
+      };
+      
+      setStats(formattedStats);
     } catch (error: any) {
       console.error('Failed to fetch stats from endpoint:', error);
       
@@ -310,7 +339,7 @@ const CRMDashboard: React.FC = () => {
           </div>
 
           {/* Stats Cards */}
-          {stats && (
+          {stats ? (
             <>
               {/* Revenue & Business Metrics */}
               <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -319,7 +348,7 @@ const CRMDashboard: React.FC = () => {
                     <div>
                       <p className="text-green-600 text-sm font-semibold">Total Revenue</p>
                       <p className="text-3xl font-bold text-green-900 mt-1">
-                        ₹{stats.revenue?.total?.toLocaleString('en-IN', { maximumFractionDigits: 0 }) || '0'}
+                        ₹{(stats.revenue?.total || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                       </p>
                     </div>
                     <svg className="w-12 h-12 text-green-400 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -332,11 +361,11 @@ const CRMDashboard: React.FC = () => {
                     <div>
                       <p className="text-blue-600 text-sm font-semibold">This Month</p>
                       <p className="text-3xl font-bold text-blue-900 mt-1">
-                        ₹{stats.revenue?.thisMonth?.toLocaleString('en-IN', { maximumFractionDigits: 0 }) || '0'}
+                        ₹{(stats.revenue?.thisMonth || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                       </p>
                       {stats.revenue?.growth !== undefined && (
-                        <p className={`text-xs mt-1 font-semibold ${stats.revenue.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {stats.revenue.growth >= 0 ? '↑' : '↓'} {Math.abs(stats.revenue.growth).toFixed(1)}% vs last month
+                        <p className={`text-xs mt-1 font-semibold ${(stats.revenue.growth || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {(stats.revenue.growth || 0) >= 0 ? '↑' : '↓'} {Math.abs(stats.revenue.growth || 0).toFixed(1)}% vs last month
                         </p>
                       )}
                     </div>
@@ -364,7 +393,7 @@ const CRMDashboard: React.FC = () => {
                     <div>
                       <p className="text-indigo-600 text-sm font-semibold">Avg Booking Value</p>
                       <p className="text-3xl font-bold text-indigo-900 mt-1">
-                        ₹{stats.revenue?.averageBookingValue?.toLocaleString('en-IN', { maximumFractionDigits: 0 }) || '0'}
+                        ₹{(stats.revenue?.averageBookingValue || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                       </p>
                     </div>
                     <svg className="w-12 h-12 text-indigo-400 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -402,6 +431,10 @@ const CRMDashboard: React.FC = () => {
                 </div>
               </div>
             </>
+          ) : (
+            <div className="bg-white rounded-lg shadow-md p-8 text-center mb-8">
+              <p className="text-forest-600">Loading statistics...</p>
+            </div>
           )}
 
           {/* Search & Filter */}
