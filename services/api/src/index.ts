@@ -148,6 +148,8 @@ const getAllowedOrigins = (): string[] => {
   if (process.env.NODE_ENV === 'production') {
     origins.push('https://trektribe.in');
     origins.push('https://www.trektribe.in');
+    origins.push('https://trek-tribe-web.onrender.com');
+    origins.push('https://trek-tribe-api.onrender.com');
   }
   
   // In development, allow localhost origins
