@@ -30,7 +30,8 @@ This report documents the comprehensive audit of the TrekTribe frontend applicat
 - ✅ Stats are loaded via API (need to verify endpoint exists)
 
 **Issues Found:**
-- ⚠️ Stats API call missing - need to check if `/stats` endpoint exists
+- **Issues Found:**
+- ✅ `/stats` endpoint is referenced in the frontend code (see `web/src/pages/Home.tsx`) — verify backend availability
 - ✅ All CTA buttons use proper Link components
 
 **Status:** ✅ Buttons connected, need to verify stats endpoint
@@ -125,7 +126,7 @@ This report documents the comprehensive audit of the TrekTribe frontend applicat
 **Trips:**
 - ✅ `GET /trips` - List trips
 - ✅ `GET /trips/:id` - Get trip details
-- ⚠️ `GET /stats` - Need to verify if exists
+- ✅ `GET /stats` - Referenced in frontend and project docs/tests; confirm backend implementation
 
 **Status:** ✅ Most endpoints verified, one to check
 
@@ -205,6 +206,6 @@ This report documents the comprehensive audit of the TrekTribe frontend applicat
 
 ---
 
-**Last Updated:** $(date)
+**Last Updated:** 2025-12-27
 **Status:** 🔄 In Progress (Phase 1: 50% Complete)
 

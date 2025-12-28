@@ -5,6 +5,9 @@ import verificationController from '../controllers/verificationController';
 import subscriptionController from '../controllers/subscriptionController';
 import analyticsService from '../services/analyticsService';
 import notificationService from '../services/notificationService';
+import Lead from '../models/Lead';
+import { Trip } from '../models/Trip';
+import { GroupBooking } from '../models/GroupBooking';
 import {
   requireAdmin,
   requireOrganizerOrAdmin,
@@ -33,6 +36,135 @@ router.get('/leads/:id', requireOrganizerOrAdmin, leadController.getLeadById);
 router.put('/leads/:id', requireOrganizerOrAdmin, leadController.updateLead);
 router.post('/leads/:id/interactions', requireOrganizerOrAdmin, leadController.addInteraction);
 router.post('/leads/:id/convert', requireOrganizerOrAdmin, leadController.convertLead);
+
+// ============================================
+// CRM STATS ROUTE
+// ============================================
+
+router.get('/stats', requireOrganizerOrAdmin, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user?.id;
+    const isAdmin = req.user?.role === 'admin';
+    
+    // Build query filters based on role
+    const leadQuery: any = {};
+    const tripQuery: any = {};
+    const bookingQuery: any = {};
+    
+    if (!isAdmin && userId) {
+      leadQuery.assignedTo = userId;
+      tripQuery.organizerId = userId;
+      // For bookings, we need to filter by trips owned by the organizer
+      const organizerTripIds = await Trip.find({ organizerId: userId }).distinct('_id');
+      bookingQuery.tripId = { $in: organizerTripIds };
+    }
+    
+    // Get all leads for this organizer/admin
+    const leads = await Lead.find(leadQuery).lean();
+    
+    // Get trips for revenue calculation
+    const trips = await Trip.find(tripQuery).select('_id price participants').lean();
+    
+    // Get bookings for accurate revenue calculation
+    bookingQuery.paymentStatus = { $in: ['completed', 'partial'] };
+    bookingQuery.bookingStatus = { $in: ['confirmed', 'completed'] };
+    const bookings = await GroupBooking.find(bookingQuery)
+      .select('finalAmount paymentStatus bookingStatus createdAt')
+      .lean();
+    
+    // Calculate revenue metrics
+    const totalRevenue = bookings.reduce((sum, booking) => {
+      if (booking.paymentStatus === 'completed') {
+        return sum + (booking.finalAmount || 0);
+      } else if (booking.paymentStatus === 'partial') {
+        // For partial payments, count the advance amount
+        return sum + ((booking as any).advanceAmount || 0);
+      }
+      return sum;
+    }, 0);
+    
+    // Calculate this month's revenue
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const thisMonthRevenue = bookings
+      .filter(booking => new Date(booking.createdAt) >= startOfMonth)
+      .reduce((sum, booking) => {
+        if (booking.paymentStatus === 'completed') {
+          return sum + (booking.finalAmount || 0);
+        } else if (booking.paymentStatus === 'partial') {
+          return sum + ((booking as any).advanceAmount || 0);
+        }
+        return sum;
+      }, 0);
+    
+    // Calculate last month's revenue
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+    const lastMonthRevenue = bookings
+      .filter(booking => {
+        const bookingDate = new Date(booking.createdAt);
+        return bookingDate >= startOfLastMonth && bookingDate <= endOfLastMonth;
+      })
+      .reduce((sum, booking) => {
+        if (booking.paymentStatus === 'completed') {
+          return sum + (booking.finalAmount || 0);
+        } else if (booking.paymentStatus === 'partial') {
+          return sum + ((booking as any).advanceAmount || 0);
+        }
+        return sum;
+      }, 0);
+    
+    // Calculate revenue growth
+    const revenueGrowth = lastMonthRevenue > 0 
+      ? ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100 
+      : (thisMonthRevenue > 0 ? 100 : 0);
+    
+    // Calculate total bookings
+    const totalBookings = bookings.length;
+    const confirmedBookings = bookings.filter(b => b.bookingStatus === 'confirmed' || b.bookingStatus === 'completed').length;
+    
+    // Calculate average booking value
+    const averageBookingValue = totalBookings > 0 ? totalRevenue / totalBookings : 0;
+    
+    // Calculate stats
+    const stats = {
+      totalLeads: leads.length,
+      newLeads: leads.filter((l: any) => l.status === 'new').length,
+      contactedLeads: leads.filter((l: any) => l.status === 'contacted').length,
+      interestedLeads: leads.filter((l: any) => l.status === 'interested').length,
+      qualifiedLeads: leads.filter((l: any) => l.status === 'qualified').length,
+      lostLeads: leads.filter((l: any) => l.status === 'lost').length,
+      conversionRate: leads.length > 0 
+        ? (leads.filter((l: any) => l.status === 'qualified').length / leads.length) * 100 
+        : 0,
+      revenue: {
+        total: totalRevenue,
+        thisMonth: thisMonthRevenue,
+        lastMonth: lastMonthRevenue,
+        growth: revenueGrowth,
+        averageBookingValue: averageBookingValue,
+      },
+      bookings: {
+        total: totalBookings,
+        confirmed: confirmedBookings,
+        pending: totalBookings - confirmedBookings,
+      },
+      trips: {
+        total: trips.length,
+        active: trips.filter((t: any) => t.status === 'active').length,
+      },
+    };
+    
+    res.json(stats);
+  } catch (error: any) {
+    console.error('Get CRM stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch CRM stats',
+      error: error.message,
+    });
+  }
+});
 
 // ============================================
 // SUPPORT TICKET ROUTES
