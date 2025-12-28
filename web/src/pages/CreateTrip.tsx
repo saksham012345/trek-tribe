@@ -157,14 +157,25 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
         }
         
         setSubscriptionChecked(true);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to check subscription:', error);
+        
+        // If 401, user might not be authenticated - don't navigate, let auth system handle
+        if (error?.response?.status === 401) {
+          // Don't redirect - let auth system handle logout/redirect
+          setSubscriptionChecked(true);
+          setHasSubscription(false);
+          return;
+        }
+        
         // For premium organizers, allow anyway
         if ((user as any)?.isPremium) {
           setHasSubscription(true);
           setSubscriptionChecked(true);
           return;
         }
+        
+        // Other errors - redirect to subscription
         navigate('/subscribe', { 
           state: { 
             message: 'Please subscribe to create trips',

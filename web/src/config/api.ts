@@ -79,16 +79,28 @@ api.interceptors.response.use(
     }
     
     if (error.response?.status === 401) {
-      // Do not redirect for auth endpoints (e.g., /auth/login). Let the UI handle the error message.
+      // Do not redirect for auth endpoints (e.g., /auth/login, /auth/me). Let the UI handle the error message.
       const isAuthEndpoint = error.config?.url?.includes('/auth/');
 
       if (!isAuthEndpoint) {
-        // Session invalid/expired: clear user data and redirect to login
-        localStorage.removeItem('user');
-        window.location.href = '/login';
+        // Only redirect to login if not already on login/register pages
+        const currentPath = window.location.pathname;
+        const isAuthPage = currentPath.includes('/login') || currentPath.includes('/register');
+        
+        if (!isAuthPage) {
+          // Session invalid/expired: clear user data and redirect to login
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+        }
       } else {
         // For auth endpoints, avoid redirecting to prevent clearing UI error states
-        console.warn('Auth 401 (no redirect):', error.config?.url, error.response?.data);
+        // This is expected for /auth/me when not logged in
+        if (error.config?.url?.includes('/auth/me')) {
+          // Silently handle - user might not be logged in yet
+          console.log('Auth 401 on /auth/me - user not authenticated');
+        } else {
+          console.warn('Auth 401 (no redirect):', error.config?.url, error.response?.data);
+        }
       }
     }
     return Promise.reject(error);

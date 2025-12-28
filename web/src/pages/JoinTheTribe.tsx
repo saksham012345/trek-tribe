@@ -3,18 +3,50 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../components/ui/Toast';
 import { Tooltip } from '../components/ui/Tooltip';
+import GoogleLoginButton from '../components/GoogleLoginButton';
+import RoleSelectModal from '../components/RoleSelectModal';
 
 const JoinTheTribe: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [organizerDraft, setOrganizerDraft] = useState<any>(null);
 
   const startFlow = () => {
     if (!user) {
       navigate('/login', { state: { from: { pathname: '/subscribe' } } });
       return;
     }
-    navigate('/subscribe', { state: { from: location } });
+    // If user is organizer, go to subscribe. If traveler, need to register as organizer first
+    if (user.role === 'organizer') {
+      navigate('/subscribe', { state: { from: location } });
+    } else {
+      // Show role selection or redirect to register
+      navigate('/register', { state: { role: 'organizer', from: location } });
+    }
+  };
+
+  const handleGoogleSuccess = () => {
+    // After Google login, show role selection modal
+    setShowRoleModal(true);
+  };
+
+  const handleRoleSelect = (role: string, data?: any) => {
+    setShowRoleModal(false);
+    if (role === 'organizer') {
+      setOrganizerDraft(data);
+      // User is now logged in via Google, navigate to subscribe
+      navigate('/subscribe', { 
+        state: { 
+          from: location,
+          organizerDraft: data 
+        } 
+      });
+    } else {
+      // Traveler selected - can still subscribe later
+      navigate('/subscribe', { state: { from: location } });
+    }
   };
 
   return (
@@ -23,8 +55,32 @@ const JoinTheTribe: React.FC = () => {
         <p className="text-sm uppercase font-semibold">Partner Program</p>
         <h1 className="text-3xl font-bold mt-2">Join The Tribe – Become a Partner</h1>
         <p className="mt-2 text-emerald-50">List trips, get leads, and receive automatic payouts via Razorpay Route.</p>
-        <button onClick={startFlow} className="mt-4 bg-white text-emerald-700 px-6 py-3 rounded-xl font-semibold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">Start Subscription</button>
+        
+        {!user && (
+          <div className="mt-4 space-y-3">
+            <GoogleLoginButton 
+              onSuccess={handleGoogleSuccess}
+              onError={(msg) => console.error('Google login error:', msg)}
+              className="w-full"
+            />
+            <div className="flex items-center gap-2">
+              <div className="h-px bg-emerald-200 flex-1" />
+              <span className="text-emerald-50 text-sm">or</span>
+              <div className="h-px bg-emerald-200 flex-1" />
+            </div>
+            <button onClick={startFlow} className="w-full bg-white text-emerald-700 px-6 py-3 rounded-xl font-semibold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">Start Subscription</button>
+          </div>
+        )}
+        {user && (
+          <button onClick={startFlow} className="mt-4 bg-white text-emerald-700 px-6 py-3 rounded-xl font-semibold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">Start Subscription</button>
+        )}
       </div>
+
+      <RoleSelectModal
+        open={showRoleModal}
+        onClose={() => setShowRoleModal(false)}
+        onSelect={handleRoleSelect}
+      />
 
       <div className="grid md:grid-cols-3 gap-4">
         <div className="p-4 rounded-xl border">

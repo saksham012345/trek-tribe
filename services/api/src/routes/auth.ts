@@ -19,22 +19,28 @@ function setAuthCookie(res: Response, token: string): void {
   const isProduction = process.env.NODE_ENV === 'production';
   const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
   
+  // Get domain from environment or use undefined (which means current domain)
+  const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
+  
   res.cookie('token', token, {
     httpOnly: true, // Prevents JavaScript access (XSS protection)
-    secure: isProduction, // HTTPS only in production
-    sameSite: isProduction ? 'strict' : 'lax', // CSRF protection
+    secure: isProduction, // HTTPS only in production (required for sameSite: 'none')
+    sameSite: isProduction ? 'none' : 'lax', // 'none' for cross-origin in production (requires secure), 'lax' for local
     maxAge: maxAge,
-    path: '/' // Available on all paths
+    path: '/', // Available on all paths
+    domain: cookieDomain // Only set if specified (for shared domains)
   });
 }
 
 // Helper function to clear auth cookie
 function clearAuthCookie(res: Response): void {
+  const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
   res.clearCookie('token', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-    path: '/'
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    path: '/',
+    domain: cookieDomain
   });
 }
 
