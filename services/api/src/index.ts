@@ -429,6 +429,12 @@ export async function start() {
     console.log('✅ Payment verification routes mounted at /api/payment-verification');
     logMessage('INFO', 'Payment verification routes registered');
     
+    // Bank Details Routes (Simplified, no route onboarding)
+    const bankDetailsRoutes = require('./routes/bankDetails').default;
+    app.use('/api/bank-details', bankDetailsRoutes);
+    console.log('✅ Bank details routes mounted at /api/bank-details');
+    logMessage('INFO', 'Bank details routes registered');
+    
     // Seed Routes under internal namespace
     app.use('/api/internal/seed', seedRoutes);
     

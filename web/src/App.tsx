@@ -231,14 +231,15 @@ function AppContent() {
                 <Navigate to="/home?error=organizer-required" />
               }
             />
-            <Route
+            {/* Route onboarding disabled - using simplified bank details collection instead */}
+            {/* <Route
               path="/organizer/route-onboarding"
               element={
                 !user ? <Navigate to="/login" /> :
                 user.role === 'organizer' || user.role === 'admin' ? <OrganizerRouteOnboarding /> :
                 <Navigate to="/home?error=organizer-required" />
               }
-            />
+            /> */}
             <Route
               path="/organizer/settlements"
               element={
