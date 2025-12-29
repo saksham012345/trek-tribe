@@ -37,9 +37,13 @@ const createCommentSchema = z.object({
 });
 
 // Create a new post
+// Allow authenticated users to create posts (organizers and travelers both can post)
 router.post('/', authenticateJwt, async (req, res) => {
   try {
-    const userId = (req as any).auth.userId;
+    const userId = (req as any).auth?.userId || (req as any).user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
     
     const parsed = createPostSchema.safeParse(req.body);
     if (!parsed.success) {
