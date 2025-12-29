@@ -1019,44 +1019,66 @@ router.get('/verify-crm-access', authenticateJwt, async (req: Request, res: Resp
 
     const plan = SUBSCRIPTION_PLANS[subscription.plan.toUpperCase() as keyof typeof SUBSCRIPTION_PLANS];
 
-    if (!plan) {
+    // Get subscription price from plan or from payment history
+    let subscriptionPrice = plan?.price || 0;
+    if (!plan && subscription.payments && subscription.payments.length > 0) {
+      // If plan not found, try to get price from last payment
+      const lastPayment = subscription.payments[subscription.payments.length - 1];
+      subscriptionPrice = lastPayment.amount || 0;
+    }
+
+    // Check if subscription price is >= ₹2299 for CRM access
+    // This ensures any subscription at ₹2299 or above gets CRM access
+    const hasAccessByPrice = subscriptionPrice >= 2299;
+
+    // Determine CRM access: either plan has crmAccess flag OR price >= ₹2299
+    const hasCRMAccessByPlan = plan?.crmAccess === true;
+    const finalCRMAccess = hasCRMAccessByPlan || hasAccessByPrice;
+
+    // Lead capture and phone numbers also require CRM-level access
+    const hasLeadCapture = (plan?.leadCapture === true) || hasAccessByPrice;
+    const canViewPhoneNumbers = (plan?.phoneNumbers === true) || hasAccessByPrice;
+
+    if (!plan && !hasAccessByPrice) {
       return res.json({
         hasCRMAccess: false,
         hasLeadCapture: false,
         canViewPhoneNumbers: false,
         planType: subscription.plan,
-        message: 'Invalid plan type',
-        accessDeniedReason: `Plan "${subscription.plan}" is not recognized`,
+        planPrice: subscriptionPrice,
+        message: 'Invalid plan type or insufficient subscription level',
+        accessDeniedReason: `Plan "${subscription.plan}" is not recognized and subscription price (₹${subscriptionPrice}) is below ₹2299. CRM access requires subscription of ₹2299 or above.`,
       });
     }
 
     return res.json({
-      hasCRMAccess: plan.crmAccess === true,
-      hasLeadCapture: plan.leadCapture === true,
-      canViewPhoneNumbers: plan.phoneNumbers === true,
+      hasCRMAccess: finalCRMAccess,
+      hasLeadCapture: hasLeadCapture,
+      canViewPhoneNumbers: canViewPhoneNumbers,
       planType: subscription.plan,
-      planName: plan.name,
-      planPrice: plan.price,
+      planName: plan?.name || 'Custom Plan',
+      planPrice: subscriptionPrice,
       subscriptionStatus: subscription.status,
       subscriptionEndDate: subscription.subscriptionEndDate || subscription.currentPeriodEnd,
       isTrialActive: subscription.isTrialActive,
       message: 'CRM access verified',
       accessGranted: true,
+      accessReason: hasAccessByPrice ? 'Subscription price >= ₹2299' : 'Plan includes CRM access',
       features: {
         crm: {
-          enabled: plan.crmAccess,
+          enabled: finalCRMAccess,
           description: 'Full CRM access for managing leads and participants'
         },
         leadCapture: {
-          enabled: plan.leadCapture,
+          enabled: hasLeadCapture,
           description: 'Automatically capture and organize leads from your trips'
         },
         phoneNumbers: {
-          enabled: plan.phoneNumbers,
+          enabled: canViewPhoneNumbers,
           description: 'View phone numbers of leads and participants'
         },
         leadVerification: {
-          enabled: plan.leadCapture,
+          enabled: hasLeadCapture,
           description: 'Verify leads before adding to your trips'
         }
       }

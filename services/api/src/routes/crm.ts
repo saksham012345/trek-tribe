@@ -6,8 +6,11 @@ import subscriptionController from '../controllers/subscriptionController';
 import analyticsService from '../services/analyticsService';
 import notificationService from '../services/notificationService';
 import Lead from '../models/Lead';
+<<<<<<< HEAD
 import { Trip } from '../models/Trip';
 import { GroupBooking } from '../models/GroupBooking';
+=======
+>>>>>>> 5e975eafaa4913f756a179ddd9316010718039be
 import {
   requireAdmin,
   requireOrganizerOrAdmin,
@@ -37,6 +40,52 @@ router.put('/leads/:id', requireOrganizerOrAdmin, leadController.updateLead);
 router.post('/leads/:id/interactions', requireOrganizerOrAdmin, leadController.addInteraction);
 router.post('/leads/:id/convert', requireOrganizerOrAdmin, leadController.convertLead);
 
+// CRM Stats endpoint for dashboard
+router.get('/stats', requireOrganizerOrAdmin, async (req: AuthRequest, res) => {
+  try {
+    const organizerId = req.user?.role === 'admin' 
+      ? req.query.organizerId as string 
+      : req.user?.id;
+    
+    if (!organizerId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Organizer ID required',
+      });
+    }
+
+    // Get lead statistics
+    const totalLeads = await Lead.countDocuments({ assignedTo: organizerId });
+    const newLeads = await Lead.countDocuments({ assignedTo: organizerId, status: 'new' });
+    const convertedLeads = await Lead.countDocuments({ assignedTo: organizerId, status: 'converted' });
+    const lostLeads = await Lead.countDocuments({ assignedTo: organizerId, status: 'lost' });
+    const conversionRate = totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
+
+    // Get recent leads
+    const recentLeads = await Lead.find({ assignedTo: organizerId })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .populate('tripId', 'title destination')
+      .populate('userId', 'name email');
+
+    res.json({
+      success: true,
+      totalLeads,
+      newLeads,
+      convertedLeads,
+      lostLeads,
+      conversionRate: Math.round(conversionRate * 100) / 100,
+      leads: recentLeads,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch CRM stats',
+      error: error.message,
+    });
+  }
+});
+
 // ============================================
 // CRM STATS ROUTE
 // ============================================
@@ -56,12 +105,7 @@ router.get('/stats', requireOrganizerOrAdmin, async (req: AuthRequest, res) => {
       tripQuery.organizerId = userId;
       // For bookings, we need to filter by trips owned by the organizer
       const organizerTripIds = await Trip.find({ organizerId: userId }).distinct('_id');
-      if (organizerTripIds.length > 0) {
-        bookingQuery.tripId = { $in: organizerTripIds };
-      } else {
-        // If no trips, set empty array to return no bookings
-        bookingQuery.tripId = { $in: [] };
-      }
+      bookingQuery.tripId = { $in: organizerTripIds };
     }
     
     // Get all leads for this organizer/admin
