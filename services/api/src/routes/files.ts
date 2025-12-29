@@ -148,10 +148,16 @@ router.post('/upload/base64',
       //   tags
       // });
 
+      // Get the user ID from auth middleware
+      const userId = (req as any).auth?.userId || (req as any).user?.userId;
+      
       res.status(201).json({
         success: true,
         message: 'File uploaded successfully',
-        file: result
+        file: {
+          ...result,
+          uploadedBy: userId
+        }
       });
     } catch (error) {
       if (error instanceof FileError) {

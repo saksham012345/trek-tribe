@@ -35,7 +35,8 @@ function setAuthCookie(res: Response, token: string): void {
     sameSite: isProduction ? 'none' : 'lax', // 'none' for cross-origin in production (requires secure), 'lax' for local
     maxAge: maxAge,
     path: '/', // Available on all paths
-    domain: cookieDomain // Only set if specified (for shared domains)
+    domain: cookieDomain, // Only set if specified (for shared domains)
+    expires: new Date(Date.now() + maxAge) // Explicit expiry for better browser support
   });
 }
 
