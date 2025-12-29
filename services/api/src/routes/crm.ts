@@ -6,11 +6,8 @@ import subscriptionController from '../controllers/subscriptionController';
 import analyticsService from '../services/analyticsService';
 import notificationService from '../services/notificationService';
 import Lead from '../models/Lead';
-<<<<<<< HEAD
 import { Trip } from '../models/Trip';
 import { GroupBooking } from '../models/GroupBooking';
-=======
->>>>>>> 5e975eafaa4913f756a179ddd9316010718039be
 import {
   requireAdmin,
   requireOrganizerOrAdmin,
