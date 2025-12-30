@@ -31,6 +31,7 @@
     "demo:tickets:unsolved": "ts-node seed-unsolved-tickets.ts",
     "demo:organizer:premium": "ts-node create-premium-organizer.ts",
     "demo:organizer:crm": "ts-node create-crm-organizer.ts",
+    "grant:crm:access": "ts-node grant-premium-crm-access.ts",
     "test": "jest --config jest.config.js --runInBand",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",

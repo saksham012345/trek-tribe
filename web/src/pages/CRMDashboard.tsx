@@ -4,6 +4,21 @@ import { useAuth } from '../contexts/AuthContext';
 import api from '../config/api';
 import { useToast, ToastContainer } from '../components/Toast';
 import { Skeleton } from '../components/ui/Skeleton';
+import {
+  Chart as ChartJS,
+  ArcElement,
+  Tooltip,
+  Legend,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Filler,
+} from 'chart.js';
+import { Pie, Line, Bar } from 'react-chartjs-2';
+
+ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Filler);
 
 interface Lead {
   _id: string;
@@ -58,6 +73,14 @@ const CRMDashboard: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [editingNote, setEditingNote] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'analytics'>('dashboard');
+  
+  // Analytics data (ADD-ONLY, non-breaking)
+  const [bookingsOverTime, setBookingsOverTime] = useState<Array<{ date: string; bookings: number; revenue: number }>>([]);
+  const [paymentStatusData, setPaymentStatusData] = useState<Array<{ status: string; count: number }>>([]);
+  const [revenuePerTrip, setRevenuePerTrip] = useState<Array<{ tripId: string; tripName: string; revenue: number; bookings: number }>>([]);
+  const [leadSourcesData, setLeadSourcesData] = useState<Array<{ source: string; count: number; converted: number; conversionRate: string }>>([]);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
   // Check CRM access - wait for auth to complete first
   useEffect(() => {
@@ -83,6 +106,10 @@ const CRMDashboard: React.FC = () => {
         setHasCRMAccess(true);
         console.log('✅ CRM access granted, fetching data...');
         await Promise.all([fetchLeads(), fetchStats()]);
+        // Fetch analytics data if on analytics tab (non-blocking)
+        if (activeTab === 'analytics') {
+          fetchAnalyticsData();
+        }
       } else {
         console.log('❌ CRM access denied:', response.data.message || response.data.accessDeniedReason);
         setHasCRMAccess(false);
@@ -256,6 +283,44 @@ const CRMDashboard: React.FC = () => {
       showToast('Failed to verify lead', 'error');
     }
   };
+
+  // Analytics data fetching (ADD-ONLY, non-breaking enhancement)
+  const fetchAnalyticsData = async () => {
+    setAnalyticsLoading(true);
+    try {
+      const [bookingsRes, paymentRes, revenueRes, sourcesRes] = await Promise.all([
+        api.get('/api/crm/analytics/bookings-over-time?days=30').catch(() => ({ data: { success: false } })),
+        api.get('/api/crm/analytics/payment-status').catch(() => ({ data: { success: false } })),
+        api.get('/api/crm/analytics/revenue-per-trip').catch(() => ({ data: { success: false } })),
+        api.get('/api/crm/analytics/lead-sources').catch(() => ({ data: { success: false } })),
+      ]);
+
+      if (bookingsRes.data.success) {
+        setBookingsOverTime(bookingsRes.data.data || []);
+      }
+      if (paymentRes.data.success) {
+        setPaymentStatusData(paymentRes.data.data || []);
+      }
+      if (revenueRes.data.success) {
+        setRevenuePerTrip(revenueRes.data.data || []);
+      }
+      if (sourcesRes.data.success) {
+        setLeadSourcesData(sourcesRes.data.data || []);
+      }
+    } catch (error: any) {
+      console.error('Failed to fetch analytics data:', error);
+      // Fail gracefully - don't break existing functionality
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  };
+
+  // Fetch analytics when tab changes
+  useEffect(() => {
+    if (hasCRMAccess && activeTab === 'analytics') {
+      fetchAnalyticsData();
+    }
+  }, [activeTab, hasCRMAccess]);
 
   const filteredLeads = leads.filter(lead => {
     const matchesStatus = filterStatus === 'all' || lead.status === filterStatus;
@@ -446,6 +511,9 @@ const CRMDashboard: React.FC = () => {
               onClick={() => {
                 fetchLeads();
                 fetchStats();
+                if (activeTab === 'analytics') {
+                  fetchAnalyticsData();
+                }
                 showToast('Dashboard refreshed!', 'success');
               }}
               className="px-4 py-2 bg-forest-600 text-white rounded-lg hover:bg-forest-700 transition-colors flex items-center gap-2"
@@ -457,11 +525,38 @@ const CRMDashboard: React.FC = () => {
             </button>
           </div>
 
-          {/* Stats Cards */}
-          {stats ? (
+          {/* Tabs (ADD-ONLY enhancement) */}
+          <div className="mb-6 flex gap-2 border-b border-forest-200">
+            <button
+              onClick={() => setActiveTab('dashboard')}
+              className={`px-6 py-3 font-semibold transition-colors ${
+                activeTab === 'dashboard'
+                  ? 'text-forest-900 border-b-2 border-forest-600'
+                  : 'text-forest-600 hover:text-forest-900'
+              }`}
+            >
+              Dashboard
+            </button>
+            <button
+              onClick={() => setActiveTab('analytics')}
+              className={`px-6 py-3 font-semibold transition-colors ${
+                activeTab === 'analytics'
+                  ? 'text-forest-900 border-b-2 border-forest-600'
+                  : 'text-forest-600 hover:text-forest-900'
+              }`}
+            >
+              Analytics
+            </button>
+          </div>
+
+          {/* Dashboard Tab Content */}
+          {activeTab === 'dashboard' && (
             <>
-              {/* Revenue & Business Metrics */}
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              {/* Stats Cards */}
+              {stats ? (
+                <>
+                  {/* Revenue & Business Metrics */}
+                  <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg shadow-md p-6 border-l-4 border-green-600">
                   <div className="flex items-center justify-between">
                     <div>
@@ -559,8 +654,8 @@ const CRMDashboard: React.FC = () => {
             </div>
           )}
 
-          {/* Search & Filter */}
-          <div className="bg-white rounded-xl shadow-md p-6 mb-8">
+                  {/* Search & Filter */}
+                  <div className="bg-white rounded-xl shadow-md p-6 mb-8">
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold text-forest-700 mb-2">
@@ -594,8 +689,8 @@ const CRMDashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Leads Table */}
-          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                  {/* Leads Table */}
+                  <div className="bg-white rounded-xl shadow-lg overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gradient-to-r from-forest-600 to-nature-600 text-white">
@@ -683,6 +778,183 @@ const CRMDashboard: React.FC = () => {
               </table>
             </div>
           </div>
+                </>
+              ) : (
+                // Show placeholder when stats are loading
+                <div className="bg-white rounded-xl shadow-md p-6 mb-8">
+                  <div className="text-center py-8">
+                    <p className="text-forest-600">Loading statistics...</p>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Analytics Tab Content (ADD-ONLY enhancement) */}
+          {activeTab === 'analytics' && (
+            <div className="space-y-8">
+              {analyticsLoading ? (
+                <div className="bg-white rounded-xl shadow-md p-6">
+                  <div className="text-center py-8">
+                    <p className="text-forest-600">Loading analytics...</p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Bookings Over Time Chart */}
+                  <div className="bg-white rounded-xl shadow-lg p-6">
+                    <h3 className="text-2xl font-bold text-forest-900 mb-6">📈 Bookings Over Time (30 Days)</h3>
+                    {bookingsOverTime.length > 0 ? (
+                      <Line
+                        data={{
+                          labels: bookingsOverTime.map(d => new Date(d.date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })),
+                          datasets: [
+                            {
+                              label: 'Bookings',
+                              data: bookingsOverTime.map(d => d.bookings),
+                              borderColor: 'rgb(34, 197, 94)',
+                              backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                              tension: 0.4,
+                              fill: true,
+                            },
+                            {
+                              label: 'Revenue (₹)',
+                              data: bookingsOverTime.map(d => d.revenue),
+                              borderColor: 'rgb(59, 130, 246)',
+                              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                              tension: 0.4,
+                              fill: true,
+                              yAxisID: 'y1',
+                            },
+                          ],
+                        }}
+                        options={{
+                          responsive: true,
+                          plugins: {
+                            legend: { position: 'top' },
+                          },
+                          scales: {
+                            y: {
+                              beginAtZero: true,
+                              title: { display: true, text: 'Bookings' },
+                            },
+                            y1: {
+                              type: 'linear',
+                              display: true,
+                              position: 'right',
+                              title: { display: true, text: 'Revenue (₹)' },
+                              grid: { drawOnChartArea: false },
+                            },
+                          },
+                        }}
+                      />
+                    ) : (
+                      <p className="text-forest-600 text-center py-8">No booking data available</p>
+                    )}
+                  </div>
+
+                  {/* Payment Status & Lead Sources */}
+                  <div className="grid md:grid-cols-2 gap-8">
+                    {/* Payment Status Pie Chart */}
+                    <div className="bg-white rounded-xl shadow-lg p-6">
+                      <h3 className="text-2xl font-bold text-forest-900 mb-6">🍩 Payment Status Breakdown</h3>
+                      {paymentStatusData.length > 0 ? (
+                        <Pie
+                          data={{
+                            labels: paymentStatusData.map(d => d.status.charAt(0).toUpperCase() + d.status.slice(1)),
+                            datasets: [
+                              {
+                                data: paymentStatusData.map(d => d.count),
+                                backgroundColor: [
+                                  'rgba(34, 197, 94, 0.8)',
+                                  'rgba(251, 191, 36, 0.8)',
+                                  'rgba(239, 68, 68, 0.8)',
+                                  'rgba(156, 163, 175, 0.8)',
+                                ],
+                              },
+                            ],
+                          }}
+                          options={{
+                            responsive: true,
+                            plugins: {
+                              legend: { position: 'bottom' },
+                            },
+                          }}
+                        />
+                      ) : (
+                        <p className="text-forest-600 text-center py-8">No payment data available</p>
+                      )}
+                    </div>
+
+                    {/* Lead Sources Pie Chart */}
+                    <div className="bg-white rounded-xl shadow-lg p-6">
+                      <h3 className="text-2xl font-bold text-forest-900 mb-6">🧭 Lead Source Distribution</h3>
+                      {leadSourcesData.length > 0 ? (
+                        <Pie
+                          data={{
+                            labels: leadSourcesData.map(d => d.source.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())),
+                            datasets: [
+                              {
+                                data: leadSourcesData.map(d => d.count),
+                                backgroundColor: [
+                                  'rgba(59, 130, 246, 0.8)',
+                                  'rgba(168, 85, 247, 0.8)',
+                                  'rgba(236, 72, 153, 0.8)',
+                                  'rgba(251, 146, 60, 0.8)',
+                                  'rgba(34, 197, 94, 0.8)',
+                                ],
+                              },
+                            ],
+                          }}
+                          options={{
+                            responsive: true,
+                            plugins: {
+                              legend: { position: 'bottom' },
+                            },
+                          }}
+                        />
+                      ) : (
+                        <p className="text-forest-600 text-center py-8">No lead source data available</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Revenue Per Trip Bar Chart */}
+                  <div className="bg-white rounded-xl shadow-lg p-6">
+                    <h3 className="text-2xl font-bold text-forest-900 mb-6">📊 Revenue Per Trip</h3>
+                    {revenuePerTrip.length > 0 ? (
+                      <Bar
+                        data={{
+                          labels: revenuePerTrip.slice(0, 10).map(d => d.tripName.length > 30 ? d.tripName.substring(0, 30) + '...' : d.tripName),
+                          datasets: [
+                            {
+                              label: 'Revenue (₹)',
+                              data: revenuePerTrip.slice(0, 10).map(d => d.revenue),
+                              backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                            },
+                          ],
+                        }}
+                        options={{
+                          responsive: true,
+                          plugins: {
+                            legend: { display: false },
+                          },
+                          scales: {
+                            y: {
+                              beginAtZero: true,
+                              title: { display: true, text: 'Revenue (₹)' },
+                            },
+                          },
+                        }}
+                      />
+                    ) : (
+                      <p className="text-forest-600 text-center py-8">No revenue data available</p>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

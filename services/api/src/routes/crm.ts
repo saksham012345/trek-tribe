@@ -228,6 +228,166 @@ router.post('/subscriptions/use-trip-slot', requireAdmin, subscriptionController
 // ANALYTICS ROUTES
 // ============================================
 
+// Enhanced analytics endpoints for graphs (ADD-ONLY, non-breaking)
+router.get('/analytics/bookings-over-time', requireOrganizerOrAdmin, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user?.id;
+    const isAdmin = req.user?.role === 'admin';
+    const days = parseInt(req.query.days as string) || 30;
+    
+    const tripQuery: any = {};
+    if (!isAdmin && userId) {
+      tripQuery.organizerId = userId;
+    }
+    
+    const organizerTripIds = await Trip.find(tripQuery).distinct('_id');
+    const bookingQuery: any = { tripId: { $in: organizerTripIds } };
+    
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    
+    bookingQuery.createdAt = { $gte: startDate, $lte: endDate };
+    
+    const bookings = await GroupBooking.find(bookingQuery)
+      .select('createdAt finalAmount paymentStatus')
+      .lean();
+    
+    // Group by date
+    const bookingsByDate: Record<string, { count: number; revenue: number }> = {};
+    bookings.forEach(booking => {
+      const date = new Date(booking.createdAt).toISOString().split('T')[0];
+      if (!bookingsByDate[date]) {
+        bookingsByDate[date] = { count: 0, revenue: 0 };
+      }
+      bookingsByDate[date].count++;
+      if (booking.paymentStatus === 'completed' || booking.paymentStatus === 'partial') {
+        bookingsByDate[date].revenue += booking.finalAmount || 0;
+      }
+    });
+    
+    // Fill in missing dates with zeros
+    const result = [];
+    for (let i = 0; i < days; i++) {
+      const date = new Date(startDate);
+      date.setDate(date.getDate() + i);
+      const dateStr = date.toISOString().split('T')[0];
+      result.push({
+        date: dateStr,
+        bookings: bookingsByDate[dateStr]?.count || 0,
+        revenue: bookingsByDate[dateStr]?.revenue || 0,
+      });
+    }
+    
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Failed to fetch bookings over time', error: error.message });
+  }
+});
+
+router.get('/analytics/payment-status', requireOrganizerOrAdmin, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user?.id;
+    const isAdmin = req.user?.role === 'admin';
+    
+    const tripQuery: any = {};
+    if (!isAdmin && userId) {
+      tripQuery.organizerId = userId;
+    }
+    
+    const organizerTripIds = await Trip.find(tripQuery).distinct('_id');
+    const bookingQuery: any = { tripId: { $in: organizerTripIds } };
+    
+    const bookings = await GroupBooking.find(bookingQuery)
+      .select('paymentStatus')
+      .lean();
+    
+    const statusCounts: Record<string, number> = {};
+    bookings.forEach(booking => {
+      statusCounts[booking.paymentStatus] = (statusCounts[booking.paymentStatus] || 0) + 1;
+    });
+    
+    res.json({
+      success: true,
+      data: Object.entries(statusCounts).map(([status, count]) => ({ status, count })),
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Failed to fetch payment status', error: error.message });
+  }
+});
+
+router.get('/analytics/revenue-per-trip', requireOrganizerOrAdmin, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user?.id;
+    const isAdmin = req.user?.role === 'admin';
+    
+    const tripQuery: any = {};
+    if (!isAdmin && userId) {
+      tripQuery.organizerId = userId;
+    }
+    
+    const trips = await Trip.find(tripQuery).select('_id title').lean();
+    const tripIds = trips.map(t => t._id);
+    
+    const bookings = await GroupBooking.aggregate([
+      { $match: { tripId: { $in: tripIds }, paymentStatus: { $in: ['completed', 'partial'] } } },
+      { $group: {
+        _id: '$tripId',
+        revenue: { $sum: '$finalAmount' },
+        bookings: { $sum: 1 },
+      }},
+    ]);
+    
+    const result = bookings.map(booking => {
+      const trip = trips.find(t => t._id.toString() === booking._id.toString());
+      return {
+        tripId: booking._id,
+        tripName: trip?.title || 'Unknown Trip',
+        revenue: booking.revenue,
+        bookings: booking.bookings,
+      };
+    }).sort((a, b) => b.revenue - a.revenue);
+    
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Failed to fetch revenue per trip', error: error.message });
+  }
+});
+
+router.get('/analytics/lead-sources', requireOrganizerOrAdmin, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user?.id;
+    const isAdmin = req.user?.role === 'admin';
+    
+    const leadQuery: any = {};
+    if (!isAdmin && userId) {
+      leadQuery.assignedTo = userId;
+    }
+    
+    const leads = await Lead.aggregate([
+      { $match: leadQuery },
+      { $group: {
+        _id: '$source',
+        count: { $sum: 1 },
+        converted: { $sum: { $cond: [{ $eq: ['$status', 'converted'] }, 1, 0] } },
+      }},
+      { $sort: { count: -1 } },
+    ]);
+    
+    res.json({
+      success: true,
+      data: leads.map(lead => ({
+        source: lead._id || 'other',
+        count: lead.count,
+        converted: lead.converted,
+        conversionRate: lead.count > 0 ? ((lead.converted / lead.count) * 100).toFixed(2) : '0.00',
+      })),
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Failed to fetch lead sources', error: error.message });
+  }
+});
+
 // Organizer analytics
 router.get('/analytics/organizer', requireOrganizerOrAdmin, async (req: AuthRequest, res) => {
   try {
