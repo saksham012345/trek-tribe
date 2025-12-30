@@ -56,6 +56,7 @@ const AIShowcase = React.lazy(() => retryLazyLoad(() => import('./pages/AIShowca
 const OrganizerCRM = React.lazy(() => retryLazyLoad(() => import('./pages/OrganizerCRM')));
 const ProfessionalCRMDashboard = React.lazy(() => retryLazyLoad(() => import('./pages/ProfessionalCRMDashboard')));
 const EnhancedCRMDashboard = React.lazy(() => retryLazyLoad(() => import('./pages/EnhancedCRMDashboard')));
+const CRMDashboard = React.lazy(() => retryLazyLoad(() => import('./pages/CRMDashboard')));
 const PaymentVerificationDashboard = React.lazy(() => retryLazyLoad(() => import('./pages/PaymentVerificationDashboard')));
 const OrganizerRouteOnboarding = React.lazy(() => retryLazyLoad(() => import('./pages/OrganizerRouteOnboarding')));
 const OrganizerSettlements = React.lazy(() => retryLazyLoad(() => import('./pages/OrganizerSettlements')));
@@ -232,6 +233,14 @@ function AppContent() {
               element={
                 !user ? <Navigate to="/login" /> :
                 user.role === 'organizer' || user.role === 'admin' ? <ProfessionalCRMDashboard /> :
+                <Navigate to="/home?error=organizer-required" />
+              }
+            />
+            <Route
+              path="/crm"
+              element={
+                !user ? <Navigate to="/login" /> :
+                user.role === 'organizer' || user.role === 'admin' ? <CRMDashboard /> :
                 <Navigate to="/home?error=organizer-required" />
               }
             />

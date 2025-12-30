@@ -181,7 +181,15 @@ const PostCreator: React.FC<PostCreatorProps> = ({ onPostCreated, onClose }) => 
 
     } catch (error: any) {
       console.error('Error uploading files:', error);
-      alert(error.message || 'Failed to upload files');
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Failed to upload files';
+      const errorDetails = error.response?.status === 401 
+        ? 'Please log in to upload files' 
+        : error.response?.status === 403
+        ? 'You do not have permission to upload files'
+        : error.response?.status === 404
+        ? 'Upload endpoint not found. Please contact support.'
+        : errorMessage;
+      alert(errorDetails);
     } finally {
       setUploadingFiles(false);
     }

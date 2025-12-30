@@ -15,8 +15,16 @@ import { smsService } from '../services/smsService';
 const router = Router();
 
 // Helper function to set secure httpOnly cookie with JWT token
-function setAuthCookie(res: Response, token: string): void {
-  const isProduction = process.env.NODE_ENV === 'production';
+function setAuthCookie(res: Response, token: string, req?: any): void {
+  // More robust production detection:
+  // 1. Check NODE_ENV first
+  // 2. Check if request is over HTTPS (production-like environment)
+  // 3. Check if FRONTEND_URL contains https (production deployment indicator)
+  const isProductionEnv = process.env.NODE_ENV === 'production';
+  const isHttpsRequest = req?.secure || req?.headers?.['x-forwarded-proto'] === 'https' || req?.protocol === 'https';
+  const hasHttpsFrontend = process.env.FRONTEND_URL?.startsWith('https://');
+  const isProduction = isProductionEnv || (isHttpsRequest && hasHttpsFrontend);
+  
   const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
   
   // Cookie domain handling:
@@ -29,24 +37,67 @@ function setAuthCookie(res: Response, token: string): void {
     ? process.env.COOKIE_DOMAIN.trim() 
     : undefined;
   
-  res.cookie('token', token, {
+  // Determine secure flag: true if production OR if request is over HTTPS
+  // This ensures cookies work even if NODE_ENV is not set correctly
+  const secure = isProduction || isHttpsRequest;
+  
+  // Determine sameSite:
+  // - 'none' for cross-origin requests in production (requires secure=true)
+  // - 'lax' for same-origin or development
+  // Check if frontend and backend are on different origins
+  const isCrossOrigin = hasHttpsFrontend && process.env.FRONTEND_URL !== process.env.API_URL;
+  const sameSite = (isProduction && isCrossOrigin && secure) ? 'none' : 'lax';
+  
+  const cookieOptions: any = {
     httpOnly: true, // Prevents JavaScript access (XSS protection)
-    secure: isProduction, // HTTPS only in production (required for sameSite: 'none')
-    sameSite: isProduction ? 'none' : 'lax', // 'none' for cross-origin in production (requires secure), 'lax' for local
+    secure: secure, // HTTPS only (required for sameSite: 'none')
+    sameSite: sameSite,
     maxAge: maxAge,
     path: '/', // Available on all paths
-    domain: cookieDomain, // Only set if specified (for shared domains)
     expires: new Date(Date.now() + maxAge) // Explicit expiry for better browser support
-  });
+  };
+
+  // Only set domain if explicitly configured (for shared subdomains)
+  // Leaving it undefined means cookie works for current domain only
+  if (cookieDomain) {
+    cookieOptions.domain = cookieDomain;
+  }
+
+  res.cookie('token', token, cookieOptions);
+  
+  // Log cookie setting for debugging (always log in dev, or if there's an issue)
+  if (process.env.NODE_ENV === 'development' || process.env.DEBUG_COOKIES === 'true') {
+    console.log('🍪 Setting auth cookie:', {
+      httpOnly: cookieOptions.httpOnly,
+      secure: cookieOptions.secure,
+      sameSite: cookieOptions.sameSite,
+      domain: cookieOptions.domain || 'undefined (current domain)',
+      maxAge: `${maxAge / 1000 / 60 / 60} hours`,
+      isProductionEnv,
+      isHttpsRequest,
+      hasHttpsFrontend,
+      isProduction,
+      isCrossOrigin
+    });
+  }
 }
 
 // Helper function to clear auth cookie
-function clearAuthCookie(res: Response): void {
+function clearAuthCookie(res: Response, req?: any): void {
+  // Use same production detection as setAuthCookie
+  const isProductionEnv = process.env.NODE_ENV === 'production';
+  const isHttpsRequest = req?.secure || req?.headers?.['x-forwarded-proto'] === 'https' || req?.protocol === 'https';
+  const hasHttpsFrontend = process.env.FRONTEND_URL?.startsWith('https://');
+  const isProduction = isProductionEnv || (isHttpsRequest && hasHttpsFrontend);
+  const secure = isProduction || isHttpsRequest;
+  const isCrossOrigin = hasHttpsFrontend && process.env.FRONTEND_URL !== process.env.API_URL;
+  const sameSite = (isProduction && isCrossOrigin && secure) ? 'none' : 'lax';
+  
   const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
   res.clearCookie('token', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    secure: secure,
+    sameSite: sameSite,
     path: '/',
     domain: cookieDomain
   });
@@ -291,7 +342,7 @@ router.post('/register', async (req, res) => {
         const token = jwt.sign({ userId: String(user._id), role: user.role }, jwtSecret, { expiresIn: '7d' });
 
         // Set secure httpOnly cookie
-        setAuthCookie(res, token);
+        setAuthCookie(res, token, req);
 
         // Return both `_id` and `id` to satisfy different test/client expectations
         return res.status(201).json({
@@ -422,7 +473,12 @@ router.post('/login', async (req, res) => {
   await user.save();
   
   // Set secure httpOnly cookie
-  setAuthCookie(res, token);
+  setAuthCookie(res, token, req);
+  
+  // Log successful login for debugging
+  if (process.env.NODE_ENV === 'development') {
+    console.log('✅ Login successful, cookie set for user:', user.email);
+  }
   
   return res.json({ 
     token, // Still return token for backward compatibility (can be removed later)
@@ -538,7 +594,7 @@ router.post('/google', async (req, res) => {
     );
 
     // Set secure httpOnly cookie
-    setAuthCookie(res, token);
+    setAuthCookie(res, token, req);
 
     // Check if profile is incomplete
     const isNewUser = !user.phone;
@@ -571,7 +627,7 @@ router.post('/google', async (req, res) => {
 
 // Logout route - clears auth cookie
 router.post('/logout', (req, res) => {
-  clearAuthCookie(res);
+  clearAuthCookie(res, req);
   return res.json({ message: 'Logged out successfully' });
 });
 

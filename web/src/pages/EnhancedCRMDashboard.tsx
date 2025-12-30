@@ -193,7 +193,9 @@ const EnhancedCRMDashboard: React.FC = () => {
       setStats({
         totalLeads: 0,
         newLeads: 0,
-        convertedLeads: 0,
+        contactedLeads: 0,
+        interestedLeads: 0,
+        qualifiedLeads: 0,
         lostLeads: 0,
         conversionRate: 0,
       });
