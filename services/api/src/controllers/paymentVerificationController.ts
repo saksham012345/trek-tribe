@@ -47,8 +47,12 @@ export const generateAmountPaymentQR = async (req: Request, res: Response) => {
     const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET;
     
     if (!razorpayKeyId || !razorpayKeySecret) {
-      console.warn('⚠️ Razorpay credentials not configured in environment variables');
+      console.error('❌ Razorpay credentials not configured in environment variables');
+      console.error('   RAZORPAY_KEY_ID:', razorpayKeyId ? 'SET' : 'MISSING');
+      console.error('   RAZORPAY_KEY_SECRET:', razorpayKeySecret ? 'SET' : 'MISSING');
       // Continue with QR generation but mark as unverified
+    } else {
+      console.log('✅ Razorpay credentials found in environment');
     }
 
     const numericAmount = Number(amount);
@@ -72,17 +76,37 @@ export const generateAmountPaymentQR = async (req: Request, res: Response) => {
       keyIdHash: razorpayKeyId ? crypto.createHash('sha256').update(razorpayKeyId).digest('hex').substring(0, 8) : undefined,
     };
 
-    const qrCodeUrl = await QRCode.toDataURL(JSON.stringify(payload));
+    try {
+      const qrCodeUrl = await QRCode.toDataURL(JSON.stringify(payload));
+      
+      console.log('✅ QR code generated successfully:', {
+        referenceId,
+        amount: numericAmount,
+        currency,
+        trusted: !!(razorpayKeyId && razorpayKeySecret),
+        credentialsConfigured: !!(razorpayKeyId && razorpayKeySecret)
+      });
 
-    return res.json({
-      success: true,
-      provider: 'razorpay',
-      trusted: !!(razorpayKeyId && razorpayKeySecret),
-      qrCodeUrl,
-      referenceId,
-      payload,
-      configured: !!(razorpayKeyId && razorpayKeySecret),
-    });
+      return res.json({
+        success: true,
+        provider: 'razorpay',
+        trusted: !!(razorpayKeyId && razorpayKeySecret),
+        qrCodeUrl,
+        referenceId,
+        payload,
+        configured: !!(razorpayKeyId && razorpayKeySecret),
+        message: razorpayKeyId && razorpayKeySecret 
+          ? 'QR code generated with Razorpay credentials' 
+          : 'QR code generated (Razorpay credentials not configured - using fallback)'
+      });
+    } catch (qrError: any) {
+      console.error('❌ Error generating QR code image:', qrError);
+      return res.status(500).json({ 
+        error: 'Failed to generate QR code image', 
+        message: qrError.message,
+        details: 'QRCode library error - check if qrcode package is installed'
+      });
+    }
   } catch (error: any) {
     console.error('❌ Error generating amount QR:', error);
     return res.status(500).json({ error: 'Failed to generate payment QR', message: error.message });

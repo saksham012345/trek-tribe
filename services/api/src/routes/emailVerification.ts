@@ -112,14 +112,23 @@ router.post('/verify-otp', async (req, res) => {
     );
 
     // Set secure httpOnly cookie
-    const isProduction = process.env.NODE_ENV === 'production';
+    // More robust production detection (same logic as auth.ts)
+    const isProductionEnv = process.env.NODE_ENV === 'production';
+    const isHttpsRequest = req?.secure || req?.headers?.['x-forwarded-proto'] === 'https' || req?.protocol === 'https';
+    const hasHttpsFrontend = process.env.FRONTEND_URL?.startsWith('https://');
+    const isProduction = isProductionEnv || (isHttpsRequest && hasHttpsFrontend);
     const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
+    const secure = isProduction || isHttpsRequest;
+    const isCrossOrigin = hasHttpsFrontend && process.env.FRONTEND_URL !== process.env.API_URL;
+    const sameSite = (isProduction && isCrossOrigin && secure) ? 'none' : 'lax';
+    
     res.cookie('token', token, {
       httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'strict' : 'lax',
+      secure: secure,
+      sameSite: sameSite,
       maxAge: maxAge,
-      path: '/'
+      path: '/',
+      expires: new Date(Date.now() + maxAge) // Explicit expiry for better browser support
     });
 
     return res.status(200).json({ 

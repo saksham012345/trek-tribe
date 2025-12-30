@@ -56,33 +56,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     // Always verify session with backend (cookie-based auth)
     // This is critical for session persistence
-    api.get('/auth/me', {
-      // Ensure credentials are sent with the request
-      withCredentials: true
-    })
-      .then(response => {
+    const verifySession = async () => {
+      try {
+        const response = await api.get('/auth/me', {
+          // Ensure credentials are sent with the request (cookies)
+          withCredentials: true
+        });
+        
         // Handle both { user: User } and direct User object formats
         const userData = response.data?.user || response.data;
         if (userData && (userData._id || userData.id)) {
           // User is authenticated - update state and localStorage
           setUser(userData as User);
           localStorage.setItem('user', JSON.stringify(userData));
-          console.log('Session verified successfully');
+          console.log('✅ Session verified successfully');
         } else {
           // No user data in response - clear local storage
-          console.log('No user data in response, clearing session');
+          console.log('⚠️ No user data in response, clearing session');
           localStorage.removeItem('user');
           setUser(null);
         }
-      })
-      .catch((error) => {
-        // 401 is expected when user is not logged in - don't clear user immediately
-        // Only clear if we get a definitive 401 after initial load
+      } catch (error: any) {
+        // 401 is expected when user is not logged in
         if (error?.response?.status === 401) {
-          // Check if we had a user in localStorage - if yes, it might be a session expiry
-          // If no, user was never logged in
+          // Check if we had a user in localStorage
           if (savedUser) {
-            console.log('Session expired or invalid - clearing local user data');
+            console.log('⚠️ Session expired or invalid - clearing local user data');
             localStorage.removeItem('user');
             setUser(null);
           } else {
@@ -93,13 +92,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // Network or server errors - keep user from localStorage for now
           // User can still use the app if localStorage has valid user data
           // Protected routes will verify again
-          console.warn('Failed to verify session (non-401):', error?.response?.status || error?.message);
+          console.warn('⚠️ Failed to verify session (non-401):', error?.response?.status || error?.message);
+          console.warn('   Keeping user from localStorage for now');
           // Don't clear user on network errors - might be temporary
+          // Keep the user from localStorage to allow app to function
+          if (savedUser && !user) {
+            try {
+              const parsed = JSON.parse(savedUser);
+              setUser(parsed);
+              console.log('✅ Restored user from localStorage after network error');
+            } catch (e) {
+              // Invalid data, clear it
+              localStorage.removeItem('user');
+              setUser(null);
+            }
+          }
         }
-      })
-      .finally(() => {
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    verifySession();
   }, []);
 
   const login = async (emailOrCredential: string, passwordOrProvider?: string): Promise<{ success: boolean; error?: string }> => {

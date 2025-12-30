@@ -37,52 +37,6 @@ router.put('/leads/:id', requireOrganizerOrAdmin, leadController.updateLead);
 router.post('/leads/:id/interactions', requireOrganizerOrAdmin, leadController.addInteraction);
 router.post('/leads/:id/convert', requireOrganizerOrAdmin, leadController.convertLead);
 
-// CRM Stats endpoint for dashboard
-router.get('/stats', requireOrganizerOrAdmin, async (req: AuthRequest, res) => {
-  try {
-    const organizerId = req.user?.role === 'admin' 
-      ? req.query.organizerId as string 
-      : req.user?.id;
-    
-    if (!organizerId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Organizer ID required',
-      });
-    }
-
-    // Get lead statistics
-    const totalLeads = await Lead.countDocuments({ assignedTo: organizerId });
-    const newLeads = await Lead.countDocuments({ assignedTo: organizerId, status: 'new' });
-    const convertedLeads = await Lead.countDocuments({ assignedTo: organizerId, status: 'converted' });
-    const lostLeads = await Lead.countDocuments({ assignedTo: organizerId, status: 'lost' });
-    const conversionRate = totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
-
-    // Get recent leads
-    const recentLeads = await Lead.find({ assignedTo: organizerId })
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .populate('tripId', 'title destination')
-      .populate('userId', 'name email');
-
-    res.json({
-      success: true,
-      totalLeads,
-      newLeads,
-      convertedLeads,
-      lostLeads,
-      conversionRate: Math.round(conversionRate * 100) / 100,
-      leads: recentLeads,
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch CRM stats',
-      error: error.message,
-    });
-  }
-});
-
 // ============================================
 // CRM STATS ROUTE
 // ============================================

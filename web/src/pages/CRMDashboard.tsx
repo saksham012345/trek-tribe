@@ -46,7 +46,7 @@ interface CRMStats {
 
 const CRMDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { showToast, toasts, removeToast, success } = useToast();
 
   const [hasCRMAccess, setHasCRMAccess] = useState(false);
@@ -59,30 +59,49 @@ const CRMDashboard: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [editingNote, setEditingNote] = useState<string>('');
 
-  // Check CRM access
+  // Check CRM access - wait for auth to complete first
   useEffect(() => {
-    checkCRMAccess();
-  }, []);
+    if (!authLoading) {
+      checkCRMAccess();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user]);
 
   const checkCRMAccess = async () => {
+    // Don't check if user is not logged in
+    if (!user) {
+      console.log('⚠️ No user found, redirecting to login');
+      navigate('/login');
+      return;
+    }
     try {
+      console.log('🔍 Checking CRM access...');
       const response = await api.get('/api/subscriptions/verify-crm-access');
+      console.log('📊 CRM access response:', response.data);
+      
       if (response.data.hasCRMAccess) {
         setHasCRMAccess(true);
-        fetchLeads();
-        fetchStats();
+        console.log('✅ CRM access granted, fetching data...');
+        await Promise.all([fetchLeads(), fetchStats()]);
       } else {
+        console.log('❌ CRM access denied:', response.data.message || response.data.accessDeniedReason);
         setHasCRMAccess(false);
+        showToast(response.data.message || 'CRM access not available. Please upgrade your plan.', 'error');
       }
     } catch (error: any) {
-      console.error('Failed to check CRM access:', error);
+      console.error('❌ Failed to check CRM access:', error);
+      console.error('   Status:', error.response?.status);
+      console.error('   Data:', error.response?.data);
       
       // Handle 401 specifically - user not authenticated
       if (error.response?.status === 401) {
         showToast('Please log in to access CRM', 'error');
         setHasCRMAccess(false);
+      } else if (error.response?.status === 403) {
+        showToast(error.response?.data?.message || 'CRM access denied. Please upgrade your plan.', 'error');
+        setHasCRMAccess(false);
       } else {
-        showToast('Failed to verify CRM access. Please upgrade your plan.', 'error');
+        showToast('Failed to verify CRM access. Please try again.', 'error');
         setHasCRMAccess(false);
       }
     } finally {
@@ -92,7 +111,9 @@ const CRMDashboard: React.FC = () => {
 
   const fetchLeads = async () => {
     try {
+      console.log('📥 Fetching CRM leads...');
       const response = await api.get('/api/crm/leads');
+      console.log('📊 Leads response:', response.data);
       // Backend returns { success: true, data: leads, pagination: {...} }
       // Handle both formats for compatibility
       const leadsData = response.data.data || response.data.leads || [];
@@ -112,51 +133,29 @@ const CRMDashboard: React.FC = () => {
       }));
       
       setLeads(formattedLeads);
+      console.log('✅ Leads fetched:', formattedLeads.length);
     } catch (error: any) {
-      console.error('Failed to fetch leads:', error);
+      console.error('❌ Failed to fetch leads:', error);
+      console.error('   Status:', error.response?.status);
+      console.error('   Data:', error.response?.data);
       if (error.response?.status === 401) {
         showToast('Please log in to view leads', 'error');
+        // Don't clear leads on 401 - might be temporary auth issue
       } else {
         showToast('Failed to load leads', 'error');
       }
-      setLeads([]);
+      // Keep existing leads if fetch fails (don't clear them)
+      // setLeads([]);
     }
   };
 
   const fetchStats = async () => {
     try {
       // Try to fetch stats from dedicated endpoint
+      console.log('📥 Fetching CRM stats...');
       const response = await api.get('/api/crm/stats');
-      const statsData = response.data || {};
-      
-      // Ensure all required fields exist with defaults
-      const formattedStats: CRMStats = {
-        totalLeads: statsData.totalLeads || 0,
-        newLeads: statsData.newLeads || 0,
-        contactedLeads: statsData.contactedLeads || 0,
-        interestedLeads: statsData.interestedLeads || 0,
-        qualifiedLeads: statsData.qualifiedLeads || 0,
-        lostLeads: statsData.lostLeads || 0,
-        conversionRate: statsData.conversionRate || 0,
-        revenue: statsData.revenue || {
-          total: 0,
-          thisMonth: 0,
-          lastMonth: 0,
-          growth: 0,
-          averageBookingValue: 0,
-        },
-        bookings: statsData.bookings || {
-          total: 0,
-          confirmed: 0,
-          pending: 0,
-        },
-        trips: statsData.trips || {
-          total: 0,
-          active: 0,
-        },
-      };
-      
-      setStats(formattedStats);
+      console.log('📊 Stats response:', response.data);
+      setStats(response.data);
     } catch (error: any) {
       console.error('Failed to fetch stats from endpoint:', error);
       
@@ -288,6 +287,29 @@ const CRMDashboard: React.FC = () => {
     );
   }
 
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-forest-50 to-nature-50 p-6">
+        <div className="max-w-7xl mx-auto space-y-6">
+          <div className="bg-white rounded-2xl shadow-lg p-6">
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="mt-2 h-4 w-96" />
+          </div>
+          <div className="grid md:grid-cols-3 gap-4">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="bg-white rounded-xl shadow p-6">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="mt-2 h-8 w-24" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show access denied message only after loading is complete
   if (!hasCRMAccess) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-forest-50 to-nature-50 px-4">
@@ -301,12 +323,23 @@ const CRMDashboard: React.FC = () => {
           <p className="text-forest-600 mb-6">
             CRM features are only available with Professional or higher plans. Upgrade now to start managing leads!
           </p>
-          <button
-            onClick={() => navigate('/auto-pay-setup')}
-            className="w-full bg-gradient-to-r from-forest-600 to-nature-600 text-white font-semibold py-3 rounded-xl hover:from-forest-700 hover:to-nature-700 transition-all"
-          >
-            Upgrade Plan
-          </button>
+          <div className="space-y-3">
+            <button
+              onClick={() => navigate('/subscribe')}
+              className="w-full bg-gradient-to-r from-forest-600 to-nature-600 text-white font-semibold py-3 rounded-xl hover:from-forest-700 hover:to-nature-700 transition-all"
+            >
+              Upgrade Plan
+            </button>
+            <button
+              onClick={() => {
+                setLoading(true);
+                checkCRMAccess();
+              }}
+              className="w-full border-2 border-forest-300 text-forest-700 font-semibold py-3 rounded-xl hover:bg-forest-50 transition-all"
+            >
+              Retry Access Check
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -348,7 +381,7 @@ const CRMDashboard: React.FC = () => {
                     <div>
                       <p className="text-green-600 text-sm font-semibold">Total Revenue</p>
                       <p className="text-3xl font-bold text-green-900 mt-1">
-                        ₹{(stats.revenue?.total || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                        ₹{stats.revenue?.total?.toLocaleString('en-IN', { maximumFractionDigits: 0 }) || '0'}
                       </p>
                     </div>
                     <svg className="w-12 h-12 text-green-400 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -361,11 +394,11 @@ const CRMDashboard: React.FC = () => {
                     <div>
                       <p className="text-blue-600 text-sm font-semibold">This Month</p>
                       <p className="text-3xl font-bold text-blue-900 mt-1">
-                        ₹{(stats.revenue?.thisMonth || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                        ₹{stats.revenue?.thisMonth?.toLocaleString('en-IN', { maximumFractionDigits: 0 }) || '0'}
                       </p>
                       {stats.revenue?.growth !== undefined && (
-                        <p className={`text-xs mt-1 font-semibold ${(stats.revenue.growth || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {(stats.revenue.growth || 0) >= 0 ? '↑' : '↓'} {Math.abs(stats.revenue.growth || 0).toFixed(1)}% vs last month
+                        <p className={`text-xs mt-1 font-semibold ${stats.revenue.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {stats.revenue.growth >= 0 ? '↑' : '↓'} {Math.abs(stats.revenue.growth).toFixed(1)}% vs last month
                         </p>
                       )}
                     </div>
@@ -393,7 +426,7 @@ const CRMDashboard: React.FC = () => {
                     <div>
                       <p className="text-indigo-600 text-sm font-semibold">Avg Booking Value</p>
                       <p className="text-3xl font-bold text-indigo-900 mt-1">
-                        ₹{(stats.revenue?.averageBookingValue || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                        ₹{stats.revenue?.averageBookingValue?.toLocaleString('en-IN', { maximumFractionDigits: 0 }) || '0'}
                       </p>
                     </div>
                     <svg className="w-12 h-12 text-indigo-400 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -432,8 +465,11 @@ const CRMDashboard: React.FC = () => {
               </div>
             </>
           ) : (
-            <div className="bg-white rounded-lg shadow-md p-8 text-center mb-8">
-              <p className="text-forest-600">Loading statistics...</p>
+            // Show placeholder when stats are loading
+            <div className="bg-white rounded-xl shadow-md p-6 mb-8">
+              <div className="text-center py-8">
+                <p className="text-forest-600">Loading statistics...</p>
+              </div>
             </div>
           )}
 

@@ -160,11 +160,13 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       } catch (error: any) {
         console.error('Failed to check subscription:', error);
         
-        // If 401, user might not be authenticated - don't navigate, let auth system handle
+        // If 401, user is not authenticated - don't navigate, let auth system handle
         if (error?.response?.status === 401) {
-          // Don't redirect - let auth system handle logout/redirect
+          // User not authenticated - auth context will handle redirect
+          console.log('User not authenticated, skipping subscription check');
           setSubscriptionChecked(true);
           setHasSubscription(false);
+          // Don't navigate - let the auth system redirect to login
           return;
         }
         
@@ -175,13 +177,21 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
           return;
         }
         
-        // Other errors - redirect to subscription
-        navigate('/subscribe', { 
-          state: { 
-            message: 'Please subscribe to create trips',
-            from: { pathname: '/create-trip' }
-          } 
-        });
+        // For other errors (network issues, etc.), allow user to continue but show warning
+        // The API will validate subscription when trip is submitted
+        console.warn('Subscription check failed, but allowing user to continue');
+        setSubscriptionChecked(true);
+        setHasSubscription(false);
+        
+        // Only redirect if we're sure it's a subscription issue (not network error)
+        if (error?.response?.status === 403 || error?.response?.status === 402) {
+          navigate('/subscribe', { 
+            state: { 
+              message: 'Please subscribe to create trips',
+              from: { pathname: '/create-trip' }
+            } 
+          });
+        }
       }
     };
 
