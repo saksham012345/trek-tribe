@@ -37,9 +37,10 @@ function setAuthCookie(res: Response, token: string, req?: any): void {
     ? process.env.COOKIE_DOMAIN.trim() 
     : undefined;
   
-  // Determine secure flag: true if production OR if request is over HTTPS
-  // This ensures cookies work even if NODE_ENV is not set correctly
-  const secure = isProduction || isHttpsRequest;
+  // In development, always use secure: false for HTTP
+  // In production, use secure: true only for HTTPS requests
+  // This ensures cookies work in development (HTTP) and production (HTTPS)
+  const secure = isProduction && isHttpsRequest;
   
   // Determine sameSite:
   // - 'none' for cross-origin requests in production (requires secure=true)
@@ -89,17 +90,22 @@ function clearAuthCookie(res: Response, req?: any): void {
   const isHttpsRequest = req?.secure || req?.headers?.['x-forwarded-proto'] === 'https' || req?.protocol === 'https';
   const hasHttpsFrontend = process.env.FRONTEND_URL?.startsWith('https://');
   const isProduction = isProductionEnv || (isHttpsRequest && hasHttpsFrontend);
-  const secure = isProduction || isHttpsRequest;
+  // In development, always use secure: false for HTTP
+  // In production, use secure: true only for HTTPS requests
+  const secure = isProduction && isHttpsRequest;
   const isCrossOrigin = hasHttpsFrontend && process.env.FRONTEND_URL !== process.env.API_URL;
   const sameSite = (isProduction && isCrossOrigin && secure) ? 'none' : 'lax';
   
-  const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
+  const cookieDomain = process.env.COOKIE_DOMAIN && process.env.COOKIE_DOMAIN.trim() !== '' 
+    ? process.env.COOKIE_DOMAIN.trim() 
+    : undefined;
+  
   res.clearCookie('token', {
     httpOnly: true,
     secure: secure,
     sameSite: sameSite,
     path: '/',
-    domain: cookieDomain
+    ...(cookieDomain && { domain: cookieDomain })
   });
 }
 

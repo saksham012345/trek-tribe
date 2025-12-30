@@ -58,8 +58,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // This is critical for session persistence
     const verifySession = async () => {
       try {
+        // withCredentials is already set globally in api config, but explicitly set it here too
         const response = await api.get('/auth/me', {
-          // Ensure credentials are sent with the request (cookies)
           withCredentials: true
         });
         
@@ -69,7 +69,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // User is authenticated - update state and localStorage
           setUser(userData as User);
           localStorage.setItem('user', JSON.stringify(userData));
-          console.log('✅ Session verified successfully');
+          console.log('✅ Session verified successfully - user:', userData.email || userData.name);
         } else {
           // No user data in response - clear local storage
           console.log('⚠️ No user data in response, clearing session');
@@ -82,6 +82,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // Check if we had a user in localStorage
           if (savedUser) {
             console.log('⚠️ Session expired or invalid - clearing local user data');
+            console.log('   Cookie may not be set or expired. Check browser DevTools > Application > Cookies');
             localStorage.removeItem('user');
             setUser(null);
           } else {
@@ -124,12 +125,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Google OAuth login
         response = await api.post('/auth/google', {
           credential: emailOrCredential
+        }, {
+          withCredentials: true
         });
       } else {
         // Traditional email/password login
         response = await api.post('/auth/login', {
           email: emailOrCredential,
           password: passwordOrProvider
+        }, {
+          withCredentials: true
         });
       }
 
@@ -140,6 +145,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Only store user data (non-sensitive) for faster UI loading
       localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
+      
+      console.log('✅ Login successful - cookie should be set. Check browser DevTools > Application > Cookies');
       
       return { success: true };
     } catch (error: any) {
