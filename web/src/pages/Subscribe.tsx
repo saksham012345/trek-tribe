@@ -38,19 +38,45 @@ const SubscribeInner: React.FC = () => {
       try {
         const [plansRes, subRes] = await Promise.all([
           api.get('/api/subscriptions/plans'),
-          api.get('/api/subscriptions/my'),
+          api.get('/api/subscriptions/my').catch(() => ({ data: null })), // Allow this to fail gracefully
         ]);
-        setPlans(plansRes.data?.plans || []);
-        setSubscription(subRes.data);
-        const existingPlan = subRes.data?.subscription?.plan;
-        if (existingPlan) {
-          const normalized = existingPlan.toString().toUpperCase();
-          if (['STARTER', 'BASIC', 'PROFESSIONAL', 'PREMIUM', 'ENTERPRISE'].includes(normalized)) {
-            setSelectedPlan(normalized as Plan['id']);
+        
+        // Handle plans response - check both success and direct plans array
+        const plansData = plansRes.data?.plans || plansRes.data?.data?.plans || [];
+        if (plansData.length > 0) {
+          setPlans(plansData);
+        } else {
+          // Fallback: use default plans if API doesn't return them
+          setPlans([
+            { id: 'STARTER', name: 'Starter Plan', price: 599, trips: 2, features: ['List up to 2 trips', 'Basic analytics', 'Email support'], trialDays: 60 },
+            { id: 'BASIC', name: 'Basic Plan', price: 1299, trips: 4, features: ['List up to 4 trips', 'Basic analytics', 'Email support'], trialDays: 60 },
+            { id: 'PROFESSIONAL', name: 'Professional Plan', price: 2199, trips: 6, features: ['List up to 6 trips', 'Full CRM Access', 'Lead Capture'], trialDays: 60 },
+            { id: 'PREMIUM', name: 'Premium Plan', price: 3999, trips: 15, features: ['List up to 15 trips', 'Full CRM Access', 'Advanced analytics'], trialDays: 60 },
+            { id: 'ENTERPRISE', name: 'Enterprise Plan', price: 7999, trips: 40, features: ['List up to 40 trips', 'Full CRM Access', 'API access'], trialDays: 60 },
+          ]);
+        }
+        
+        if (subRes.data) {
+          setSubscription(subRes.data);
+          const existingPlan = subRes.data?.subscription?.plan;
+          if (existingPlan) {
+            const normalized = existingPlan.toString().toUpperCase();
+            if (['STARTER', 'BASIC', 'PROFESSIONAL', 'PREMIUM', 'ENTERPRISE'].includes(normalized)) {
+              setSelectedPlan(normalized as Plan['id']);
+            }
           }
         }
       } catch (error: any) {
+        console.error('Failed to load subscription data:', error);
         setStatus(error.response?.data?.error || 'Failed to load subscription data');
+        // Set default plans on error so user can still see options
+        setPlans([
+          { id: 'STARTER', name: 'Starter Plan', price: 599, trips: 2, features: ['List up to 2 trips', 'Basic analytics'], trialDays: 60 },
+          { id: 'BASIC', name: 'Basic Plan', price: 1299, trips: 4, features: ['List up to 4 trips', 'Basic analytics'], trialDays: 60 },
+          { id: 'PROFESSIONAL', name: 'Professional Plan', price: 2199, trips: 6, features: ['List up to 6 trips', 'Full CRM Access'], trialDays: 60 },
+          { id: 'PREMIUM', name: 'Premium Plan', price: 3999, trips: 15, features: ['List up to 15 trips', 'Full CRM Access'], trialDays: 60 },
+          { id: 'ENTERPRISE', name: 'Enterprise Plan', price: 7999, trips: 40, features: ['List up to 40 trips', 'Full CRM Access'], trialDays: 60 },
+        ]);
       } finally {
         setLoadingState(false);
       }
@@ -77,9 +103,15 @@ const SubscribeInner: React.FC = () => {
     setStatus('');
 
     try {
-      const { data } = await api.post('/api/subscriptions/create-order', {
+      const response = await api.post('/api/subscriptions/create-order', {
         planType: selectedPlan,
       });
+
+      const data = response.data;
+
+      if (!data.success && data.error) {
+        throw new Error(data.error || 'Failed to create order');
+      }
 
       if (data.isTrial) {
         setSubscription({ hasSubscription: true, subscription: data.subscription });
@@ -92,13 +124,23 @@ const SubscribeInner: React.FC = () => {
       // Ensure Razorpay SDK is loaded
       await loadRazorpay();
 
+      // Get order details - handle both response formats
+      const orderId = data.order?.id || data.orderId;
+      const amount = data.order?.amount || data.amount;
+      const currency = data.order?.currency || data.currency || 'INR';
+      const keyId = data.keyId || process.env.REACT_APP_RAZORPAY_KEY_ID;
+
+      if (!orderId || !keyId) {
+        throw new Error('Missing payment configuration. Please contact support.');
+      }
+
       const options = {
-        key: data.keyId,
-        amount: data.amount,
-        currency: data.currency,
+        key: keyId,
+        amount: amount,
+        currency: currency,
         name: 'TrekTribe Organizer',
         description: `${data.plan?.name || 'Organizer Subscription'}`,
-        order_id: data.orderId,
+        order_id: orderId,
         handler: async (response: any) => {
           try {
             const verifyRes = await api.post('/api/subscriptions/verify-payment', {
@@ -208,38 +250,44 @@ const SubscribeInner: React.FC = () => {
         </div>
       )}
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {plans.map((plan) => {
-          const selected = plan.id === selectedPlan;
-          return (
-            <button
-              key={plan.id}
-              onClick={() => setSelectedPlan(plan.id)}
-              className={`text-left p-5 rounded-2xl border transition-all duration-200 shadow-sm hover:shadow-lg hover:-translate-y-0.5 ${selected ? 'border-emerald-500 ring-2 ring-emerald-200 bg-emerald-50' : 'border-gray-200 bg-white'}`}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs uppercase text-gray-500 font-semibold">{plan.id}</p>
-                  <h3 className="text-xl font-bold text-gray-900">{plan.name}</h3>
+      {plans.length === 0 && !loadingState ? (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center">
+          <p className="text-yellow-800 font-semibold">No plans available at the moment. Please try again later.</p>
+        </div>
+      ) : (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {plans.map((plan) => {
+            const selected = plan.id === selectedPlan;
+            return (
+              <button
+                key={plan.id}
+                onClick={() => setSelectedPlan(plan.id)}
+                className={`text-left p-5 rounded-2xl border transition-all duration-200 shadow-sm hover:shadow-lg hover:-translate-y-0.5 ${selected ? 'border-emerald-500 ring-2 ring-emerald-200 bg-emerald-50' : 'border-gray-200 bg-white'}`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs uppercase text-gray-500 font-semibold">{plan.id}</p>
+                    <h3 className="text-xl font-bold text-gray-900">{plan.name}</h3>
+                  </div>
+                  {selected && <span className="px-3 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800">Selected</span>}
                 </div>
-                {selected && <span className="px-3 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800">Selected</span>}
-              </div>
-              <p className="text-3xl font-bold text-gray-900 mt-2">₹{plan.price}<span className="text-base text-gray-500 font-medium">/mo</span></p>
-              <p className="text-sm text-gray-600 mt-1">{plan.description}</p>
-              <p className="text-sm text-gray-800 mt-2 font-semibold">Up to {plan.trips} trips</p>
-              <ul className="mt-3 space-y-1 text-sm text-gray-700">
-                {plan.features.slice(0, 4).map((f) => (
-                  <li key={f}>• {f}</li>
-                ))}
-                {plan.features.length > 4 && <li className="text-gray-500">+ more</li>}
-              </ul>
-              {plan.trialDays ? (
-                <p className="mt-3 text-sm text-emerald-700 font-semibold">{plan.trialDays}-day trial available</p>
-              ) : null}
-            </button>
-          );
-        })}
-      </div>
+                <p className="text-3xl font-bold text-gray-900 mt-2">₹{plan.price}<span className="text-base text-gray-500 font-medium">/mo</span></p>
+                {plan.description && <p className="text-sm text-gray-600 mt-1">{plan.description}</p>}
+                <p className="text-sm text-gray-800 mt-2 font-semibold">Up to {plan.trips} trips</p>
+                <ul className="mt-3 space-y-1 text-sm text-gray-700">
+                  {plan.features && plan.features.slice(0, 4).map((f, idx) => (
+                    <li key={idx}>• {f}</li>
+                  ))}
+                  {plan.features && plan.features.length > 4 && <li className="text-gray-500">+ more</li>}
+                </ul>
+                {plan.trialDays ? (
+                  <p className="mt-3 text-sm text-emerald-700 font-semibold">{plan.trialDays}-day trial available</p>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <div className="p-5 rounded-2xl border border-amber-200 bg-amber-50">
         <p className="text-sm text-amber-900">
