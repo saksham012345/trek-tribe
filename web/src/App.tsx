@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Header from './components/Header';
 import Home from './pages/Home';
@@ -10,6 +10,7 @@ import APIDebugger from './components/APIDebugger';
 import FloatingJoinCTA from './components/FloatingJoinCTA';
 import { Trip } from './types';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { preloadRazorpay } from './utils/razorpay';
 
 // Retry logic for lazy loading chunks
 const retryLazyLoad = (
@@ -103,6 +104,11 @@ class ChunkErrorBoundary extends React.Component<
 
 function AppContent() {
   const { user, loading, login: handleLogin, logout: handleLogout } = useAuth();
+
+  // Preload Razorpay SDK for faster payment flow
+  useEffect(() => {
+    preloadRazorpay();
+  }, []);
 
   // Show loading spinner while checking authentication
   if (loading) {

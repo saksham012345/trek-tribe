@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../config/api';
 import { useToast, ToastContainer } from '../components/Toast';
+import { loadRazorpay, getRazorpayInstance } from '../utils/razorpay';
 
 interface Plan {
   type: string;
@@ -48,10 +49,14 @@ const AutoPaySetup: React.FC = () => {
     }
   }, [user, navigate]);
 
-  // Fetch auto-pay status
+  // Fetch auto-pay status and preload Razorpay
   useEffect(() => {
     fetchAutoPayStatus();
     fetchPlans();
+    // Preload Razorpay script for faster payment flow
+    loadRazorpay().catch((err) => {
+      console.warn('Failed to preload Razorpay:', err);
+    });
   }, []);
 
   const fetchAutoPayStatus = async () => {
@@ -129,11 +134,10 @@ const AutoPaySetup: React.FC = () => {
 
       console.log('✅ Order created:', order.id);
 
-      // Step 2: Check if Razorpay is available
-      const Razorpay = (window as any).Razorpay;
-      if (!Razorpay) {
-        throw new Error('Razorpay is not loaded. Please refresh the page and try again.');
-      }
+      // Step 2: Ensure Razorpay SDK is loaded
+      console.log('📦 Loading Razorpay SDK...');
+      await loadRazorpay();
+      console.log('✅ Razorpay SDK ready');
 
       // Step 3: Open Razorpay checkout modal
       console.log('🔓 Opening Razorpay checkout modal...');
@@ -173,7 +177,7 @@ const AutoPaySetup: React.FC = () => {
                 navigate('/organizer-dashboard', { replace: true });
               }, 2000);
             } else {
-              throw new Error('Payment verification failed');
+              throw new Error(verifyResponse.data.error || 'Payment verification failed');
             }
           } catch (verifyError: any) {
             console.error('❌ Payment verification error:', verifyError);
@@ -185,6 +189,7 @@ const AutoPaySetup: React.FC = () => {
           }
         },
         prefill: {
+          name: user?.name || '',
           email: user?.email || '',
           contact: user?.phone || '',
         },
@@ -201,23 +206,21 @@ const AutoPaySetup: React.FC = () => {
           showErrorToast('Payment setup cancelled. Please try again.');
           setLoading(false);
         },
-        // Additional security
-        upi: {
-          flow: 'otp',
-        },
-        recurring: '1', // For subscription
-        totals: {
-          gross_amount: order.amount,
+        modal: {
+          ondismiss: () => {
+            console.log('❌ Payment modal closed');
+            setLoading(false);
+          },
         },
       };
 
-      // Open modal
-      const razorpay = new Razorpay(options);
+      // Open modal using utility function
+      const razorpay = await getRazorpayInstance(options);
       
       // Handle errors from Razorpay SDK
       razorpay.on('payment.failed', function(response: any) {
         console.error('❌ Payment failed:', response.error);
-        const errorMsg = response.error?.description || 'Payment failed. Please try again.';
+        const errorMsg = response.error?.description || response.error?.reason || 'Payment failed. Please try again.';
         showErrorToast(errorMsg);
         setLoading(false);
       });
