@@ -949,10 +949,46 @@ async function handleOrderPaid(eventData: any) {
  */
 router.get('/verify-crm-access', authenticateJwt, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = (req as any).user?.userId || (req as any).user?.id;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // First check if user has organizerProfile with CRM access flag
+    const user = await User.findById(userId).lean();
+    if (user && user.organizerProfile) {
+      const profile = user.organizerProfile as any;
+      if (profile.crmEnabled || profile.crmAccess) {
+        return res.json({
+          hasCRMAccess: true,
+          hasLeadCapture: true,
+          canViewPhoneNumbers: true,
+          planType: 'PREMIUM',
+          planName: 'Premium Plan',
+          message: 'CRM access granted via organizer profile',
+          accessGranted: true,
+          accessReason: 'Organizer profile has CRM access enabled',
+          features: {
+            crm: {
+              enabled: true,
+              description: 'Full CRM access for managing leads and participants'
+            },
+            leadCapture: {
+              enabled: true,
+              description: 'Automatically capture and organize leads from your trips'
+            },
+            phoneNumbers: {
+              enabled: true,
+              description: 'View phone numbers of leads and participants'
+            },
+            leadVerification: {
+              enabled: true,
+              description: 'Verify leads before adding to your trips'
+            }
+          }
+        });
+      }
     }
 
     const subscription = await OrganizerSubscription.findOne({ organizerId: userId })
@@ -1017,27 +1053,43 @@ router.get('/verify-crm-access', authenticateJwt, async (req: Request, res: Resp
       }
     }
 
-    const plan = SUBSCRIPTION_PLANS[subscription.plan.toUpperCase() as keyof typeof SUBSCRIPTION_PLANS];
+    // Normalize plan name to match SUBSCRIPTION_PLANS keys
+    const planKey = subscription.plan.toUpperCase() as keyof typeof SUBSCRIPTION_PLANS;
+    // Handle 'pro' -> 'PROFESSIONAL' mapping
+    const normalizedPlanKey = planKey === 'PRO' ? 'PROFESSIONAL' : planKey;
+    const plan = SUBSCRIPTION_PLANS[normalizedPlanKey];
 
     // Get subscription price from plan or from payment history
     let subscriptionPrice = plan?.price || 0;
     if (!plan && subscription.payments && subscription.payments.length > 0) {
       // If plan not found, try to get price from last payment
       const lastPayment = subscription.payments[subscription.payments.length - 1];
+      // Convert from paise to rupees if needed (if amount > 10000, likely in paise)
       subscriptionPrice = lastPayment.amount || 0;
+      if (subscriptionPrice > 10000) {
+        subscriptionPrice = subscriptionPrice / 100; // Convert paise to rupees
+      }
+    } else if (subscription.pricePerCycle) {
+      // Use pricePerCycle if available (convert from paise if needed)
+      subscriptionPrice = subscription.pricePerCycle;
+      if (subscriptionPrice > 10000) {
+        subscriptionPrice = subscriptionPrice / 100; // Convert paise to rupees
+      }
     }
 
     // Check if subscription price is >= ₹2299 for CRM access
     // This ensures any subscription at ₹2299 or above gets CRM access
+    // Also check if plan is PREMIUM or PROFESSIONAL (which have CRM access)
     const hasAccessByPrice = subscriptionPrice >= 2299;
+    const isPremiumOrProfessional = normalizedPlanKey === 'PREMIUM' || normalizedPlanKey === 'PROFESSIONAL';
 
-    // Determine CRM access: either plan has crmAccess flag OR price >= ₹2299
+    // Determine CRM access: either plan has crmAccess flag OR price >= ₹2299 OR is premium/professional
     const hasCRMAccessByPlan = plan?.crmAccess === true;
-    const finalCRMAccess = hasCRMAccessByPlan || hasAccessByPrice;
+    const finalCRMAccess = hasCRMAccessByPlan || hasAccessByPrice || isPremiumOrProfessional;
 
     // Lead capture and phone numbers also require CRM-level access
-    const hasLeadCapture = (plan?.leadCapture === true) || hasAccessByPrice;
-    const canViewPhoneNumbers = (plan?.phoneNumbers === true) || hasAccessByPrice;
+    const hasLeadCapture = (plan?.leadCapture === true) || hasAccessByPrice || isPremiumOrProfessional;
+    const canViewPhoneNumbers = (plan?.phoneNumbers === true) || hasAccessByPrice || isPremiumOrProfessional;
 
     if (!plan && !hasAccessByPrice) {
       return res.json({
@@ -1056,7 +1108,7 @@ router.get('/verify-crm-access', authenticateJwt, async (req: Request, res: Resp
       hasLeadCapture: hasLeadCapture,
       canViewPhoneNumbers: canViewPhoneNumbers,
       planType: subscription.plan,
-      planName: plan?.name || 'Custom Plan',
+      planName: plan?.name || normalizedPlanKey || 'Custom Plan',
       planPrice: subscriptionPrice,
       subscriptionStatus: subscription.status,
       subscriptionEndDate: subscription.subscriptionEndDate || subscription.currentPeriodEnd,
