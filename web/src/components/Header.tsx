@@ -43,38 +43,38 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
           </div>
 
 
-          <nav className="hidden md:flex space-x-2">
+          <nav className="hidden md:flex space-x-1 overflow-x-auto max-w-4xl scrollbar-hide">
             <Link 
               to="/trips" 
-              className="text-forest-700 hover:text-nature-600 hover:bg-forest-50 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2"
+              className="text-forest-700 hover:text-nature-600 hover:bg-forest-50 px-3 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-1 whitespace-nowrap"
             >
-              🌿 Discover Adventures
+              🌿 Discover
             </Link>
             <Link 
               to="/search" 
-              className="text-forest-700 hover:text-nature-600 hover:bg-forest-50 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2"
+              className="text-forest-700 hover:text-nature-600 hover:bg-forest-50 px-3 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-1 whitespace-nowrap"
             >
-              🔍 Find Organizers
+              🔍 Organizers
             </Link>
             <Link 
               to="/ai-showcase" 
-              className="text-purple-700 hover:text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2 border border-purple-200"
+              className="text-purple-700 hover:text-purple-600 hover:bg-purple-50 px-3 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-1 border border-purple-200 whitespace-nowrap"
             >
-              🤖 AI Features
+              🤖 AI
             </Link>
             {user?.role === 'organizer' && (
               <>
                 <Link 
                   to="/create-trip" 
-                  className="text-forest-700 hover:text-nature-600 hover:bg-forest-50 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2"
+                  className="text-forest-700 hover:text-nature-600 hover:bg-forest-50 px-3 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-1 whitespace-nowrap"
                 >
-                  ➕ Create Adventure
+                  ➕ Create
                 </Link>
                 <Link 
                   to="/crm" 
-                  className="text-blue-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2 border border-blue-200"
+                  className="text-blue-700 hover:text-blue-600 hover:bg-blue-50 px-3 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-1 border border-blue-200 whitespace-nowrap"
                 >
-                  📊 CRM Dashboard
+                  📊 CRM
                 </Link>
               </>
             )}

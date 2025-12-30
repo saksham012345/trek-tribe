@@ -309,36 +309,122 @@ const CRMDashboard: React.FC = () => {
     );
   }
 
-  // Show access denied message only after loading is complete
+  // Show access denied message with sample CRM preview
   if (!hasCRMAccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-forest-50 to-nature-50 px-4">
-        <div className="max-w-md text-center">
-          <div className="mb-6">
-            <svg className="w-16 h-16 text-forest-600 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
+      <div className="min-h-screen bg-gradient-to-br from-forest-50 to-nature-50 px-4 py-8">
+        <div className="max-w-7xl mx-auto">
+          {/* Locked Header */}
+          <div className="text-center mb-8">
+            <div className="mb-6">
+              <svg className="w-16 h-16 text-forest-600 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <h1 className="text-3xl font-bold text-forest-900 mb-2">CRM Access Locked</h1>
+            <p className="text-forest-600 mb-6">
+              CRM features are only available with Professional or higher plans. Upgrade now to start managing leads!
+            </p>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => navigate('/subscribe')}
+                className="bg-gradient-to-r from-forest-600 to-nature-600 text-white font-semibold px-6 py-3 rounded-xl hover:from-forest-700 hover:to-nature-700 transition-all"
+              >
+                Upgrade Plan
+              </button>
+              <button
+                onClick={() => {
+                  setLoading(true);
+                  checkCRMAccess();
+                }}
+                className="border-2 border-forest-300 text-forest-700 font-semibold px-6 py-3 rounded-xl hover:bg-forest-50 transition-all"
+              >
+                Retry Access Check
+              </button>
+            </div>
           </div>
-          <h1 className="text-3xl font-bold text-forest-900 mb-2">CRM Access Locked</h1>
-          <p className="text-forest-600 mb-6">
-            CRM features are only available with Professional or higher plans. Upgrade now to start managing leads!
-          </p>
-          <div className="space-y-3">
-            <button
-              onClick={() => navigate('/subscribe')}
-              className="w-full bg-gradient-to-r from-forest-600 to-nature-600 text-white font-semibold py-3 rounded-xl hover:from-forest-700 hover:to-nature-700 transition-all"
-            >
-              Upgrade Plan
-            </button>
-            <button
-              onClick={() => {
-                setLoading(true);
-                checkCRMAccess();
-              }}
-              className="w-full border-2 border-forest-300 text-forest-700 font-semibold py-3 rounded-xl hover:bg-forest-50 transition-all"
-            >
-              Retry Access Check
-            </button>
+
+          {/* Sample CRM Preview */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 mb-6 opacity-75 relative">
+            <div className="absolute inset-0 bg-white/50 backdrop-blur-sm rounded-2xl flex items-center justify-center z-10">
+              <div className="text-center">
+                <svg className="w-12 h-12 text-forest-600 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                <p className="text-forest-700 font-semibold">Preview Only - Upgrade to Unlock</p>
+              </div>
+            </div>
+            
+            <h2 className="text-2xl font-bold text-forest-900 mb-6">CRM Dashboard Preview</h2>
+            
+            {/* Sample Stats */}
+            <div className="grid md:grid-cols-3 gap-4 mb-6">
+              <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg shadow-md p-6 border-l-4 border-green-600">
+                <p className="text-green-600 text-sm font-semibold">Total Revenue</p>
+                <p className="text-3xl font-bold text-green-900 mt-1">₹45,000</p>
+              </div>
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-md p-6 border-l-4 border-blue-600">
+                <p className="text-blue-600 text-sm font-semibold">Total Leads</p>
+                <p className="text-3xl font-bold text-blue-900 mt-1">127</p>
+              </div>
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg shadow-md p-6 border-l-4 border-purple-600">
+                <p className="text-purple-600 text-sm font-semibold">Conversion Rate</p>
+                <p className="text-3xl font-bold text-purple-900 mt-1">68%</p>
+              </div>
+            </div>
+
+            {/* Sample Leads Table */}
+            <div className="bg-white rounded-xl shadow-md overflow-hidden">
+              <div className="bg-gradient-to-r from-forest-600 to-nature-600 text-white px-6 py-4">
+                <h3 className="text-lg font-semibold">Recent Leads</h3>
+              </div>
+              <table className="w-full">
+                <thead className="bg-forest-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-forest-700">Name</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-forest-700">Email</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-forest-700">Trip</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-forest-700">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-forest-200">
+                  <tr className="bg-white">
+                    <td className="px-6 py-4 font-medium text-forest-900">Rajesh Kumar</td>
+                    <td className="px-6 py-4 text-forest-700">rajesh@example.com</td>
+                    <td className="px-6 py-4 text-forest-700">Himalayan Trek</td>
+                    <td className="px-6 py-4">
+                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">Qualified</span>
+                    </td>
+                  </tr>
+                  <tr className="bg-forest-50">
+                    <td className="px-6 py-4 font-medium text-forest-900">Priya Sharma</td>
+                    <td className="px-6 py-4 text-forest-700">priya@example.com</td>
+                    <td className="px-6 py-4 text-forest-700">Mountain Expedition</td>
+                    <td className="px-6 py-4">
+                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">Contacted</span>
+                    </td>
+                  </tr>
+                  <tr className="bg-white">
+                    <td className="px-6 py-4 font-medium text-forest-900">Amit Singh</td>
+                    <td className="px-6 py-4 text-forest-700">amit@example.com</td>
+                    <td className="px-6 py-4 text-forest-700">Adventure Camp</td>
+                    <td className="px-6 py-4">
+                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">New</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Upgrade CTA */}
+            <div className="mt-6 text-center">
+              <button
+                onClick={() => navigate('/subscribe')}
+                className="bg-gradient-to-r from-forest-600 to-nature-600 text-white font-semibold px-8 py-3 rounded-xl hover:from-forest-700 hover:to-nature-700 transition-all shadow-lg"
+              >
+                Unlock Full CRM Access - Upgrade Now
+              </button>
+            </div>
           </div>
         </div>
       </div>
