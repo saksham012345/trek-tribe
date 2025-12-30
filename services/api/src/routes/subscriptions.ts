@@ -289,13 +289,27 @@ router.get('/my', authenticateJwt, async (req: Request, res: Response) => {
 /**
  * POST /api/subscriptions/create-order
  * Create Razorpay order for subscription
+ * Auto-upgrades user to organizer role if not already an organizer
  */
-router.post('/create-order', authenticateJwt, requireRole(['organizer']), async (req: Request, res: Response) => {
+router.post('/create-order', authenticateJwt, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Auto-upgrade user to organizer role if not already an organizer
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // If user is not an organizer, upgrade them to organizer role
+    if (user.role !== 'organizer' && user.role !== 'admin') {
+      user.role = 'organizer';
+      await user.save();
+      console.log(`✅ Auto-upgraded user ${userId} to organizer role`);
     }
 
     const parsed = createOrderSchema.safeParse(req.body);
@@ -421,13 +435,27 @@ router.post('/create-order', authenticateJwt, requireRole(['organizer']), async 
 /**
  * POST /api/subscriptions/verify-payment
  * Verify Razorpay payment and activate subscription
+ * Auto-upgrades user to organizer role if not already an organizer
  */
-router.post('/verify-payment', authenticateJwt, requireRole(['organizer']), async (req: Request, res: Response) => {
+router.post('/verify-payment', authenticateJwt, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Auto-upgrade user to organizer role if not already an organizer
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // If user is not an organizer, upgrade them to organizer role
+    if (user.role !== 'organizer' && user.role !== 'admin') {
+      user.role = 'organizer';
+      await user.save();
+      console.log(`✅ Auto-upgraded user ${userId} to organizer role`);
     }
 
     const parsed = verifyPaymentSchema.safeParse(req.body);
