@@ -359,6 +359,7 @@ router.post('/create-order', authenticateJwt, requireRole(['organizer']), async 
       });
 
       return res.json({
+        success: true,
         isTrial: true,
         subscription,
         message: `${plan.trialDays}-day free trial activated!`,
@@ -387,9 +388,17 @@ router.post('/create-order', authenticateJwt, requireRole(['organizer']), async 
 
     console.log(`📦 Razorpay order created: ${order.id} for user ${userId}`);
 
+    // Return response in format expected by frontend
     return res.json({
+      success: true,
       isTrial: false,
-      orderId: order.id,
+      order: {
+        id: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        receipt: order.receipt,
+      },
+      orderId: order.id, // For backward compatibility
       amount: order.amount,
       currency: order.currency,
       keyId: process.env.RAZORPAY_KEY_ID,
@@ -1054,9 +1063,25 @@ router.get('/verify-crm-access', authenticateJwt, async (req: Request, res: Resp
     }
 
     // Normalize plan name to match SUBSCRIPTION_PLANS keys
-    const planKey = subscription.plan.toUpperCase() as keyof typeof SUBSCRIPTION_PLANS;
-    // Handle 'pro' -> 'PROFESSIONAL' mapping
-    const normalizedPlanKey = planKey === 'PRO' ? 'PROFESSIONAL' : planKey;
+    const planKey = subscription.plan.toUpperCase();
+    // Handle 'pro' -> 'PROFESSIONAL' mapping and other variations
+    let normalizedPlanKey: keyof typeof SUBSCRIPTION_PLANS;
+    if (planKey === 'PRO' || planKey === 'PROFESSIONAL') {
+      normalizedPlanKey = 'PROFESSIONAL';
+    } else if (planKey === 'PREMIUM') {
+      normalizedPlanKey = 'PREMIUM';
+    } else if (planKey === 'STARTER') {
+      normalizedPlanKey = 'STARTER';
+    } else if (planKey === 'BASIC') {
+      normalizedPlanKey = 'BASIC';
+    } else if (planKey === 'ENTERPRISE') {
+      normalizedPlanKey = 'ENTERPRISE';
+    } else {
+      // Unknown plan type, will check by price instead
+      // Use a valid key for type safety, but plan will be undefined
+      normalizedPlanKey = 'STARTER';
+    }
+    
     const plan = SUBSCRIPTION_PLANS[normalizedPlanKey];
 
     // Get subscription price from plan or from payment history

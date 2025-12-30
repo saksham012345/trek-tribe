@@ -4,12 +4,7 @@ import api from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
 import { ToastProvider, useToast } from '../components/ui/Toast';
 import { Skeleton } from '../components/ui/Skeleton';
-
-declare global {
-  interface Window {
-    Razorpay: any;
-  }
-}
+import { loadRazorpay, getRazorpayInstance } from '../utils/razorpay';
 
 interface Plan {
   id: 'STARTER' | 'BASIC' | 'PROFESSIONAL' | 'PREMIUM' | 'ENTERPRISE';
@@ -20,17 +15,6 @@ interface Plan {
   description?: string;
   trialDays?: number;
 }
-
-const loadRazorpay = () => {
-  return new Promise((resolve, reject) => {
-    if ((window as any).Razorpay) return resolve(true);
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.onload = () => resolve(true);
-    script.onerror = () => reject(new Error('Failed to load Razorpay'));
-    document.body.appendChild(script);
-  });
-};
 
 const SubscribeInner: React.FC = () => {
   const { user } = useAuth();
@@ -105,6 +89,7 @@ const SubscribeInner: React.FC = () => {
         return;
       }
 
+      // Ensure Razorpay SDK is loaded
       await loadRazorpay();
 
       const options = {
@@ -122,13 +107,18 @@ const SubscribeInner: React.FC = () => {
               razorpay_signature: response.razorpay_signature,
               planType: selectedPlan,
             });
-            setSubscription({ hasSubscription: true, subscription: verifyRes.data?.subscription });
-            const msg = verifyRes.data?.message || 'Subscription activated';
-            setStatus(msg);
-            add(msg, 'success');
-            setTimeout(() => navigate('/organizer/dashboard'), 800);
+            
+            if (verifyRes.data.success) {
+              setSubscription({ hasSubscription: true, subscription: verifyRes.data?.subscription });
+              const msg = verifyRes.data?.message || 'Subscription activated';
+              setStatus(msg);
+              add(msg, 'success');
+              setTimeout(() => navigate('/organizer/dashboard'), 800);
+            } else {
+              throw new Error(verifyRes.data.error || 'Verification failed');
+            }
           } catch (err: any) {
-            const m = err.response?.data?.error || 'Verification failed';
+            const m = err.response?.data?.error || err.message || 'Verification failed';
             setStatus(m);
             add(m, 'error');
           }
@@ -143,13 +133,20 @@ const SubscribeInner: React.FC = () => {
           userId: user.id,
         },
         theme: { color: '#0f766e' },
+        modal: {
+          ondismiss: () => {
+            setStatus('Payment cancelled');
+            setLoading(false);
+          },
+        },
       };
 
-      const rzp = new (window as any).Razorpay(options);
+      const rzp = await getRazorpayInstance(options);
       rzp.on('payment.failed', (resp: any) => {
-        const m = resp.error?.description || 'Payment failed';
+        const m = resp.error?.description || resp.error?.reason || 'Payment failed';
         setStatus(m);
         add(m, 'error');
+        setLoading(false);
       });
       rzp.open();
     } catch (error: any) {
