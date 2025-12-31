@@ -74,7 +74,7 @@ const CRMDashboard: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [editingNote, setEditingNote] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'dashboard' | 'analytics'>('dashboard');
-  
+
   // Analytics data (ADD-ONLY, non-breaking)
   const [bookingsOverTime, setBookingsOverTime] = useState<Array<{ date: string; bookings: number; revenue: number }>>([]);
   const [paymentStatusData, setPaymentStatusData] = useState<Array<{ status: string; count: number }>>([]);
@@ -101,7 +101,7 @@ const CRMDashboard: React.FC = () => {
       console.log('🔍 Checking CRM access...');
       const response = await api.get('/api/subscriptions/verify-crm-access');
       console.log('📊 CRM access response:', response.data);
-      
+
       if (response.data.hasCRMAccess) {
         setHasCRMAccess(true);
         console.log('✅ CRM access granted, fetching data...');
@@ -119,7 +119,7 @@ const CRMDashboard: React.FC = () => {
       console.error('❌ Failed to check CRM access:', error);
       console.error('   Status:', error.response?.status);
       console.error('   Data:', error.response?.data);
-      
+
       // Handle 401 specifically - user not authenticated
       if (error.response?.status === 401) {
         showToast('Please log in to access CRM', 'error');
@@ -144,7 +144,7 @@ const CRMDashboard: React.FC = () => {
       // Backend returns { success: true, data: leads, pagination: {...} }
       // Handle both formats for compatibility
       const leadsData = response.data.data || response.data.leads || [];
-      
+
       // Transform leads to match expected format
       const formattedLeads = leadsData.map((lead: any) => ({
         _id: lead._id,
@@ -158,7 +158,7 @@ const CRMDashboard: React.FC = () => {
         notes: lead.notes || '',
         verified: lead.verified || false,
       }));
-      
+
       setLeads(formattedLeads);
       console.log('✅ Leads fetched:', formattedLeads.length);
     } catch (error: any) {
@@ -185,12 +185,12 @@ const CRMDashboard: React.FC = () => {
       setStats(response.data);
     } catch (error: any) {
       console.error('Failed to fetch stats from endpoint:', error);
-      
+
       // Fallback: Calculate stats from leads
       try {
         const leadsResponse = await api.get('/api/crm/leads');
         const leadsData = leadsResponse.data.data || leadsResponse.data.leads || [];
-        
+
         const calculatedStats: CRMStats = {
           totalLeads: leadsData.length,
           newLeads: leadsData.filter((l: any) => l.status === 'new').length,
@@ -198,8 +198,8 @@ const CRMDashboard: React.FC = () => {
           interestedLeads: leadsData.filter((l: any) => l.status === 'interested').length,
           qualifiedLeads: leadsData.filter((l: any) => l.status === 'qualified').length,
           lostLeads: leadsData.filter((l: any) => l.status === 'lost').length,
-          conversionRate: leadsData.length > 0 
-            ? (leadsData.filter((l: any) => l.status === 'qualified').length / leadsData.length) * 100 
+          conversionRate: leadsData.length > 0
+            ? (leadsData.filter((l: any) => l.status === 'qualified').length / leadsData.length) * 100
             : 0,
           revenue: {
             total: 0,
@@ -218,7 +218,7 @@ const CRMDashboard: React.FC = () => {
             active: 0,
           },
         };
-        
+
         setStats(calculatedStats);
       } catch (fallbackError: any) {
         console.error('Failed to calculate stats from leads:', fallbackError);
@@ -324,7 +324,7 @@ const CRMDashboard: React.FC = () => {
 
   const filteredLeads = leads.filter(lead => {
     const matchesStatus = filterStatus === 'all' || lead.status === filterStatus;
-    const matchesSearch = 
+    const matchesSearch =
       lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       lead.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       lead.phone.includes(searchQuery);
@@ -419,9 +419,9 @@ const CRMDashboard: React.FC = () => {
                 <p className="text-forest-700 font-semibold">Preview Only - Upgrade to Unlock</p>
               </div>
             </div>
-            
+
             <h2 className="text-2xl font-bold text-forest-900 mb-6">CRM Dashboard Preview</h2>
-            
+
             {/* Sample Stats */}
             <div className="grid md:grid-cols-3 gap-4 mb-6">
               <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg shadow-md p-6 border-l-4 border-green-600">
@@ -529,255 +529,119 @@ const CRMDashboard: React.FC = () => {
           <div className="mb-6 flex gap-2 border-b border-forest-200">
             <button
               onClick={() => setActiveTab('dashboard')}
-              className={`px-6 py-3 font-semibold transition-colors ${
-                activeTab === 'dashboard'
-                  ? 'text-forest-900 border-b-2 border-forest-600'
-                  : 'text-forest-600 hover:text-forest-900'
-              }`}
+              className={`px-6 py-3 font-semibold transition-colors ${activeTab === 'dashboard'
+                ? 'text-forest-900 border-b-2 border-forest-600'
+                : 'text-forest-600 hover:text-forest-900'
+                }`}
             >
               Dashboard
             </button>
             <button
               onClick={() => setActiveTab('analytics')}
-              className={`px-6 py-3 font-semibold transition-colors ${
-                activeTab === 'analytics'
-                  ? 'text-forest-900 border-b-2 border-forest-600'
-                  : 'text-forest-600 hover:text-forest-900'
-              }`}
+              className={`px-6 py-3 font-semibold transition-colors ${activeTab === 'analytics'
+                ? 'text-forest-900 border-b-2 border-forest-600'
+                : 'text-forest-600 hover:text-forest-900'
+                }`}
             >
               Analytics
             </button>
           </div>
 
           {/* Dashboard Tab Content */}
-          {activeTab === 'dashboard' && (
+          {activeTab === 'dashboard' ? (
             <>
               {/* Stats Cards */}
               {stats ? (
                 <>
                   {/* Revenue & Business Metrics */}
                   <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg shadow-md p-6 border-l-4 border-green-600">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-green-600 text-sm font-semibold">Total Revenue</p>
-                      <p className="text-3xl font-bold text-green-900 mt-1">
-                        ₹{stats.revenue?.total?.toLocaleString('en-IN', { maximumFractionDigits: 0 }) || '0'}
-                      </p>
+                    <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg shadow-md p-6 border-l-4 border-green-600">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-green-600 text-sm font-semibold">Total Revenue</p>
+                          <p className="text-3xl font-bold text-green-900 mt-1">
+                            ₹{stats.revenue?.total?.toLocaleString('en-IN', { maximumFractionDigits: 0 }) || '0'}
+                          </p>
+                        </div>
+                        <svg className="w-12 h-12 text-green-400 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
                     </div>
-                    <svg className="w-12 h-12 text-green-400 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-md p-6 border-l-4 border-blue-600">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-blue-600 text-sm font-semibold">This Month</p>
-                      <p className="text-3xl font-bold text-blue-900 mt-1">
-                        ₹{stats.revenue?.thisMonth?.toLocaleString('en-IN', { maximumFractionDigits: 0 }) || '0'}
-                      </p>
-                      {stats.revenue?.growth !== undefined && (
-                        <p className={`text-xs mt-1 font-semibold ${stats.revenue.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {stats.revenue.growth >= 0 ? '↑' : '↓'} {Math.abs(stats.revenue.growth).toFixed(1)}% vs last month
-                        </p>
-                      )}
-                    </div>
-                    <svg className="w-12 h-12 text-blue-400 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg shadow-md p-6 border-l-4 border-purple-600">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-purple-600 text-sm font-semibold">Total Bookings</p>
-                      <p className="text-3xl font-bold text-purple-900 mt-1">{stats.bookings?.total || 0}</p>
-                      <p className="text-xs text-purple-600 mt-1">
-                        {stats.bookings?.confirmed || 0} confirmed
-                      </p>
-                    </div>
-                    <svg className="w-12 h-12 text-purple-400 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg shadow-md p-6 border-l-4 border-indigo-600">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-indigo-600 text-sm font-semibold">Avg Booking Value</p>
-                      <p className="text-3xl font-bold text-indigo-900 mt-1">
-                        ₹{stats.revenue?.averageBookingValue?.toLocaleString('en-IN', { maximumFractionDigits: 0 }) || '0'}
-                      </p>
-                    </div>
-                    <svg className="w-12 h-12 text-indigo-400 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              {/* Lead Metrics */}
-              <div className="grid md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-                <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-forest-600">
-                  <p className="text-forest-600 text-sm font-semibold">Total Leads</p>
-                  <p className="text-3xl font-bold text-forest-900 mt-1">{stats.totalLeads}</p>
-                </div>
-                <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-blue-600">
-                  <p className="text-forest-600 text-sm font-semibold">New</p>
-                  <p className="text-3xl font-bold text-blue-600 mt-1">{stats.newLeads}</p>
-                </div>
-                <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-yellow-600">
-                  <p className="text-forest-600 text-sm font-semibold">Contacted</p>
-                  <p className="text-3xl font-bold text-yellow-600 mt-1">{stats.contactedLeads}</p>
-                </div>
-                <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-orange-600">
-                  <p className="text-forest-600 text-sm font-semibold">Interested</p>
-                  <p className="text-3xl font-bold text-orange-600 mt-1">{stats.interestedLeads}</p>
-                </div>
-                <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-green-600">
-                  <p className="text-forest-600 text-sm font-semibold">Qualified</p>
-                  <p className="text-3xl font-bold text-green-600 mt-1">{stats.qualifiedLeads}</p>
-                </div>
-                <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-nature-600">
-                  <p className="text-forest-600 text-sm font-semibold">Conversion</p>
-                  <p className="text-3xl font-bold text-nature-600 mt-1">{Math.round(stats.conversionRate)}%</p>
-                </div>
-              </div>
-            </>
-          ) : (
-            // Show placeholder when stats are loading
-            <div className="bg-white rounded-xl shadow-md p-6 mb-8">
-              <div className="text-center py-8">
-                <p className="text-forest-600">Loading statistics...</p>
-              </div>
-            </div>
-          )}
-
-                  {/* Search & Filter */}
-                  <div className="bg-white rounded-xl shadow-md p-6 mb-8">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-forest-700 mb-2">
-                  Search Leads
-                </label>
-                <input
-                  type="text"
-                  placeholder="Search by name, email, or phone..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full px-4 py-2 border-2 border-forest-200 rounded-lg focus:outline-none focus:border-nature-600"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-forest-700 mb-2">
-                  Filter by Status
-                </label>
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className="w-full px-4 py-2 border-2 border-forest-200 rounded-lg focus:outline-none focus:border-nature-600 bg-white"
-                >
-                  <option value="all">All Leads</option>
-                  <option value="new">New</option>
-                  <option value="contacted">Contacted</option>
-                  <option value="interested">Interested</option>
-                  <option value="qualified">Qualified</option>
-                  <option value="lost">Lost</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-                  {/* Leads Table */}
-                  <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gradient-to-r from-forest-600 to-nature-600 text-white">
-                  <tr>
-                    <th className="px-6 py-4 text-left font-semibold">Name</th>
-                    <th className="px-6 py-4 text-left font-semibold">Email</th>
-                    <th className="px-6 py-4 text-left font-semibold">Phone</th>
-                    <th className="px-6 py-4 text-left font-semibold">Trip</th>
-                    <th className="px-6 py-4 text-left font-semibold">Status</th>
-                    <th className="px-6 py-4 text-left font-semibold">Verified</th>
-                    <th className="px-6 py-4 text-left font-semibold">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-forest-200">
-                  {filteredLeads.length > 0 ? (
-                    filteredLeads.map((lead, idx) => (
-                      <tr key={lead._id} className={idx % 2 === 0 ? 'bg-white' : 'bg-forest-50'}>
-                        <td className="px-6 py-4 font-medium text-forest-900">{lead.name}</td>
-                        <td className="px-6 py-4 text-forest-700">{lead.email}</td>
-                        <td className="px-6 py-4 text-forest-700">{lead.phone}</td>
-                        <td className="px-6 py-4 text-forest-700">{lead.tripName}</td>
-                        <td className="px-6 py-4">
-                          <select
-                            value={lead.status}
-                            onChange={(e) => updateLeadStatus(lead._id, e.target.value)}
-                            className={`px-3 py-1 rounded-full text-xs font-semibold border-2 focus:outline-none ${
-                              lead.status === 'new'
-                                ? 'bg-blue-100 border-blue-300 text-blue-700'
-                                : lead.status === 'contacted'
-                                ? 'bg-yellow-100 border-yellow-300 text-yellow-700'
-                                : lead.status === 'interested'
-                                ? 'bg-orange-100 border-orange-300 text-orange-700'
-                                : lead.status === 'qualified'
-                                ? 'bg-green-100 border-green-300 text-green-700'
-                                : 'bg-red-100 border-red-300 text-red-700'
-                            }`}
-                          >
-                            <option value="new">New</option>
-                            <option value="contacted">Contacted</option>
-                            <option value="interested">Interested</option>
-                            <option value="qualified">Qualified</option>
-                            <option value="lost">Lost</option>
-                          </select>
-                        </td>
-                        <td className="px-6 py-4">
-                          {lead.verified ? (
-                            <span className="inline-flex items-center gap-1 text-green-700">
-                              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                              </svg>
-                              Verified
-                            </span>
-                          ) : (
-                            <button
-                              onClick={() => verifyLead(lead._id)}
-                              className="text-nature-600 hover:text-nature-700 font-semibold hover:underline"
-                            >
-                              Verify
-                            </button>
+                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-md p-6 border-l-4 border-blue-600">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-blue-600 text-sm font-semibold">This Month</p>
+                          <p className="text-3xl font-bold text-blue-900 mt-1">
+                            ₹{stats.revenue?.thisMonth?.toLocaleString('en-IN', { maximumFractionDigits: 0 }) || '0'}
+                          </p>
+                          {stats.revenue?.growth !== undefined && (
+                            <p className={`text-xs mt-1 font-semibold ${stats.revenue.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {stats.revenue.growth >= 0 ? '↑' : '↓'} {Math.abs(stats.revenue.growth).toFixed(1)}% vs last month
+                            </p>
                           )}
-                        </td>
-                        <td className="px-6 py-4">
-                          <button
-                            onClick={() => {
-                              setSelectedLead(lead);
-                              setEditingNote(lead.notes);
-                              setShowModal(true);
-                            }}
-                            className="text-forest-600 hover:text-forest-700 font-semibold hover:underline"
-                          >
-                            View
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={7} className="px-6 py-8 text-center text-forest-600">
-                        <p className="text-lg font-semibold mb-2">No leads found</p>
-                        <p className="text-sm">Leads will appear here as people inquire about your trips</p>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                        </div>
+                        <svg className="w-12 h-12 text-blue-400 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                        </svg>
+                      </div>
+                    </div>
+                    <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg shadow-md p-6 border-l-4 border-purple-600">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-purple-600 text-sm font-semibold">Total Bookings</p>
+                          <p className="text-3xl font-bold text-purple-900 mt-1">{stats.bookings?.total || 0}</p>
+                          <p className="text-xs text-purple-600 mt-1">
+                            {stats.bookings?.confirmed || 0} confirmed
+                          </p>
+                        </div>
+                        <svg className="w-12 h-12 text-purple-400 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                      </div>
+                    </div>
+                    <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg shadow-md p-6 border-l-4 border-indigo-600">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-indigo-600 text-sm font-semibold">Avg Booking Value</p>
+                          <p className="text-3xl font-bold text-indigo-900 mt-1">
+                            ₹{stats.revenue?.averageBookingValue?.toLocaleString('en-IN', { maximumFractionDigits: 0 }) || '0'}
+                          </p>
+                        </div>
+                        <svg className="w-12 h-12 text-indigo-400 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Lead Metrics */}
+                  <div className="grid md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+                    <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-forest-600">
+                      <p className="text-forest-600 text-sm font-semibold">Total Leads</p>
+                      <p className="text-3xl font-bold text-forest-900 mt-1">{stats.totalLeads}</p>
+                    </div>
+                    <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-blue-600">
+                      <p className="text-forest-600 text-sm font-semibold">New</p>
+                      <p className="text-3xl font-bold text-blue-600 mt-1">{stats.newLeads}</p>
+                    </div>
+                    <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-yellow-600">
+                      <p className="text-forest-600 text-sm font-semibold">Contacted</p>
+                      <p className="text-3xl font-bold text-yellow-600 mt-1">{stats.contactedLeads}</p>
+                    </div>
+                    <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-orange-600">
+                      <p className="text-forest-600 text-sm font-semibold">Interested</p>
+                      <p className="text-3xl font-bold text-orange-600 mt-1">{stats.interestedLeads}</p>
+                    </div>
+                    <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-green-600">
+                      <p className="text-forest-600 text-sm font-semibold">Qualified</p>
+                      <p className="text-3xl font-bold text-green-600 mt-1">{stats.qualifiedLeads}</p>
+                    </div>
+                    <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-nature-600">
+                      <p className="text-forest-600 text-sm font-semibold">Conversion</p>
+                      <p className="text-3xl font-bold text-nature-600 mt-1">{Math.round(stats.conversionRate)}%</p>
+                    </div>
+                  </div>
                 </>
               ) : (
                 // Show placeholder when stats are loading
@@ -787,8 +651,132 @@ const CRMDashboard: React.FC = () => {
                   </div>
                 </div>
               )}
+
+              {/* Search & Filter */}
+              <div className="bg-white rounded-xl shadow-md p-6 mb-8">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-forest-700 mb-2">
+                      Search Leads
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Search by name, email, or phone..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full px-4 py-2 border-2 border-forest-200 rounded-lg focus:outline-none focus:border-nature-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-forest-700 mb-2">
+                      Filter by Status
+                    </label>
+                    <select
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                      className="w-full px-4 py-2 border-2 border-forest-200 rounded-lg focus:outline-none focus:border-nature-600 bg-white"
+                    >
+                      <option value="all">All Leads</option>
+                      <option value="new">New</option>
+                      <option value="contacted">Contacted</option>
+                      <option value="interested">Interested</option>
+                      <option value="qualified">Qualified</option>
+                      <option value="lost">Lost</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Leads Table */}
+              <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gradient-to-r from-forest-600 to-nature-600 text-white">
+                      <tr>
+                        <th className="px-6 py-4 text-left font-semibold">Name</th>
+                        <th className="px-6 py-4 text-left font-semibold">Email</th>
+                        <th className="px-6 py-4 text-left font-semibold">Phone</th>
+                        <th className="px-6 py-4 text-left font-semibold">Trip</th>
+                        <th className="px-6 py-4 text-left font-semibold">Status</th>
+                        <th className="px-6 py-4 text-left font-semibold">Verified</th>
+                        <th className="px-6 py-4 text-left font-semibold">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-forest-200">
+                      {filteredLeads.length > 0 ? (
+                        filteredLeads.map((lead, idx) => (
+                          <tr key={lead._id} className={idx % 2 === 0 ? 'bg-white' : 'bg-forest-50'}>
+                            <td className="px-6 py-4 font-medium text-forest-900">{lead.name}</td>
+                            <td className="px-6 py-4 text-forest-700">{lead.email}</td>
+                            <td className="px-6 py-4 text-forest-700">{lead.phone}</td>
+                            <td className="px-6 py-4 text-forest-700">{lead.tripName}</td>
+                            <td className="px-6 py-4">
+                              <select
+                                value={lead.status}
+                                onChange={(e) => updateLeadStatus(lead._id, e.target.value)}
+                                className={`px-3 py-1 rounded-full text-xs font-semibold border-2 focus:outline-none ${lead.status === 'new'
+                                    ? 'bg-blue-100 border-blue-300 text-blue-700'
+                                    : lead.status === 'contacted'
+                                      ? 'bg-yellow-100 border-yellow-300 text-yellow-700'
+                                      : lead.status === 'interested'
+                                        ? 'bg-orange-100 border-orange-300 text-orange-700'
+                                        : lead.status === 'qualified'
+                                          ? 'bg-green-100 border-green-300 text-green-700'
+                                          : 'bg-red-100 border-red-300 text-red-700'
+                                  }`}
+                              >
+                                <option value="new">New</option>
+                                <option value="contacted">Contacted</option>
+                                <option value="interested">Interested</option>
+                                <option value="qualified">Qualified</option>
+                                <option value="lost">Lost</option>
+                              </select>
+                            </td>
+                            <td className="px-6 py-4">
+                              {lead.verified ? (
+                                <span className="inline-flex items-center gap-1 text-green-700">
+                                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                  </svg>
+                                  Verified
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => verifyLead(lead._id)}
+                                  className="text-nature-600 hover:text-nature-700 font-semibold hover:underline"
+                                >
+                                  Verify
+                                </button>
+                              )}
+                            </td>
+                            <td className="px-6 py-4">
+                              <button
+                                onClick={() => {
+                                  setSelectedLead(lead);
+                                  setEditingNote(lead.notes);
+                                  setShowModal(true);
+                                }}
+                                className="text-forest-600 hover:text-forest-700 font-semibold hover:underline"
+                              >
+                                View
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={7} className="px-6 py-8 text-center text-forest-600">
+                            <p className="text-lg font-semibold mb-2">No leads found</p>
+                            <p className="text-sm">Leads will appear here as people inquire about your trips</p>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </>
-          )}
+          ) : null}
 
           {/* Analytics Tab Content (ADD-ONLY enhancement) */}
           {activeTab === 'analytics' && (
