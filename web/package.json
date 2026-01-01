@@ -57,6 +57,7 @@
     "@types/jest": "^27.5.0",
     "@types/socket.io-client": "^1.4.36",
     "cross-env": "^7.0.3",
+    "cypress": "^15.8.1",
     "serve": "^14.2.0",
     "webpack-bundle-analyzer": "^4.10.2"
   }

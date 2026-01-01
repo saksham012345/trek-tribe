@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Header from './components/Header';
+import Footer from './components/Footer';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -124,142 +125,142 @@ function AppContent() {
 
   return (
     <Router>
-      <div className="min-h-screen bg-forest-50">
+      <div className="min-h-screen bg-forest-50 flex flex-col font-sans text-forest-900 selection:bg-earth-200 selection:text-forest-900">
         <Header user={user} onLogout={handleLogout} />
-        <main className="pt-16">
+        <main className="pt-16 flex-grow relative z-0">
           <React.Suspense fallback={
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-forest-50 to-nature-50">
+            <div className="min-h-[60vh] flex items-center justify-center bg-forest-50">
               <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-nature-600 mx-auto mb-4"></div>
-                <p className="text-forest-700 font-medium">Loading adventure...</p>
+                <div className="animate-spin rounded-full h-12 w-12 border-4 border-earth-200 border-t-forest-600 mx-auto mb-4"></div>
+                <p className="text-forest-600 font-medium tracking-wide">Prepare for adventure...</p>
               </div>
             </div>
           }>
-          <Routes>
-            {/* Default route - redirect to login if not authenticated, home if authenticated */}
-            <Route 
-              path="/" 
-              element={user ? <Navigate to="/home" replace /> : <Navigate to="/login" replace />} 
-            />
-            {/* Home route - requires authentication */}
-            <Route 
-              path="/home" 
-              element={user ? <Home user={user} /> : <Navigate to="/login" replace />} 
-            />
-            <Route
-              path="/u/:userId"
-              element={<EnhancedProfilePage />}
-            />
-            <Route
-              path="/login"
-              element={user ? <Navigate to="/home" /> : <Login onLogin={handleLogin} />} 
-            />
-            <Route 
-              path="/register" 
-              element={user ? <Navigate to="/home" /> : <Register onLogin={handleLogin} />} 
-            />
-            <Route path="/join-the-tribe" element={<JoinTheTribe />} />
-            <Route 
-              path="/subscribe" 
-              element={
-                user ? <Subscribe /> : <Navigate to="/login" state={{ from: { pathname: '/subscribe' } }} />
-              } 
-            />
-            <Route 
-              path="/organizer/subscriptions" 
-              element={
-                user ? <Subscribe /> : <Navigate to="/login" state={{ from: { pathname: '/organizer/subscriptions' } }} />
-              } 
-            />
-            <Route 
-              path="/forgot-password" 
-              element={user ? <Navigate to="/" /> : <ForgotPassword />} 
-            />
-            <Route 
-              path="/reset-password" 
-              element={user ? <Navigate to="/" /> : <ResetPassword />} 
-            />
-            <Route path="/trips" element={user ? <Trips user={user} /> : <Navigate to="/login" />} />
-            <Route path="/trip/:id" element={user ? <TripDetails user={user} /> : <Navigate to="/login" />} />
-            <Route 
-              path="/create-trip" 
-              element={
-                !user ? <Navigate to="/login" /> :
-                user.role === 'organizer' || user.role === 'admin' ? <CreateTrip user={user} /> : 
-                <Navigate to="/home?error=organizer-required" />
-              } 
-            />
-            <Route 
-              path="/edit-trip/:id" 
-              element={user?.role === 'organizer' ? <EnhancedEditTrip /> : <Navigate to="/home" />}
-            />
-            <Route 
-              path="/profile" 
-              element={user ? <Profile user={user} /> : <Navigate to="/login" />} 
-            />
-            <Route 
-              path="/admin" 
-              element={user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/home" />}
-            />
-            <Route 
-              path="/admin/dashboard" 
-              element={user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/home" />}
-            />
-            <Route 
-              path="/admin/organizer-verification" 
-              element={user?.role === 'admin' ? <AdminOrganizerVerification /> : <Navigate to="/home" />}
-            />
-            <Route 
-              path="/agent" 
-              element={user?.role === 'agent' || user?.role === 'admin' ? <AgentDashboard /> : <Navigate to="/home" />}
-            />
-            <Route 
-              path="/profile/:userId" 
-              element={<EnhancedProfilePage />} 
-            />
-            <Route 
-              path="/my-profile" 
-              element={user ? <EnhancedProfilePage /> : <Navigate to="/login" />} 
-            />
-            <Route 
-              path="/my-bookings" 
-              element={user ? <MyBookings /> : <Navigate to="/login" />} 
-            />
-            <Route 
-              path="/wishlist" 
-              element={user ? <Wishlist /> : <Navigate to="/login" />} 
-            />
-            <Route path="/search" element={user ? <SearchPage /> : <Navigate to="/login" />} />
-            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-            <Route path="/terms-conditions" element={<TermsConditions />} />
-            <Route path="/cookie-settings" element={<CookieSettings />} />
-            <Route path="/ai-showcase" element={user ? <AIShowcase /> : <Navigate to="/" />} />
-            <Route
-              path="/organizer/crm"
-              element={
-                !user ? <Navigate to="/login" /> :
-                user.role === 'organizer' || user.role === 'admin' ? <ProfessionalCRMDashboard /> :
-                <Navigate to="/home?error=organizer-required" />
-              }
-            />
-            <Route
-              path="/crm"
-              element={
-                !user ? <Navigate to="/login" /> :
-                user.role === 'organizer' || user.role === 'admin' ? <CRMDashboard /> :
-                <Navigate to="/home?error=organizer-required" />
-              }
-            />
-            <Route
-              path="/organizer/payment-verification"
-              element={
-                !user ? <Navigate to="/login" /> :
-                user.role === 'organizer' || user.role === 'admin' ? <PaymentVerificationDashboard /> :
-                <Navigate to="/home?error=organizer-required" />
-              }
-            />
-            {/* Route onboarding disabled - using simplified bank details collection instead */}
-            {/* <Route
+            <Routes>
+              {/* Default route - redirect to login if not authenticated, home if authenticated */}
+              <Route
+                path="/"
+                element={user ? <Navigate to="/home" replace /> : <Navigate to="/login" replace />}
+              />
+              {/* Home route - requires authentication */}
+              <Route
+                path="/home"
+                element={user ? <Home user={user} /> : <Navigate to="/login" replace />}
+              />
+              <Route
+                path="/u/:userId"
+                element={<EnhancedProfilePage />}
+              />
+              <Route
+                path="/login"
+                element={user ? <Navigate to="/home" /> : <Login onLogin={handleLogin} />}
+              />
+              <Route
+                path="/register"
+                element={user ? <Navigate to="/home" /> : <Register onLogin={handleLogin} />}
+              />
+              <Route path="/join-the-tribe" element={<JoinTheTribe />} />
+              <Route
+                path="/subscribe"
+                element={
+                  user ? <Subscribe /> : <Navigate to="/login" state={{ from: { pathname: '/subscribe' } }} />
+                }
+              />
+              <Route
+                path="/organizer/subscriptions"
+                element={
+                  user ? <Subscribe /> : <Navigate to="/login" state={{ from: { pathname: '/organizer/subscriptions' } }} />
+                }
+              />
+              <Route
+                path="/forgot-password"
+                element={user ? <Navigate to="/" /> : <ForgotPassword />}
+              />
+              <Route
+                path="/reset-password"
+                element={user ? <Navigate to="/" /> : <ResetPassword />}
+              />
+              <Route path="/trips" element={user ? <Trips user={user} /> : <Navigate to="/login" />} />
+              <Route path="/trip/:id" element={user ? <TripDetails user={user} /> : <Navigate to="/login" />} />
+              <Route
+                path="/create-trip"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <CreateTrip user={user} /> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+              <Route
+                path="/edit-trip/:id"
+                element={user?.role === 'organizer' ? <EnhancedEditTrip /> : <Navigate to="/home" />}
+              />
+              <Route
+                path="/profile"
+                element={user ? <Profile user={user} /> : <Navigate to="/login" />}
+              />
+              <Route
+                path="/admin"
+                element={user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/home" />}
+              />
+              <Route
+                path="/admin/dashboard"
+                element={user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/home" />}
+              />
+              <Route
+                path="/admin/organizer-verification"
+                element={user?.role === 'admin' ? <AdminOrganizerVerification /> : <Navigate to="/home" />}
+              />
+              <Route
+                path="/agent"
+                element={user?.role === 'agent' || user?.role === 'admin' ? <AgentDashboard /> : <Navigate to="/home" />}
+              />
+              <Route
+                path="/profile/:userId"
+                element={<EnhancedProfilePage />}
+              />
+              <Route
+                path="/my-profile"
+                element={user ? <EnhancedProfilePage /> : <Navigate to="/login" />}
+              />
+              <Route
+                path="/my-bookings"
+                element={user ? <MyBookings /> : <Navigate to="/login" />}
+              />
+              <Route
+                path="/wishlist"
+                element={user ? <Wishlist /> : <Navigate to="/login" />}
+              />
+              <Route path="/search" element={user ? <SearchPage /> : <Navigate to="/login" />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+              <Route path="/terms-conditions" element={<TermsConditions />} />
+              <Route path="/cookie-settings" element={<CookieSettings />} />
+              <Route path="/ai-showcase" element={user ? <AIShowcase /> : <Navigate to="/" />} />
+              <Route
+                path="/organizer/crm"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <ProfessionalCRMDashboard /> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+              <Route
+                path="/crm"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <CRMDashboard /> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+              <Route
+                path="/organizer/payment-verification"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <PaymentVerificationDashboard /> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+              {/* Route onboarding disabled - using simplified bank details collection instead */}
+              {/* <Route
               path="/organizer/route-onboarding"
               element={
                 !user ? <Navigate to="/login" /> :
@@ -267,29 +268,30 @@ function AppContent() {
                 <Navigate to="/home?error=organizer-required" />
               }
             /> */}
-            <Route
-              path="/organizer/settlements"
-              element={
-                !user ? <Navigate to="/login" /> :
-                user.role === 'organizer' || user.role === 'admin' ? <OrganizerSettlements /> :
-                <Navigate to="/home?error=organizer-required" />
-              }
-            />
-            <Route
-              path="/checkout/marketplace"
-              element={user ? <MarketplaceCheckout /> : <Navigate to="/login" />}
-            />
-          </Routes>
+              <Route
+                path="/organizer/settlements"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <OrganizerSettlements /> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+              <Route
+                path="/checkout/marketplace"
+                element={user ? <MarketplaceCheckout /> : <Navigate to="/login" />}
+              />
+            </Routes>
           </React.Suspense>
         </main>
+        <Footer />
         <FloatingJoinCTA />
-        
+
         {/* AI Chat Support Widget */}
         <AIChatWidget />
-        
+
         {/* Cookie Consent Banner */}
         <CookieConsent />
-        
+
         {/* API Debugger - Remove in production */}
         {process.env.NODE_ENV === 'development' && <APIDebugger />}
       </div>

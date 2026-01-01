@@ -94,7 +94,7 @@ const EnhancedProfilePage: React.FC = () => {
   const { user: currentUser } = useAuth();
   const [resolvedUserId, setResolvedUserId] = useState<string | null>(userId || currentUser?.id || null);
   const [isOwnProfile, setIsOwnProfile] = useState<boolean>(!userId || userId === currentUser?.id);
-  
+
   const [profile, setProfile] = useState<ProfileUser | null>(null);
   const [roleBasedData, setRoleBasedData] = useState<RoleBasedData | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -146,7 +146,7 @@ const EnhancedProfilePage: React.FC = () => {
     try {
       const identifier = userId;
       const isHandle = identifier ? !/^[a-f0-9]{24}$/i.test(identifier) : false;
-      
+
       // If no identifier and we have currentUser, use currentUser's ID
       // This ensures we always have a userId for the endpoint
       let endpoint: string;
@@ -227,9 +227,9 @@ const EnhancedProfilePage: React.FC = () => {
     } catch (error: any) {
       const statusCode = error.response?.status;
       const errorMessage = error.response?.data?.message || error.message;
-      
+
       console.error('Error fetching profile:', { statusCode, errorMessage, error });
-      
+
       if (statusCode === 404) {
         setError({ type: 'not-found', message: 'Profile not found' });
       } else if (statusCode === 403) {
@@ -258,15 +258,15 @@ const EnhancedProfilePage: React.FC = () => {
       // This would fetch past trips from the trips API
       const response = await api.get('/trips');
       const allTrips = response.data;
-      
+
       // Filter for completed trips where user participated
       const completedTrips = (allTrips as any[]).filter((trip: any) => {
         const participants = Array.isArray(trip.participants) ? trip.participants : [];
 
-        return trip.status === 'completed' && 
+        return trip.status === 'completed' &&
           (trip.organizerId === currentUser?.id || participants.includes(currentUser?.id));
       });
-      
+
       setPastTrips(completedTrips);
     } catch (error) {
       console.error('Error fetching past trips:', error);
@@ -280,7 +280,7 @@ const EnhancedProfilePage: React.FC = () => {
       const linkPosts = (response.data as any).posts.filter((post: any) =>
         post.authorId._id === currentUser?.id && post.links && post.links.length > 0
       );
-      
+
       const extractedLinks = linkPosts.flatMap((post: any) =>
         post.links!.map((link: any) => ({
           ...link,
@@ -289,7 +289,7 @@ const EnhancedProfilePage: React.FC = () => {
           createdAt: post.createdAt
         }))
       );
-      
+
       setUserLinks(extractedLinks);
     } catch (error) {
       console.error('Error fetching user links:', error);
@@ -393,8 +393,14 @@ const EnhancedProfilePage: React.FC = () => {
   // All roles can have profiles now
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
-      <div className="max-w-6xl mx-auto px-4 py-8">
+    <div className="min-h-screen bg-neutral-50">
+      {/* Decorative header background */}
+      <div className="h-64 bg-gradient-to-r from-forest-800 to-nature-800 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "url('/patterns/topography.svg')" }}></div>
+        <div className="absolute inset-0 bg-black/10"></div>
+      </div>
+
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-32 relative z-10 pb-12">
         {/* Header with enhanced profile card */}
         <div className="mb-8">
           <EnhancedProfileCard
@@ -406,35 +412,34 @@ const EnhancedProfilePage: React.FC = () => {
 
         {/* Action buttons for own profile */}
         {isOwnProfile && (
-          <div className="flex gap-4 mb-6">
+          <div className="flex flex-wrap gap-4 mb-8 justify-end">
             {/* Only allow post creation if roleBasedData allows it */}
             {roleBasedData?.canPost && (
               <button
                 onClick={() => setShowPostCreator(true)}
-                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 flex items-center gap-2 shadow-lg"
+                className="px-6 py-3 bg-forest-600 text-white rounded-xl hover:bg-forest-700 transition-all duration-200 flex items-center gap-2 shadow-lg shadow-forest-600/20 transform hover:-translate-y-0.5"
               >
                 <span className="text-xl">✍️</span>
-                Create Post
+                <span className="font-semibold">Create Post</span>
               </button>
             )}
             <button
               onClick={() => setEditing(!editing)}
-              className={`px-6 py-3 rounded-lg transition-all duration-200 flex items-center gap-2 ${
-                editing
-                  ? 'bg-gray-600 text-white hover:bg-gray-700'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-              }`}
+              className={`px-6 py-3 rounded-xl transition-all duration-200 flex items-center gap-2 border shadow-sm ${editing
+                ? 'bg-neutral-800 text-white border-neutral-800 hover:bg-neutral-900'
+                : 'bg-white text-neutral-700 border-neutral-200 hover:bg-neutral-50 hover:border-neutral-300'
+                }`}
             >
               <span className="text-xl">{editing ? '💾' : '✏️'}</span>
-              {editing ? 'Save Changes' : 'Edit Profile'}
+              <span className="font-semibold">{editing ? 'Save Changes' : 'Edit Profile'}</span>
             </button>
             {editing && (
               <button
                 onClick={handleSave}
-                className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200 flex items-center gap-2"
+                className="px-6 py-3 bg-nature-600 text-white rounded-xl hover:bg-nature-700 transition-all duration-200 flex items-center gap-2 shadow-lg shadow-nature-600/20"
               >
                 <span className="text-xl">✅</span>
-                Save Profile
+                <span className="font-semibold">Save Profile</span>
               </button>
             )}
           </div>
@@ -442,180 +447,149 @@ const EnhancedProfilePage: React.FC = () => {
 
         {/* Editing form */}
         {editing && (
-          <div className="bg-white rounded-2xl shadow-xl p-6 mb-8">
-            <h3 className="text-xl font-bold text-gray-900 mb-6">Edit Profile</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Name *
-                </label>
-                <input
-                  type="text"
-                  value={editForm.name}
-                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
+          <div className="bg-white rounded-2xl shadow-xl border border-neutral-100 p-8 mb-8 animate-fade-in">
+            <h3 className="text-2xl font-bold text-gray-900 mb-8 flex items-center gap-3">
+              <span className="p-2 bg-forest-100 rounded-lg text-forest-600 text-xl">✏️</span>
+              Edit Profile
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Profile Photo</label>
+                  <ProfilePhotoUpload
+                    currentPhoto={profile.profilePhoto}
+                    onPhotoUpdate={handlePhotoUpdate}
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Username
-                </label>
-                <input
-                  type="text"
-                  value={editForm.username}
-                  onChange={(e) => setEditForm({ ...editForm, username: e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, '') })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="your-username"
-                  pattern="[a-z0-9-_]+"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Your profile URL: {window.location.origin}/profile/{editForm.username || 'username'}
-                </p>
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Name *</label>
+                  <input
+                    type="text"
+                    value={editForm.name}
+                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-forest-500 focus:border-forest-500 transition-all bg-gray-50 focus:bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                  <input
+                    type="text"
+                    value={editForm.username}
+                    onChange={(e) => setEditForm({ ...editForm, username: e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, '') })}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-forest-500 focus:border-forest-500 transition-all bg-gray-50 focus:bg-white"
+                    placeholder="your-username"
+                  />
+                  <p className="text-xs text-gray-500 mt-2 font-mono">
+                    {window.location.origin}/profile/{editForm.username || 'username'}
+                  </p>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Phone
-                </label>
-                <input
-                  type="tel"
-                  value={editForm.phone}
-                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+              <div className="md:col-span-2 space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Bio</label>
+                  <textarea
+                    value={editForm.bio}
+                    onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
+                    rows={4}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-forest-500 focus:border-forest-500 transition-all bg-gray-50 focus:bg-white resize-none"
+                    placeholder="Tell us about your next adventure..."
+                  />
+                </div>
 
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Bio
-                </label>
-                <textarea
-                  value={editForm.bio}
-                  onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
-                  rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="Tell us about yourself..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Location
-                </label>
-                <input
-                  type="text"
-                  value={editForm.location}
-                  onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="Your city, country"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Profile Photo
-                </label>
-                <ProfilePhotoUpload
-                  currentPhoto={profile.profilePhoto}
-                  onPhotoUpdate={handlePhotoUpdate}
-                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                    <input
+                      type="text"
+                      value={editForm.location}
+                      onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-forest-500 focus:border-forest-500 transition-all bg-gray-50 focus:bg-white"
+                      placeholder="e.g. Mumbai, India"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                    <input
+                      type="tel"
+                      value={editForm.phone}
+                      onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-forest-500 focus:border-forest-500 transition-all bg-gray-50 focus:bg-white"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* Social Links */}
-            <div className="mt-6">
-              <h4 className="text-lg font-semibold text-gray-900 mb-4">Social Links</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <input
-                  type="text"
-                  placeholder="Instagram handle"
-                  value={editForm.socialLinks.instagram}
-                  onChange={(e) => setEditForm({
-                    ...editForm,
-                    socialLinks: { ...editForm.socialLinks, instagram: e.target.value }
-                  })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-                <input
-                  type="url"
-                  placeholder="Website URL"
-                  value={editForm.socialLinks.website}
-                  onChange={(e) => setEditForm({
-                    ...editForm,
-                    socialLinks: { ...editForm.socialLinks, website: e.target.value }
-                  })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-                <input
-                  type="text"
-                  placeholder="Facebook handle"
-                  value={editForm.socialLinks.facebook}
-                  onChange={(e) => setEditForm({
-                    ...editForm,
-                    socialLinks: { ...editForm.socialLinks, facebook: e.target.value }
-                  })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-                <input
-                  type="text"
-                  placeholder="Twitter handle"
-                  value={editForm.socialLinks.twitter}
-                  onChange={(e) => setEditForm({
-                    ...editForm,
-                    socialLinks: { ...editForm.socialLinks, twitter: e.target.value }
-                  })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-                <input
-                  type="text"
-                  placeholder="LinkedIn handle"
-                  value={editForm.socialLinks.linkedin}
-                  onChange={(e) => setEditForm({
-                    ...editForm,
-                    socialLinks: { ...editForm.socialLinks, linkedin: e.target.value }
-                  })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
+            <div className="mt-10 pt-8 border-t border-gray-100">
+              <h4 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+                <span className="text-blue-500">🌐</span> Social Links
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {['instagram', 'website', 'facebook', 'twitter', 'linkedin'].map((social) => (
+                  <div key={social} className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <span className="text-gray-400 text-sm capitalize">{social}</span>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder={social === 'website' ? 'https://your-site.com' : 'username'}
+                      value={(editForm.socialLinks as any)[social]}
+                      onChange={(e) => setEditForm({
+                        ...editForm,
+                        socialLinks: { ...editForm.socialLinks, [social]: e.target.value }
+                      })}
+                      className="w-full pl-24 px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-forest-500 focus:border-forest-500 transition-all bg-gray-50 focus:bg-white"
+                    />
+                  </div>
+                ))}
               </div>
             </div>
 
             {/* Organizer Profile */}
             {profile.role === 'organizer' && (
-              <div className="mt-6">
-                <h4 className="text-lg font-semibold text-gray-900 mb-4">Organizer Profile</h4>
-                <div className="space-y-4">
+              <div className="mt-10 pt-8 border-t border-gray-100">
+                <h4 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+                  <span className="text-nature-600">🏕️</span> Organizer Details
+                </h4>
+                <div className="space-y-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Organizer Bio
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Professional Bio</label>
                     <textarea
                       value={editForm.organizerProfile.bio}
                       onChange={(e) => setEditForm({
                         ...editForm,
                         organizerProfile: { ...editForm.organizerProfile, bio: e.target.value }
                       })}
-                      rows={3}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder="Tell us about your organizing experience..."
+                      rows={4}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-forest-500 focus:border-forest-500 transition-all bg-gray-50 focus:bg-white resize-none"
+                      placeholder="Describe your organizing philosophy and experience..."
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Years of Experience
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="50"
-                      value={editForm.organizerProfile.yearsOfExperience}
-                      onChange={(e) => setEditForm({
-                        ...editForm,
-                        organizerProfile: { ...editForm.organizerProfile, yearsOfExperience: parseInt(e.target.value) || 0 }
-                      })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Years of Experience</label>
+                    <div className="relative max-w-xs">
+                      <input
+                        type="number"
+                        min="0"
+                        max="50"
+                        value={editForm.organizerProfile.yearsOfExperience}
+                        onChange={(e) => setEditForm({
+                          ...editForm,
+                          organizerProfile: { ...editForm.organizerProfile, yearsOfExperience: parseInt(e.target.value) || 0 }
+                        })}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-forest-500 focus:border-forest-500 transition-all bg-gray-50 focus:bg-white"
+                      />
+                      <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                        <span className="text-gray-500">Years</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -623,187 +597,191 @@ const EnhancedProfilePage: React.FC = () => {
           </div>
         )}
 
-        {/* Content tabs - show based on role and roleBasedData */}
+        {/* Content tabs */}
         {roleBasedData && (roleBasedData.postsVisible || roleBasedData.showPastTrips || roleBasedData.showWishlists) ? (
-          <div className="bg-white rounded-2xl shadow-xl">
+          <div className="bg-white rounded-2xl shadow-xl shadow-neutral-200/50 border border-neutral-100 overflow-hidden">
             {/* Tab navigation */}
-            <div className="border-b border-gray-200">
-              <nav className="flex space-x-8 px-6">
+            <div className="border-b border-gray-100 bg-white">
+              <nav className="flex space-x-8 px-8 overflow-x-auto scroolbar-hide">
                 {[
-                  { id: 'posts', label: 'Posts', icon: '📝', count: posts?.length || 0, show: roleBasedData.postsVisible },
+                  { id: 'posts', label: 'Adventures', icon: '📝', count: posts?.length || 0, show: roleBasedData.postsVisible },
                   { id: 'past-trips', label: 'Past Trips', icon: '🏔️', count: pastTrips?.length || 0, show: roleBasedData.showPastTrips && isOwnProfile },
                   { id: 'links', label: 'Links', icon: '🔗', count: userLinks?.length || 0, show: roleBasedData.showWishlists && isOwnProfile }
                 ].filter(tab => tab.show).map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                    activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <span>{tab.icon}</span>
-                    {tab.label}
-                    <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-xs">
-                      {tab.count}
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={`py-6 px-1 border-b-2 font-medium text-sm transition-all duration-200 whitespace-nowrap ${activeTab === tab.id
+                      ? 'border-forest-600 text-forest-700'
+                      : 'border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-200'
+                      }`}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <span className="text-lg">{tab.icon}</span>
+                      <span className="text-base">{tab.label}</span>
+                      {tab.count > 0 && (
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${activeTab === tab.id ? 'bg-forest-100 text-forest-700' : 'bg-gray-100 text-gray-600'
+                          }`}>
+                          {tab.count}
+                        </span>
+                      )}
                     </span>
-                  </span>
-                </button>
-              ))}
-            </nav>
-          </div>
+                  </button>
+                ))}
+              </nav>
+            </div>
 
-          {/* Tab content */}
-          <div className="p-6">
-            {activeTab === 'posts' && (
-              <div className="space-y-6">
-                {(posts?.length || 0) === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="text-6xl mb-4">📝</div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">No posts yet</h3>
-                    <p className="text-gray-600 mb-6">
-                      {isOwnProfile ? (roleBasedData?.canPost ? 'Start sharing your adventures with the community!' : 'Posts are only available for organizers') : 'This user hasn\'t posted anything yet.'}
-                    </p>
-                    {isOwnProfile && roleBasedData?.canPost && (
-                      <button
-                        onClick={() => setShowPostCreator(true)}
-                        className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                      >
-                        Create Your First Post
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  posts?.map((post) => (
-                    <PostCard key={post._id} post={post} onLikeUpdate={fetchPosts} />
-                  ))
-                )}
-              </div>
-            )}
+            {/* Tab content */}
+            <div className="p-8 bg-gray-50/50 min-h-[400px]">
+              {activeTab === 'posts' && (
+                <div className="space-y-8 max-w-3xl mx-auto">
+                  {(posts?.length || 0) === 0 ? (
+                    <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
+                      <div className="text-6xl mb-6 opacity-30">📝</div>
+                      <h3 className="text-xl font-bold text-gray-900 mb-2">No adventures shared yet</h3>
+                      <p className="text-gray-500 mb-8 max-w-md mx-auto">
+                        {isOwnProfile ? (roleBasedData?.canPost ? 'Start documenting your journey and share it with the tribe!' : 'Posts are unavailable.') : 'This explorer hasn\'t posted anything yet.'}
+                      </p>
+                      {isOwnProfile && roleBasedData?.canPost && (
+                        <button
+                          onClick={() => setShowPostCreator(true)}
+                          className="px-8 py-3 bg-forest-600 text-white rounded-xl hover:bg-forest-700 transition-colors font-medium shadow-lg shadow-forest-600/20"
+                        >
+                          Create Your First Post
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    posts?.map((post) => (
+                      <PostCard key={post._id} post={post} onLikeUpdate={fetchPosts} />
+                    ))
+                  )}
+                </div>
+              )}
 
-            {activeTab === 'past-trips' && (
-              <div className="space-y-4">
-                {(pastTrips?.length || 0) === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="text-6xl mb-4">🏔️</div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">No past trips</h3>
-                    <p className="text-gray-600">
-                      {isOwnProfile ? 'Your completed trips will appear here.' : 'This user hasn\'t completed any trips yet.'}
-                    </p>
-                  </div>
-                ) : (
-                  pastTrips?.map((trip) => (
-                    <div key={trip._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-semibold text-gray-900">{trip.title}</h4>
-                          <p className="text-gray-600">{trip.destination}</p>
-                          <p className="text-sm text-gray-500">
-                            {new Date(trip.startDate).toLocaleDateString()} - {new Date(trip.endDate).toLocaleDateString()}
-                          </p>
+              {activeTab === 'past-trips' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {(pastTrips?.length || 0) === 0 ? (
+                    <div className="col-span-full text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
+                      <div className="text-6xl mb-6 opacity-30">🏔️</div>
+                      <h3 className="text-xl font-bold text-gray-900 mb-2">No past trips</h3>
+                      <p className="text-gray-500">
+                        {isOwnProfile ? 'Your completed expeditions will appear here.' : 'No completed trips found.'}
+                      </p>
+                    </div>
+                  ) : (
+                    pastTrips?.map((trip) => (
+                      <div key={trip._id} className="bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-lg transition-all duration-300 group">
+                        <div className="h-32 bg-gray-200 relative">
+                          {/* Placeholder or trip image depending on data */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                          <div className="absolute bottom-4 left-4 text-white">
+                            <h4 className="font-bold text-lg">{trip.title}</h4>
+                            <p className="text-sm opacity-90">{trip.destination}</p>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-sm text-gray-500">Status: {trip.status}</p>
-                          <p className="text-sm text-gray-500">{trip.participants?.length || 0} participants</p>
+                        <div className="p-5">
+                          <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
+                            <span className="flex items-center gap-1">
+                              📅 {new Date(trip.startDate).toLocaleDateString()}
+                            </span>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${trip.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                              }`}>
+                              {trip.status.toUpperCase()}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                            <div className="text-xs text-gray-500">
+                              {trip.participants?.length || 0} Travelers
+                            </div>
+                            <button className="text-forest-600 text-sm font-semibold hover:text-forest-700">View Details →</button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
+                    ))
+                  )}
+                </div>
+              )}
 
-            {activeTab === 'links' && (
-              <div className="space-y-4">
-                {(userLinks?.length || 0) === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="text-6xl mb-4">🔗</div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">No links shared</h3>
-                    <p className="text-gray-600">
-                      {isOwnProfile ? 'Share useful links with the community!' : 'This user hasn\'t shared any links yet.'}
-                    </p>
-                  </div>
-                ) : (
-                  userLinks?.map((link, index) => (
-                    <div key={index} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <h4 className="font-semibold text-gray-900">{link.title}</h4>
-                          {link.description && (
-                            <p className="text-gray-600 text-sm">{link.description}</p>
-                          )}
+              {activeTab === 'links' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {(userLinks?.length || 0) === 0 ? (
+                    <div className="col-span-full text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
+                      <div className="text-6xl mb-6 opacity-30">🔗</div>
+                      <h3 className="text-xl font-bold text-gray-900 mb-2">No links shared</h3>
+                      <p className="text-gray-500">
+                        {isOwnProfile ? 'Share your resources and findings!' : 'No shared links.'}
+                      </p>
+                    </div>
+                  ) : (
+                    userLinks?.map((link, index) => (
+                      <div key={index} className="bg-white rounded-xl p-5 border border-gray-100 hover:border-blue-200 hover:shadow-md transition-all group">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 pr-4">
+                            <h4 className="font-bold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">{link.title}</h4>
+                            {link.description && (
+                              <p className="text-gray-600 text-sm mb-3 line-clamp-2">{link.description}</p>
+                            )}
+                            <div className="flex items-center gap-2 text-xs text-gray-400">
+                              <span>Via: {link.postTitle}</span>
+                              <span>•</span>
+                              <span>{new Date(link.createdAt).toLocaleDateString()}</span>
+                            </div>
+                          </div>
                           <a
                             href={link.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-800 text-sm"
+                            className="p-3 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-all"
                           >
-                            {link.url}
-                          </a>
-                          <p className="text-xs text-gray-500 mt-1">
-                            From post: {link.postTitle}
-                          </p>
-                        </div>
-                        <div className="ml-4">
-                          <a
-                            href={link.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                          >
-                            Visit
+                            ↗
                           </a>
                         </div>
                       </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
         ) : (
-          /* Non-organizer profile - show basic info */
-          <div className="bg-white rounded-2xl shadow-xl p-8">
-            <div className="text-center py-12">
-              <div className="text-6xl mb-4">
-                {profile.role === 'admin' ? '🛠️' : profile.role === 'agent' ? '🎧' : '🎪'}
+          /* Non-organizer profile - show basic info card */
+          <div className="bg-white rounded-2xl shadow-xl p-12 text-center max-w-2xl mx-auto border border-neutral-100">
+            <div className="w-24 h-24 mx-auto bg-forest-50 rounded-full flex items-center justify-center text-5xl mb-6">
+              {profile.role === 'admin' ? '🛠️' : profile.role === 'agent' ? '🎧' : '🎒'}
+            </div>
+            <h3 className="text-3xl font-bold text-gray-900 mb-3 capitalize">
+              {profile.name}
+            </h3>
+            <p className="text-forest-600 font-medium mb-6 uppercase tracking-wider text-sm">
+              {profile.role === 'admin' ? 'Administrator' : profile.role === 'agent' ? 'Support Agent' : 'Explorer'}
+            </p>
+
+            <p className="text-gray-600 leading-relaxed mb-8 text-lg">
+              {profile.bio || (profile.role === 'admin'
+                ? 'Ensuring smooth operations for the entire tribe.'
+                : profile.role === 'agent'
+                  ? 'Helping you find your next great adventure.'
+                  : 'Ready to explore the world, one trek at a time.')}
+            </p>
+
+            <div className="grid grid-cols-2 gap-4 max-w-xs mx-auto text-left bg-gray-50 p-6 rounded-xl">
+              <div>
+                <span className="block text-xs text-gray-400 uppercase font-bold">Location</span>
+                <span className="text-gray-800">{profile.location || 'Earth'}</span>
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                {profile.role === 'admin' ? 'Admin Profile' : profile.role === 'agent' ? 'Agent Profile' : 'Traveler Profile'}
-              </h3>
-              <p className="text-gray-600 max-w-md mx-auto">
-                {profile.role === 'admin' 
-                  ? 'Platform administrator with full system access'
-                  : profile.role === 'agent'
-                  ? 'Customer support agent helping travelers find their perfect adventure'
-                  : 'Adventure seeker exploring amazing destinations'}
-              </p>
-              {profile.bio && (
-                <div className="mt-6 p-4 bg-gray-50 rounded-lg max-w-2xl mx-auto">
-                  <p className="text-gray-700">{profile.bio}</p>
-                </div>
-              )}
-              {profile.location && (
-                <div className="mt-4 flex items-center justify-center gap-2 text-gray-600">
-                  <span>📍</span>
-                  <span>{profile.location}</span>
-                </div>
-              )}
-              <div className="mt-8">
-                <p className="text-sm text-gray-500">
-                  Member since {new Date(profile.createdAt).toLocaleDateString()}
-                </p>
+              <div>
+                <span className="block text-xs text-gray-400 uppercase font-bold">Joined</span>
+                <span className="text-gray-800">{new Date(profile.createdAt).toLocaleDateString()}</span>
               </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Post Creator Modal - only for organizers */}
-      {showPostCreator && profile.role === 'organizer' && (
+      {/* Modals */}
+      {showPostCreator && (
         <PostCreator
           onPostCreated={handlePostCreated}
           onClose={() => setShowPostCreator(false)}
@@ -811,6 +789,7 @@ const EnhancedProfilePage: React.FC = () => {
       )}
     </div>
   );
+
 };
 
 export default EnhancedProfilePage;

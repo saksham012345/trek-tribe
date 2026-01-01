@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import io from 'socket.io-client';
 import api from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -15,9 +16,10 @@ interface ChatMessage {
 
 const AIChatWidgetClean: React.FC = () => {
   const { user } = useAuth();
+  const location = useLocation();
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   const [isOpen, setIsOpen] = useState(false);
-  
+
   // Load messages from localStorage on component mount
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     if (typeof window !== 'undefined') {
@@ -31,7 +33,7 @@ const AIChatWidgetClean: React.FC = () => {
     }
     return [];
   });
-  
+
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [socketFailed, setSocketFailed] = useState(false);
@@ -87,46 +89,122 @@ const AIChatWidgetClean: React.FC = () => {
     if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const handleLocalGreetings = (text: string): boolean => {
+    const greetings = ['hi', 'hello', 'hey', 'greetings', 'good morning', 'good afternoon', 'good evening'];
+    const lowerText = text.trim().toLowerCase();
+
+    if (greetings.includes(lowerText)) {
+      const responses = [
+        `Hello ${user?.name || 'there'}! 👋 How can I help you plan your next adventure today?`,
+        `Hi! I'm here to help with trips, bookings, or any questions you have about Trek Tribe.`,
+        `Hey there! Looking for a getaway? Ask me about our latest treks!`
+      ];
+      const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+
+      const msg: ChatMessage = {
+        id: `greet_${Date.now()}`,
+        senderId: 'ai',
+        senderName: 'Trek Tribe Assistant',
+        senderRole: 'ai',
+        message: randomResponse,
+        timestamp: new Date()
+      };
+
+      // Delay slightly for natural feel
+      setTimeout(() => {
+        setMessages((s) => [...s, msg]);
+        setIsLoading(false);
+      }, 500);
+      return true;
+    }
+    return false;
+  };
+
   const formatRecommendations = (recs: any[]) => {
     if (!recs || recs.length === 0) {
       return 'No recommendations available right now. Tell me your preferred dates, budget, and destination so I can tailor options.';
     }
 
-    return ['Here are some picks:', ...recs.slice(0, 5).map((r: any, idx: number) => {
+    const header = '🌟 **Top Picks for You:**\n';
+    const items = recs.slice(0, 5).map((r: any, idx: number) => {
       const name = r.title || r.name || r.trip || `Option ${idx + 1}`;
       const place = r.destination || r.location || r.region || '';
-      const price = r.price || r.cost || r.fare || '';
-      const note = r.description || r.summary || '';
-      const parts = [name, place && `(${place})`, price && `~ ${price}`, note].filter(Boolean);
-      return `${idx + 1}. ${parts.join(' - ')}`;
-    })].join('\n');
+      const price = r.price || r.cost || r.fare ? `₹${r.price || r.cost || r.fare}` : '';
+      const rating = r.averageRating ? `⭐ ${r.averageRating}` : '';
+
+      // Clean formatted line
+      return `${idx + 1}. **${name}** ${place ? `(${place})` : ''} \n   ${price} ${rating ? `• ${rating}` : ''}`;
+    });
+
+    return header + items.join('\n\n');
   };
 
   const formatAvailability = (trips: any[]) => {
     if (!trips || trips.length === 0) {
-      return 'No upcoming availability found for your criteria. Try adjusting dates, destination, or trip type.';
+      return '📅 **Availability Check**\n\nNo upcoming trips found matching your criteria. Try adjusting your dates or destination preferences.';
     }
 
-    const lines: string[] = [];
-    lines.push('Upcoming availability by trip:');
-    const now = new Date();
+    const lines: string[] = ['📅 **Upcoming Trips:**\n'];
 
-    trips.slice(0, 10).forEach((t: any, idx: number) => {
-      const start = t.startDate ? new Date(t.startDate) : null;
-      const dateStr = start ? start.toLocaleDateString() : 'TBD';
+    trips.slice(0, 8).forEach((t: any) => {
+      const start = t.startDate ? new Date(t.startDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'TBD';
       const dest = t.destination || 'Unknown';
-      const title = t.title || `Trip ${idx + 1}`;
+      const title = t.title || 'Trip';
       const price = t.price ? `₹${t.price}` : '';
-      const capacity = typeof t.capacity === 'number' ? t.capacity : undefined;
-      const participants = Array.isArray(t.participants) ? t.participants.length : 0;
-      const spotsLeft = capacity !== undefined ? Math.max(capacity - participants, 0) : undefined;
-      const spotsStr = spotsLeft !== undefined ? `${spotsLeft} spots left` : 'Spots info unavailable';
-      const cat = Array.isArray(t.categories) && t.categories.length ? ` • ${t.categories[0]}` : '';
-      lines.push(`• ${title} (${dest})${cat} — ${dateStr} — ${spotsStr}${price ? ` — ${price}` : ''}`);
+      const spotsLeft = typeof t.capacity === 'number' && Array.isArray(t.participants)
+        ? Math.max(t.capacity - t.participants.length, 0)
+        : null;
+
+      lines.push(`• **${title}** in ${dest}\n   📅 ${start} • ${price} ${spotsLeft !== null ? `• ${spotsLeft} spots left` : ''}`);
     });
 
-    lines.push('\nTell me your preferences (destination, dates, budget, type) to refine availability.');
-    return lines.join('\n');
+    lines.push('\n💡 *Tip: Click "Get Recommendations" for personalized suggestions!*');
+    return lines.join('\n\n');
+  };
+
+  const formatAnalytics = (data: any) => {
+    if (!data || Object.keys(data).length === 0) {
+      return '📊 **Analytics Dashboard**\n\nNo data available yet. Start your journey to see your travel stats!';
+    }
+
+    const overview = data.overview || data;
+    const isOrganizer = user?.role === 'organizer';
+
+    let report = `📊 **Analytics Overview**\n\n`;
+
+    if (isOrganizer) {
+      // Organizer specific stats
+      const revenue = overview.revenue || overview.totalRevenue || 0;
+      const totalTrips = overview.trips || overview.totalTrips || 0;
+      const bookings = overview.bookings || overview.totalBookings || 0;
+      const rating = overview.averageRating || 'N/A';
+      const conversion = overview.conversionRate ? `${overview.conversionRate}%` : 'N/A';
+
+      report += `💰 **Total Revenue:** ₹${revenue.toLocaleString()}\n`;
+      report += `🏔️ **Trips Organized:** ${totalTrips}\n`;
+      report += `🎫 **Total Bookings:** ${bookings}\n`;
+      report += `⭐ **Average Rating:** ${rating}\n`;
+      report += `📈 **Conversion Rate:** ${conversion}\n`;
+
+      if (overview.topDestinations && overview.topDestinations.length) {
+        report += `\n🏆 **Top Destinations:**\n${overview.topDestinations.slice(0, 3).map((d: string) => `• ${d}`).join('\n')}`;
+      }
+    } else {
+      // Traveler stats
+      const tripsJoined = overview.tripsJoined || overview.completedTrips || 0;
+      const upcoming = overview.upcomingTrips || overview.upcoming || 0;
+      const wishlist = overview.wishlistCount || 0;
+
+      report += `🎒 **Trips Joined:** ${tripsJoined}\n`;
+      report += `🔜 **Upcoming Adventures:** ${upcoming}\n`;
+      report += `❤️ **Wishlisted Items:** ${wishlist}\n`;
+
+      if (upcoming > 0) {
+        report += `\nGet ready for your next adventure! Check your profile for packing lists.`;
+      }
+    }
+
+    return report;
   };
 
   const fetchAvailabilityWithPreferences = async (prefs?: typeof preferences) => {
@@ -181,27 +259,6 @@ const AIChatWidgetClean: React.FC = () => {
     setActionLoading(null);
   };
 
-  const formatAnalytics = (data: any) => {
-    if (!data || Object.keys(data).length === 0) {
-      return 'No analytics yet. Add trips and bookings to see metrics. If you are an organizer, make sure your account is verified.';
-    }
-
-    const overview = data.overview || data;
-    const trips = overview.tripsJoined ?? overview.trips ?? overview.totalTrips;
-    const upcoming = overview.upcomingTrips ?? overview.upcoming;
-    const openTickets = overview.openTickets ?? overview.tickets;
-
-    return [
-      'Analytics snapshot:',
-      `• Trips: ${trips ?? 'N/A'}`,
-      `• Upcoming: ${upcoming ?? 'N/A'}`,
-      `• Open tickets: ${openTickets ?? 'N/A'}`,
-      overview.revenue ? `• Revenue: ${overview.revenue}` : null,
-      overview.conversionRate ? `• Conversion: ${overview.conversionRate}` : null,
-      overview.topDestinations?.length ? `• Top destinations: ${overview.topDestinations.slice(0, 3).join(', ')}` : null
-    ].filter(Boolean).join('\n');
-  };
-
   const initializeSocket = () => {
     try {
       const socketUrl = API_BASE_URL.replace('/api', '') || window.location.origin;
@@ -218,12 +275,19 @@ const AIChatWidgetClean: React.FC = () => {
       });
 
       socket.on('chat_message', (msg: any) => {
+        // Ensure message content is a string, not object
+        let content = msg.message || String(msg);
+        if (typeof content === 'object') {
+          content = JSON.stringify(content, null, 2);
+          // Attempt to pretty print if it's still an object, but we aim for text
+        }
+
         const chatMsg: ChatMessage = {
           id: msg.id || `m_${Date.now()}`,
           senderId: msg.senderId || 'ai',
           senderName: msg.senderName || (msg.senderRole === 'user' ? 'You' : 'Assistant'),
           senderRole: msg.senderRole || 'ai',
-          message: msg.message || String(msg),
+          message: content,
           timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date(),
         };
         setMessages((s) => [...s, chatMsg]);
@@ -242,34 +306,44 @@ const AIChatWidgetClean: React.FC = () => {
   const sendMessageToAIProxy = async (text: string) => {
     try {
       // Use the AI chat endpoint which handles conversation context
-      const resp = await api.post('/api/ai/chat', { 
+      const resp = await api.post('/api/ai/chat', {
         message: text,
         context: {
           userId: user?.id,
-          sessionId: socketRef.current?.id || `session_${Date.now()}`
+          userRole: user?.role,
+          sessionId: socketRef.current?.id || `session_${Date.now()}`,
+          currentPath: location.pathname,
+          pageTitle: document.title
         }
       });
       const data = resp.data || {};
       // Handle different response formats from AI service
-      const aiText = (data && (
-        (data as any).message || 
-        (data as any).response || 
-        (data as any).text || 
+      let aiText = (data && (
+        (data as any).message ||
+        (data as any).response ||
+        (data as any).text ||
         (data as any).content ||
         data
-      )) || JSON.stringify(data);
-      
+      ));
+
+      if (typeof aiText === 'object') {
+        // Fallback: if backend sends JSON, format it simply
+        aiText = JSON.stringify(aiText, null, 2).replace(/[\{\}\"]/g, '');
+      } else {
+        aiText = String(aiText || '');
+      }
+
       // Check if response indicates low confidence or requires human agent
-      const requiresHuman = (data as any).requiresHumanAgent === true || 
-                           (data as any).confidence === 'low' ||
-                           (typeof aiText === 'string' && aiText.toLowerCase().includes('i\'m not sure'));
-      
+      const requiresHuman = (data as any).requiresHumanAgent === true ||
+        (data as any).confidence === 'low' ||
+        aiText.toLowerCase().includes('i\'m not sure');
+
       const chatMsg: ChatMessage = {
         id: `ai_${Date.now()}`,
         senderId: 'ai',
         senderName: 'Trek Tribe Assistant',
         senderRole: 'ai',
-        message: typeof aiText === 'string' ? aiText : JSON.stringify(aiText),
+        message: aiText,
         timestamp: new Date(),
       };
       setMessages((s) => [...s, chatMsg]);
@@ -277,10 +351,10 @@ const AIChatWidgetClean: React.FC = () => {
       // Only create ticket if AI indicates it should OR if topic is sensitive (refund, cancellation, complaint)
       const sensitiveKeywords = ['refund', 'cancel', 'complaint', 'dispute', 'fraud', 'scam', 'unauthorized'];
       const isSensitive = sensitiveKeywords.some(kw => text.toLowerCase().includes(kw));
-      
-      const shouldCreateTicket = requiresHuman || 
-                                 isSensitive ||
-                                 ((data as any).actions && (data as any).actions.create_ticket);
+
+      const shouldCreateTicket = requiresHuman ||
+        isSensitive ||
+        ((data as any).actions && (data as any).actions.create_ticket);
 
       if (shouldCreateTicket) {
         try {
@@ -289,14 +363,13 @@ const AIChatWidgetClean: React.FC = () => {
             return userMessages.length ? userMessages[userMessages.length - 1].message : undefined;
           })();
 
-          const subject = (data as any).actions?.ticket_summary || 
-                         (isSensitive ? `Sensitive inquiry: ${text.substring(0, 80)}...` : 
-                          text.length > 100 ? text.slice(0, 100) + '...' : text);
-          const description = `User asked: ${lastUserMessage || text}\n\nReason: ${
-            requiresHuman ? 'Low AI confidence' : 
-            isSensitive ? 'Sensitive topic (refund/cancellation/complaint)' : 
-            'AI suggested human assistance'
-          }\n\nAssistant response:\n${typeof aiText === 'string' ? aiText : JSON.stringify(aiText)}`;
+          const subject = (data as any).actions?.ticket_summary ||
+            (isSensitive ? `Sensitive inquiry: ${text.substring(0, 80)}...` :
+              text.length > 100 ? text.slice(0, 100) + '...' : text);
+          const description = `User asked: ${lastUserMessage || text}\n\nReason: ${requiresHuman ? 'Low AI confidence' :
+              isSensitive ? 'Sensitive topic (refund/cancellation/complaint)' :
+                'AI suggested human assistance'
+            }\n\nAssistant response:\n${aiText}`;
 
           const ticketResp = await api.post('/api/support/tickets', {
             subject,
@@ -311,8 +384,8 @@ const AIChatWidgetClean: React.FC = () => {
             senderId: 'system',
             senderName: 'System',
             senderRole: 'ai',
-            message: ticketData ? 
-              `🎫 Support ticket created (ID: ${ticketData.ticketId}). ${isSensitive ? 'Due to the sensitive nature of your request, ' : ''}A human agent will assist you shortly.` : 
+            message: ticketData ?
+              `🎫 **Support Ticket Created**\nTicket ID: **${ticketData.ticketId}**\n\n${isSensitive ? 'Due to the nature of your request, ' : ''}A human agent will review this and assist you shortly.` :
               'Support ticket requested; failed to create automatically.',
             timestamp: new Date(),
           };
@@ -377,9 +450,20 @@ const AIChatWidgetClean: React.FC = () => {
     };
     setMessages((s) => [...s, userMsg]);
 
+    // Check for local greetings first
+    if (handleLocalGreetings(text)) {
+      return; // Handled locally
+    }
+
     if (socketRef.current && socketRef.current.connected && !socketFailed) {
       try {
-        socketRef.current.emit('ai_chat_message', { message: text, context: {} });
+        socketRef.current.emit('ai_chat_message', {
+          message: text,
+          context: {
+            currentPath: location.pathname,
+            userRole: user?.role
+          }
+        });
       } catch (e) {
         await sendMessageToAIProxy(text);
       }
@@ -472,7 +556,7 @@ const AIChatWidgetClean: React.FC = () => {
         return userMessages.length ? userMessages[userMessages.length - 1].message : undefined;
       })();
       const description = inputMessage || lastUserMessage || 'User requested to speak with a human agent';
-      
+
       // Create support ticket for human agent
       // The endpoint expects: message, category (optional), priority (optional)
       const resp = await api.post('/api/support/human-agent/request', {
@@ -493,7 +577,7 @@ const AIChatWidgetClean: React.FC = () => {
           message: `✅ Human agent support ticket created (ID: ${ticketId}). A support agent will be with you shortly. They will help you with any issues or questions you have.`,
           timestamp: new Date(),
         };
-        
+
         setMessages((s) => [...s, systemMsg]);
         setInputMessage('');
 
