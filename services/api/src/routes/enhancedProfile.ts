@@ -48,10 +48,10 @@ router.get('/enhanced/:userId?', async (req, res) => {
     // Try to extract user from token if present (optional authentication)
     // Also check cookies for session-based auth
     let requestingUserId: string | undefined;
-    
+
     // Try to extract token from cookies or Authorization header
     const token = extractTokenFromHeaders(req.headers) || req.cookies?.token || req.cookies?.authToken;
-    
+
     if (token) {
       try {
         const jwt = require('jsonwebtoken');
@@ -63,12 +63,12 @@ router.get('/enhanced/:userId?', async (req, res) => {
         logger.debug('Token verification failed (optional auth)', { error: (err as Error).message });
       }
     }
-    
+
     // If no token, try to get from req.user if authenticateToken middleware was applied
     if (!requestingUserId && (req as any).user) {
       requestingUserId = (req as any).user.id || (req as any).user.userId || (req as any).user._id;
     }
-    
+
     const userId = req.params.userId || requestingUserId;
 
     if (!userId) {
@@ -103,7 +103,7 @@ router.get('/enhanced/:userId?', async (req, res) => {
 
     // Check if viewing own profile
     const isOwnProfile = requestingUserId === userId;
-    
+
     // All profiles are now public, but show different content based on role
     let profileData: any = user.toObject();
 
@@ -121,7 +121,7 @@ router.get('/enhanced/:userId?', async (req, res) => {
     // Organizers get: profile, portfolio, followers, posts, stats
     // Travellers get: profile, following, past trips, wishlists
     let roleSpecificData: any = {};
-    
+
     if (user.role === 'organizer') {
       // Organizers: full profile with portfolio
       roleSpecificData = {
@@ -138,7 +138,7 @@ router.get('/enhanced/:userId?', async (req, res) => {
         postsVisible: false,
         followersVisible: true,
         statsVisible: false,
-        canPost: false,
+        canPost: isOwnProfile,
         showPastTrips: true,
         showWishlists: true,
       };
@@ -165,7 +165,7 @@ router.get('/enhanced/:userId?', async (req, res) => {
 
   } catch (error: any) {
     logger.error('Error fetching enhanced profile', { error: error.message, userId: req.params.userId, stack: error.stack });
-    
+
     // Specific error handling
     if (error.name === 'CastError') {
       return res.status(400).json({
@@ -253,7 +253,7 @@ router.put('/enhanced', authenticateToken, async (req, res) => {
 
   } catch (error: any) {
     logger.error('Error updating enhanced profile', { error: error.message, userId: req.user?.id });
-    
+
     if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors).map((err: any) => err.message);
       return res.status(400).json({
@@ -409,7 +409,7 @@ router.post('/upload-verification', authenticateToken, async (req, res) => {
 router.post('/generate-unique-url', authenticateToken, async (req, res) => {
   try {
     const { baseName } = req.body;
-    
+
     if (!baseName || baseName.length < 3) {
       return res.status(400).json({
         success: false,
@@ -434,7 +434,7 @@ router.post('/generate-unique-url', authenticateToken, async (req, res) => {
       }
       suggestion = `${sanitizedBase}-${counter}`;
       counter++;
-      
+
       // Prevent infinite loop
       if (counter > 999) {
         return res.status(400).json({

@@ -79,7 +79,7 @@ code {
 /* Trek Tribe Custom Scrollbar */
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: #64748b #e2e8f0;
+  scrollbar-color: #22c55e #bbf7d0; /* forest-500 forest-200 */
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -87,17 +87,17 @@ code {
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: #e2e8f0;
+  background: #bbf7d0; /* forest-200 */
   border-radius: 3px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #64748b;
+  background: #22c55e; /* forest-500 */
   border-radius: 3px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: #15803d; /* forest-700 */
 }
 
 /* Hide scrollbar for Chrome, Safari and Opera */

@@ -3,7 +3,9 @@ import { User } from '../models/User';
 import { Trip } from '../models/Trip';
 import { Review } from '../models/Review';
 import { Wishlist } from '../models/Wishlist';
+import { Wishlist } from '../models/Wishlist';
 import CRMSubscription from '../models/CRMSubscription';
+import { OrganizerSubscription } from '../models/OrganizerSubscription';
 import { SupportTicket } from '../models/SupportTicket';
 import { VerificationRequest } from '../models/VerificationRequest';
 import { authenticateJwt, requireRole } from '../middleware/auth';
@@ -48,7 +50,7 @@ router.get('/stats', async (req, res) => {
     const tripsWithParticipants = await Trip.find({}, 'participants price');
     let totalBookings = 0;
     let totalTripRevenue = 0;
-    
+
     tripsWithParticipants.forEach(trip => {
       totalBookings += trip.participants.length;
       totalTripRevenue += trip.participants.length * trip.price;
@@ -64,7 +66,7 @@ router.get('/stats', async (req, res) => {
     subscriptions.forEach(sub => {
       const revenue = sub.totalPaid || 0;
       totalSubscriptionRevenue += revenue;
-      
+
       if (sub.createdAt >= firstDayOfMonth) {
         thisMonthSubscriptionRevenue += revenue;
       }
@@ -186,7 +188,7 @@ router.get('/trips/stats', async (req, res) => {
     const tripsWithParticipants = await Trip.find({}, 'participants price');
     let totalBookings = 0;
     let totalRevenue = 0;
-    
+
     tripsWithParticipants.forEach(trip => {
       totalBookings += trip.participants.length;
       totalRevenue += trip.participants.length * trip.price;
@@ -300,9 +302,9 @@ router.get('/users/contacts', async (req, res) => {
       warning: 'This endpoint contains sensitive user data. Access is logged and monitored.'
     });
   } catch (error: any) {
-    logger.error('Error fetching user contacts', { 
-      error: error.message, 
-      adminId: (req as any).auth.userId 
+    logger.error('Error fetching user contacts', {
+      error: error.message,
+      adminId: (req as any).auth.userId
     });
     res.status(500).json({ error: 'Failed to fetch user contacts' });
   }
@@ -312,7 +314,7 @@ router.get('/users/contacts', async (req, res) => {
 router.get('/users/:id/contact', async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const user = await User.findById(id, {
       name: 1,
       email: 1,
@@ -344,8 +346,8 @@ router.get('/users/:id/contact', async (req, res) => {
       warning: 'This data contains sensitive user information. Access is logged and monitored.'
     });
   } catch (error: any) {
-    logger.error('Error fetching user contact details', { 
-      error: error.message, 
+    logger.error('Error fetching user contact details', {
+      error: error.message,
       adminId: (req as any).auth.userId,
       targetUserId: req.params.id
     });
@@ -358,7 +360,7 @@ router.get('/users/export-contacts', async (req, res) => {
   try {
     const role = req.query.role as string;
     const query: any = {};
-    
+
     if (role && role !== 'all') {
       query.role = role;
     }
@@ -403,9 +405,9 @@ router.get('/users/export-contacts', async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="trek-tribe-users-${new Date().toISOString().split('T')[0]}.csv"`);
     res.send(csv);
   } catch (error: any) {
-    logger.error('Error exporting user contacts', { 
-      error: error.message, 
-      adminId: (req as any).auth.userId 
+    logger.error('Error exporting user contacts', {
+      error: error.message,
+      adminId: (req as any).auth.userId
     });
     res.status(500).json({ error: 'Failed to export user contacts' });
   }
@@ -630,10 +632,10 @@ router.patch('/users/:id/role', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    logger.info('User role updated', { 
+    logger.info('User role updated', {
       adminId: (req as any).auth.userId,
       userId: id,
-      newRole: role 
+      newRole: role
     });
 
     res.json({ message: 'User role updated successfully', user });
@@ -671,10 +673,10 @@ router.delete('/users/:id', async (req, res) => {
 
     await User.findByIdAndDelete(id);
 
-    logger.info('User deleted', { 
+    logger.info('User deleted', {
       adminId,
       deletedUserId: id,
-      deletedUserEmail: user.email 
+      deletedUserEmail: user.email
     });
 
     res.json({ message: 'User deleted successfully' });
@@ -704,10 +706,10 @@ router.patch('/trips/:id/status', async (req, res) => {
       return res.status(404).json({ error: 'Trip not found' });
     }
 
-    logger.info('Trip status updated', { 
+    logger.info('Trip status updated', {
       adminId: (req as any).auth.userId,
       tripId: id,
-      newStatus: status 
+      newStatus: status
     });
 
     res.json({ message: 'Trip status updated successfully', trip });
@@ -735,10 +737,10 @@ router.delete('/trips/:id', async (req, res) => {
 
     await Trip.findByIdAndDelete(id);
 
-    logger.info('Trip deleted', { 
+    logger.info('Trip deleted', {
       adminId: (req as any).auth.userId,
       deletedTripId: id,
-      deletedTripTitle: trip.title 
+      deletedTripTitle: trip.title
     });
 
     res.json({ message: 'Trip deleted successfully' });
@@ -1005,7 +1007,7 @@ router.post('/organizer-verifications/:userId/reject', async (req, res) => {
 router.get('/organizer-verifications/all', async (req, res) => {
   try {
     const { status } = req.query;
-    
+
     const filter: any = { role: 'organizer' };
     if (status && ['pending', 'approved', 'rejected'].includes(status as string)) {
       filter.organizerVerificationStatus = status;
@@ -1036,11 +1038,11 @@ router.get('/organizer-verifications/all', async (req, res) => {
  */
 router.get('/verification-requests', async (req, res) => {
   try {
-    const { 
-      status, 
-      requestType, 
+    const {
+      status,
+      requestType,
       priority,
-      page = 1, 
+      page = 1,
       limit = 20,
       sortBy = 'createdAt',
       sortOrder = 'desc'
@@ -1097,9 +1099,9 @@ router.get('/verification-requests', async (req, res) => {
     });
   } catch (error: any) {
     logger.error('Error fetching verification requests', { error: error.message });
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      error: 'Failed to fetch verification requests' 
+      error: 'Failed to fetch verification requests'
     });
   }
 });
@@ -1146,13 +1148,13 @@ router.get('/verification-requests/:id', async (req, res) => {
       requestId: req.params.id
     });
   } catch (error: any) {
-    logger.error('Error fetching verification request details', { 
+    logger.error('Error fetching verification request details', {
       error: error.message,
-      requestId: req.params.id 
+      requestId: req.params.id
     });
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      error: 'Failed to fetch verification request details' 
+      error: 'Failed to fetch verification request details'
     });
   }
 });
@@ -1163,11 +1165,11 @@ router.get('/verification-requests/:id', async (req, res) => {
  */
 router.post('/verification-requests/:id/approve', async (req, res) => {
   try {
-    const { 
-      trustScore, 
-      verificationBadge, 
-      enableRouting = false, 
-      adminNotes 
+    const {
+      trustScore,
+      verificationBadge,
+      enableRouting = false,
+      adminNotes
     } = req.body;
 
     // Validate trust score
@@ -1334,13 +1336,13 @@ router.post('/verification-requests/:id/approve', async (req, res) => {
       routingEnabled: enableRouting
     });
   } catch (error: any) {
-    logger.error('Error approving verification request', { 
+    logger.error('Error approving verification request', {
       error: error.message,
-      requestId: req.params.id 
+      requestId: req.params.id
     });
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      error: 'Failed to approve verification request' 
+      error: 'Failed to approve verification request'
     });
   }
 });
@@ -1451,13 +1453,13 @@ router.post('/verification-requests/:id/reject', async (req, res) => {
       reason: rejectionReason
     });
   } catch (error: any) {
-    logger.error('Error rejecting verification request', { 
+    logger.error('Error rejecting verification request', {
       error: error.message,
-      requestId: req.params.id 
+      requestId: req.params.id
     });
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      error: 'Failed to reject verification request' 
+      error: 'Failed to reject verification request'
     });
   }
 });
@@ -1489,7 +1491,7 @@ router.put('/verification-requests/:id/status', async (req, res) => {
     request.status = status;
     if (priority) request.priority = priority;
     if (adminNotes) request.adminNotes = adminNotes;
-    
+
     // Set reviewed fields when status changes to approved/rejected
     if (['approved', 'rejected'].includes(status)) {
       request.reviewedBy = (req as any).auth.userId;
@@ -1510,13 +1512,13 @@ router.put('/verification-requests/:id/status', async (req, res) => {
       newStatus: status
     });
   } catch (error: any) {
-    logger.error('Error updating verification request status', { 
+    logger.error('Error updating verification request status', {
       error: error.message,
-      requestId: req.params.id 
+      requestId: req.params.id
     });
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      error: 'Failed to update verification request status' 
+      error: 'Failed to update verification request status'
     });
   }
 });
@@ -1545,15 +1547,15 @@ router.post('/verification-requests/:id/recalculate-score', async (req, res) => 
 
     // Calculate new trust score
     const trustScore = await TrustScoreService.calculateTrustScore(request.organizerId.toString());
-    
+
     // Update organizer profile
     if (!organizer.organizerProfile) {
       organizer.organizerProfile = {} as any;
     }
-    
+
     organizer.organizerProfile.trustScore = trustScore;
     organizer.organizerProfile.verificationBadge = TrustScoreService.getBadgeForScore(trustScore.overall);
-    
+
     await organizer.save();
 
     // Get improvement recommendations
@@ -1577,14 +1579,94 @@ router.post('/verification-requests/:id/recalculate-score', async (req, res) => 
       newScore: trustScore.overall
     });
   } catch (error: any) {
-    logger.error('Error recalculating trust score', { 
+    logger.error('Error recalculating trust score', {
       error: error.message,
-      requestId: req.params.id 
+      requestId: req.params.id
     });
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      error: 'Failed to recalculate trust score' 
+      error: 'Failed to recalculate trust score'
     });
+  }
+});
+
+// Get User Subscription (Admin)
+router.get('/users/:id/subscription', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const subscription = await OrganizerSubscription.findOne({ organizerId: id });
+
+    if (!subscription) {
+      return res.json({ hasSubscription: false });
+    }
+
+    res.json({
+      hasSubscription: true,
+      subscription: {
+        ...subscription.toObject(),
+        crmAccess: subscription.crmAccess || false // Ensure it returns explicit false if undefined
+      }
+    });
+  } catch (error: any) {
+    logger.error('Error fetching user subscription', { error: error.message });
+    res.status(500).json({ error: 'Failed to fetch subscription' });
+  }
+});
+
+// Manage User Subscription (Admin Manual Override)
+router.post('/users/:id/subscription-override', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { crmAccess, addTrips, setPlan } = req.body;
+    const adminId = (req as any).auth.userId;
+
+    let subscription = await OrganizerSubscription.findOne({ organizerId: id });
+
+    if (!subscription) {
+      // If user is organizer but has no subscription, create one
+      const user = await User.findById(id);
+      if (user && (user.role === 'organizer' || user.role === 'admin')) {
+        subscription = await OrganizerSubscription.create({
+          organizerId: id,
+          plan: 'free-trial', // Default
+          status: 'trial',
+          isTrialActive: true
+        });
+      } else {
+        return res.status(404).json({ error: 'No subscription found and user is not an organizer' });
+      }
+    }
+
+    const updates: any = {};
+
+    if (crmAccess !== undefined) {
+      subscription.crmAccess = crmAccess;
+      updates.crmAccess = crmAccess;
+    }
+
+    if (addTrips && typeof addTrips === 'number') {
+      subscription.tripsRemaining = (subscription.tripsRemaining || 0) + addTrips;
+      subscription.tripsPerCycle = Math.max(subscription.tripsPerCycle, subscription.tripsRemaining);
+      updates.tripsAdded = addTrips;
+    }
+
+    if (setPlan) {
+      subscription.plan = setPlan;
+      updates.plan = setPlan;
+    }
+
+    await subscription.save();
+
+    logger.info('Admin updated user subscription manually', {
+      adminId,
+      targetUserId: id,
+      updates
+    });
+
+    res.json({ success: true, subscription });
+  } catch (error: any) {
+    logger.error('Error updating subscription override', { error: error.message });
+    res.status(500).json({ error: 'Failed to update subscription' });
   }
 });
 

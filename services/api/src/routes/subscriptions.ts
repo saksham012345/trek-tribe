@@ -188,7 +188,7 @@ router.get('/plans', async (_req: Request, res: Response) => {
         ...SUBSCRIPTION_PLANS.ENTERPRISE,
       },
     ];
-    
+
     return res.json({
       success: true,
       plans,
@@ -196,10 +196,10 @@ router.get('/plans', async (_req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('❌ Error fetching plans:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       success: false,
       error: 'Failed to fetch plans',
-      message: error.message 
+      message: error.message
     });
   }
 });
@@ -501,11 +501,22 @@ router.post('/verify-payment', authenticateJwt, async (req: Request, res: Respon
     expiryDate.setDate(expiryDate.getDate() + plan.duration);
 
     // Create subscription
+    // Create subscription
+    const crmAccessPlans = ['PROFESSIONAL', 'PREMIUM', 'ENTERPRISE'];
+    const planMapping: Record<string, string> = {
+      'STARTER': 'starter',
+      'BASIC': 'basic',
+      'PROFESSIONAL': 'professional',
+      'PREMIUM': 'premium',
+      'ENTERPRISE': 'enterprise'
+    };
+
     const subscription = await OrganizerSubscription.create({
       organizerId: userId,
-      plan: planType === 'BASIC' ? 'basic' : 'pro',
+      plan: planMapping[planType] || 'basic',
       status: 'active',
       isTrialActive: false,
+      crmAccess: crmAccessPlans.includes(planType),
       subscriptionStartDate: startDate,
       subscriptionEndDate: expiryDate,
       currentPeriodStart: startDate,
@@ -739,10 +750,10 @@ router.post('/webhook', async (req: Request, res: Response) => {
   try {
     const razorpaySignature = req.headers['x-razorpay-signature'] as string;
     const body = JSON.stringify(req.body);
-    
+
     // Verify webhook signature
     const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || '';
-    
+
     if (!webhookSecret) {
       console.warn('⚠️ RAZORPAY_WEBHOOK_SECRET not configured. Webhook verification skipped.');
       // Continue processing for dev environments, but log warning
@@ -1060,7 +1071,7 @@ router.get('/verify-crm-access', authenticateJwt, async (req: Request, res: Resp
     // Check if subscription has expired
     const now = new Date();
     const endDate = subscription.subscriptionEndDate || subscription.currentPeriodEnd;
-    
+
     if (endDate && endDate < now && subscription.status !== 'trial') {
       return res.json({
         hasCRMAccess: false,
@@ -1109,7 +1120,7 @@ router.get('/verify-crm-access', authenticateJwt, async (req: Request, res: Resp
       // Use a valid key for type safety, but plan will be undefined
       normalizedPlanKey = 'STARTER';
     }
-    
+
     const plan = SUBSCRIPTION_PLANS[normalizedPlanKey];
 
     // Get subscription price from plan or from payment history
@@ -1136,9 +1147,10 @@ router.get('/verify-crm-access', authenticateJwt, async (req: Request, res: Resp
     const hasAccessByPrice = subscriptionPrice >= 2299;
     const isPremiumOrProfessional = normalizedPlanKey === 'PREMIUM' || normalizedPlanKey === 'PROFESSIONAL';
 
-    // Determine CRM access: either plan has crmAccess flag OR price >= ₹2299 OR is premium/professional
+    // Determine CRM access: either plan has crmAccess flag OR price >= ₹2299 OR is premium/professional OR manual override
     const hasCRMAccessByPlan = plan?.crmAccess === true;
-    const finalCRMAccess = hasCRMAccessByPlan || hasAccessByPrice || isPremiumOrProfessional;
+    const hasManualOverride = (subscription as any).crmAccess === true;
+    const finalCRMAccess = hasCRMAccessByPlan || hasAccessByPrice || isPremiumOrProfessional || hasManualOverride;
 
     // Lead capture and phone numbers also require CRM-level access
     const hasLeadCapture = (plan?.leadCapture === true) || hasAccessByPrice || isPremiumOrProfessional;
@@ -1300,12 +1312,12 @@ router.get('/verify-organizer-info', authenticateJwt, requireRole(['organizer'])
       phonePresent: !!user.phone && user.phone.trim().length > 0,
       profilePhotoPresent: !!user.profilePhoto && user.profilePhoto.trim().length > 0,
       organizerProfileComplete: !!(
-        user.organizerProfile && 
+        user.organizerProfile &&
         Object.keys(user.organizerProfile).length > 0
       ),
       bioPresent: !!user.bio && user.bio.trim().length > 0,
       bankDetailsPresent: !!(
-        user.organizerProfile?.bankDetails && 
+        user.organizerProfile?.bankDetails &&
         Object.keys(user.organizerProfile.bankDetails).length > 0
       ),
     };
@@ -1318,10 +1330,10 @@ router.get('/verify-organizer-info', authenticateJwt, requireRole(['organizer'])
       'profilePhotoPresent',
       'organizerProfileComplete'
     ];
-    
+
     const completedFields = requiredFields.filter(field => verification[field as keyof typeof verification]).length;
     const completionPercentage = Math.round((completedFields / requiredFields.length) * 100);
-    
+
     const profileComplete = completionPercentage >= 80; // 80% threshold for complete profile
 
     return res.json({
