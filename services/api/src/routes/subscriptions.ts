@@ -1395,4 +1395,111 @@ function getOrganizerProfileRecommendations(verification: any): string[] {
   return recommendations;
 }
 
+
+/**
+ * PATCH /api/subscriptions/:organizerId
+ * Admin only: Update subscription details manually
+ */
+router.patch('/:organizerId', authenticateJwt, requireRole(['admin']), async (req: Request, res: Response) => {
+  try {
+    const { organizerId } = req.params;
+    const updates = req.body;
+
+    // Find subscription
+    let subscription = await OrganizerSubscription.findOne({ organizerId });
+
+    if (!subscription) {
+      // Create if strictly requested or return 404? 
+      // Let's create a partial one if admin wants to force a sub
+      const startDate = new Date();
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + 30);
+
+      subscription = await OrganizerSubscription.create({
+        organizerId,
+        plan: updates.plan || 'basic',
+        status: updates.status || 'active',
+        isTrialActive: false,
+        crmAccess: updates.crmAccess || false,
+        subscriptionStartDate: startDate,
+        subscriptionEndDate: expiryDate,
+        currentPeriodStart: startDate,
+        currentPeriodEnd: expiryDate,
+        tripsPerCycle: 5,
+        tripsUsed: 0,
+        tripsRemaining: 5,
+        pricePerCycle: 0,
+        totalPaid: 0,
+        lastPaymentDate: new Date(),
+      });
+    }
+
+    // Apply updates
+    if (updates.plan) subscription.plan = updates.plan;
+    if (updates.status) subscription.status = updates.status;
+    if (updates.crmAccess !== undefined) subscription.crmAccess = updates.crmAccess;
+    if (updates.tripsRemaining !== undefined) subscription.tripsRemaining = updates.tripsRemaining;
+    if (updates.validUntil) {
+      subscription.subscriptionEndDate = new Date(updates.validUntil);
+      subscription.currentPeriodEnd = new Date(updates.validUntil);
+    }
+
+    await subscription.save();
+
+    // Audit
+    await auditLogService.log({
+      userId: (req as any).user.userId,
+      action: 'UPDATE',
+      resource: 'Subscription',
+      resourceId: subscription._id.toString(),
+      metadata: { updates, targetUser: organizerId },
+      req
+    });
+
+    return res.json({
+      success: true,
+      message: 'Subscription updated by admin',
+      subscription
+    });
+  } catch (error: any) {
+    console.error('❌ Error updating subscription:', error);
+    return res.status(500).json({ error: 'Failed to update subscription' });
+  }
+});
+
+
+/**
+ * GET /api/subscriptions/:organizerId
+ * Admin/Organizer: Get specific subscription details
+ */
+router.get('/:organizerId', authenticateJwt, async (req: Request, res: Response) => {
+  try {
+    const { organizerId } = req.params;
+    const requesterId = (req as any).user.userId;
+    const role = (req as any).user.role;
+
+    // Access control: Admin or the user themselves
+    if (role !== 'admin' && requesterId !== organizerId) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const subscription = await OrganizerSubscription.findOne({ organizerId });
+
+    if (!subscription) {
+      return res.json({
+        success: false,
+        message: 'No subscription found',
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: subscription
+    });
+  } catch (error: any) {
+    console.error('❌ Error fetching subscription:', error);
+    return res.status(500).json({ error: 'Failed to fetch subscription' });
+  }
+});
+
 export default router;

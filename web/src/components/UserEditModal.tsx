@@ -22,8 +22,13 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({ user, onClose, onU
 
     const fetchSubscription = async () => {
         try {
-            const response = await api.get(`/admin/users/${user._id}/subscription`);
-            if (response.data.hasSubscription) {
+            const response = await api.get(`/api/subscriptions/${user._id}`);
+            if (response.data.success) { // New endpoint returns { success: true, data: ... }
+                setSubscription(response.data.data);
+                setCrmAccess(response.data.data.crmAccess);
+                setSelectedPlan(response.data.data.plan);
+            } else if (response.data.hasSubscription) {
+                // Fallback for old structure if any
                 setSubscription(response.data.subscription);
                 setCrmAccess(response.data.subscription.crmAccess);
                 setSelectedPlan(response.data.subscription.plan);
@@ -39,20 +44,18 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({ user, onClose, onU
         setSaving(true);
         try {
             // 1. Update Subscription
-            await api.post(`/admin/users/${user._id}/subscription-override`, {
+            await api.patch(`/api/subscriptions/${user._id}`, {
                 crmAccess,
-                addTrips: addTrips ? parseInt(addTrips) : undefined,
-                setPlan: selectedPlan !== subscription?.plan ? selectedPlan : undefined
+                tripsRemaining: addTrips ? (subscription?.tripsRemaining || 0) + parseInt(addTrips) : undefined,
+                plan: selectedPlan !== subscription?.plan ? selectedPlan : undefined
             });
 
             // 2. Update Verification if changed (assuming there's an endpoint for this, typically handled by verify/reject endpoints but straightforward to add patch if needed, for now focusing on subscription as per request)
             // The user manual request was about "allow trip creation and active crm". Trip creation is usually blocked by verification or trip limits.
             // If we need to verify organizer manually:
-            /*
             if (verificationStatus !== user.organizerVerificationStatus) {
-               // Call verification endpoint
+                // Call verification endpoint if needed, but for now just subscription
             }
-            */
 
             onUpdate();
             onClose();
