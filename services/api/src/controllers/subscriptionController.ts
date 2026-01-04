@@ -389,6 +389,77 @@ class SubscriptionController {
       });
     }
   }
+  /**
+   * Admin: Update subscription manually
+   */
+  async updateSubscription(req: AuthRequest, res: Response) {
+    try {
+      // Role check handled by route middleware
+      const { organizerId } = req.params;
+      const { planType, status, validUntil, crmAccess, overrideOverride } = req.body;
+
+      let subscription = await CRMSubscription.findOne({ organizerId });
+
+      if (!subscription) {
+        // Create new if not exists
+        subscription = new CRMSubscription({
+          organizerId,
+          planType: planType || 'basic',
+          status: status || 'active',
+        });
+      }
+
+      if (planType) subscription.planType = planType;
+      if (status) subscription.status = status;
+      if (crmAccess !== undefined) {
+        if (!subscription.crmBundle) {
+            subscription.crmBundle = { hasAccess: crmAccess, price: 0, features: [] };
+        } else {
+            subscription.crmBundle.hasAccess = crmAccess;
+        }
+      }
+      
+      // Handle custom validity
+      if (validUntil) {
+        // We might need to adjust specific trial or package dates depending on schema
+        // For now, let's assume we can set a generic expiry if the schema supports it
+        // The current schema seems to split trial and tripPackage. 
+        // We will infer "active until" logic by updating trialEndDate or adding a custom field if needed.
+        // Or simply update the trial end date if it's a trial, or just log it for now as the schema is specific.
+        // Let's check the schema again. 
+        // The schema has `trial.endDate`.
+        if (subscription.trial) {
+            subscription.trial.endDate = new Date(validUntil);
+            subscription.trial.isActive = new Date(validUntil) > new Date();
+        }
+      }
+
+      await subscription.save();
+
+      // Log admin action
+      await notificationService.createNotification({
+        userId: organizerId,
+        type: 'system',
+        title: 'Subscription Updated',
+        message: 'An administrator has updated your subscription details.',
+        priority: 'high',
+        sendEmail: true,
+      });
+
+      res.json({
+        success: true,
+        message: 'Subscription updated successfully',
+        data: subscription,
+      });
+    } catch (error: any) {
+      console.error('Update subscription error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update subscription',
+        error: error.message,
+      });
+    }
+  }
 }
 
 export default new SubscriptionController();

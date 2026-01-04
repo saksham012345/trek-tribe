@@ -367,8 +367,8 @@ const AIChatWidgetClean: React.FC = () => {
             (isSensitive ? `Sensitive inquiry: ${text.substring(0, 80)}...` :
               text.length > 100 ? text.slice(0, 100) + '...' : text);
           const description = `User asked: ${lastUserMessage || text}\n\nReason: ${requiresHuman ? 'Low AI confidence' :
-              isSensitive ? 'Sensitive topic (refund/cancellation/complaint)' :
-                'AI suggested human assistance'
+            isSensitive ? 'Sensitive topic (refund/cancellation/complaint)' :
+              'AI suggested human assistance'
             }\n\nAssistant response:\n${aiText}`;
 
           const ticketResp = await api.post('/api/support/tickets', {
@@ -624,100 +624,138 @@ const AIChatWidgetClean: React.FC = () => {
     }
   };
 
+  // Typing indicator simulation
+  const [isTyping, setIsTyping] = useState(false);
+
+  useEffect(() => {
+    if (isLoading) {
+      setIsTyping(true);
+    } else {
+      // Add a small delay before removing typing indicator for realism
+      const timer = setTimeout(() => setIsTyping(false), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading]);
+
   return (
-    <div className="chat-widget-container">
+    <div className="chat-widget-container font-sans">
       {/* Toggle when closed */}
       {!isOpen && (
-        <div className="chat-widget-toggle" onClick={() => setIsOpen(true)} title="Open Trek Tribe Assistant">
-          <svg className="chat-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" width={28} height={28}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14l4 4V6c0-1.1-.9-2-2-2zM7 11h10M7 8h10M7 14h7" />
-          </svg>
+        <div className="chat-widget-toggle group" onClick={() => setIsOpen(true)} title="Open Trek Tribe Assistant">
+          <div className="absolute inset-0 bg-gradient-to-tr from-emerald-400 to-teal-600 rounded-full animate-pulse opacity-75"></div>
+          <div className="relative bg-white text-emerald-600 rounded-full p-3 shadow-lg group-hover:scale-110 transition-transform duration-300">
+            <svg className="w-8 h-8" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+            </svg>
+          </div>
         </div>
       )}
 
       {/* Full widget */}
       {isOpen && (
-        <div className="chat-widget">
-          <div className="chat-header">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 10, height: 10, borderRadius: 10, background: '#34D399', boxShadow: '0 0 0 4px rgba(52,211,153,0.08)' }} />
+        <div className="chat-widget glass-panel">
+          <div className="chat-header glass-header">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-100 to-white flex items-center justify-center border border-white/50 shadow-sm">
+                  <span className="text-xl">🤖</span>
+                </div>
+                <div className={`absolute bottom-0 right-0 w-3 h-3 border-2 border-white rounded-full ${socketFailed ? 'bg-red-400' : 'bg-emerald-400'}`}></div>
+              </div>
               <div className="chat-header-info">
-                <h3 style={{ margin: 0 }}>TrekTribe Assistant</h3>
-                <div className={`connection-status ${socketFailed ? 'disconnected' : 'connected'}`} style={{ marginTop: 2 }}>{socketFailed ? 'Offline' : 'Online'}</div>
+                <h3 className="font-bold text-gray-800 text-lg">TrekTribe AI</h3>
+                <p className="text-xs text-emerald-600 font-medium">{socketFailed ? 'Offline' : 'Online & Ready to Help'}</p>
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <button className="chat-close-btn" onClick={() => setIsOpen(false)}>×</button>
-            </div>
+            <button className="chat-close-btn hover:rotate-90 transition-transform duration-300" onClick={() => setIsOpen(false)}>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
 
-          <div className="chat-messages">
+          <div className="chat-messages scrollbar-thin scrollbar-thumb-emerald-200 scrollbar-track-transparent">
             {messages.map((m) => (
-              <div key={m.id} className={`message ${m.senderRole === 'user' ? 'user' : m.senderRole === 'ai' ? 'assistant ai' : 'agent'}`}>
-                <div className="message-header">
-                  <div className="message-sender">{m.senderRole === 'user' ? 'You' : m.senderName}</div>
-                  <div className="message-timestamp">{new Date(m.timestamp).toLocaleString()}</div>
+              <div key={m.id} className={`message-wrapper ${m.senderRole === 'user' ? 'justify-end' : 'justify-start'}`}>
+                {m.senderRole !== 'user' && (
+                  <div className="w-8 h-8 rounded-full bg-gray-100 flex-shrink-0 flex items-center justify-center text-xs mr-2 border border-gray-200">
+                    {m.senderRole === 'ai' ? '🤖' : '👤'}
+                  </div>
+                )}
+                <div className={`message-bubble ${m.senderRole === 'user' ? 'user-bubble' : 'ai-bubble glass-bubble'}`}>
+                  {m.senderRole !== 'user' && <div className="text-[10px] font-bold text-emerald-700/60 mb-1 uppercase tracking-wider">{m.senderName}</div>}
+                  <div className="message-text markdown-body" style={{ whiteSpace: 'pre-wrap' }}>{m.message}</div>
+                  <div className="text-[10px] opacity-50 mt-1 text-right">{new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                 </div>
-                <div className="message-content" style={{ whiteSpace: 'pre-wrap' }}>{m.message}</div>
               </div>
             ))}
+
+            {isTyping && (
+              <div className="message-wrapper justify-start">
+                <div className="w-8 h-8 rounded-full bg-gray-100 flex-shrink-0 flex items-center justify-center text-xs mr-2">🤖</div>
+                <div className="bg-white/80 border border-gray-100 rounded-2xl py-3 px-4 shadow-sm backdrop-blur-sm">
+                  <div className="typing-indicator">
+                    <span></span><span></span><span></span>
+                  </div>
+                </div>
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Action grid (large buttons as in screenshot) */}
-          <div className="chat-footer" style={{ padding: '12px' }}>
-            <div className="smart-actions-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
-              <button className="smart-action-btn" onClick={async () => {
-                if (actionLoading) return;
-                setActionLoading('recs');
-                try {
-                  const resp = await api.get('/api/ai/recommendations');
-                  const recs = resp.data?.recommendations || resp.data || [];
-                  const text = formatRecommendations(Array.isArray(recs) ? recs : [recs]);
-                  const msg: ChatMessage = { id: `rec_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: text, timestamp: new Date() };
-                  setMessages((s) => [...s, msg]);
-                } catch (e: any) {
-                  const err: ChatMessage = { id: `recerr_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: 'No recommendations available right now. Please try again or share your preferences.', timestamp: new Date() };
-                  setMessages((s) => [...s, err]);
-                }
-                setActionLoading(null);
-              }}>🚀 Get Recommendations</button>
-
-              <button className="smart-action-btn" onClick={() => setShowPreferenceModal(true)}>📅 Check Availability</button>
-
-              <button className="smart-action-btn" onClick={async () => {
-                if (actionLoading) return;
-                setActionLoading('analytics');
-                try {
-                  const resp = await api.get('/api/analytics/dashboard');
-                  const data = resp.data || resp.data?.overview || {};
-                  const msg: ChatMessage = { id: `an_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: formatAnalytics(data), timestamp: new Date() };
-                  setMessages((s) => [...s, msg]);
-                } catch (e: any) {
-                  const fallback = formatAnalytics({ overview: { tripsJoined: 0, upcomingTrips: 0, openTickets: 0 }, note: 'Demo analytics shown — add trips to unlock live metrics.' });
-                  const msg: ChatMessage = { id: `andemo_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: fallback, timestamp: new Date() };
-                  setMessages((s) => [...s, msg]);
-                }
-                setActionLoading(null);
-              }}>📊 My Analytics</button>
-
-              <button className="smart-action-btn" onClick={() => { setInputMessage('I need help with booking a trip'); }}>{'🧭 Booking Help'}</button>
+          {/* Action grid */}
+          <div className="bg-white/80 backdrop-blur-md border-t border-gray-100 p-3">
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none mb-2">
+              {[
+                {
+                  l: '🚀 Recommendations', a: async () => { /* reuse existing logic */
+                    if (actionLoading) return;
+                    setActionLoading('recs');
+                    try {
+                      const resp = await api.get('/api/ai/recommendations');
+                      const recs = resp.data?.recommendations || resp.data || [];
+                      const text = formatRecommendations(Array.isArray(recs) ? recs : [recs]);
+                      const msg: ChatMessage = { id: `rec_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: text, timestamp: new Date() };
+                      setMessages((s) => [...s, msg]);
+                    } catch (e: any) {
+                      const err: ChatMessage = { id: `recerr_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: 'No recommendations available right now. Please try again or share your preferences.', timestamp: new Date() };
+                      setMessages((s) => [...s, err]);
+                    }
+                    setActionLoading(null);
+                  }
+                },
+                { l: '📅 Availability', a: () => setShowPreferenceModal(true) },
+                {
+                  l: '📊 My Stats', a: async () => { /* reuse analytics logic */
+                    if (actionLoading) return;
+                    setActionLoading('analytics');
+                    try {
+                      const resp = await api.get('/api/analytics/dashboard');
+                      const data = resp.data || resp.data?.overview || {};
+                      const msg: ChatMessage = { id: `an_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: formatAnalytics(data), timestamp: new Date() };
+                      setMessages((s) => [...s, msg]);
+                    } catch (e: any) {
+                      const fallback = formatAnalytics({ overview: { tripsJoined: 0, upcomingTrips: 0, openTickets: 0 }, note: 'Demo analytics shown — add trips to unlock live metrics.' });
+                      const msg: ChatMessage = { id: `andemo_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: fallback, timestamp: new Date() };
+                      setMessages((s) => [...s, msg]);
+                    }
+                    setActionLoading(null);
+                  }
+                },
+                { l: '🧑‍💼 Human Agent', a: requestHumanAgent }
+              ].map((btn, i) => (
+                <button key={i} onClick={btn.a} className="whitespace-nowrap px-3 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full hover:bg-emerald-100 transition-colors border border-emerald-100 shadow-sm">
+                  {btn.l}
+                </button>
+              ))}
             </div>
 
-            <div style={{ marginTop: 8 }}>
-              <button className="human-agent-request-btn" onClick={requestHumanAgent} disabled={isLoading}>
-                {isLoading ? '⏳ Requesting Agent...' : '🧑‍💼 Talk to a Human Agent'}
-              </button>
-            </div>
-          </div>
-
-          <div className="chat-input-container">
-            <div className="chat-input-wrapper">
+            <div className="chat-input-wrapper glass-input-wrapper">
               <input
-                className="chat-input"
+                className="chat-input bg-transparent"
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
-                placeholder="Ask a question..."
+                placeholder="Ask me anything..."
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
@@ -726,39 +764,49 @@ const AIChatWidgetClean: React.FC = () => {
                 }}
                 disabled={isLoading}
               />
-              <button className="send-button" onClick={sendMessage} disabled={isLoading}>{isLoading ? '...' : '›'}</button>
+              <button
+                className={`send-button ${inputMessage.trim() ? 'opacity-100 translate-y-0' : 'opacity-40 translate-y-2'} transition-all duration-200`}
+                onClick={sendMessage}
+                disabled={isLoading}
+              >
+                <div className="w-8 h-8 bg-gradient-to-tr from-emerald-500 to-teal-500 rounded-full flex items-center justify-center text-white shadow-md hover:shadow-lg">
+                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                </div>
+              </button>
             </div>
+
             {/* If a ticket was created in this session, allow quick AI resolution */}
             {currentTicketId && (
-              <div className="mt-2 px-3">
+              <div className="mt-2 text-center">
                 <button
-                  className="resolve-ai-button px-3 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
+                  className="text-xs text-indigo-600 hover:underline font-medium"
                   onClick={() => fetchAISuggestionForTicket(currentTicketId)}
                   disabled={aiResolveLoading || showPreview}
                 >
-                  {aiResolveLoading ? 'Fetching suggestion...' : `Preview AI resolution for ${currentTicketId}`}
+                  {aiResolveLoading ? 'Thinking...' : `✨ Preview resolution for ticket #${currentTicketId}`}
                 </button>
 
                 {/* Preview area: show suggestion and confirm/cancel */}
                 {showPreview && (
-                  <div className="mt-3 p-3 bg-white border rounded shadow-sm">
-                    <div className="mb-2 text-sm text-gray-600">User: <strong>{user?.name || 'Guest'}</strong></div>
-                    <h4 className="text-sm font-medium mb-1">AI Suggested Resolution (preview)</h4>
-                    <div className="mb-3 text-sm text-gray-800 whitespace-pre-wrap">{previewSuggestion}</div>
-                    <div className="flex space-x-2">
+                  <div className="absolute bottom-20 left-4 right-4 bg-white/95 backdrop-blur-xl border border-indigo-100 rounded-xl shadow-2xl p-4 z-20 animate-slide-up">
+                    <h4 className="text-xs font-bold text-indigo-900 mb-2 uppercase tracking-wide flex items-center gap-2">
+                      <span>✨</span> AI Suggested Resolution
+                    </h4>
+                    <div className="text-sm text-gray-700 max-h-32 overflow-y-auto mb-3 p-2 bg-indigo-50/50 rounded border border-indigo-100">{previewSuggestion}</div>
+                    <div className="flex gap-2 justify-end">
                       <button
-                        className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
-                        onClick={() => confirmResolve(currentTicketId)}
-                        disabled={aiResolveLoading}
-                      >
-                        {aiResolveLoading ? 'Applying...' : 'Confirm & Apply'}
-                      </button>
-                      <button
-                        className="px-3 py-2 bg-gray-100 rounded"
+                        className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs font-medium rounded hover:bg-gray-200"
                         onClick={() => { setShowPreview(false); setPreviewSuggestion(null); }}
                         disabled={aiResolveLoading}
                       >
                         Cancel
+                      </button>
+                      <button
+                        className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded shadow-sm hover:bg-indigo-700"
+                        onClick={() => confirmResolve(currentTicketId)}
+                        disabled={aiResolveLoading}
+                      >
+                        {aiResolveLoading ? 'Applying...' : 'Apply Fix'}
                       </button>
                     </div>
                   </div>
@@ -768,6 +816,7 @@ const AIChatWidgetClean: React.FC = () => {
           </div>
         </div>
       )}
+
 
       {/* Preference Modal */}
       {showPreferenceModal && (

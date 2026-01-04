@@ -1,9 +1,35 @@
+
 import React, { useState, useEffect } from 'react';
 import io from 'socket.io-client';
 import api from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { UserEditModal } from '../components/UserEditModal';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement
+} from 'chart.js';
+import { Bar, Line, Doughnut } from 'react-chartjs-2';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement
+);
 
 interface UserContact {
   _id: string;
@@ -105,6 +131,12 @@ const AdminDashboard: React.FC = () => {
   const [tripCurrentPage, setTripCurrentPage] = useState(1);
   const [editingUser, setEditingUser] = useState<UserContact | null>(null);
 
+  // Advanced Analytics State
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [retentionData, setRetentionData] = useState<any[]>([]);
+  const [activityData, setActivityData] = useState<any>(null);
+  const [topOrganizers, setTopOrganizers] = useState<any[]>([]);
+
   useEffect(() => {
     if (user && user.role === 'admin') {
       fetchDashboardStats();
@@ -133,13 +165,13 @@ const AdminDashboard: React.FC = () => {
 
     newSocket.on('admin_update', (data) => {
       console.log('📈 Admin update received:', data);
-      addNotification(`System Update: ${data.type}`, 'info');
+      addNotification(`System Update: ${data.type} `, 'info');
       fetchDashboardStats(); // Refresh stats
     });
 
     newSocket.on('trip_update', (data) => {
       if (data.type === 'created') {
-        addNotification(`New trip created: ${data.trip.title}`, 'success');
+        addNotification(`New trip created: ${data.trip.title} `, 'success');
         fetchDashboardStats();
       }
     });
@@ -212,7 +244,7 @@ const AdminDashboard: React.FC = () => {
       if (searchQuery) params.append('search', searchQuery);
       if (roleFilter !== 'all') params.append('role', roleFilter);
 
-      const response = await api.get(`/admin/users/contacts?${params.toString()}`);
+      const response = await api.get(`/ admin / users / contacts ? ${params.toString()} `);
       const responseData = response.data as { users: any[] };
       setUserContacts(responseData.users);
     } catch (err: any) {
@@ -227,7 +259,7 @@ const AdminDashboard: React.FC = () => {
       const params = new URLSearchParams();
       if (roleFilter !== 'all') params.append('role', roleFilter);
 
-      const response = await api.get(`/admin/users/export-contacts?${params.toString()}`, {
+      const response = await api.get(`/ admin / users /export -contacts ? ${params.toString()} `, {
         responseType: 'blob'
       });
 
@@ -235,7 +267,7 @@ const AdminDashboard: React.FC = () => {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `trek-tribe-users-${new Date().toISOString().split('T')[0]}.csv`;
+      link.download = `trek - tribe - users - ${new Date().toISOString().split('T')[0]}.csv`;
       link.click();
       window.URL.revokeObjectURL(url);
     } catch (err: any) {
@@ -252,7 +284,7 @@ const AdminDashboard: React.FC = () => {
       if (tripSearchQuery) params.append('search', tripSearchQuery);
       if (statusFilter !== 'all') params.append('status', statusFilter);
 
-      const response = await api.get(`/admin/trips?${params.toString()}`);
+      const response = await api.get(`/ admin / trips ? ${params.toString()} `);
       const responseData = response.data as { trips: Trip[] };
       setTrips(responseData.trips);
     } catch (err: any) {
@@ -264,7 +296,7 @@ const AdminDashboard: React.FC = () => {
 
   const updateTripStatus = async (tripId: string, newStatus: string) => {
     try {
-      await api.patch(`/admin/trips/${tripId}/status`, { status: newStatus });
+      await api.patch(`/ admin / trips / ${tripId}/status`, { status: newStatus });
       addNotification(`Trip status updated to ${newStatus}`, 'success');
       fetchTrips(); // Refresh trips list
     } catch (err: any) {
