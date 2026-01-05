@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { authenticateToken } from './auth';
-import { AuthRequest } from '../types/express';
+import { AuthRequest } from '../types/app-types';
 
 export { AuthRequest };
 
@@ -28,12 +28,12 @@ export const requireRole = (allowedRoles: ('user' | 'organizer' | 'admin' | 'tra
 
     // Map traveler role to user for CRM compatibility
     const userRole = userData.role === 'traveler' ? 'user' : userData.role;
-    
+
     // Check if role is allowed (with mapping for traveler/user)
-    const isAllowed = allowedRoles.includes(userRole as any) || 
-                     (allowedRoles.includes('user' as any) && userData.role === 'traveler') ||
-                     (allowedRoles.includes('traveler' as any) && userRole === 'user');
-    
+    const isAllowed = allowedRoles.includes(userRole as any) ||
+      (allowedRoles.includes('user' as any) && userData.role === 'traveler') ||
+      (allowedRoles.includes('traveler' as any) && userRole === 'user');
+
     if (!isAllowed) {
       return res.status(403).json({
         success: false,
