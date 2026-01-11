@@ -1,10 +1,12 @@
 import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { AuthPayload } from '../middleware/auth';
 
+import { AuthenticatedRequest } from '../types/app-types';
+
 // Extended request interface
-export interface AuthenticatedRequest extends Request {
-  user: AuthPayload;
-}
+// export interface AuthenticatedRequest extends Request {
+//   user: AuthPayload;
+// }
 
 // Type-safe wrapper for route handlers
 export function wrapRoute(handler: (req: AuthenticatedRequest, res: Response, next?: NextFunction) => Promise<any> | any): RequestHandler {
