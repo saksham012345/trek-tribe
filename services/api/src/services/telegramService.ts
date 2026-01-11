@@ -53,9 +53,9 @@ class TelegramService {
       });
 
       if ((response.data as any).ok) {
-        logger.info('Telegram message sent successfully', { 
+        logger.info('Telegram message sent successfully', {
           chatId: chatId.toString(),
-          messageLength: message.length 
+          messageLength: message.length
         });
         return true;
       } else {
@@ -63,7 +63,7 @@ class TelegramService {
         return false;
       }
     } catch (error: any) {
-      logger.error('Error sending Telegram message', { 
+      logger.error('Error sending Telegram message', {
         error: error.message,
         chatId
       });
@@ -88,7 +88,7 @@ class TelegramService {
       `👨‍💼 ${booking.organizerName}\n` +
       `📞 ${booking.organizerPhone}\n\n` +
       `Thank you for choosing TrekkTribe! Have an amazing journey! 🚀\n\n` +
-      `For support, contact us at tanejasaksham44@gmail.com or call 9876177839`;
+      `For support, contact us at trektribeagent@gmail.com or call 9876177839`;
 
     return this.sendMessage(chatId, message);
   }
@@ -151,7 +151,7 @@ class TelegramService {
       `2. Browse our curated trips\n` +
       `3. Book your first adventure\n\n` +
       `Need help? Contact us anytime!\n` +
-      `📧 tanejasaksham44@gmail.com\n📞 9876177839\n\n` +
+      `📧 trektribeagent@gmail.com\n📞 9876177839\n\n` +
       `Happy travels! 🚀`;
 
     return this.sendMessage(chatId, message);
@@ -179,10 +179,10 @@ class TelegramService {
       }
     }
 
-    logger.info('Telegram group update sent', { 
-      totalRecipients: chatIds.length, 
+    logger.info('Telegram group update sent', {
+      totalRecipients: chatIds.length,
       successCount,
-      tripTitle 
+      tripTitle
     });
 
     return successCount;

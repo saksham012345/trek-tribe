@@ -6,7 +6,7 @@ import { logger } from '../utils/logger';
 
 // Allow overriding preset credentials via environment variables
 const AGENT_NAME = process.env.PRESET_AGENT_NAME || 'Saksham Taneja';
-const AGENT_EMAIL = process.env.PRESET_AGENT_EMAIL || 'tanejasaksham44@gmail.com';
+const AGENT_EMAIL = process.env.PRESET_AGENT_EMAIL || 'trektribeagent@gmail.com';
 const AGENT_PHONE = process.env.PRESET_AGENT_PHONE || '+919999999998';
 const AGENT_PASSWORD = process.env.PRESET_AGENT_PASSWORD || 'Agent@9800';
 
@@ -16,8 +16,8 @@ const ADMIN_PHONE = process.env.PRESET_ADMIN_PHONE || '+919999999999';
 const ADMIN_PASSWORD = process.env.PRESET_ADMIN_PASSWORD || 'Saksham@4700';
 
 // Demo Organizer for testing payments
-const DEMO_ORGANIZER_NAME = process.env.PRESET_DEMO_ORGANIZER_NAME || 'Demo Organizer';
-const DEMO_ORGANIZER_EMAIL = process.env.PRESET_DEMO_ORGANIZER_EMAIL || 'demo.organizer@trektribe.in';
+const DEMO_ORGANIZER_NAME = process.env.PRESET_DEMO_ORGANIZER_NAME || 'Saksham Taneja';
+const DEMO_ORGANIZER_EMAIL = process.env.PRESET_DEMO_ORGANIZER_EMAIL || 'tanejasaksham44@gmail.com';
 const DEMO_ORGANIZER_PHONE = process.env.PRESET_DEMO_ORGANIZER_PHONE || '+919876543210';
 const DEMO_ORGANIZER_PASSWORD = process.env.PRESET_DEMO_ORGANIZER_PASSWORD || 'Demo@1234';
 
@@ -50,20 +50,31 @@ const presetUsers = [
     phone: DEMO_ORGANIZER_PHONE,
     role: 'organizer' as const,
     password: DEMO_ORGANIZER_PASSWORD,
-    bio: 'Demo organizer account for testing payment systems and auto-pay features',
+    bio: 'Premium organizer account with all features enabled',
     isEmailVerified: true,
     phoneVerified: true,
     profilePhoto: null,
     location: 'Delhi, India',
     // Set first organizer login to now for testing
     firstOrganizerLogin: new Date(),
+    // Enable Premium Features
+    autoPay: {
+      isSetup: true,
+      setupRequired: false,
+      scheduledPaymentDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 60 days from now
+      amount: 149900,
+      currency: 'INR',
+      listingsIncluded: 100, // Premium limit
+      isSetupCompleted: true,
+      autoPayEnabled: true
+    }
   }
 ];
 
 async function setupPresetUsers() {
   try {
     console.log('🔄 Connecting to database...');
-    
+
     const mongoUri = process.env.MONGODB_URI;
     if (!mongoUri) {
       throw new Error('MONGODB_URI environment variable is required');
@@ -86,13 +97,13 @@ async function setupPresetUsers() {
       try {
         // Check if user already exists
         const existingUser = await User.findOne({ email: userData.email });
-        
+
         // Hash the password
         const hashedPassword = await bcrypt.hash(userData.password, 10);
-        
+
         if (existingUser) {
           console.log(`⚠️  User ${userData.email} already exists. FORCE UPDATING...`);
-          
+
           const updateData: any = {
             passwordHash: hashedPassword,
             role: userData.role,
@@ -107,7 +118,11 @@ async function setupPresetUsers() {
           if (userData.role === 'organizer') {
             updateData.location = userData.location;
             updateData.firstOrganizerLogin = userData.firstOrganizerLogin;
-            
+
+            if ((userData as any).autoPay) {
+              updateData['organizerProfile.autoPay'] = (userData as any).autoPay;
+            }
+
             // Initialize organizerProfile if not exists
             if (!existingUser.organizerProfile) {
               updateData.organizerProfile = {
@@ -115,21 +130,22 @@ async function setupPresetUsers() {
                 specialties: [],
                 certifications: [],
                 languages: [],
-                qrCodes: []
+                qrCodes: [],
+                ...((userData as any).autoPay ? { autoPay: (userData as any).autoPay } : {})
               };
             }
           }
-          
+
           await User.findByIdAndUpdate(existingUser._id, updateData);
-          
+
           console.log(`✅ FORCE UPDATED ${userData.role}: ${userData.email}`);
           console.log(`   🔑 New Password Hash: ${hashedPassword.substring(0, 20)}...`);
-          
+
           // Verify the password was updated correctly
           const verifyUser = await User.findById(existingUser._id);
           const passwordMatches = await bcrypt.compare(userData.password, verifyUser!.passwordHash);
           console.log(`   ✔️  Password verification: ${passwordMatches ? 'SUCCESS' : 'FAILED'}`);
-          
+
         } else {
           // Create new user
           const newUserData: any = {
@@ -155,13 +171,17 @@ async function setupPresetUsers() {
               languages: [],
               qrCodes: []
             };
+
+            if ((userData as any).autoPay) {
+              newUserData.organizerProfile.autoPay = (userData as any).autoPay;
+            }
           }
-          
+
           const newUser = await User.create(newUserData);
-          
+
           console.log(`✅ Created ${userData.role}: ${userData.email} (ID: ${newUser._id})`);
         }
-        
+
         console.log(`   📧 Email: ${userData.email}`);
         console.log(`   🔒 Password: ${userData.password}`);
         console.log(`   👤 Role: ${userData.role}`);
@@ -178,14 +198,14 @@ async function setupPresetUsers() {
     console.log('🎯 PRESET USER CREDENTIALS (UPDATED)');
     console.log('='.repeat(70));
     console.log('');
-    
+
     console.log('🔐 ADMIN LOGIN:');
     console.log(`   Email: ${ADMIN_EMAIL}`);
     console.log(`   Password: ${ADMIN_PASSWORD}`);
     console.log(`   Phone: ${ADMIN_PHONE}`);
     console.log('   Access: Admin Dashboard, Full System Control');
     console.log('');
-    
+
     console.log('🎧 AGENT LOGIN:');
     console.log(`   Email: ${AGENT_EMAIL}`);
     console.log(`   Password: ${AGENT_PASSWORD}`);
@@ -199,7 +219,7 @@ async function setupPresetUsers() {
     console.log(`   Phone: ${DEMO_ORGANIZER_PHONE}`);
     console.log('   Access: Organizer Dashboard, Trip Management');
     console.log('');
-    
+
     console.log('='.repeat(70));
     console.log('✅ All preset users have been FORCE UPDATED successfully!');
     console.log('');
@@ -210,7 +230,7 @@ async function setupPresetUsers() {
     console.log('');
     console.log('⚠️  IMPORTANT: Change these passwords in production!');
     console.log('='.repeat(70));
-    
+
     process.exit(0);
   } catch (error: any) {
     console.error('❌ Failed to setup preset users:', error.message);

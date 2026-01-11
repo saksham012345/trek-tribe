@@ -36,7 +36,7 @@ npm run setup:users:updated
 - **Access:** Full system control, admin dashboard
 
 ### Agent Account
-- **Email:** tanejasaksham44@gmail.com
+- **Email:** trektribeagent@gmail.com
 - **Password:** Agent@9800
 - **Phone:** +919999999998
 - **Access:** CRM, support tickets, agent dashboard

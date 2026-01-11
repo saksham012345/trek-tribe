@@ -39,9 +39,9 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const [showJoinModal, setShowJoinModal] = useState(false);
-  const [copySuccess, setCopySuccess] = useState<{[key: string]: boolean}>({});
+  const [copySuccess, setCopySuccess] = useState<{ [key: string]: boolean }>({});
   const [showFilters, setShowFilters] = useState(false);
-  
+
   // Advanced Filters
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 100000]);
   const [startDate, setStartDate] = useState('');
@@ -59,9 +59,9 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
         const params = new URLSearchParams();
         if (searchTerm) params.append('search', searchTerm);
         if (selectedCategory) params.append('category', selectedCategory);
-        
+
         console.log('🔍 Fetching trips with params:', params.toString());
-        
+
         const response = await api.get(`/trips?${params.toString()}`);
         const raw = response.data as any;
         const tripsData: Trip[] = Array.isArray(raw?.data)
@@ -73,7 +73,7 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
         console.log(`✅ Received ${tripsData.length} trips from API:`, tripsData.map(t => ({ id: t._id, title: t.title })));
 
         setTrips(tripsData);
-        
+
         // Calculate price range
         if (tripsData.length > 0) {
           const prices = tripsData.map(t => t.price);
@@ -96,18 +96,18 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
     let filtered = [...trips];
 
     // Price filter
-    filtered = filtered.filter(trip => 
+    filtered = filtered.filter(trip =>
       trip.price >= priceRange[0] && trip.price <= priceRange[1]
     );
 
     // Date filter
     if (startDate) {
-      filtered = filtered.filter(trip => 
+      filtered = filtered.filter(trip =>
         new Date(trip.startDate) >= new Date(startDate)
       );
     }
     if (endDate) {
-      filtered = filtered.filter(trip => 
+      filtered = filtered.filter(trip =>
         new Date(trip.endDate) <= new Date(endDate)
       );
     }
@@ -148,7 +148,7 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
 
   const handleLeaveTrip = async (tripId: string) => {
     if (!user) return;
-    
+
     if (window.confirm('Are you sure you want to leave this trip? This action cannot be undone.')) {
       try {
         await api.post(`/trips/${tripId}/leave`);
@@ -178,7 +178,7 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
 
   const handleShareTrip = async (tripId: string) => {
     const shareUrl = getTripShareUrl(tripId);
-    
+
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopySuccess(prev => ({ ...prev, [tripId]: true }));
@@ -205,16 +205,16 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-12 text-center">
           <h1 className="text-4xl md:text-5xl font-bold text-forest-800 mb-4">
-            Discover Epic 
+            Discover Epic
             <span className="text-nature-600">Adventures</span>
           </h1>
           <p className="text-xl text-forest-600 max-w-2xl mx-auto">
             Find your next wilderness adventure and connect with fellow nature lovers
           </p>
-          
+
           {/* AI Smart Search */}
           <div className="mb-8">
-            <AISmartSearch 
+            <AISmartSearch
               onSearch={(query, filters) => {
                 console.log('AI Search:', { query, filters });
                 // Apply filters from AI search
@@ -226,7 +226,7 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
               className="mb-6"
             />
           </div>
-          
+
           {/* Traditional Search and Filter - Backup */}
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-forest-200 mb-8">
             <div className="flex flex-col gap-4">
@@ -385,11 +385,11 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
                   <div className={`absolute inset-0 bg-gradient-to-br from-forest-400 to-nature-500 flex items-center justify-center ${(trip.coverImage || (trip.images && trip.images.length > 0)) ? 'hidden' : 'flex'}`}>
                     <div className="text-center text-white">
                       <div className="text-6xl mb-2">
-                        {(trip.categories && trip.categories.includes('Mountain')) ? '🏔️' : 
-                         (trip.categories && trip.categories.includes('Nature')) ? '🌲' : 
-                         (trip.categories && trip.categories.includes('Beach')) ? '🏖️' : 
-                         (trip.categories && trip.categories.includes('Cultural')) ? '🏛️' : 
-                         (trip.categories && trip.categories.includes('Adventure')) ? '🎒' : '🌍'}
+                        {(trip.categories && trip.categories.includes('Mountain')) ? '🏔️' :
+                          (trip.categories && trip.categories.includes('Nature')) ? '🌲' :
+                            (trip.categories && trip.categories.includes('Beach')) ? '🏖️' :
+                              (trip.categories && trip.categories.includes('Cultural')) ? '🏛️' :
+                                (trip.categories && trip.categories.includes('Adventure')) ? '🎒' : '🌍'}
                       </div>
                       <p className="text-sm opacity-90 font-medium">{trip.categories && trip.categories.length > 0 ? trip.categories[0] : 'Adventure'}</p>
                     </div>
@@ -404,7 +404,7 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
                 <div className="p-6">
                   <h3 className="text-xl font-semibold mb-2">{trip.title}</h3>
                   <p className="text-gray-600 mb-4 line-clamp-3">{trip.description}</p>
-                  
+
                   <div className="space-y-2 mb-4">
                     <div className="flex items-center text-sm text-gray-500">
                       <span className="mr-2">📍</span>
@@ -483,8 +483,8 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
                 {searchTerm || selectedCategory ? 'No matching adventures found' : 'No adventures yet'}
               </h3>
               <p className="text-forest-600 mb-6">
-                {searchTerm || selectedCategory 
-                  ? 'Try adjusting your search criteria or check back later' 
+                {searchTerm || selectedCategory
+                  ? 'Try adjusting your search criteria or check back later'
                   : 'Be the first to create an epic adventure for fellow explorers!'}
               </p>
               {user?.role === 'organizer' && !searchTerm && !selectedCategory && (
@@ -506,7 +506,7 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
                   <p className="text-sm text-forest-600 mb-4">
                     Upgrade to an organizer account to create and lead amazing trips!
                   </p>
-                  <button 
+                  <button
                     onClick={() => {
                       // Open AI chat widget or redirect to support
                       const chatWidget = document.querySelector('[data-testid="ai-chat-widget"]') as HTMLButtonElement;
@@ -515,7 +515,7 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
                       } else {
                         // Fallback: scroll to bottom and show contact info
                         window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-                        alert('💬 Chat support will be available soon. For immediate help, please contact us at tanejasaksham44@gmail.com or call 9876177839');
+                        alert('💬 Chat support will be available soon. For immediate help, please contact us at trektribeagent@gmail.com or call 9876177839');
                       }
                     }}
                     className="bg-forest-600 hover:bg-forest-700 text-white px-4 py-2 rounded-lg text-sm transition-colors"

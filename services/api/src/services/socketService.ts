@@ -108,7 +108,7 @@ class SocketService {
 
     this.setupEventHandlers();
     this.setupCleanupInterval();
-    
+
     logger.info('Socket.IO service initialized');
   }
 
@@ -118,19 +118,19 @@ class SocketService {
     this.io.on('connection', (socket) => {
       const userId = socket.data.isGuest ? socket.data.guestId : socket.data.userId;
       const userRole = socket.data.userRole || 'guest';
-      
-      logger.info('User connected to chat', { 
-        userId, 
-        socketId: socket.id, 
+
+      logger.info('User connected to chat', {
+        userId,
+        socketId: socket.id,
         role: userRole,
-        isGuest: socket.data.isGuest 
+        isGuest: socket.data.isGuest
       });
 
       // Map user to socket for direct messaging and join user-specific room
       if (!socket.data.isGuest) {
         this.userSocketMap.set(userId, socket.id);
         socket.join(`user_${userId}`);
-        
+
         // Map agents separately for routing and join agent room
         if (userRole === 'agent' || userRole === 'admin') {
           this.agentSocketMap.set(userId, socket.id);
@@ -195,7 +195,7 @@ class SocketService {
     };
 
     this.activeSessions.set(sessionId, session);
-    
+
     socket.join(sessionId);
     socket.data.sessionId = sessionId;
 
@@ -210,7 +210,7 @@ class SocketService {
     };
 
     session.messages.push(welcomeMessage);
-    
+
     socket.emit('chat_initialized', {
       sessionId,
       message: welcomeMessage
@@ -222,7 +222,7 @@ class SocketService {
   private async handleAIChatMessage(socket: any, data: { message: string, context?: any }) {
     const sessionId = socket.data.sessionId;
     const session = this.activeSessions.get(sessionId);
-    
+
     if (!session) {
       socket.emit('error', { message: 'Chat session not found' });
       return;
@@ -281,32 +281,32 @@ class SocketService {
           confidence: aiResponse.confidence,
           suggestedActions: aiResponse.suggestedActions
         });
-        
+
         // Auto-create ticket and notify agents proactively
         if (aiResponse.confidence < 0.5) {
-          logger.info('Low AI confidence detected, proactively notifying agents', { 
-            sessionId, 
-            confidence: aiResponse.confidence 
+          logger.info('Low AI confidence detected, proactively notifying agents', {
+            sessionId,
+            confidence: aiResponse.confidence
           });
           // Notify agents about potential need for human support
           this.notifyAvailableAgents(session, 'medium');
         }
       }
 
-      logger.info('AI chat message processed', { 
-        sessionId, 
+      logger.info('AI chat message processed', {
+        sessionId,
         requiresHuman: aiResponse.requiresHumanSupport,
         confidence: aiResponse.confidence
       });
 
     } catch (error: any) {
-      logger.error('Error processing AI chat message', { 
-        error: error.message, 
-        sessionId 
+      logger.error('Error processing AI chat message', {
+        error: error.message,
+        sessionId
       });
-      
-      socket.emit('error', { 
-        message: 'Sorry, I encountered an error. Please try again or request human support.' 
+
+      socket.emit('error', {
+        message: 'Sorry, I encountered an error. Please try again or request human support.'
       });
     }
   }
@@ -314,7 +314,7 @@ class SocketService {
   private async handleHumanAgentRequest(socket: any, data: { reason?: string, urgency?: 'low' | 'medium' | 'high' }) {
     const sessionId = socket.data.sessionId;
     const session = this.activeSessions.get(sessionId);
-    
+
     if (!session) {
       socket.emit('error', { message: 'Chat session not found' });
       return;
@@ -323,11 +323,11 @@ class SocketService {
     try {
       // Create support ticket if user is authenticated
       let ticketId: string | undefined;
-      
+
       if (!socket.data.isGuest) {
         const ticketSubject = `Chat Support Request - ${data.reason || 'General Inquiry'}`;
         const ticketDescription = `User requested human support during chat session.\n\nReason: ${data.reason || 'Not specified'}\n\nChat History:\n${session.messages.map(msg => `${msg.senderName}: ${msg.message}`).join('\n')}`;
-        
+
         // Create ticket directly using SupportTicket model
         const newTicket = await SupportTicket.create({
           userId: session.userId,
@@ -362,7 +362,7 @@ class SocketService {
           chatSessionId: sessionId,
           createdAt: newTicket.createdAt
         });
-        
+
         // Also log for monitoring
         logger.info('Support ticket created from chat request', {
           ticketId: newTicket.ticketId,
@@ -393,20 +393,20 @@ class SocketService {
       socket.emit('chat_message', systemMessage);
       socket.emit('agent_request_sent', { ticketId });
 
-      logger.info('Human agent requested', { 
-        sessionId, 
-        ticketId, 
-        urgency: data.urgency 
+      logger.info('Human agent requested', {
+        sessionId,
+        ticketId,
+        urgency: data.urgency
       });
 
     } catch (error: any) {
-      logger.error('Error requesting human agent', { 
-        error: error.message, 
-        sessionId 
+      logger.error('Error requesting human agent', {
+        error: error.message,
+        sessionId
       });
-      
-      socket.emit('error', { 
-        message: 'Unable to connect to human support right now. Please try again later.' 
+
+      socket.emit('error', {
+        message: 'Unable to connect to human support right now. Please try again later.'
       });
     }
   }
@@ -414,7 +414,7 @@ class SocketService {
   private async handleAgentJoinChat(socket: any, data: { sessionId: string }) {
     const agentId = socket.data.userId;
     const session = this.activeSessions.get(data.sessionId);
-    
+
     if (!session) {
       socket.emit('error', { message: 'Chat session not found' });
       return;
@@ -454,16 +454,16 @@ class SocketService {
       messages: session.messages
     });
 
-    logger.info('Agent joined chat session', { 
-      sessionId: data.sessionId, 
-      agentId, 
-      agentName: session.agentName 
+    logger.info('Agent joined chat session', {
+      sessionId: data.sessionId,
+      agentId,
+      agentName: session.agentName
     });
   }
 
   private async handleAgentChatMessage(socket: any, data: { sessionId: string, message: string }) {
     const session = this.activeSessions.get(data.sessionId);
-    
+
     if (!session || !session.isConnectedToAgent || session.agentId !== socket.data.userId) {
       socket.emit('error', { message: 'Unauthorized or session not found' });
       return;
@@ -513,7 +513,7 @@ class SocketService {
           try {
             const frontendUrl = process.env.FRONTEND_URL || 'https://www.trektribe.in';
             const replyUrl = `${frontendUrl}/support/tickets/${session.ticketId}`;
-            
+
             await emailService.sendAgentReplyNotification({
               userName: session.userName,
               userEmail: session.userEmail,
@@ -523,7 +523,7 @@ class SocketService {
               agentMessage: data.message,
               replyUrl
             });
-            
+
             logger.info('Agent reply email notification sent', {
               ticketId: session.ticketId,
               userEmail: session.userEmail,
@@ -538,16 +538,16 @@ class SocketService {
           }
         }
       } catch (error: any) {
-        logger.error('Error updating support ticket', { 
-          error: error.message, 
-          ticketId: session.ticketId 
+        logger.error('Error updating support ticket', {
+          error: error.message,
+          ticketId: session.ticketId
         });
       }
     }
 
-    logger.info('Agent chat message sent', { 
-      sessionId: data.sessionId, 
-      agentId: session.agentId 
+    logger.info('Agent chat message sent', {
+      sessionId: data.sessionId,
+      agentId: session.agentId
     });
   }
 
@@ -572,16 +572,16 @@ class SocketService {
 
   private handleDisconnect(socket: any) {
     const userId = socket.data.isGuest ? socket.data.guestId : socket.data.userId;
-    
-    logger.info('User disconnected from chat', { 
-      userId, 
+
+    logger.info('User disconnected from chat', {
+      userId,
       socketId: socket.id,
       isGuest: socket.data.isGuest
     });
 
     if (!socket.data.isGuest) {
       this.userSocketMap.delete(userId);
-      
+
       if (socket.data.userRole === 'agent' || socket.data.userRole === 'admin') {
         this.agentSocketMap.delete(userId);
       }
@@ -611,7 +611,7 @@ class SocketService {
 
     // Notify all connected agents via 'agent_room'
     this.io?.to('agent_room').emit('chat_request', agentNotification);
-    
+
     // Also send to individual agent sockets
     this.agentSocketMap.forEach((socketId, agentId) => {
       this.io?.to(socketId).emit('chat_request', agentNotification);
@@ -619,10 +619,10 @@ class SocketService {
       this.io?.to(socketId).emit('new_support_request', agentNotification);
     });
 
-    logger.info('Notified agents of new chat request', { 
-      sessionId: session.sessionId, 
+    logger.info('Notified agents of new chat request', {
+      sessionId: session.sessionId,
       agentCount: this.agentSocketMap.size,
-      urgency 
+      urgency
     });
 
     // If no agents are available, notify the user
@@ -632,15 +632,15 @@ class SocketService {
         senderId: 'system',
         senderName: 'System',
         senderRole: 'ai',
-        message: `Thank you for your request! I've created a support ticket (#${session.ticketId || 'Pending'}) and our agents will contact you through this AI chat widget as soon as they're available. Please check back here shortly.\n\nFor immediate assistance, you can also reach us at:\n📧 Email: tanejasaksham44@gmail.com\n💬 WhatsApp: 9876177839\n\nOur team typically responds within a few hours during business hours.`,
+        message: `Thank you for your request! I've created a support ticket (#${session.ticketId || 'Pending'}) and our agents will contact you through this AI chat widget as soon as they're available. Please check back here shortly.\n\nFor immediate assistance, you can also reach us at:\n📧 Email: trektribeagent@gmail.com\n💬 WhatsApp: 9876177839\n\nOur team typically responds within a few hours during business hours.`,
         timestamp: new Date(),
         ticketId: session.ticketId
       };
 
       session.messages.push(noAgentMessage);
       this.io?.to(session.sessionId).emit('chat_message', noAgentMessage);
-      
-      logger.info('No agents available, user notified with ticket and contact options', { 
+
+      logger.info('No agents available, user notified with ticket and contact options', {
         sessionId: session.sessionId,
         ticketId: session.ticketId
       });
@@ -654,7 +654,7 @@ class SocketService {
         message: `✅ Your request has been forwarded to ${this.agentSocketMap.size} available agent${this.agentSocketMap.size > 1 ? 's' : ''}. Someone will join the chat shortly to assist you!`,
         timestamp: new Date()
       };
-      
+
       session.messages.push(forwardedMessage);
       this.io?.to(session.sessionId).emit('chat_message', forwardedMessage);
     }
@@ -666,7 +666,7 @@ class SocketService {
   private getWelcomeMessage(userName?: string, isGuest?: boolean): string {
     const timeOfDay = new Date().getHours();
     let greeting = 'Hi';
-    
+
     if (timeOfDay < 12) {
       greeting = 'Good morning';
     } else if (timeOfDay < 17) {
@@ -674,7 +674,7 @@ class SocketService {
     } else if (timeOfDay < 21) {
       greeting = 'Good evening';
     }
-    
+
     const welcomeVariations = [
       `${greeting}${userName ? `, ${userName}` : ''}! 🌟 I'm your Trek Tribe assistant. Ready to discover your next adventure?`,
       `${greeting}! 🌄 Looking for an unforgettable trek? I'm here to help you find the perfect adventure!`,
@@ -683,10 +683,10 @@ class SocketService {
       `${greeting}! 🏞️ I'm here to make your trekking journey smooth and exciting. How can I assist you today?`,
       `Hello${userName ? ` ${userName}` : ', adventurer'}! ⛺ Whether you're planning your first trek or your next expedition, I'm here to help!`
     ];
-    
+
     return welcomeVariations[Math.floor(Math.random() * welcomeVariations.length)];
   }
-  
+
   private setupCleanupInterval() {
     // Clean up inactive sessions every 30 minutes
     this.sessionCleanupInterval = setInterval(() => {
@@ -863,10 +863,10 @@ class SocketService {
 
     // Emit to all agents in agent room
     this.io.to('agent_room').emit('new_ticket', ticketNotification);
-    
-    logger.info('New ticket notification sent to agents', { 
+
+    logger.info('New ticket notification sent to agents', {
       ticketId: ticketData.ticketId,
-      connectedAgents: this.agentSocketMap.size 
+      connectedAgents: this.agentSocketMap.size
     });
   }
 
@@ -905,10 +905,10 @@ class SocketService {
       timestamp: new Date()
     });
 
-    logger.info('Ticket status update broadcasted', { 
-      ticketId: ticketData.ticketId, 
-      eventType, 
-      status: ticketData.status 
+    logger.info('Ticket status update broadcasted', {
+      ticketId: ticketData.ticketId,
+      eventType,
+      status: ticketData.status
     });
   }
 
@@ -930,15 +930,15 @@ class SocketService {
     if (this.sessionCleanupInterval) {
       clearInterval(this.sessionCleanupInterval);
     }
-    
+
     if (this.io) {
       this.io.close();
     }
-    
+
     this.activeSessions.clear();
     this.userSocketMap.clear();
     this.agentSocketMap.clear();
-    
+
     logger.info('Socket service shut down');
   }
 }

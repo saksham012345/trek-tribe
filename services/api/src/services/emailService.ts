@@ -402,16 +402,16 @@ class EmailService {
       };
 
       await this.transporter!.sendMail(mailOptions);
-      logger.info('Booking confirmation email sent successfully', { 
+      logger.info('Booking confirmation email sent successfully', {
         userEmail: data.userEmail,
-        bookingId: data.bookingId 
+        bookingId: data.bookingId
       });
 
       return true;
     } catch (error: any) {
-      logger.error('Failed to send booking confirmation email', { 
+      logger.error('Failed to send booking confirmation email', {
         error: error.message,
-        userEmail: data.userEmail 
+        userEmail: data.userEmail
       });
       return false;
     }
@@ -433,15 +433,15 @@ class EmailService {
       };
 
       await this.transporter!.sendMail(mailOptions);
-      logger.info('Password reset email sent successfully', { 
-        userEmail: data.userEmail 
+      logger.info('Password reset email sent successfully', {
+        userEmail: data.userEmail
       });
 
       return true;
     } catch (error: any) {
-      logger.error('Failed to send password reset email', { 
+      logger.error('Failed to send password reset email', {
         error: error.message,
-        userEmail: data.userEmail 
+        userEmail: data.userEmail
       });
       return false;
     }
@@ -463,16 +463,16 @@ class EmailService {
       };
 
       await this.transporter!.sendMail(mailOptions);
-      logger.info('Trip update email sent successfully', { 
+      logger.info('Trip update email sent successfully', {
         userEmail: data.userEmail,
-        tripTitle: data.tripTitle 
+        tripTitle: data.tripTitle
       });
 
       return true;
     } catch (error: any) {
-      logger.error('Failed to send trip update email', { 
+      logger.error('Failed to send trip update email', {
         error: error.message,
-        userEmail: data.userEmail 
+        userEmail: data.userEmail
       });
       return false;
     }
@@ -494,7 +494,7 @@ class EmailService {
       };
 
       await this.transporter!.sendMail(mailOptions);
-      logger.info('Payment screenshot notification sent successfully', { 
+      logger.info('Payment screenshot notification sent successfully', {
         organizerEmail: data.organizerEmail,
         tripTitle: data.tripTitle,
         bookingId: data.bookingId
@@ -502,9 +502,9 @@ class EmailService {
 
       return true;
     } catch (error: any) {
-      logger.error('Failed to send payment screenshot notification', { 
+      logger.error('Failed to send payment screenshot notification', {
         error: error.message,
-        organizerEmail: data.organizerEmail 
+        organizerEmail: data.organizerEmail
       });
       return false;
     }
@@ -665,7 +665,7 @@ class EmailService {
             <p>You can reply directly through our support portal or via email. We're here to help with any questions!</p>
             
             <h3 style="color: #2d5a3d;">📞 Need immediate help?</h3>
-            <p>📧 Email: tanejasaksham44@gmail.com<br>
+            <p>📧 Email: trektribeagent@gmail.com<br>
                📱 Phone: 9876177839</p>
           </div>
           
@@ -689,7 +689,7 @@ class EmailService {
 
     try {
       const mailOptions = {
-        from: `"Trek Tribe Support" <${process.env.GMAIL_USER || 'tanejasaksham44@gmail.com'}>`,
+        from: `"Trek Tribe Support" <${process.env.GMAIL_USER || 'trektribeagent@gmail.com'}>`,
         to: data.userEmail,
         subject: `🎧 Agent Reply - ${data.ticketSubject} [${data.ticketId}]`,
         html: this.generateAgentReplyHTML(data),
@@ -697,7 +697,7 @@ class EmailService {
       };
 
       await this.transporter!.sendMail(mailOptions);
-      logger.info('Agent reply notification email sent successfully', { 
+      logger.info('Agent reply notification email sent successfully', {
         userEmail: data.userEmail,
         ticketId: data.ticketId,
         agentName: data.agentName
@@ -705,7 +705,7 @@ class EmailService {
 
       return true;
     } catch (error: any) {
-      logger.error('Failed to send agent reply notification email', { 
+      logger.error('Failed to send agent reply notification email', {
         error: error.message,
         userEmail: data.userEmail,
         ticketId: data.ticketId

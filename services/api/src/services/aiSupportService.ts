@@ -168,7 +168,7 @@ class TrekTribeAI {
   private getRandomResponse(responses: string[]): string {
     return responses[Math.floor(Math.random() * responses.length)];
   }
-  
+
   private initializeKnowledgeBase(): KnowledgeBase {
     return {
       patterns: [
@@ -291,9 +291,9 @@ class TrekTribeAI {
         {
           keywords: ['contact', 'phone', 'whatsapp', 'call', 'reach', 'support', 'help'],
           response: this.getRandomResponse([
-            "You can reach us through multiple channels! Use this chat for instant support, email us at tanejasaksham44@gmail.com, or WhatsApp us at 9876177839 for quick queries. After booking, you'll get dedicated WhatsApp group access and direct contact with your trek leader.",
-            "We're here for you 24/7! 📞 Chat with me right here, email tanejasaksham44@gmail.com, or send a WhatsApp to 9876177839. Once you book, you'll join a dedicated WhatsApp group with your trek leader and fellow adventurers!",
-            "Need help? I'm right here! You can also reach our team at tanejasaksham44@gmail.com or WhatsApp 9876177839. Booked travelers get exclusive access to trip WhatsApp groups for direct communication with guides and other trekkers."
+            "You can reach us through multiple channels! Use this chat for instant support, email us at trektribeagent@gmail.com, or WhatsApp us at 9876177839 for quick queries. After booking, you'll get dedicated WhatsApp group access and direct contact with your trek leader.",
+            "We're here for you 24/7! 📞 Chat with me right here, email trektribeagent@gmail.com, or send a WhatsApp to 9876177839. Once you book, you'll join a dedicated WhatsApp group with your trek leader and fellow adventurers!",
+            "Need help? I'm right here! You can also reach our team at trektribeagent@gmail.com or WhatsApp 9876177839. Booked travelers get exclusive access to trip WhatsApp groups for direct communication with guides and other trekkers."
           ]),
           confidence: 0.9,
           requiresHuman: false,
@@ -301,7 +301,7 @@ class TrekTribeAI {
         },
         {
           keywords: ['email', 'gmail', 'support email'],
-          response: "For email support, you can reach us at tanejasaksham44@gmail.com. We typically respond within 24 hours during business days.",
+          response: "For email support, you can reach us at trektribeagent@gmail.com. We typically respond within 24 hours during business days.",
           confidence: 0.95,
           requiresHuman: false,
           actions: ['Email Support']
@@ -342,7 +342,7 @@ class TrekTribeAI {
           actions: ['Ask Question'],
           quickReplies: [
             'Trip Booking Process',
-            'Cancellation Policy', 
+            'Cancellation Policy',
             'What\'s Included',
             'Safety Measures',
             'Group Size Info',
@@ -461,16 +461,16 @@ class TrekTribeAI {
   async analyzeQuery(query: string, context: ChatContext): Promise<AIResponse> {
     try {
       const normalizedQuery = query.toLowerCase().trim();
-      
+
       // Check if this is a repeat query
       const isRepeatQuery = this.detectRepeatQuery(query, context);
-      
+
       // Extract context from conversation history
       context = this.enrichContextFromHistory(query, context);
-      
+
       // Detect user intent for better response variation
       const intent = this.detectIntent(normalizedQuery, context);
-      
+
       // Try RAG-enhanced response first for complex queries
       if (this.shouldUseRAG(query)) {
         const ragResponse = await this.getRAGResponse(query, context);
@@ -478,15 +478,15 @@ class TrekTribeAI {
           return this.formatRAGResponse(ragResponse, context);
         }
       }
-      
+
       // Find best matching pattern
       let bestMatch = this.findBestMatch(normalizedQuery);
-      
+
       // If no good match, try contextual analysis
       if (!bestMatch || bestMatch.confidence < 0.6) {
         bestMatch = this.analyzeContext(normalizedQuery, context);
       }
-      
+
       // Enhance response with context and variation
       if (bestMatch) {
         const enhancedResponse = await this.enhanceWithTripContext(bestMatch, context);
@@ -496,10 +496,10 @@ class TrekTribeAI {
         }
         return enhancedResponse;
       }
-      
+
       // Fallback to general response with intent-based variation
       return this.getGeneralResponse(normalizedQuery, intent, context);
-      
+
     } catch (error: any) {
       logger.error('Error in Trek Tribe AI analysis', { error: error.message, query });
       return this.getGeneralResponse(query);
@@ -511,18 +511,18 @@ class TrekTribeAI {
    */
   private shouldUseRAG(query: string): boolean {
     const normalizedQuery = query.toLowerCase();
-    
+
     // Use RAG for complex informational queries
     const complexIndicators = [
       'what is', 'how to', 'tell me about', 'explain', 'difference between',
       'best way to', 'recommended', 'which trek', 'compare', 'details about',
       'information about', 'guide to', 'tips for', 'advice on'
     ];
-    
+
     const hasComplexIndicator = complexIndicators.some(indicator => normalizedQuery.includes(indicator));
     const isLongQuery = query.split(' ').length > 5;
     const hasQuestionWords = ['what', 'how', 'when', 'where', 'why', 'which'].some(word => normalizedQuery.includes(word));
-    
+
     return hasComplexIndicator || (isLongQuery && hasQuestionWords);
   }
 
@@ -532,20 +532,20 @@ class TrekTribeAI {
   private async getRAGResponse(query: string, context: ChatContext): Promise<any> {
     try {
       const ragService = await getRagService();
-      
+
       if (!ragService.isReady()) {
         return null;
       }
-      
+
       // Build RAG context from chat context
       const ragContext: any = {
         userPreferences: context.userPreferences || {},
         conversationHistory: context.previousMessages?.slice(-5) || []
       };
-      
+
       // Get RAG response
       return await ragService.generateRAGResponse(query, ragContext);
-      
+
     } catch (error: any) {
       logger.warn('RAG service unavailable, falling back to pattern matching', { error: error.message });
       return null;
@@ -557,7 +557,7 @@ class TrekTribeAI {
    */
   private formatRAGResponse(ragResponse: any, context: ChatContext): AIResponse {
     const { answer, sources, confidence, intent, suggestedActions } = ragResponse;
-    
+
     return {
       message: answer,
       confidence,
@@ -573,16 +573,16 @@ class TrekTribeAI {
       }
     };
   }
-  
+
   // Extract context from conversation history for follow-up queries
   private enrichContextFromHistory(query: string, context: ChatContext): ChatContext {
     const normalizedQuery = query.toLowerCase();
-    
+
     // Initialize extracted context
     if (!context.extractedContext) {
       context.extractedContext = {};
     }
-    
+
     // Check if this is a follow-up query about price
     const priceMatch = normalizedQuery.match(/under|below|less than|cheaper than|within|up to|max(?:imum)?[\s]*(?:₹|rs\.?|rupees?)?[\s]*(\d+(?:,\d+)*(?:k)?)/i);
     if (priceMatch) {
@@ -594,7 +594,7 @@ class TrekTribeAI {
         context.extractedContext.priceMax = parseInt(priceValue);
       }
     }
-    
+
     // Check for minimum price
     const minPriceMatch = normalizedQuery.match(/above|more than|over|starting from|minimum|min[\s]*(?:₹|rs\.?|rupees?)?[\s]*(\d+(?:,\d+)*(?:k)?)/i);
     if (minPriceMatch) {
@@ -606,20 +606,20 @@ class TrekTribeAI {
         context.extractedContext.priceMin = parseInt(priceValue);
       }
     }
-    
+
     // Check for price range
     const rangeMatch = normalizedQuery.match(/between[\s]*(?:₹|rs\.?|rupees?)?[\s]*(\d+(?:,\d+)*(?:k)?)[\s]*(?:and|to|-|–)[\s]*(?:₹|rs\.?|rupees?)?[\s]*(\d+(?:,\d+)*(?:k)?)/i);
     if (rangeMatch) {
       let min = rangeMatch[1].replace(/,/g, '');
       let max = rangeMatch[2].replace(/,/g, '');
-      
+
       if (min.toLowerCase().endsWith('k')) {
         min = min.slice(0, -1);
         context.extractedContext.priceMin = parseInt(min) * 1000;
       } else {
         context.extractedContext.priceMin = parseInt(min);
       }
-      
+
       if (max.toLowerCase().endsWith('k')) {
         max = max.slice(0, -1);
         context.extractedContext.priceMax = parseInt(max) * 1000;
@@ -627,15 +627,15 @@ class TrekTribeAI {
         context.extractedContext.priceMax = parseInt(max);
       }
     }
-    
+
     // Extract destinations from query
     const destinations = ['himalaya', 'manali', 'ladakh', 'goa', 'kashmir', 'rajasthan', 'kerala', 'rishikesh', 'uttarakhand'];
     context.extractedContext.destinations = destinations.filter(dest => normalizedQuery.includes(dest));
-    
+
     // Extract categories from query
     const categories = ['trekking', 'adventure', 'camping', 'hiking', 'wildlife', 'beach', 'mountain'];
     context.extractedContext.categories = categories.filter(cat => normalizedQuery.includes(cat));
-    
+
     // Apply extracted budget to userPreferences
     if (context.extractedContext.priceMax || context.extractedContext.priceMin) {
       if (!context.userPreferences) {
@@ -646,35 +646,35 @@ class TrekTribeAI {
         max: context.extractedContext.priceMax || 999999
       };
     }
-    
+
     return context;
   }
-  
+
   private findBestMatch(query: string): { pattern: any; confidence: number } | null {
     let bestMatch = null;
     let highestScore = 0;
-    
+
     for (const pattern of this.knowledgeBase.patterns) {
       let score = 0;
       let matchedKeywords = 0;
-      
+
       for (const keyword of pattern.keywords) {
         if (query.includes(keyword.toLowerCase())) {
           matchedKeywords++;
           // Longer keywords get higher scores
           score += keyword.length;
-          
+
           // Exact phrase matches get bonus
           if (query.includes(keyword.toLowerCase())) {
             score += 5;
           }
         }
       }
-      
+
       // Calculate confidence based on keyword matches
       const matchRatio = matchedKeywords / pattern.keywords.length;
       const finalScore = score * matchRatio;
-      
+
       if (finalScore > highestScore && matchRatio > 0.3) {
         highestScore = finalScore;
         bestMatch = {
@@ -683,10 +683,10 @@ class TrekTribeAI {
         };
       }
     }
-    
+
     return bestMatch;
   }
-  
+
   private analyzeContext(query: string, context: ChatContext): { pattern: any; confidence: number } | null {
     // Context-based analysis
     const contextClues = {
@@ -696,10 +696,10 @@ class TrekTribeAI {
       tripInfo: ['trip', 'trek', 'adventure', 'detail', 'information'],
       account: ['account', 'profile', 'login', 'password', 'signup']
     };
-    
+
     let bestContext = null;
     let maxMatches = 0;
-    
+
     for (const [contextType, keywords] of Object.entries(contextClues)) {
       const matches = keywords.filter(keyword => query.includes(keyword)).length;
       if (matches > maxMatches) {
@@ -707,7 +707,7 @@ class TrekTribeAI {
         bestContext = contextType;
       }
     }
-    
+
     if (bestContext && maxMatches > 0) {
       const responses = this.knowledgeBase.contextualResponses[bestContext as keyof typeof this.knowledgeBase.contextualResponses];
       if (responses && responses.length > 0) {
@@ -724,10 +724,10 @@ class TrekTribeAI {
         };
       }
     }
-    
+
     return null;
   }
-  
+
   private getContextActions(context: string): string[] {
     const actionMap: { [key: string]: string[] } = {
       booking: ['Browse Available Trips', 'View Pricing'],
@@ -736,10 +736,10 @@ class TrekTribeAI {
       tripInfo: ['View Trip Details', 'Contact Organizer'],
       account: ['Account Settings', 'Help Center']
     };
-    
+
     return actionMap[context] || ['Browse Available Trips', 'Contact Support'];
   }
-  
+
   // Real-time trip availability
   private async getTripAvailability(tripId: string): Promise<TripAvailability | null> {
     try {
@@ -758,7 +758,7 @@ class TrekTribeAI {
 
       const bookingCount = await GroupBooking.countDocuments({ tripId, status: 'confirmed' });
       const availableSpots = trip.capacity - trip.participants.length;
-      
+
       const availability: TripAvailability = {
         tripId,
         title: trip.title,
@@ -802,7 +802,7 @@ class TrekTribeAI {
       const categories = organizerTrips.flatMap(t => t.categories);
       const destinations = organizerTrips.map(t => t.destination);
       const difficulties = organizerTrips.map(t => t.categories.find(c => ['beginner', 'intermediate', 'advanced', 'easy', 'moderate', 'difficult'].includes(c.toLowerCase())) || 'intermediate');
-      
+
       const specialties = [...new Set(categories)].slice(0, 5);
       const experience = this.calculateExperience(totalTrips, avgRating);
 
@@ -833,15 +833,15 @@ class TrekTribeAI {
   private async getSmartRecommendations(context: ChatContext): Promise<TripRecommendation[]> {
     try {
       const userAnalytics = context.userId ? await this.getUserAnalytics(context.userId) : null;
-      
+
       // Build query based on context and analytics
       let query: any = { status: 'active' };
-      
+
       // Apply filters based on user preferences
       if (context.userPreferences?.difficulty) {
         query.difficultyLevel = context.userPreferences.difficulty;
       }
-      
+
       if (context.userPreferences?.budget) {
         query.price = {
           $gte: context.userPreferences.budget.min,
@@ -888,8 +888,8 @@ class TrekTribeAI {
         // Score based on context preferences
         if (context.userPreferences) {
           if (context.userPreferences.interests) {
-            const categoryMatch = trip.categories.some(cat => 
-              context.userPreferences!.interests!.some(interest => 
+            const categoryMatch = trip.categories.some(cat =>
+              context.userPreferences!.interests!.some(interest =>
                 cat.toLowerCase().includes(interest.toLowerCase())
               )
             );
@@ -962,7 +962,7 @@ class TrekTribeAI {
       const favoriteDestinations = this.getTopItems(destinations, 3);
       const preferredDifficulty = this.getMostCommon(difficulties) || 'intermediate';
       const averageBudget = amounts.reduce((sum, amt) => sum + amt, 0) / amounts.length;
-      
+
       // Seasonal preference analysis
       const bookingMonths = bookings.map(b => new Date(b.createdAt).getMonth());
       const seasonalPreference = this.getSeasonalPreference(bookingMonths);
@@ -1021,7 +1021,7 @@ class TrekTribeAI {
     }, {} as Record<string, number>);
 
     return Object.entries(frequency)
-      .sort(([,a], [,b]) => b - a)
+      .sort(([, a], [, b]) => b - a)
       .slice(0, count)
       .map(([item]) => item as T);
   }
@@ -1046,7 +1046,7 @@ class TrekTribeAI {
     let enhancedResponse = match.pattern.response;
     let additionalData: any = {};
     let tripLinks: Array<{ tripId: string; title: string; url: string; }> | undefined = undefined;
-    
+
     // Handle availability queries
     if (match.pattern.keywords.some((k: string) => ['availability', 'available', 'spots', 'full'].includes(k))) {
       if (context.tripId) {
@@ -1057,7 +1057,7 @@ class TrekTribeAI {
           } else {
             enhancedResponse = `✅ Great news! ${availability.title} has ${availability.availableSpots} spots available out of ${availability.totalCapacity} total capacity. With ${availability.bookingCount} adventurers already booked, there's still plenty of room for you to join this amazing journey!`;
           }
-          
+
           if (availability.nextDeparture) {
             enhancedResponse += ` Next departure: ${availability.nextDeparture.toLocaleDateString()}.`;
           }
@@ -1075,7 +1075,7 @@ class TrekTribeAI {
         }
       }
     }
-    
+
     // Handle organizer/leader queries
     if (match.pattern.keywords.some((k: string) => ['organizer', 'guide', 'leader'].includes(k))) {
       if (context.tripId) {
@@ -1084,7 +1084,7 @@ class TrekTribeAI {
           const organizer = await this.getOrganizerProfile(tripInfo.organizerId);
           if (organizer) {
             enhancedResponse = `Meet your trek leader! 🏔️\n\n**${organizer.name}** - ${organizer.experience}\n⭐ ${organizer.rating}/5.0 rating from ${organizer.totalReviews} reviews\n🎯 Led ${organizer.totalTrips} successful adventures\n🏆 Specialties: ${organizer.specialties.join(', ')}\n📜 Certifications: ${organizer.certifications.join(', ')}\n🗣️ Languages: ${organizer.languages.join(', ')}`;
-            
+
             if (organizer.rating >= 4.5) {
               enhancedResponse += '\n\n🌟 This is one of our top-rated organizers with exceptional reviews!';
             }
@@ -1092,45 +1092,45 @@ class TrekTribeAI {
         }
       }
     }
-    
+
     // Handle recommendation queries
     if (match.pattern.keywords.some((k: string) => ['recommend', 'suggest', 'best', 'advice'].includes(k))) {
       const recommendations = await this.getSmartRecommendations(context);
       if (recommendations.length > 0) {
         const baseUrl = process.env.FRONTEND_URL || 'https://trektribe.in';
         enhancedResponse = `🎯 Based on your preferences and travel history, here are my top recommendations:\n\n`;
-        
+
         for (let i = 0; i < Math.min(3, recommendations.length); i++) {
           const rec = recommendations[i];
           const availability = await this.getTripAvailability(rec.trip._id);
           const organizer = await this.getOrganizerProfile(rec.trip.organizerId);
           const tripUrl = `${baseUrl}/trips/${rec.trip._id}`;
-          
+
           enhancedResponse += `**${i + 1}. ${rec.trip.title}** (₹${rec.trip.price.toLocaleString()})\n`;
           enhancedResponse += `📍 ${rec.trip.destination} • ${rec.trip.difficultyLevel || 'Intermediate'} level\n`;
           enhancedResponse += `🎯 ${rec.reason}\n`;
-          
+
           if (availability) {
             enhancedResponse += `💺 ${availability.availableSpots} spots available`;
             if (availability.isAlmostFull) enhancedResponse += ' (Almost Full!)';
             enhancedResponse += '\n';
           }
-          
+
           if (organizer && organizer.rating >= 4.0) {
             enhancedResponse += `👨‍🏫 Led by ${organizer.name} (⭐ ${organizer.rating}/5.0)\n`;
           }
-          
+
           enhancedResponse += `🔗 View Details: ${tripUrl}\n\n`;
         }
-        
+
         enhancedResponse += '\n💡 Click any link above to see full trip details and book your adventure!';
-        
+
         additionalData.recommendations = recommendations;
       } else {
         enhancedResponse += ' Let me know your preferences (budget, difficulty, interests) for personalized suggestions!';
       }
     }
-    
+
     // Handle user analytics queries
     if (match.pattern.keywords.some((k: string) => ['my trips', 'history', 'analytics'].includes(k)) && context.userId) {
       const analytics = await this.getUserAnalytics(context.userId);
@@ -1141,13 +1141,13 @@ class TrekTribeAI {
         enhancedResponse += `🎯 Preferred Difficulty: ${analytics.preferences.preferredDifficulty}\n`;
         enhancedResponse += `📍 Favorite Destinations: ${analytics.preferences.favoriteDestinations.join(', ')}\n`;
         enhancedResponse += `🌤️ Best Seasons: ${analytics.preferences.seasonalPreference.join(', ')}\n`;
-        
+
         if (analytics.trendingInterests.length > 0) {
           enhancedResponse += `\n🔥 Your Current Interests: ${analytics.trendingInterests.join(', ')}\n`;
         }
-        
+
         enhancedResponse += `\n💡 Recommended Budget Range: ₹${analytics.recommendedBudget.min.toLocaleString()} - ₹${analytics.recommendedBudget.max.toLocaleString()}`;
-        
+
         // Get personalized recommendations
         const recommendations = await this.getSmartRecommendations(context);
         if (recommendations.length > 0) {
@@ -1157,39 +1157,39 @@ class TrekTribeAI {
         enhancedResponse = `Welcome to Trek Tribe! 🎒 You haven't booked any adventures yet, but I'm excited to help you plan your first epic journey! Let me know what kind of adventure interests you.`;
       }
     }
-    
+
     // Handle booking assistance
     if (match.pattern.keywords.some((k: string) => ['book now', 'help me book', 'guide booking'].includes(k))) {
       if (context.tripId) {
         const availability = await this.getTripAvailability(context.tripId);
         const tripInfo = await this.getTripInfo(context.tripId);
-        
+
         if (availability && tripInfo) {
           enhancedResponse = `🎯 Let's get you booked on ${availability.title}!\n\n`;
-          
+
           if (availability.isAlmostFull) {
             enhancedResponse += `⚡ URGENT: Only ${availability.availableSpots} spots left! This adventure is in high demand.\n\n`;
           }
-          
+
           enhancedResponse += `📋 Here's what you need to complete your booking:\n`;
           enhancedResponse += `💰 Price: ₹${tripInfo.price.toLocaleString()} per person\n`;
           enhancedResponse += `📅 Date: ${availability.nextDeparture?.toLocaleDateString()}\n`;
           enhancedResponse += `👥 Available spots: ${availability.availableSpots}\n\n`;
-          
+
           enhancedResponse += `🚀 Ready to book? Click 'Join Trip' on the trip page and I'll guide you through each step!`;
         }
       } else {
         enhancedResponse += ' First, let me help you find the perfect adventure! What type of experience are you looking for?';
       }
     }
-    
+
     // Trip-specific context enhancements
     if (context.tripId && !match.pattern.keywords.some((k: string) => ['availability', 'organizer', 'recommend'].includes(k))) {
       const tripInfo = await this.getTripInfo(context.tripId);
       if (tripInfo) {
         const baseUrl = process.env.FRONTEND_URL || 'https://trektribe.in';
         const tripUrl = `${baseUrl}/trips/${context.tripId}`;
-        
+
         // Add trip-specific information based on query
         if (match.pattern.keywords.includes('pickup') || match.pattern.keywords.includes('location')) {
           enhancedResponse += ` For ${tripInfo.title}, we have pickup points at ${tripInfo.pickupPoints?.join(', ') || 'multiple locations'}. Drop-off will be at ${tripInfo.dropOffPoints?.join(', ') || 'the same locations'}.`;
@@ -1197,7 +1197,7 @@ class TrekTribeAI {
         if (match.pattern.keywords.includes('price') || match.pattern.keywords.includes('cost')) {
           enhancedResponse += ` This specific trek (${tripInfo.title}) is priced at ₹${tripInfo.price.toLocaleString()} per person.`;
         }
-        
+
         // Provide trip link for any trip-specific query
         if (!tripLinks || tripLinks.length === 0) {
           tripLinks = [{
@@ -1206,7 +1206,7 @@ class TrekTribeAI {
             url: tripUrl
           }];
         }
-        
+
         // Add helpful context about being on the trip page
         if (!enhancedResponse.includes(tripInfo.title)) {
           enhancedResponse += `\n\n📍 I see you're viewing ${tripInfo.title}. I can help you with:
@@ -1221,7 +1221,7 @@ What would you like to know?`;
         }
       }
     }
-    
+
     // Extract trip links if recommendations are present and not already set
     if (!tripLinks && additionalData.recommendations && additionalData.recommendations.length > 0) {
       tripLinks = additionalData.recommendations.map((rec: any) => {
@@ -1245,19 +1245,19 @@ What would you like to know?`;
       additionalData
     };
   }
-  
+
   private async getTripInfo(tripId: string): Promise<any> {
     try {
       // Check cache first
       if (this.tripCache.has(tripId)) {
         return this.tripCache.get(tripId);
       }
-      
+
       // Fetch from database - include organizerId for organizer profile
       const trip = await Trip.findById(tripId)
         .populate('organizerId', 'name email')
         .select('title price pickupPoints dropOffPoints difficulty duration organizerId categories destination');
-      
+
       if (trip) {
         // Cache for 10 minutes
         this.tripCache.set(tripId, trip);
@@ -1267,10 +1267,10 @@ What would you like to know?`;
     } catch (error) {
       logger.error('Error fetching trip info for AI context', { error, tripId });
     }
-    
+
     return null;
   }
-  
+
   /**
    * Detect user intent from query
    */
@@ -1279,26 +1279,26 @@ What would you like to know?`;
     if (/^(hi|hello|hey|greetings|good morning|good afternoon|good evening|sup|yo)\b/i.test(query)) {
       return 'greeting';
     }
-    
+
     // Question detection
     if (/\?(what|where|when|who|how|why|which|is|are|can|could|would|should)\b/i.test(query)) {
       return 'question';
     }
-    
+
     // Action request detection
     if (/(book|reserve|join|show me|find|search|recommend|suggest)/i.test(query)) {
       return 'action_request';
     }
-    
+
     // Problem/complaint detection
     if (/(problem|issue|error|can't|cannot|not working|help|stuck)/i.test(query)) {
       return 'problem';
     }
-    
+
     // Generic query
     return 'general';
   }
-  
+
   /**
    * Detect if user is repeating similar queries
    */
@@ -1306,14 +1306,14 @@ What would you like to know?`;
     if (!context.previousMessages || context.previousMessages.length < 2) {
       return false;
     }
-    
+
     const recentUserMessages = context.previousMessages
       .filter(msg => msg.role === 'user')
       .slice(-3)
       .map(msg => msg.content.toLowerCase());
-    
+
     const normalizedQuery = query.toLowerCase();
-    
+
     // Check for similar queries
     for (const prevMsg of recentUserMessages) {
       const similarity = this.calculateSimilarity(normalizedQuery, prevMsg);
@@ -1321,21 +1321,21 @@ What would you like to know?`;
         return true;
       }
     }
-    
+
     return false;
   }
-  
+
   /**
    * Calculate string similarity (simple Levenshtein-based)
    */
   private calculateSimilarity(str1: string, str2: string): number {
     const words1 = str1.split(/\s+/);
     const words2 = str2.split(/\s+/);
-    
+
     const commonWords = words1.filter(word => words2.includes(word));
     return commonWords.length / Math.max(words1.length, words2.length);
   }
-  
+
   /**
    * Add variation to response if repeating
    */
@@ -1346,16 +1346,16 @@ What would you like to know?`;
       `To clarify: ${message}`,
       message // Keep original sometimes
     ];
-    
+
     return variations[Math.floor(Math.random() * variations.length)];
   }
-  
+
   private getGeneralResponse(query: string, intent?: string, context?: ChatContext): AIResponse {
     const generalResponses = this.knowledgeBase.contextualResponses.general;
-    
+
     // Select response based on intent
     let responseBase = '';
-    
+
     if (intent === 'greeting') {
       const greetings = [
         'Hi there! 👋 Ready to explore amazing adventures?',
@@ -1384,12 +1384,12 @@ What would you like to know?`;
     } else {
       responseBase = generalResponses[Math.floor(Math.random() * generalResponses.length)];
     }
-    
+
     // Add context-aware suggestions
     const suggestions = this.getContextualSuggestions(query, context);
-    
+
     const fullMessage = `${responseBase} ${suggestions}`;
-    
+
     return {
       message: fullMessage,
       requiresHumanSupport: false,
@@ -1398,39 +1398,39 @@ What would you like to know?`;
       quickReplies: this.getQuickRepliesForIntent(intent)
     };
   }
-  
+
   /**
    * Get contextual suggestions based on query
    */
   private getContextualSuggestions(query: string, context?: ChatContext): string {
     const lowerQuery = query.toLowerCase();
-    
+
     if (lowerQuery.includes('where') && lowerQuery.includes('go')) {
       return 'I can help you discover destinations! Tell me your interests - mountains, beaches, culture, or adventure?';
     }
-    
+
     if (lowerQuery.includes('when')) {
       return 'Trip timing matters! We have adventures year-round. What season works best for you?';
     }
-    
+
     if (lowerQuery.includes('budget') || lowerQuery.includes('price') || lowerQuery.includes('cost')) {
       return 'I can suggest trips within any budget. What\'s your price range?';
     }
-    
+
     // Check conversation history for context
     if (context?.previousMessages && context.previousMessages.length > 0) {
       const lastAssistantMsg = context.previousMessages
         .filter(m => m.role === 'assistant')
         .pop();
-      
+
       if (lastAssistantMsg?.content.includes('recommend')) {
         return 'Need more specific recommendations? Tell me your preferred difficulty level or destination!';
       }
     }
-    
+
     return 'I can help with trip bookings, recommendations, safety info, payment questions, and much more. What interests you most?';
   }
-  
+
   /**
    * Get smart actions based on intent
    */
@@ -1438,18 +1438,18 @@ What would you like to know?`;
     if (intent === 'greeting') {
       return ['Browse Trips', 'Get Recommendations', 'Popular Destinations'];
     }
-    
+
     if (intent === 'action_request') {
       return ['View Available Trips', 'Check Availability', 'Contact Support'];
     }
-    
+
     if (intent === 'problem') {
       return ['Talk to Agent', 'View Help Center', 'Check FAQs'];
     }
-    
+
     return ['Browse Available Trips', 'View Services', 'Contact Support'];
   }
-  
+
   /**
    * Get quick replies based on intent
    */
@@ -1462,7 +1462,7 @@ What would you like to know?`;
         'Mountain treks'
       ];
     }
-    
+
     if (intent === 'question') {
       return [
         'Tell me more',
@@ -1471,7 +1471,7 @@ What would you like to know?`;
         'Booking process'
       ];
     }
-    
+
     return [
       'Trip Booking',
       'Cancellation Policy',
@@ -1489,7 +1489,7 @@ class AISupportService {
   }
 
   async handleUserQuery(
-    query: string, 
+    query: string,
     context: ChatContext
   ): Promise<AIResponse> {
     return await this.trekTribeAI.analyzeQuery(query, context);
@@ -1503,10 +1503,10 @@ class AISupportService {
   ): Promise<string> {
     try {
       console.log('🔍 Creating support ticket:', { userId, subject, category });
-      
+
       const user = await User.findById(userId);
       console.log('👤 User lookup result:', { userId, found: !!user, userName: user?.name });
-      
+
       if (!user) {
         console.log('❌ User not found for ID:', userId);
         throw new Error('User not found');
@@ -1533,25 +1533,25 @@ class AISupportService {
           timestamp: new Date()
         }]
       };
-      
+
       console.log('📝 Creating ticket with data:', ticketData);
-      
+
       const ticket = await SupportTicket.create(ticketData);
       console.log('✅ Ticket created successfully:', { ticketId: ticket.ticketId, _id: ticket._id });
 
-      logger.info('Support ticket created by Trek Tribe AI', { 
-        ticketId: ticket.ticketId, 
-        userId 
+      logger.info('Support ticket created by Trek Tribe AI', {
+        ticketId: ticket.ticketId,
+        userId
       });
 
       return ticket.ticketId;
     } catch (error: any) {
       console.error('❌ Error creating support ticket:', error);
       console.error('❌ Error stack:', error.stack);
-      logger.error('Error creating support ticket', { 
-        error: error.message, 
+      logger.error('Error creating support ticket', {
+        error: error.message,
         stack: error.stack,
-        userId 
+        userId
       });
       throw error;
     }

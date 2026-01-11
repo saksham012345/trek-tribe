@@ -214,7 +214,7 @@ def _compose_retrieval_answer(retrieved_items: List[tuple], prompt: str) -> str:
     """
     contact_line = (
         "Our AI agent is not available right now. "
-        "Please contact tanejasaksham44@gmail.com or call 9876177839 for immediate help."
+        "Please contact trektribeagent@gmail.com or call 9876177839 for immediate help."
     )
 
     if not retrieved_items:
