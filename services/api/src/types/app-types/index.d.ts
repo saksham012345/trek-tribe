@@ -48,6 +48,16 @@ export interface AuthRequest<
   body: ReqBody;
   query: ReqQuery;
   params: P;
+  // Multer property
+  file?: Express.Multer.File;
+  files?: Express.Multer.File[] | { [fieldname: string]: Express.Multer.File[] };
+  // Standard Request properties that seem to be missing in inference
+  protocol: string;
+  secure: boolean;
+  get: (name: string) => string | undefined;
+  originalUrl: string;
+  baseUrl: string;
+  headers: any;
 }
 
 // AuthenticatedRequest explicitly includes all Request properties
@@ -63,4 +73,14 @@ export interface AuthenticatedRequest<
   body: ReqBody;
   query: ReqQuery;
   params: P;
+  // Multer property
+  file?: Express.Multer.File;
+  files?: Express.Multer.File[] | { [fieldname: string]: Express.Multer.File[] };
+  // Standard Request properties that seem to be missing in inference
+  protocol: string;
+  secure: boolean;
+  get: (name: string) => string | undefined;
+  originalUrl: string;
+  baseUrl: string;
+  headers: any;
 }
