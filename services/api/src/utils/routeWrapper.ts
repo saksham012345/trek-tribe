@@ -2,6 +2,7 @@ import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { AuthPayload } from '../middleware/auth';
 
 import { AuthenticatedRequest } from '../types/app-types';
+export { AuthenticatedRequest };
 
 // Extended request interface
 // export interface AuthenticatedRequest extends Request {
