@@ -24,31 +24,31 @@ function setAuthCookie(res: Response, token: string, req?: any): void {
   const isHttpsRequest = req?.secure || req?.headers?.['x-forwarded-proto'] === 'https' || req?.protocol === 'https';
   const hasHttpsFrontend = process.env.FRONTEND_URL?.startsWith('https://');
   const isProduction = isProductionEnv || (isHttpsRequest && hasHttpsFrontend);
-  
+
   const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
-  
+
   // Cookie domain handling:
   // - undefined = current domain only (recommended for same-origin)
   // - .example.com = works for all subdomains (e.g., app.example.com, api.example.com)
   // - For Render: leave undefined since frontend and backend are on different subdomains
   //   but cookies won't be shared across subdomains anyway
   // - Only set domain if you explicitly need cross-subdomain cookie sharing
-  const cookieDomain = process.env.COOKIE_DOMAIN && process.env.COOKIE_DOMAIN.trim() !== '' 
-    ? process.env.COOKIE_DOMAIN.trim() 
+  const cookieDomain = process.env.COOKIE_DOMAIN && process.env.COOKIE_DOMAIN.trim() !== ''
+    ? process.env.COOKIE_DOMAIN.trim()
     : undefined;
-  
+
   // In development, always use secure: false for HTTP
   // In production, use secure: true only for HTTPS requests
   // This ensures cookies work in development (HTTP) and production (HTTPS)
   const secure = isProduction && isHttpsRequest;
-  
+
   // Determine sameSite:
   // - 'none' for cross-origin requests in production (requires secure=true)
   // - 'lax' for same-origin or development
   // Check if frontend and backend are on different origins
   const isCrossOrigin = hasHttpsFrontend && process.env.FRONTEND_URL !== process.env.API_URL;
   const sameSite = (isProduction && isCrossOrigin && secure) ? 'none' : 'lax';
-  
+
   const cookieOptions: any = {
     httpOnly: true, // Prevents JavaScript access (XSS protection)
     secure: secure, // HTTPS only (required for sameSite: 'none')
@@ -65,7 +65,7 @@ function setAuthCookie(res: Response, token: string, req?: any): void {
   }
 
   res.cookie('token', token, cookieOptions);
-  
+
   // Log cookie setting for debugging (always log in dev, or if there's an issue)
   if (process.env.NODE_ENV === 'development' || process.env.DEBUG_COOKIES === 'true') {
     console.log('🍪 Setting auth cookie:', {
@@ -95,11 +95,11 @@ function clearAuthCookie(res: Response, req?: any): void {
   const secure = isProduction && isHttpsRequest;
   const isCrossOrigin = hasHttpsFrontend && process.env.FRONTEND_URL !== process.env.API_URL;
   const sameSite = (isProduction && isCrossOrigin && secure) ? 'none' : 'lax';
-  
-  const cookieDomain = process.env.COOKIE_DOMAIN && process.env.COOKIE_DOMAIN.trim() !== '' 
-    ? process.env.COOKIE_DOMAIN.trim() 
+
+  const cookieDomain = process.env.COOKIE_DOMAIN && process.env.COOKIE_DOMAIN.trim() !== ''
+    ? process.env.COOKIE_DOMAIN.trim()
     : undefined;
-  
+
   res.clearCookie('token', {
     httpOnly: true,
     secure: secure,
@@ -111,7 +111,7 @@ function clearAuthCookie(res: Response, req?: any): void {
 
 // Basic weak-password blocklist to prevent trivially guessable secrets
 const COMMON_PASSWORDS = new Set([
-  'password','password1','password123','123456','123456789','qwerty','letmein','welcome','admin','iloveyou','abc123','111111','123123','qwertyuiop','monkey','dragon','football','baseball'
+  'password', 'password1', 'password123', '123456', '123456789', 'qwerty', 'letmein', 'welcome', 'admin', 'iloveyou', 'abc123', '111111', '123123', 'qwertyuiop', 'monkey', 'dragon', 'football', 'baseball'
 ]);
 
 const strongPasswordSchema = z.string()
@@ -142,8 +142,8 @@ const registerSchema = z.object({
     .optional(),
   // Keep phone optional to remain compatible with existing tests and clients
   phone: z.string().regex(/^[+]?[1-9]\d{1,14}$/, { message: 'Invalid phone number format. Use international format (e.g., +919876543210).' }).optional(),
-  role: z.enum(['traveler', 'organizer'], { 
-    errorMap: () => ({ message: 'Invalid role. Allowed values: traveler or organizer. Admins and agents must be created by system administrators.' }) 
+  role: z.enum(['traveler', 'organizer'], {
+    errorMap: () => ({ message: 'Invalid role. Allowed values: traveler or organizer. Admins and agents must be created by system administrators.' })
   }).optional(),
   // Optional profile data that can be provided during registration
   bio: z.string().optional(),
@@ -175,7 +175,7 @@ router.post('/register', async (req, res) => {
     const existing = await User.findOne({ email });
     if (existing) {
       const statusCode = process.env.NODE_ENV === 'test' ? 400 : 409;
-      return res.status(statusCode).json({ 
+      return res.status(statusCode).json({
         success: false,
         error: 'Email already registered',
         message: 'This email address is already registered. Please use a different email or try logging in.',
@@ -187,7 +187,7 @@ router.post('/register', async (req, res) => {
     if (username) {
       const existingUsername = await User.findOne({ username: username.toLowerCase() });
       if (existingUsername) {
-        return res.status(409).json({ 
+        return res.status(409).json({
           success: false,
           error: 'Username already taken',
           message: 'This username is already taken. Please choose a different username.',
@@ -200,7 +200,7 @@ router.post('/register', async (req, res) => {
     if (phone) {
       const existingPhone = await User.findOne({ phone });
       if (existingPhone) {
-        return res.status(409).json({ 
+        return res.status(409).json({
           success: false,
           error: 'Phone number already registered',
           message: 'This phone number is already registered. Please use a different phone number.',
@@ -211,10 +211,10 @@ router.post('/register', async (req, res) => {
 
     // Hash password
     const passwordHash = await bcrypt.hash(password, 12);
-    
+
     // Determine final role (default to traveler)
     const userRole = role ?? 'traveler';
-    
+
     // Enforce role restrictions: only traveler and organizer allowed during registration
     const ALLOWED_REGISTRATION_ROLES = ['traveler', 'organizer'];
     if (!ALLOWED_REGISTRATION_ROLES.includes(userRole)) {
@@ -225,7 +225,7 @@ router.post('/register', async (req, res) => {
         field: 'role'
       });
     }
-    
+
     // Create base user object
     const userData: any = {
       email,
@@ -273,13 +273,13 @@ router.post('/register', async (req, res) => {
         verificationBadge: 'none',
         routingEnabled: false  // Disabled by default, admin can enable after verification
       };
-      
+
       // Set organizer verification status to pending
       userData.organizerVerificationStatus = 'pending';
       userData.organizerVerificationSubmittedAt = new Date();
     }
     // travelers use default user fields
-    
+
     const user = await User.create(userData);
 
     // Create verification request for organizers
@@ -298,7 +298,7 @@ router.post('/register', async (req, res) => {
             businessName: name  // Use provided name as initial business name
           }
         });
-        
+
         logger.info('Verification request created for new organizer', {
           userId: user._id,
           email: user.email
@@ -332,7 +332,7 @@ router.post('/register', async (req, res) => {
         otp,
         expiresMinutes: 10
       });
-      
+
       logger.info('Registration email OTP sent', { email, userId: user._id, role: userRole });
 
       // In normal environments we require email verification.
@@ -368,7 +368,7 @@ router.post('/register', async (req, res) => {
       }
 
       // Do not issue login token until email verified
-      return res.status(201).json({ 
+      return res.status(201).json({
         success: true,
         message: 'Registration successful! A verification code has been sent to your email.',
         requiresVerification: true,
@@ -381,7 +381,7 @@ router.post('/register', async (req, res) => {
     } catch (error: any) {
       logger.error('Failed to send registration OTP', { email, error: error.message });
       // Still return success but inform about email failure
-      return res.status(201).json({ 
+      return res.status(201).json({
         success: true,
         message: 'Registration successful, but we could not send the verification code. You can request a new code from the login page.',
         requiresVerification: true,
@@ -394,7 +394,7 @@ router.post('/register', async (req, res) => {
     }
   } catch (error: any) {
     logger.error('Registration failed', { error: error.message, stack: error.stack });
-    
+
     // Handle specific error types
     if (error.name === 'MongoServerError' && error.code === 11000) {
       // Duplicate key error
@@ -406,7 +406,7 @@ router.post('/register', async (req, res) => {
         field
       });
     }
-    
+
     return res.status(500).json({
       success: false,
       error: 'Registration failed',
@@ -430,7 +430,7 @@ router.post('/login', async (req, res) => {
     });
   }
   const { email, password } = parsed.data;
-  
+
   // Find user by email or username
   const user = await User.findOne({
     $or: [
@@ -438,7 +438,7 @@ router.post('/login', async (req, res) => {
       { username: email.toLowerCase() }
     ]
   });
-  
+
   if (!user) {
     return res.status(401).json({
       error: 'User does not exist',
@@ -466,27 +466,27 @@ router.post('/login', async (req, res) => {
     throw new Error('JWT_SECRET environment variable is required');
   }
   const token = jwt.sign({ userId: String(user._id), role: user.role }, jwtSecret, { expiresIn: '7d' });
-  
+
   // Update last active timestamp
   user.lastActive = new Date();
-  
+
   // Track first login for organizers (but don't start 60-day trial yet)
   if (user.role === 'organizer' && !user.firstOrganizerLogin) {
     user.firstOrganizerLogin = new Date();
     logger.info('First organizer login tracked', { userId: user._id });
   }
-  
+
   await user.save();
-  
+
   // Set secure httpOnly cookie
   setAuthCookie(res, token, req);
-  
+
   // Log successful login for debugging
   if (process.env.NODE_ENV === 'development') {
     console.log('✅ Login successful, cookie set for user:', user.email);
   }
-  
-  return res.json({ 
+
+  return res.json({
     token, // Still return token for backward compatibility (can be removed later)
     user: {
       id: user._id,
@@ -529,7 +529,8 @@ router.post('/google', async (req, res) => {
       if (!payload) throw new Error('Empty token payload');
     } catch (error: any) {
       logger.error('Google ID token verification failed', { error: error.message });
-      return res.status(401).json({ error: 'Invalid Google token' });
+      // Return specific error message to help debugging (safe to remove detailed message later)
+      return res.status(401).json({ error: `Invalid Google token: ${error.message}` });
     }
 
     // Additional claim checks (defense-in-depth)
@@ -547,7 +548,7 @@ router.post('/google', async (req, res) => {
     const name = (payload.name as string | undefined) || (email ? email.split('@')[0] : undefined);
     const picture = payload.picture as string | undefined;
     const googleId = payload.sub as string | undefined;
-    
+
     if (!email) {
       return res.status(400).json({ error: 'Email not provided by Google' });
     }
@@ -572,7 +573,7 @@ router.post('/google', async (req, res) => {
       // Create new user with Google information
       // Generate a random password hash (won't be used but required by schema)
       const dummyPasswordHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
-      
+
       user = await User.create({
         email,
         name: name || email.split('@')[0],
@@ -605,11 +606,11 @@ router.post('/google', async (req, res) => {
     // Check if profile is incomplete
     const isNewUser = !user.phone;
     const needsRoleSelection = user.role === 'traveler' && !user.phone; // New Google users need role selection
-    
+
     // For organizers via Google auth, they MUST complete profile with phone and payment verification
     const isOrganizerNeedsSetup = user.role === 'organizer' && (!user.phone || !user.phoneVerified);
 
-    res.json({ 
+    res.json({
       token, // Still return token for backward compatibility
       user: {
         id: user._id,
@@ -670,19 +671,19 @@ router.post('/forgot-password', async (req, res) => {
   try {
     const parsed = forgotPasswordSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Invalid email format',
-        details: parsed.error.flatten() 
+        details: parsed.error.flatten()
       });
     }
 
     const { email } = parsed.data;
     const user = await User.findOne({ email });
-    
+
     if (!user) {
       // For security, don't reveal if email exists or not
-      return res.json({ 
-        message: 'If an account with that email exists, a password reset link has been sent.' 
+      return res.json({
+        message: 'If an account with that email exists, a password reset link has been sent.'
       });
     }
 
@@ -714,8 +715,8 @@ router.post('/forgot-password', async (req, res) => {
       logger.warn('Failed to send password reset email', { email: user.email });
     }
 
-    res.json({ 
-      message: 'If an account with that email exists, a password reset link has been sent.' 
+    res.json({
+      message: 'If an account with that email exists, a password reset link has been sent.'
     });
 
   } catch (error: any) {
@@ -735,30 +736,30 @@ router.post('/reset-password', async (req, res) => {
   try {
     const parsed = resetPasswordSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Invalid reset data',
-        details: parsed.error.flatten() 
+        details: parsed.error.flatten()
       });
     }
 
     const { email, token, newPassword } = parsed.data;
-    
-    const user = await User.findOne({ 
+
+    const user = await User.findOne({
       email,
       resetPasswordExpires: { $gt: new Date() }
     });
-    
+
     if (!user || !user.resetPasswordToken) {
-      return res.status(400).json({ 
-        error: 'Invalid or expired reset token' 
+      return res.status(400).json({
+        error: 'Invalid or expired reset token'
       });
     }
 
     // Verify reset token
     const isValidToken = await bcrypt.compare(token, user.resetPasswordToken);
     if (!isValidToken) {
-      return res.status(400).json({ 
-        error: 'Invalid or expired reset token' 
+      return res.status(400).json({
+        error: 'Invalid or expired reset token'
       });
     }
 
@@ -950,7 +951,7 @@ router.post('/resend-registration-otp', async (req, res) => {
         expiresMinutes: 10
       });
 
-      return res.json({ 
+      return res.json({
         message: 'New verification code sent to your email',
         ...(process.env.NODE_ENV === 'development' && { otp })
       });
@@ -1118,17 +1119,17 @@ router.post('/verify-phone/send-otp', authenticateJwt, async (req, res) => {
 
     // Send OTP via Twilio SMS service
     const smsResult = await smsService.sendOTP({ phone, otp });
-    
+
     if (!smsResult.success) {
       logger.error('Failed to send OTP SMS', { phone, error: smsResult.error });
-      return res.status(500).json({ 
-        error: smsResult.error || 'Failed to send OTP. Please try again.' 
+      return res.status(500).json({
+        error: smsResult.error || 'Failed to send OTP. Please try again.'
       });
     }
 
     logger.info('OTP sent successfully', { phone, messageId: smsResult.messageId });
 
-    return res.json({ 
+    return res.json({
       message: 'OTP sent to your phone number',
       // In dev mode, return OTP for testing
       ...(process.env.NODE_ENV === 'development' && { otp })
@@ -1237,7 +1238,7 @@ router.post('/complete-profile', authenticateJwt, async (req, res) => {
 
     // Phone verification is MANDATORY for all users, especially organizers
     if (!user.phoneVerified) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Please verify your phone number first',
         requiresPhoneVerification: true
       });
@@ -1251,7 +1252,7 @@ router.post('/complete-profile', authenticateJwt, async (req, res) => {
       if (!user.organizerProfile) {
         user.organizerProfile = {};
       }
-      
+
       // Merge organizer profile details
       if (organizerProfile) {
         user.organizerProfile = {
@@ -1274,11 +1275,11 @@ router.post('/complete-profile', authenticateJwt, async (req, res) => {
           routingEnabled: false
         };
       }
-      
+
       // Set organizer verification status to pending
       user.organizerVerificationStatus = 'pending';
       user.organizerVerificationSubmittedAt = new Date();
-      
+
       // Initialize auto-pay if not already set (for Google auth organizers)
       if (!user.firstOrganizerLogin) {
         user.firstOrganizerLogin = new Date();
@@ -1304,7 +1305,7 @@ router.post('/complete-profile', authenticateJwt, async (req, res) => {
             businessName: user.name
           }
         });
-        
+
         logger.info('Verification request created for Google OAuth organizer', {
           userId: user._id,
           email: user.email
@@ -1320,7 +1321,7 @@ router.post('/complete-profile', authenticateJwt, async (req, res) => {
 
     logger.info('Profile completed', { userId, role, hasPhone: !!user.phone });
 
-    return res.json({ 
+    return res.json({
       message: 'Profile completed successfully',
       user: {
         id: user._id,
