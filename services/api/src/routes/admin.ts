@@ -3,7 +3,6 @@ import { User } from '../models/User';
 import { Trip } from '../models/Trip';
 import { Review } from '../models/Review';
 import { Wishlist } from '../models/Wishlist';
-import { Wishlist } from '../models/Wishlist';
 import CRMSubscription from '../models/CRMSubscription';
 import { OrganizerSubscription } from '../models/OrganizerSubscription';
 import { SupportTicket } from '../models/SupportTicket';

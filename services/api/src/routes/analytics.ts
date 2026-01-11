@@ -7,6 +7,7 @@ import { OrganizerSubscription } from '../models/OrganizerSubscription';
 import Lead from '../models/Lead';
 import Ticket from '../models/Ticket';
 import TripVerification from '../models/TripVerification';
+import { GroupBooking } from '../models/GroupBooking';
 
 const router = Router();
 

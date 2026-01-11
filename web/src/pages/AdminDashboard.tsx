@@ -5,31 +5,9 @@ import api from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { UserEditModal } from '../components/UserEditModal';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement
-} from 'chart.js';
-import { Bar, Line, Doughnut } from 'react-chartjs-2';
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement
-);
+// Chart imports removed as we use custom UI components
+// import { Chart as ChartJS, ... } from 'chart.js';
+// import { Bar, Line, Doughnut } from 'react-chartjs-2';
 
 interface UserContact {
   _id: string;
@@ -244,7 +222,7 @@ const AdminDashboard: React.FC = () => {
       if (searchQuery) params.append('search', searchQuery);
       if (roleFilter !== 'all') params.append('role', roleFilter);
 
-      const response = await api.get(`/ admin / users / contacts ? ${params.toString()} `);
+      const response = await api.get(`/admin/users/contacts?${params.toString()}`);
       const responseData = response.data as { users: any[] };
       setUserContacts(responseData.users);
     } catch (err: any) {
@@ -259,7 +237,7 @@ const AdminDashboard: React.FC = () => {
       const params = new URLSearchParams();
       if (roleFilter !== 'all') params.append('role', roleFilter);
 
-      const response = await api.get(`/ admin / users /export -contacts ? ${params.toString()} `, {
+      const response = await api.get(`/admin/users/export-contacts?${params.toString()}`, {
         responseType: 'blob'
       });
 
@@ -284,7 +262,7 @@ const AdminDashboard: React.FC = () => {
       if (tripSearchQuery) params.append('search', tripSearchQuery);
       if (statusFilter !== 'all') params.append('status', statusFilter);
 
-      const response = await api.get(`/ admin / trips ? ${params.toString()} `);
+      const response = await api.get(`/admin/trips?${params.toString()}`);
       const responseData = response.data as { trips: Trip[] };
       setTrips(responseData.trips);
     } catch (err: any) {
@@ -296,7 +274,7 @@ const AdminDashboard: React.FC = () => {
 
   const updateTripStatus = async (tripId: string, newStatus: string) => {
     try {
-      await api.patch(`/ admin / trips / ${tripId}/status`, { status: newStatus });
+      await api.patch(`/admin/trips/${tripId}/status`, { status: newStatus });
       addNotification(`Trip status updated to ${newStatus}`, 'success');
       fetchTrips(); // Refresh trips list
     } catch (err: any) {
@@ -431,12 +409,12 @@ const AdminDashboard: React.FC = () => {
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-8 w-8">
                           <div className="h-8 w-8 rounded-full bg-gradient-to-br from-forest-400 to-nature-500 flex items-center justify-center text-white text-sm font-bold">
-                            {trip.organizerId.name.charAt(0).toUpperCase()}
+                            {trip.organizerId?.name ? trip.organizerId.name.charAt(0).toUpperCase() : '?'}
                           </div>
                         </div>
                         <div className="ml-3">
-                          <div className="text-sm font-medium text-gray-900">{trip.organizerId.name}</div>
-                          <div className="text-sm text-gray-500">{trip.organizerId.email}</div>
+                          <div className="text-sm font-medium text-gray-900">{trip.organizerId?.name || 'Unknown'}</div>
+                          <div className="text-sm text-gray-500">{trip.organizerId?.email || 'No email'}</div>
                         </div>
                       </div>
                     </td>

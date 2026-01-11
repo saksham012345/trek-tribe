@@ -45,6 +45,9 @@ export interface AuthRequest<
 > extends Request<P, ResBody, ReqBody, ReqQuery, Locals> {
   user: AuthPayload | any;
   auth?: JwtPayload | AuthPayload | any;
+  body: ReqBody;
+  query: ReqQuery;
+  params: P;
 }
 
 // AuthenticatedRequest explicitly includes all Request properties
@@ -57,4 +60,7 @@ export interface AuthenticatedRequest<
 > extends Request<P, ResBody, ReqBody, ReqQuery, Locals> {
   userId?: string;
   user: AuthPayload | any;
+  body: ReqBody;
+  query: ReqQuery;
+  params: P;
 }

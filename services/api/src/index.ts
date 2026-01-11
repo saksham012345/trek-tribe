@@ -137,13 +137,13 @@ if (process.env.NODE_ENV !== 'test') {
 // CORS configuration - must specify exact origins when credentials are enabled
 const getAllowedOrigins = (): string[] => {
   const origins: string[] = [];
-  
+
   // Add environment variable origins
   if (process.env.FRONTEND_URL) origins.push(process.env.FRONTEND_URL);
   if (process.env.CORS_ORIGIN) origins.push(process.env.CORS_ORIGIN);
   if (process.env.WEB_URL) origins.push(process.env.WEB_URL);
   if (process.env.VERCEL_URL) origins.push(`https://${process.env.VERCEL_URL}`);
-  
+
   // In production, always include common production domains
   if (process.env.NODE_ENV === 'production') {
     origins.push('https://trektribe.in');
@@ -151,14 +151,14 @@ const getAllowedOrigins = (): string[] => {
     origins.push('https://trek-tribe-web.onrender.com');
     origins.push('https://trek-tribe-api.onrender.com');
   }
-  
+
   // In development, allow localhost origins
   if (process.env.NODE_ENV === 'development') {
     origins.push('http://localhost:3000');
     origins.push('http://localhost:3001');
     origins.push('http://127.0.0.1:3000');
   }
-  
+
   return [...new Set(origins)]; // Remove duplicates
 };
 
@@ -168,14 +168,14 @@ app.use(cors({
     if (!origin) {
       return callback(null, true);
     }
-    
+
     const allowedOrigins = getAllowedOrigins();
-    
+
     // In development, be more permissive
     if (process.env.NODE_ENV === 'development') {
       return callback(null, true);
     }
-    
+
     // Check if the origin is in the allowed list
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
@@ -192,7 +192,7 @@ app.use(cors({
 // Cookie parser for httpOnly cookies (security: JWT storage)
 app.use(cookieParser());
 
-app.use(express.json({ 
+app.use(express.json({
   limit: '10mb',
   verify: (req: any, _res, buf: Buffer, encoding: string) => {
     if (buf && buf.length) {
@@ -247,6 +247,7 @@ const connectToDatabase = async (retries = 5): Promise<void> => {
     console.log('ℹ️  USE_MEM_DB enabled — starting in-memory MongoDB instance');
     // Dynamically import mongodb-memory-server only when requested so that production
     // / production-built images that don't include devDependencies don't crash.
+    // @ts-ignore
     const { MongoMemoryServer } = await import('mongodb-memory-server');
     const mongod = await MongoMemoryServer.create();
     mongoUri = mongod.getUri();
@@ -267,11 +268,11 @@ const connectToDatabase = async (retries = 5): Promise<void> => {
     } catch (error: any) {
       console.error(`❌ Database connection attempt ${i} failed:`, error.message);
       logMessage('ERROR', `Database connection attempt ${i} failed: ${error.message}`);
-      
+
       if (i === retries) {
         throw new Error(`Failed to connect to database after ${retries} attempts: ${error.message}`);
       }
-      
+
       // Exponential backoff: wait 2^i seconds before retry
       const waitTime = Math.pow(2, i) * 1000;
       console.log(`⏳ Retrying in ${waitTime / 1000} seconds...`);
@@ -285,27 +286,27 @@ export async function start() {
     console.log('🚀 Starting TrekkTribe API server...');
     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`📡 Port: ${port}`);
-    
+
     // Connect to database with retry logic
     await connectToDatabase();
-    
+
     // Initialize WhatsApp service DISABLED
     // Reason: WhatsApp credentials were exposed in git history
     // Alternative: Use WhatsApp Business API instead
     console.log('ℹ️  WhatsApp service disabled (credentials compromised - use WhatsApp Business API instead)');
-    
+
     // Initialize Socket.IO service
     socketService.initialize(server);
     console.log('✅ Socket.IO service initialized');
     logMessage('INFO', 'Socket.IO service initialized');
-    
+
     // Initialize CRM Chat Service (integrates with existing Socket.IO)
     if (socketService.getIO()) {
       chatService.initializeSocketIO(socketService.getIO());
       console.log('✅ CRM Chat service initialized');
       logMessage('INFO', 'CRM Chat service initialized');
     }
-    
+
     // Initialize Cron Scheduler for auto-pay and other scheduled tasks
     if (process.env.NODE_ENV !== 'test') {
       cronScheduler.init();
@@ -321,7 +322,7 @@ export async function start() {
         console.warn('⚠️ Failed to start charge retry worker', err.message);
       }
     }
-    
+
     // Routes
     app.use('/auth', authLimiter, authRoutes);
     app.use('/trips', tripRoutes);
@@ -337,7 +338,7 @@ export async function start() {
     app.use('/api/public', publicProfileRoutes);
     // File upload system (production ready)
     app.use('/api/uploads', fileUploadRoutes);
-    
+
     // Group Bookings and Review Verification
     app.use('/api/group-bookings', groupBookingRoutes);
     app.use('/group-bookings', groupBookingRoutes);
@@ -358,32 +359,32 @@ export async function start() {
     app.use('/support', supportRoutes);
     app.use('/api/support', supportRoutes); // Also mount at /api/support for consistency
     app.use('/stats', statsRoutes);
-    
+
     // CRM System Routes
     app.use('/api/crm', crmRoutes);
     console.log('✅ CRM routes mounted at /api/crm');
     logMessage('INFO', 'CRM routes registered');
-    
+
     // Email Verification Routes
     app.use('/api/verify-email', emailVerificationRoutes);
     console.log('✅ Email verification routes mounted at /api/verify-email');
     logMessage('INFO', 'Email verification routes registered');
-    
+
     // KYC and ID Verification Routes
     app.use('/api/verification', verificationRoutes);
     console.log('✅ Verification routes mounted at /api/verification');
     logMessage('INFO', 'KYC and ID verification routes registered');
-    
+
     // Recommendations Routes
     app.use('/api/recommendations', recommendationsRoutes);
     console.log('✅ Recommendations routes mounted at /api/recommendations');
     logMessage('INFO', 'Recommendations routes registered');
-    
+
     // Notification Routes
     app.use('/api/notifications', notificationRoutes);
     console.log('✅ Notification routes mounted at /api/notifications');
     logMessage('INFO', 'Notification routes registered');
-    
+
     // Subscription Routes
     app.use('/api/subscriptions', subscriptionRoutes);
     console.log('✅ Subscription routes mounted at /api/subscriptions');
@@ -393,51 +394,51 @@ export async function start() {
     app.use('/api/marketplace', marketplaceRoutes);
     console.log('✅ Marketplace routes mounted at /api/marketplace');
     logMessage('INFO', 'Marketplace routes registered');
-    
+
     // Analytics Routes
     app.use('/api/analytics', analyticsRoutes);
     console.log('✅ Analytics routes mounted at /api/analytics');
     logMessage('INFO', 'Analytics routes registered');
-    
+
     // Receipt Generation Routes
     app.use('/api/receipts', receiptRoutes);
     console.log('✅ Receipt routes mounted at /api/receipts');
     logMessage('INFO', 'Receipt routes registered');
-    
+
     // Razorpay Webhook Routes
     app.use('/api/webhooks', webhookRoutes);
     console.log('✅ Webhook routes mounted at /api/webhooks');
     logMessage('INFO', 'Webhook routes registered');
-    
+
     // Auto-Pay Routes
     app.use('/api/auto-pay', autoPayRoutes);
     console.log('✅ Auto-pay routes mounted at /api/auto-pay');
     logMessage('INFO', 'Auto-pay routes registered');
-    
+
     // Dashboard Routes (role-specific)
     app.use('/api/dashboard', dashboardRoutes);
     console.log('✅ Dashboard routes mounted at /api/dashboard');
     logMessage('INFO', 'Dashboard routes registered');
-    
+
     // Organizer Routes
     app.use('/api/organizer', organizerRoutes);
     console.log('✅ Organizer routes mounted at /api/organizer');
     logMessage('INFO', 'Organizer routes registered');
-    
+
     // Payment Verification Routes (Organizer QR code payment verification)
     app.use('/api/payment-verification', paymentVerificationRoutes);
     console.log('✅ Payment verification routes mounted at /api/payment-verification');
     logMessage('INFO', 'Payment verification routes registered');
-    
+
     // Bank Details Routes (Simplified, no route onboarding)
     const bankDetailsRoutes = require('./routes/bankDetails').default;
     app.use('/api/bank-details', bankDetailsRoutes);
     console.log('✅ Bank details routes mounted at /api/bank-details');
     logMessage('INFO', 'Bank details routes registered');
-    
+
     // Seed Routes under internal namespace
     app.use('/api/internal/seed', seedRoutes);
-    
+
     // Health check endpoint with detailed info
     app.get('/health', asyncErrorHandler(async (_req: Request, res: Response) => {
       const mongoStatus = mongoose.connection.readyState;
@@ -447,10 +448,10 @@ export async function start() {
         2: 'connecting',
         3: 'disconnecting'
       };
-      
+
       // Test database operation
       const dbTest = mongoose.connection.db ? await mongoose.connection.db.admin().ping() : false;
-      
+
       const health = {
         status: 'ok',
         timestamp: new Date().toISOString(),
@@ -463,7 +464,7 @@ export async function start() {
         memory: process.memoryUsage(),
         version: process.version
       };
-      
+
       res.json(health);
     }));
 
@@ -497,19 +498,19 @@ export async function start() {
 
     // Request metrics middleware (collect metrics for each request)
     app.use(metrics.metricsMiddleware());
-    
+
     // 404 handler
     app.use('*', (req: Request, res: Response) => {
-      res.status(404).json({ 
+      res.status(404).json({
         error: 'Route not found',
         path: req.originalUrl,
         method: req.method
       });
     });
-    
+
     // Apply centralized error handler
     app.use(errorHandler);
-    
+
     // Start server with error handling
     const httpServer = server.listen(port, () => {
       console.log(`🚀 API listening on http://localhost:${port}`);
@@ -517,28 +518,28 @@ export async function start() {
       console.log(`💬 Socket.IO chat support: http://localhost:${port}/socket.io/`);
       logMessage('INFO', `Server started on port ${port}`);
     });
-    
+
     // Graceful shutdown handling
     const gracefulShutdown = async (signal: string) => {
       console.log(`\n📴 Received ${signal}. Starting graceful shutdown...`);
       logMessage('INFO', `Received ${signal}. Starting graceful shutdown`);
-      
+
       httpServer.close(async (err) => {
         if (err) {
           console.error('❌ Error during server shutdown:', err);
           logMessage('ERROR', `Error during server shutdown: ${err.message}`);
           process.exit(1);
         }
-        
+
         try {
           // Stop cron jobs
           cronScheduler.stopAll();
           console.log('✅ Cron jobs stopped');
-          
+
           // Shutdown Socket.IO service
           socketService.shutdown();
           console.log('✅ Socket.IO service shut down');
-          
+
           await mongoose.connection.close();
           console.log('✅ Database connection closed');
           logMessage('INFO', 'Graceful shutdown completed');
@@ -550,11 +551,11 @@ export async function start() {
         }
       });
     };
-    
+
     // Handle process signals
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
     process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-    
+
   } catch (err: any) {
     console.error('❌ Failed to start server:', err);
     logMessage('ERROR', `Failed to start server: ${err.message}`);

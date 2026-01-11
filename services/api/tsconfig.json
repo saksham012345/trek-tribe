@@ -27,7 +27,8 @@
     "dist",
     "**/__tests__/**",
     "**/*.test.ts",
-    "**/*.spec.ts"
+    "**/*.spec.ts",
+    "src/scripts/**/*"
   ],
   "ts-node": {
     "files": true
