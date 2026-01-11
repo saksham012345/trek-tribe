@@ -28,7 +28,8 @@
     "**/__tests__/**",
     "**/*.test.ts",
     "**/*.spec.ts",
-    "src/scripts/**/*"
+    "src/scripts/**/*",
+    "src/devServer.ts"
   ],
   "ts-node": {
     "files": true
