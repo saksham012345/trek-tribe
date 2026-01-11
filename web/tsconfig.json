@@ -19,14 +19,17 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react-jsx",
+    "jsx": "react",
     "downlevelIteration": true,
-    "types": ["node", "react", "react-dom"]
+    "types": [
+      "node",
+      "react",
+      "react-dom"
+    ]
   },
   "include": [
     "src"
-  ]
-  ,
+  ],
   "exclude": [
     "src/**/*.test.tsx",
     "src/**/*.test.ts",

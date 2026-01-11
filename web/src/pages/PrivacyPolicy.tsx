@@ -23,7 +23,7 @@ const PrivacyPolicy: React.FC = () => {
 
         {/* Main Content */}
         <div className="bg-white rounded-2xl shadow-xl p-8 space-y-8">
-          
+
           {/* Introduction */}
           <section>
             <h2 className="text-2xl font-semibold text-forest-800 mb-4 flex items-center gap-2">
@@ -32,12 +32,12 @@ const PrivacyPolicy: React.FC = () => {
             </h2>
             <div className="prose prose-gray max-w-none">
               <p className="text-gray-700 leading-relaxed">
-                Welcome to Trek Tribe ("we," "our," or "us"). We are committed to protecting your personal information 
-                and your right to privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard 
+                Welcome to Trek Tribe ("we," "our," or "us"). We are committed to protecting your personal information
+                and your right to privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard
                 your information when you use our website and services.
               </p>
               <p className="text-gray-700 leading-relaxed mt-3">
-                Trek Tribe is a community platform that connects adventure enthusiasts, organizes trips, and facilitates 
+                Trek Tribe is a community platform that connects adventure enthusiasts, organizes trips, and facilitates
                 outdoor experiences. We believe in transparency and want you to understand how we handle your data.
               </p>
             </div>
@@ -49,7 +49,7 @@ const PrivacyPolicy: React.FC = () => {
               <Database className="w-6 h-6" />
               2. Information We Collect
             </h2>
-            
+
             <div className="space-y-6">
               <div className="bg-forest-50 p-6 rounded-xl">
                 <h3 className="text-lg font-semibold text-forest-800 mb-3">Information You Provide</h3>
@@ -140,7 +140,7 @@ const PrivacyPolicy: React.FC = () => {
             </h2>
             <div className="bg-blue-50 p-6 rounded-xl">
               <p className="text-gray-700 leading-relaxed mb-4">
-                We use cookies and similar tracking technologies to enhance your experience on Trek Tribe. 
+                We use cookies and similar tracking technologies to enhance your experience on Trek Tribe.
                 You can control cookie preferences through our cookie consent banner.
               </p>
               <div className="grid md:grid-cols-2 gap-4">
@@ -176,7 +176,7 @@ const PrivacyPolicy: React.FC = () => {
                   Your data is never sold to third parties for marketing purposes.
                 </p>
               </div>
-              
+
               <div className="space-y-3">
                 <h4 className="font-semibold text-gray-800">We may share information in these situations:</h4>
                 <ul className="space-y-2 text-gray-700">
@@ -206,7 +206,7 @@ const PrivacyPolicy: React.FC = () => {
             <h2 className="text-2xl font-semibold text-forest-800 mb-4">6. Data Security</h2>
             <div className="bg-green-50 p-6 rounded-xl">
               <p className="text-gray-700 leading-relaxed mb-4">
-                We implement appropriate security measures to protect your personal information against 
+                We implement appropriate security measures to protect your personal information against
                 unauthorized access, alteration, disclosure, or destruction.
               </p>
               <div className="grid md:grid-cols-3 gap-4">
@@ -274,7 +274,7 @@ const PrivacyPolicy: React.FC = () => {
               </div>
               <div className="mt-4 p-4 bg-purple-100 rounded-lg">
                 <p className="text-purple-800 text-sm">
-                  <strong>How to exercise your rights:</strong> Contact us at privacy@trekktribe.com or 
+                  <strong>How to exercise your rights:</strong> Contact us at privacy@trektribe.com or
                   use the settings in your account dashboard.
                 </p>
               </div>
@@ -286,8 +286,8 @@ const PrivacyPolicy: React.FC = () => {
             <h2 className="text-2xl font-semibold text-forest-800 mb-4">8. Children's Privacy</h2>
             <div className="bg-red-50 border border-red-200 p-6 rounded-xl">
               <p className="text-gray-700 leading-relaxed">
-                Trek Tribe is not intended for children under 13 years of age. We do not knowingly collect 
-                personal information from children under 13. If you are a parent or guardian and believe your 
+                Trek Tribe is not intended for children under 13 years of age. We do not knowingly collect
+                personal information from children under 13. If you are a parent or guardian and believe your
                 child has provided us with personal information, please contact us immediately.
               </p>
             </div>
@@ -303,7 +303,7 @@ const PrivacyPolicy: React.FC = () => {
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
                   <Mail className="w-5 h-5" />
-                  <span>privacy@trekktribe.com</span>
+                  <span>privacy@trektribe.com</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <Phone className="w-5 h-5" />
@@ -325,8 +325,8 @@ const PrivacyPolicy: React.FC = () => {
             <div className="border-t border-gray-200 pt-6">
               <h3 className="text-lg font-semibold text-gray-800 mb-3">Changes to This Privacy Policy</h3>
               <p className="text-gray-600 text-sm leading-relaxed">
-                We may update this Privacy Policy from time to time. We will notify you of any changes by 
-                posting the new Privacy Policy on this page and updating the "Last updated" date. 
+                We may update this Privacy Policy from time to time. We will notify you of any changes by
+                posting the new Privacy Policy on this page and updating the "Last updated" date.
                 We encourage you to review this Privacy Policy periodically for any changes.
               </p>
             </div>
