@@ -6,10 +6,12 @@ import { User } from '../models/User';
 import { logger } from '../utils/logger';
 import mongoose from 'mongoose';
 
+import { AuthenticatedRequest } from '../types/app-types';
+
 // Extend Request interface
-interface AuthenticatedRequest extends Request {
-  user: AuthPayload;
-}
+// interface AuthenticatedRequest extends Request {
+//   user: AuthPayload;
+// }
 
 const router = express.Router();
 
@@ -21,12 +23,12 @@ const router = express.Router();
 router.get('/pending', auth, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { page = 1, limit = 20, reviewType } = req.query;
-    
-    const filter: any = { 
+
+    const filter: any = {
       isVerified: false,
       isRejected: { $ne: true }
     };
-    
+
     if (reviewType && typeof reviewType === 'string') {
       filter.reviewType = reviewType;
     }
@@ -326,8 +328,8 @@ router.post('/:reviewId/flag', auth, async (req: AuthenticatedRequest, res: Resp
 
     res.json({
       success: true,
-      message: review.isFlagged 
-        ? 'Review flagged and sent for moderation' 
+      message: review.isFlagged
+        ? 'Review flagged and sent for moderation'
         : 'Review flag submitted',
       data: {
         review: {
@@ -556,13 +558,13 @@ router.get('/user-activity/:userId', auth, requireRole(['admin']), async (req: A
       .limit(Number(limit));
 
     const total = await Review.countDocuments({ reviewerId: req.params.userId });
-    const verifiedCount = await Review.countDocuments({ 
-      reviewerId: req.params.userId, 
-      isVerified: true 
+    const verifiedCount = await Review.countDocuments({
+      reviewerId: req.params.userId,
+      isVerified: true
     });
-    const flaggedCount = await Review.countDocuments({ 
-      reviewerId: req.params.userId, 
-      isFlagged: true 
+    const flaggedCount = await Review.countDocuments({
+      reviewerId: req.params.userId,
+      isFlagged: true
     });
 
     res.json({

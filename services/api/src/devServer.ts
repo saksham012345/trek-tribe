@@ -6,6 +6,7 @@ async function startMemoryAndApi() {
 
   // Dynamically import mongodb-memory-server to avoid bundling/dev-only deps
   // into production builds where devDependencies are pruned.
+  // @ts-ignore
   const { MongoMemoryServer } = await import('mongodb-memory-server');
   const mongod = await MongoMemoryServer.create({ instance: { dbName: 'trektribe_dev' } });
   const uri = mongod.getUri();

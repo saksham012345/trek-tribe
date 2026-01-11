@@ -8,12 +8,14 @@ import { User } from '../models/User';
 import { Trip } from '../models/Trip';
 import { logger } from '../utils/logger';
 
+import { AuthenticatedRequest } from '../types/app-types';
+
 // Extend Request interface
-interface AuthenticatedRequest extends Request {
-  user: AuthPayload;
-  file?: Express.Multer.File;
-  files?: Express.Multer.File[] | { [fieldname: string]: Express.Multer.File[] };
-}
+// interface AuthenticatedRequest extends Request {
+//   user: AuthPayload;
+//   file?: Express.Multer.File;
+//   files?: Express.Multer.File[] | { [fieldname: string]: Express.Multer.File[] };
+// }
 
 const router = express.Router();
 const unlinkAsync = promisify(fs.unlink);
@@ -38,13 +40,13 @@ uploadDirs.forEach(dir => {
 const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   const allowedImageTypes = /jpeg|jpg|png|webp/;
   const allowedDocTypes = /pdf|doc|docx/;
-  
+
   const extname = allowedImageTypes.test(path.extname(file.originalname).toLowerCase()) ||
-                  allowedDocTypes.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = allowedImageTypes.test(file.mimetype) || 
-                   file.mimetype === 'application/pdf' ||
-                   file.mimetype === 'application/msword' ||
-                   file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    allowedDocTypes.test(path.extname(file.originalname).toLowerCase());
+  const mimetype = allowedImageTypes.test(file.mimetype) ||
+    file.mimetype === 'application/pdf' ||
+    file.mimetype === 'application/msword' ||
+    file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
   if (extname && mimetype) {
     return cb(null, true);
@@ -57,7 +59,7 @@ const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCa
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     let uploadPath = 'uploads/temp';
-    
+
     if (file.fieldname === 'profilePhoto' || file.fieldname === 'avatar') {
       uploadPath = 'uploads/profiles';
     } else if (file.fieldname === 'coverPhoto' || file.fieldname === 'cover') {
@@ -69,7 +71,7 @@ const storage = multer.diskStorage({
     } else if (file.fieldname === 'qrCode') {
       uploadPath = 'uploads/qr-codes';
     }
-    
+
     cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
@@ -134,7 +136,7 @@ router.post('/profile-photo', auth as any, upload.single('profilePhoto') as any,
 
   } catch (error: any) {
     logger.error('Error uploading profile photo', { error: error.message, userId: req.user?.id });
-    
+
     // Clean up uploaded file on error
     if (req.file && fs.existsSync(req.file.path)) {
       try {
@@ -143,7 +145,7 @@ router.post('/profile-photo', auth as any, upload.single('profilePhoto') as any,
         logger.error('Failed to cleanup uploaded file', { cleanupError });
       }
     }
-    
+
     res.status(500).json({
       success: false,
       message: 'Failed to upload profile photo'
@@ -198,7 +200,7 @@ router.post('/cover-photo', auth, upload.single('coverPhoto'), async (req: Authe
 
   } catch (error: any) {
     logger.error('Error uploading cover photo', { error: error.message, userId: req.user?.id });
-    
+
     if (req.file && fs.existsSync(req.file.path)) {
       try {
         await unlinkAsync(req.file.path);
@@ -206,7 +208,7 @@ router.post('/cover-photo', auth, upload.single('coverPhoto'), async (req: Authe
         logger.error('Failed to cleanup uploaded file', { cleanupError });
       }
     }
-    
+
     res.status(500).json({
       success: false,
       message: 'Failed to upload cover photo'
@@ -270,7 +272,7 @@ router.post('/verification-documents', auth, upload.array('documents', 5), async
 
   } catch (error: any) {
     logger.error('Error uploading verification documents', { error: error.message, userId: req.user?.id });
-    
+
     // Clean up uploaded files on error
     if (req.files) {
       const files = req.files as Express.Multer.File[];
@@ -284,7 +286,7 @@ router.post('/verification-documents', auth, upload.array('documents', 5), async
         }
       }
     }
-    
+
     res.status(500).json({
       success: false,
       message: 'Failed to upload verification documents'
@@ -356,7 +358,7 @@ router.post('/trip-images/:tripId', auth, upload.array('tripImages', 10), async 
 
   } catch (error: any) {
     logger.error('Error uploading trip images', { error: error.message, tripId: req.params.tripId });
-    
+
     if (req.files) {
       const files = req.files as Express.Multer.File[];
       for (const file of files) {
@@ -369,7 +371,7 @@ router.post('/trip-images/:tripId', auth, upload.array('tripImages', 10), async 
         }
       }
     }
-    
+
     res.status(500).json({
       success: false,
       message: 'Failed to upload trip images'
@@ -444,7 +446,7 @@ router.post('/qr-code', auth, upload.single('qrCode'), async (req: Authenticated
 
   } catch (error: any) {
     logger.error('Error uploading QR code', { error: error.message, userId: req.user?.id });
-    
+
     if (req.file && fs.existsSync(req.file.path)) {
       try {
         await unlinkAsync(req.file.path);
@@ -452,7 +454,7 @@ router.post('/qr-code', auth, upload.single('qrCode'), async (req: Authenticated
         logger.error('Failed to cleanup uploaded file', { cleanupError });
       }
     }
-    
+
     res.status(500).json({
       success: false,
       message: 'Failed to upload QR code'

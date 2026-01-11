@@ -7,10 +7,13 @@ import { GroupBooking, GroupParticipant, GroupBookingDocumentWithMethods } from 
 import { logger } from '../utils/logger';
 import mongoose from 'mongoose';
 
+import { AuthenticatedRequest } from '../types/app-types';
+
 // Extend Request interface
-interface AuthenticatedRequest extends Request {
-  user: AuthPayload;
-}
+// interface AuthenticatedRequest extends Request {
+//   user: AuthPayload;
+// }
+
 
 const router = express.Router();
 
@@ -118,7 +121,7 @@ router.post('/', auth, async (req: AuthenticatedRequest, res: Response) => {
 
     // Calculate group discount based on actual number of guests
     const groupDiscount = (GroupBooking as any).calculateGroupDiscount(actualNumberOfGuests);
-    
+
     // Mark the first participant as main booker
     const processedParticipants = participants.map((participant, index) => ({
       ...participant,
@@ -253,7 +256,7 @@ router.get('/:bookingId', auth, async (req: AuthenticatedRequest, res: Response)
     // Check if user has access to this booking
     const tripData = booking.tripId as any;
     if (booking.mainBookerId._id.toString() !== req.user.id &&
-        tripData.organizerId._id.toString() !== req.user.id) {
+      tripData.organizerId._id.toString() !== req.user.id) {
       return res.status(403).json({
         success: false,
         message: 'Access denied'
@@ -321,7 +324,7 @@ router.put('/:bookingId/participants', auth, async (req: AuthenticatedRequest, r
         ...validation.data,
         dateOfBirth: validation.data.dateOfBirth ? new Date(validation.data.dateOfBirth) : undefined
       };
-      
+
       // Manually add participant since TypeScript has issues with the instance method
       if (booking.participants.length >= 20) {
         return res.status(400).json({
@@ -329,12 +332,12 @@ router.put('/:bookingId/participants', auth, async (req: AuthenticatedRequest, r
           message: 'Maximum 20 participants allowed per group booking'
         });
       }
-      
+
       booking.participants.push({
         ...participantData,
         isMainBooker: false
       } as GroupParticipant);
-      
+
       // Recalculate discount
       booking.groupDiscount = (GroupBooking as any).calculateGroupDiscount(booking.participants.length);
       await booking.save();
@@ -351,14 +354,14 @@ router.put('/:bookingId/participants', auth, async (req: AuthenticatedRequest, r
       const participantIndex = booking.participants.findIndex(
         (p: GroupParticipant) => p.email.toLowerCase() === participant.email.toLowerCase()
       );
-      
+
       if (participantIndex === -1) {
         return res.status(404).json({
           success: false,
           message: 'Participant not found'
         });
       }
-      
+
       const participantToRemove = booking.participants[participantIndex];
       if (participantToRemove.isMainBooker && booking.participants.length > 1) {
         return res.status(400).json({
@@ -366,16 +369,16 @@ router.put('/:bookingId/participants', auth, async (req: AuthenticatedRequest, r
           message: 'Cannot remove main booker. Transfer main booker role first.'
         });
       }
-      
+
       booking.participants.splice(participantIndex, 1);
-      
+
       if (booking.participants.length === 0) {
         return res.status(400).json({
           success: false,
           message: 'Cannot remove all participants'
         });
       }
-      
+
       // Recalculate discount
       booking.groupDiscount = (GroupBooking as any).calculateGroupDiscount(booking.participants.length);
       await booking.save();
@@ -437,18 +440,18 @@ router.put('/:bookingId/transfer-main-booker', auth, async (req: AuthenticatedRe
     const newMainBooker = booking.participants.find(
       (p: GroupParticipant) => p.email.toLowerCase() === newMainBookerEmail.toLowerCase()
     );
-    
+
     if (!newMainBooker) {
       return res.status(404).json({
         success: false,
         message: 'New main booker not found in participants'
       });
     }
-    
+
     if (currentMainBooker) {
       currentMainBooker.isMainBooker = false;
     }
-    
+
     newMainBooker.isMainBooker = true;
     await booking.save();
 
