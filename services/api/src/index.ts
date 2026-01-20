@@ -52,6 +52,7 @@ import marketplaceRoutes from './routes/marketplace';
 import seedRoutes from './routes/seed';
 import groupsRoutes from './routes/groups';
 import eventsRoutes from './routes/events';
+import bankDetailsRoutes from './routes/bankDetails';
 import { apiLimiter, authLimiter, otpLimiter } from './middleware/rateLimiter';
 import { cronScheduler } from './services/cronScheduler';
 import { chargeRetryWorker } from './services/chargeRetryWorker';
@@ -431,7 +432,6 @@ export async function start() {
     logMessage('INFO', 'Payment verification routes registered');
 
     // Bank Details Routes (Simplified, no route onboarding)
-    const bankDetailsRoutes = require('./routes/bankDetails').default;
     app.use('/api/bank-details', bankDetailsRoutes);
     console.log('✅ Bank details routes mounted at /api/bank-details');
     logMessage('INFO', 'Bank details routes registered');
@@ -581,5 +581,3 @@ process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
 if (process.env.DISABLE_AUTO_START !== 'true') {
   start();
 }
-
-

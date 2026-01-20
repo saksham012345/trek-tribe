@@ -109,7 +109,11 @@ class EmailService {
 
     } catch (error: any) {
       // For unexpected errors during initialization, warn and disable the service
-      logger.warn('Email service initialization failed and has been disabled', { error: error?.message });
+      logger.error('❌ Email service initialization FATAL error', {
+        error: error?.message,
+        stack: error?.stack,
+        code: error?.code
+      });
       this.transporter = null;
       this.isInitialized = false;
     }

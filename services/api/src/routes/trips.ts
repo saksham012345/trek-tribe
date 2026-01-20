@@ -44,7 +44,7 @@ const createTripSchema = z.object({
     }),
   destination: z.union([z.string(), z.number()]).transform(val => String(val || 'Unknown Destination')),
   location: z.union([
-    z.object({ 
+    z.object({
       coordinates: z.tuple([z.number(), z.number()]),
       latitude: z.number().optional(),
       longitude: z.number().optional()
@@ -177,11 +177,11 @@ const asyncHandler = (fn: Function) => (req: any, res: any, next: any) => {
   Promise.resolve(fn(req, res, next)).catch(next);
 };
 
-router.post('/', authenticateJwt, requireRole(['organizer','admin']), verifyOrganizerApproved, asyncHandler(async (req: any, res: any) => {
+router.post('/', authenticateJwt, requireRole(['organizer', 'admin']), verifyOrganizerApproved, asyncHandler(async (req: any, res: any) => {
   try {
     const organizerId = req.auth.userId;
     const userRole = req.auth.role;
-    
+
     console.log('📥 Received trip creation request:', {
       title: req.body.title,
       destination: req.body.destination,
@@ -201,16 +201,16 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), verifyOrga
     if (req.body.category && !req.body.categories) {
       req.body.categories = [req.body.category];
     }
-    
+
     // ========== SUBSCRIPTION CHECK (Skip for admins) ==========
     if (userRole === 'organizer' && process.env.NODE_ENV !== 'test') {
       console.log('🔍 Checking subscription for organizer:', organizerId);
-      
+
       const subscription = await OrganizerSubscription.findOne({
         organizerId: new mongoose.Types.ObjectId(organizerId),
         status: { $in: ['active', 'trial'] }
       }).sort({ createdAt: -1 });
-      
+
       if (!subscription) {
         console.log('❌ No active subscription found');
         return res.status(402).json({
@@ -222,7 +222,7 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), verifyOrga
           actionUrl: '/organizer/subscription'
         });
       }
-      
+
       // Check if expired
       const expiryDate = subscription.subscriptionEndDate || subscription.trialEndDate;
       if (expiryDate && expiryDate < new Date()) {
@@ -236,7 +236,7 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), verifyOrga
           actionUrl: '/organizer/subscription'
         });
       }
-      
+
       // Check payment status for paid subscriptions
       if (subscription.status === 'active' && subscription.payments?.length > 0) {
         const lastPayment = subscription.payments[subscription.payments.length - 1];
@@ -252,11 +252,11 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), verifyOrga
           });
         }
       }
-      
+
       // Check trip limit
       const tripsUsed = subscription.tripsUsed || 0;
       const tripsPerCycle = subscription.tripsPerCycle || 5;
-      
+
       if (tripsUsed >= tripsPerCycle) {
         console.log('❌ Trip limit reached:', tripsUsed, '/', tripsPerCycle);
         return res.status(403).json({
@@ -270,7 +270,7 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), verifyOrga
           actionUrl: '/organizer/subscription'
         });
       }
-      
+
       console.log('✅ Subscription valid. Trips used:', tripsUsed, '/', tripsPerCycle);
     }
 
@@ -319,10 +319,10 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), verifyOrga
         }
       });
     }
-    
+
     const body = parsed;
     // organizerId and userRole already declared at the top of the function
-    
+
     // Check if organizer has uploaded at least one QR code for payment
     // In test environment we skip this requirement to make integration tests deterministic
     if (userRole === 'organizer' && process.env.NODE_ENV !== 'test') {
@@ -334,11 +334,11 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), verifyOrga
           error: 'Organizer not found'
         });
       }
-      
+
       if (usesManualCollection) {
         const qrCodes = organizer.organizerProfile?.qrCodes || [];
         const activeQRCodes = qrCodes.filter((qr: any) => qr.isActive !== false);
-        
+
         if (activeQRCodes.length === 0) {
           return res.status(400).json({
             success: false,
@@ -349,7 +349,7 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), verifyOrga
         }
       }
     }
-    
+
     // In test environment, enforce hard validation on dates to match expectations
     if (process.env.NODE_ENV === 'test') {
       const now = new Date();
@@ -365,25 +365,25 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), verifyOrga
     // Smart date validation - fix dates if needed instead of rejecting
     const now = new Date();
     now.setHours(0, 0, 0, 0);
-    
+
     // If start date is in the past, set it to tomorrow
     if (body.startDate < now) {
       console.log('📅 Start date was in the past, setting to tomorrow');
       body.startDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
     }
-    
+
     // If end date is before or same as start date, set it to 7 days after start
     if (body.endDate <= body.startDate) {
       console.log('📅 End date was before start date, setting to 7 days after start');
       body.endDate = new Date(body.startDate.getTime() + 7 * 24 * 60 * 60 * 1000);
     }
-    
+
     console.log('Creating trip:', {
       title: body.title,
       organizerId,
       destination: body.destination
     });
-    
+
     // Create trip with timeout
     // Create trip. Leave `status` unset so the model default ('pending') is used.
     const createPromise = Trip.create({
@@ -394,15 +394,15 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), verifyOrga
       createdAt: new Date(),
       updatedAt: new Date()
     });
-    
-    const timeoutPromise = new Promise((_, reject) => 
+
+    const timeoutPromise = new Promise((_, reject) =>
       setTimeout(() => reject(new Error('Database operation timeout')), 10000)
     );
-    
+
     const trip = await Promise.race([createPromise, timeoutPromise]) as any;
 
     console.log('✅ Trip created successfully:', trip._id);
-    
+
     // ========== CREATE RAZORPAY ROUTE & GENERATE QR CODE (Organizers only) ==========
     if (userRole === 'organizer' && process.env.NODE_ENV !== 'test') {
       try {
@@ -413,10 +413,10 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), verifyOrga
           // Get organizer's trust score
           const trustScore = organizer.organizerProfile?.trustScore?.overall || 0;
           const routingEnabledForOrganizer = organizer.organizerProfile?.routingEnabled || false;
-          
+
           // Check if routing should be enabled based on config and trust score
           const shouldEnableRouting = shouldEnableRoutingForOrganizer(trustScore, routingEnabledForOrganizer);
-          
+
           logger.info('Payment routing decision', {
             organizerId,
             trustScore,
@@ -428,7 +428,7 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), verifyOrga
           if (shouldEnableRouting && razorpaySubmerchantService && razorpaySubmerchantService.generateQRCode) {
             // ROUTING ENABLED: Create dedicated route for this organizer
             let payoutConfig = await OrganizerPayoutConfig.findOne({ organizerId });
-            
+
             if (!payoutConfig || !payoutConfig.razorpayAccountId) {
               logger.info('No Razorpay route account found. Organizer needs to complete onboarding.', {
                 organizerId
@@ -497,12 +497,12 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), verifyOrga
               trustScore,
               reason: !paymentConfig.enableRouting ? 'routing_globally_disabled' : 'trust_score_too_low'
             });
-            
+
             // Mark trip to use main account
             (trip as any).paymentRoutingStatus = 'main_account';
             (trip as any).useMainRazorpayAccount = true;
             await trip.save();
-            
+
             console.log(`ℹ️  Main account mode: Manual payout tracking required`);
           }
         }
@@ -517,7 +517,7 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), verifyOrga
         await trip.save();
       }
     }
-    
+
     // ========== INCREMENT SUBSCRIPTION TRIP COUNT (Organizers only) ==========
     if (userRole === 'organizer') {
       try {
@@ -525,12 +525,12 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), verifyOrga
           organizerId: new mongoose.Types.ObjectId(organizerId),
           status: { $in: ['active', 'trial'] }
         }).sort({ createdAt: -1 });
-        
+
         if (subscription) {
           subscription.tripsUsed = (subscription.tripsUsed || 0) + 1;
           subscription.updatedAt = new Date();
           await subscription.save();
-          
+
           const remaining = (subscription.tripsPerCycle || 5) - subscription.tripsUsed;
           console.log(`✅ Trip count incremented. Used: ${subscription.tripsUsed}/${subscription.tripsPerCycle}. Remaining: ${remaining}`);
         }
@@ -553,50 +553,50 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), verifyOrga
     res.status(201).json({
       ...tripObj
     });
-    
+
   } catch (error: any) {
     console.error('Error creating trip:', error);
-    
+
     // Handle specific MongoDB errors
     if (error.code === 11000) {
       console.error('❌ Duplicate trip title');
-      return res.status(409).json({ 
+      return res.status(409).json({
         success: false,
         error: 'Trip with this title already exists',
         hint: 'Please use a different title for your trip'
       });
     }
-    
+
     if (error.name === 'ValidationError') {
       const errorMessages = Object.values(error.errors)
         .map((err: any) => err.message)
         .join(', ');
       console.error('❌ Database validation error:', errorMessages);
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
         error: 'Database validation failed',
         details: errorMessages,
         hint: 'Please check all required fields are provided correctly'
       });
     }
-    
+
     if (error.message === 'Database operation timeout') {
       console.error('❌ Database timeout');
-      return res.status(503).json({ 
+      return res.status(503).json({
         success: false,
         error: 'Service temporarily unavailable. Please try again.',
         hint: 'The server is experiencing high load. Please retry in a moment.'
       });
     }
-    
+
     // Generic error
     console.error('❌ Unexpected error creating trip:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       error: 'Failed to create trip. Please try again later.',
-      ...(process.env.NODE_ENV !== 'production' && { 
+      ...(process.env.NODE_ENV !== 'production' && {
         details: error.message,
-        stack: error.stack 
+        stack: error.stack
       })
     });
   }
@@ -605,7 +605,7 @@ router.post('/', authenticateJwt, requireRole(['organizer','admin']), verifyOrga
 router.get('/', async (req, res) => {
   try {
     const { q, category, difficulty, minPrice, maxPrice, dest, from, to, limit = '50' } = req.query as Record<string, string>;
-    
+
     // Build filter
     const filter: any = {};
     if (q) filter.$text = { $search: q };
@@ -614,20 +614,20 @@ router.get('/', async (req, res) => {
     if (dest) filter.destination = dest;
     if (minPrice || maxPrice) filter.price = { ...(minPrice ? { $gte: Number(minPrice) } : {}), ...(maxPrice ? { $lte: Number(maxPrice) } : {}) };
     if (from || to) filter.startDate = { ...(from ? { $gte: new Date(from) } : {}), ...(to ? { $lte: new Date(to) } : {}) };
-    
+
     // Parse limit with a reasonable max
-    const limitNum = Math.min(Number(limit) || 50, 100); 
-    
+    const limitNum = Math.min(Number(limit) || 50, 100);
+
     console.log('🔍 GET /trips - Query:', { filter, limit: limitNum });
-    
+
     const trips = await Trip.find(filter)
       .populate('organizerId', 'name email')
       .lean()
       .limit(limitNum)
       .sort({ createdAt: -1 }); // Show newest trips first
-    
+
     console.log(`✅ Found ${trips.length} trips`);
-    
+
     res.json(trips);
   } catch (error: any) {
     console.error('❌ Error fetching trips:', error);
@@ -641,7 +641,7 @@ router.get('/:id', trackTripView, async (req, res) => {
     return res.status(400).json({ error: 'Invalid trip id' });
   }
 
-  const trip = await Trip.findById(id).lean();
+  const trip = await Trip.findById(id).populate('organizerId', 'name organizerProfile').lean();
   if (!trip) return res.status(404).json({ error: 'Not found' });
   res.json(trip);
 });
@@ -653,7 +653,7 @@ router.post('/:id/join', authenticateJwt, async (req, res) => {
 
     const userId = (req as any).auth.userId;
     const trip = await Trip.findById(id);
-    
+
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
     if (trip.participants.length >= trip.capacity) {
       return res.status(400).json({ error: 'Trip is full' });
@@ -661,10 +661,10 @@ router.post('/:id/join', authenticateJwt, async (req, res) => {
     if (trip.participants.includes(userId)) {
       return res.status(400).json({ error: 'Already joined this trip' });
     }
-    
+
     trip.participants.push(userId);
     await trip.save();
-    
+
     res.json({ message: 'Successfully joined trip', trip });
   } catch (error) {
     res.status(500).json({ error: 'Server error' });
@@ -678,15 +678,15 @@ router.delete('/:id/leave', authenticateJwt, async (req, res) => {
 
     const userId = (req as any).auth.userId;
     const trip = await Trip.findById(id);
-    
+
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
     if (!trip.participants.includes(userId)) {
       return res.status(400).json({ error: 'Not part of this trip' });
     }
-    
+
     trip.participants = trip.participants.filter((id: any) => id.toString() !== userId);
     await trip.save();
-    
+
     res.json({ message: 'Successfully left trip', trip });
   } catch (error) {
     res.status(500).json({ error: 'Server error' });
@@ -694,21 +694,21 @@ router.delete('/:id/leave', authenticateJwt, async (req, res) => {
 });
 
 // Update trip endpoint
-router.put('/:id', authenticateJwt, requireRole(['organizer','admin']), async (req, res) => {
+router.put('/:id', authenticateJwt, requireRole(['organizer', 'admin']), async (req, res) => {
   try {
     const id = req.params.id;
     if (!id || !mongoose.isValidObjectId(id)) return res.status(400).json({ error: 'Invalid trip id' });
 
     const userId = (req as any).auth.userId;
     const trip = await Trip.findById(id);
-    
+
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
-    
+
     // Check if user is the organizer or admin
     if (trip.organizerId.toString() !== userId && (req as any).auth.role !== 'admin') {
       return res.status(403).json({ error: 'Not authorized to update this trip' });
     }
-    
+
     // Create update schema (similar to create but all fields optional)
     const updateTripSchema = z.object({
       title: z.string().min(1).optional(),
@@ -727,24 +727,24 @@ router.put('/:id', authenticateJwt, requireRole(['organizer','admin']), async (r
       itineraryPdf: z.string().optional(),
       status: z.enum(['active', 'cancelled', 'completed']).optional()
     });
-    
+
     const parsed = updateTripSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-    
+
     const updateData = parsed.data;
-    
+
     // Handle location transformation if provided
     if (updateData.location) {
       (updateData as any).location = { type: 'Point', coordinates: updateData.location.coordinates };
     }
-    
+
     // Update the trip
     const updatedTrip = await Trip.findByIdAndUpdate(
       req.params.id,
       updateData,
       { new: true, runValidators: true }
     );
-    
+
     res.json(updatedTrip);
   } catch (error: any) {
     console.error('Error updating trip:', error);
@@ -753,23 +753,23 @@ router.put('/:id', authenticateJwt, requireRole(['organizer','admin']), async (r
 });
 
 // Delete trip endpoint
-router.delete('/:id', authenticateJwt, requireRole(['organizer','admin']), async (req, res) => {
+router.delete('/:id', authenticateJwt, requireRole(['organizer', 'admin']), async (req, res) => {
   try {
     const id = req.params.id;
     if (!id || !mongoose.isValidObjectId(id)) return res.status(400).json({ error: 'Invalid trip id' });
 
     const userId = (req as any).auth.userId;
     const trip = await Trip.findById(id);
-    
+
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
-    
+
     // Check if user is the organizer or admin
     if (trip.organizerId.toString() !== userId && (req as any).auth.role !== 'admin') {
       return res.status(403).json({ error: 'Not authorized to delete this trip' });
     }
-    
+
     await Trip.findByIdAndDelete(req.params.id);
-    
+
     res.json({ message: 'Trip deleted successfully' });
   } catch (error: any) {
     console.error('Error deleting trip:', error);

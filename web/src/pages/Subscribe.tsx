@@ -37,10 +37,10 @@ const SubscribeInner: React.FC = () => {
     const fetchData = async () => {
       try {
         const [plansRes, subRes] = await Promise.all([
-          api.get('/api/subscriptions/plans'),
-          api.get('/api/subscriptions/my').catch(() => ({ data: null })), // Allow this to fail gracefully
+          api.get('/api/subscriptions/plans', { _skipLogout: true } as any),
+          api.get('/api/subscriptions/my', { _skipLogout: true } as any).catch(() => ({ data: null })), // Allow this to fail gracefully
         ]);
-        
+
         // Handle plans response - check both success and direct plans array
         const plansData = plansRes.data?.plans || plansRes.data?.data?.plans || [];
         if (plansData.length > 0) {
@@ -55,7 +55,7 @@ const SubscribeInner: React.FC = () => {
             { id: 'ENTERPRISE', name: 'Enterprise Plan', price: 7999, trips: 40, features: ['List up to 40 trips', 'Full CRM Access', 'API access'], trialDays: 60 },
           ]);
         }
-        
+
         if (subRes.data) {
           setSubscription(subRes.data);
           const existingPlan = subRes.data?.subscription?.plan;
@@ -149,7 +149,7 @@ const SubscribeInner: React.FC = () => {
               razorpay_signature: response.razorpay_signature,
               planType: selectedPlan,
             });
-            
+
             if (verifyRes.data.success) {
               setSubscription({ hasSubscription: true, subscription: verifyRes.data?.subscription });
               const msg = verifyRes.data?.message || 'Subscription activated';

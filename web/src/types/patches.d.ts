@@ -15,3 +15,14 @@ declare module 'socket.io-client' {
   export type Socket = any;
   export default io;
 }
+// process: provide a global declaration in case @types/node is not found
+declare var process: {
+  env: {
+    [key: string]: string | undefined;
+  };
+};
+
+declare module 'react';
+declare module 'react-dom';
+declare module 'react-router-dom';
+declare module 'lucide-react';

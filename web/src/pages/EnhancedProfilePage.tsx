@@ -652,9 +652,22 @@ const EnhancedProfilePage: React.FC = () => {
                       )}
                     </div>
                   ) : (
-                    posts?.map((post) => (
-                      <PostCard key={post._id} post={post} onLikeUpdate={fetchPosts} />
-                    ))
+                    <>
+                      {isOwnProfile && roleBasedData?.canPost && (
+                        <div className="flex justify-end mb-6">
+                          <button
+                            onClick={() => setShowPostCreator(true)}
+                            className="px-6 py-2.5 bg-forest-600 text-white rounded-xl hover:bg-forest-700 transition-all duration-200 flex items-center gap-2 shadow-md shadow-forest-600/10"
+                          >
+                            <span className="text-lg">✍️</span>
+                            <span className="font-semibold">New Adventure</span>
+                          </button>
+                        </div>
+                      )}
+                      {posts?.map((post) => (
+                        <PostCard key={post._id} post={post} onLikeUpdate={fetchPosts} />
+                      ))}
+                    </>
                   )}
                 </div>
               )}

@@ -450,25 +450,59 @@ const AIChatWidgetClean: React.FC = () => {
     };
     setMessages((s) => [...s, userMsg]);
 
-    // Check for local greetings first
-    if (handleLocalGreetings(text)) {
-      return; // Handled locally
-    }
+    // Safety timeout to prevent infinite loading
+    const loadingTimeout = setTimeout(() => {
+      setIsLoading((loading) => {
+        if (loading) {
+          console.warn('AI Chat request timed out');
+          const timeoutMsg: ChatMessage = {
+            id: `timeout_${Date.now()}`,
+            senderId: 'system',
+            senderName: 'System',
+            senderRole: 'ai',
+            message: 'Response is taking longer than usual. You can try resending or check your connection.',
+            timestamp: new Date(),
+          };
+          setMessages((s) => [...s, timeoutMsg]);
+          return false;
+        }
+        return loading;
+      });
+    }, 15000); // 15s timeout
 
-    if (socketRef.current && socketRef.current.connected && !socketFailed) {
-      try {
-        socketRef.current.emit('ai_chat_message', {
-          message: text,
-          context: {
-            currentPath: location.pathname,
-            userRole: user?.role
-          }
-        });
-      } catch (e) {
+    try {
+      // Check for local greetings first
+      if (handleLocalGreetings(text)) {
+        clearTimeout(loadingTimeout);
+        return; // Handled locally
+      }
+
+      if (socketRef.current && socketRef.current.connected && !socketFailed) {
+        try {
+          socketRef.current.emit('ai_chat_message', {
+            message: text,
+            context: {
+              currentPath: location.pathname,
+              userRole: user?.role
+            }
+          });
+          // Note: isLoading is set to false in the 'chat_message' socket listener
+        } catch (e) {
+          await sendMessageToAIProxy(text);
+        }
+      } else {
         await sendMessageToAIProxy(text);
       }
-    } else {
-      await sendMessageToAIProxy(text);
+    } catch (err) {
+      console.error('Error in sendMessage:', err);
+      setIsLoading(false);
+    } finally {
+      // If we're not using the socket (which handles its own isLoading), clear the timeout
+      // Actually sendMessageToAIProxy already handles setIsLoading(false)
+      // If we ARE using socket, we let the timeout or the listener handle it
+      if (!(socketRef.current && socketRef.current.connected && !socketFailed)) {
+        clearTimeout(loadingTimeout);
+      }
     }
   };
 

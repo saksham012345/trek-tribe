@@ -52,56 +52,56 @@ export interface ReviewDocument extends Document {
 // Define schema without explicit generic type to avoid union complexity
 const reviewSchema = new Schema(
   {
-    reviewerId: { 
-      type: Schema.Types.ObjectId, 
-      ref: 'User', 
+    reviewerId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
       required: true,
-      index: true 
+      index: true
     },
-    targetId: { 
-      type: Schema.Types.ObjectId, 
+    targetId: {
+      type: Schema.Types.ObjectId,
       required: true,
-      index: true 
+      index: true
     },
-    reviewType: { 
-      type: String, 
-      enum: ['trip', 'organizer'], 
+    reviewType: {
+      type: String,
+      enum: ['trip', 'organizer'],
       required: true,
-      index: true 
+      index: true
     },
-    rating: { 
-      type: Number, 
-      required: true, 
-      min: 1, 
+    rating: {
+      type: Number,
+      required: true,
+      min: 1,
       max: 5,
       validate: {
         validator: Number.isInteger,
         message: 'Rating must be a whole number between 1 and 5'
       }
     },
-    title: { 
-      type: String, 
-      required: true, 
+    title: {
+      type: String,
+      required: true,
       maxlength: 100,
       trim: true
     },
-    comment: { 
-      type: String, 
-      required: true, 
+    comment: {
+      type: String,
+      required: true,
       minlength: 10,
       maxlength: 1000,
       trim: true
     },
-    images: [{ 
+    images: [{
       type: String,
       validate: {
-        validator: function(v: string) {
+        validator: function (v: string) {
           return /^https?:\/\/.+\.(jpg|jpeg|png|webp)$/i.test(v);
         },
         message: 'Invalid image URL format'
       }
     }],
-    tags: [{ 
+    tags: [{
       type: String,
       lowercase: true,
       trim: true,
@@ -111,23 +111,23 @@ const reviewSchema = new Schema(
         'group-size', 'timing', 'location', 'equipment'
       ]
     }],
-    isVerified: { 
-      type: Boolean, 
+    isVerified: {
+      type: Boolean,
       default: false,
-      index: true 
+      index: true
     },
-    helpfulVotes: { 
-      type: Number, 
+    helpfulVotes: {
+      type: Number,
       default: 0,
       min: 0
     },
-    helpfulVoters: [{ 
-      type: Schema.Types.ObjectId, 
-      ref: 'User' 
+    helpfulVoters: [{
+      type: Schema.Types.ObjectId,
+      ref: 'User'
     }],
     organizerResponse: {
-      message: { 
-        type: String, 
+      message: {
+        type: String,
         maxlength: 500,
         trim: true
       },
@@ -135,66 +135,66 @@ const reviewSchema = new Schema(
     },
     tripDate: Date,
     // Verification and moderation fields
-    userId: { 
-      type: Schema.Types.ObjectId, 
+    userId: {
+      type: Schema.Types.ObjectId,
       ref: 'User',
-      index: true 
+      index: true
     },
-    tripId: { 
-      type: Schema.Types.ObjectId, 
+    tripId: {
+      type: Schema.Types.ObjectId,
       ref: 'Trip',
-      index: true 
+      index: true
     },
     verifiedAt: Date,
-    verifiedBy: { 
-      type: Schema.Types.ObjectId, 
-      ref: 'User' 
+    verifiedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User'
     },
     verificationNotes: String,
-    isRejected: { 
-      type: Boolean, 
-      default: false 
+    isRejected: {
+      type: Boolean,
+      default: false
     },
     rejectedAt: Date,
-    rejectedBy: { 
-      type: Schema.Types.ObjectId, 
-      ref: 'User' 
+    rejectedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User'
     },
     rejectionReason: String,
-    isFlagged: { 
-      type: Boolean, 
+    isFlagged: {
+      type: Boolean,
       default: false,
-      index: true 
+      index: true
     },
     flaggedAt: Date,
     flags: [{
-      userId: { 
-        type: Schema.Types.ObjectId, 
+      userId: {
+        type: Schema.Types.ObjectId,
         ref: 'User',
-        required: true 
+        required: true
       },
-      reason: { 
-        type: String, 
-        required: true 
+      reason: {
+        type: String,
+        required: true
       },
-      flaggedAt: { 
-        type: Date, 
-        default: Date.now 
+      flaggedAt: {
+        type: Date,
+        default: Date.now
       }
     }],
     moderatedAt: Date,
-    moderatedBy: { 
-      type: Schema.Types.ObjectId, 
-      ref: 'User' 
+    moderatedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User'
     },
     moderationNotes: String
   },
-  { 
+  {
     timestamps: true,
     // Node.js Concept: Schema options and middleware
-    toJSON: { 
+    toJSON: {
       virtuals: true,
-      transform: function(doc: any, ret: any) {
+      transform: function (doc: any, ret: any) {
         ret.id = ret._id;
         if ('_id' in ret) delete ret._id;
         if ('__v' in ret) delete ret.__v;
@@ -212,15 +212,15 @@ reviewSchema.index({ reviewType: 1, isVerified: 1, createdAt: -1 });
 reviewSchema.index({ rating: -1, helpfulVotes: -1 }); // For sorting by best reviews
 
 // Text index for search functionality
-reviewSchema.index({ 
-  title: 'text', 
-  comment: 'text', 
-  tags: 'text' 
+reviewSchema.index({
+  title: 'text',
+  comment: 'text',
+  tags: 'text'
 });
 
 // Node.js Concept: Mongoose Virtual Properties
 // Calculate average rating without storing it
-reviewSchema.virtual('isRecent').get(function(this: any) {
+reviewSchema.virtual('isRecent').get(function (this: any) {
   const oneMonthAgo = new Date();
   oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
   return this.createdAt > oneMonthAgo;
@@ -228,7 +228,7 @@ reviewSchema.virtual('isRecent').get(function(this: any) {
 
 // Node.js Concept: Mongoose Middleware (Pre/Post hooks)
 // Prevent duplicate reviews
-reviewSchema.pre('save', async function(next) {
+reviewSchema.pre('save', async function (next) {
   try {
     if (this.isNew) {
       const existingReview = await Review.findOne({
@@ -251,16 +251,16 @@ reviewSchema.pre('save', async function(next) {
 
 // Static method for calculating average ratings
 // Node.js Concept: Custom static methods on models
-reviewSchema.statics.calculateAverageRating = async function(targetId: Types.ObjectId, reviewType: ReviewType) {
+reviewSchema.statics.calculateAverageRating = async function (targetId: Types.ObjectId, reviewType: ReviewType) {
   const result = await this.aggregate([
-    { 
-      $match: { 
-        targetId, 
-        reviewType, 
-        isVerified: true 
-      } 
+    {
+      $match: {
+        targetId,
+        reviewType,
+        isVerified: true
+      }
     },
-    { 
+    {
       $group: {
         _id: null,
         averageRating: { $avg: '$rating' },
@@ -295,10 +295,10 @@ reviewSchema.statics.calculateAverageRating = async function(targetId: Types.Obj
 
 // Instance method for marking review as helpful
 // Node.js Concept: Instance methods on documents
-reviewSchema.methods.markAsHelpful = async function(userId: Types.ObjectId) {
+reviewSchema.methods.markAsHelpful = async function (userId: Types.ObjectId) {
   if (this.helpfulVoters.includes(userId)) {
     // Remove vote if already voted
-    this.helpfulVoters = this.helpfulVoters.filter((id: Types.ObjectId) => 
+    this.helpfulVoters = this.helpfulVoters.filter((id: Types.ObjectId) =>
       !id.equals(userId)
     );
     this.helpfulVotes = Math.max(0, this.helpfulVotes - 1);
@@ -307,12 +307,12 @@ reviewSchema.methods.markAsHelpful = async function(userId: Types.ObjectId) {
     this.helpfulVoters.push(userId);
     this.helpfulVotes += 1;
   }
-  
+
   return await this.save();
 };
 
 // Define model interface with static methods
-interface ReviewModel extends Model<ReviewDocument> {
+interface IReviewModel extends Model<ReviewDocument> {
   calculateAverageRating(targetId: Types.ObjectId, reviewType: ReviewType): Promise<{
     averageRating: number;
     totalReviews: number;
@@ -321,8 +321,7 @@ interface ReviewModel extends Model<ReviewDocument> {
 }
 
 // Use a simpler approach to avoid complex union types
-const ReviewModel = mongoose.models.Review || mongoose.model('Review', reviewSchema);
-export const Review = ReviewModel as ReviewModel;
+export const Review = (mongoose.models.Review || mongoose.model<ReviewDocument, IReviewModel>('Review', reviewSchema)) as IReviewModel;
 
 // Node.js Concept: Module Exports
 // Export both the model and types for use in other files

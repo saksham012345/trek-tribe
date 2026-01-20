@@ -136,7 +136,7 @@ export interface UserDocument extends Document {
   };
   followers?: mongoose.Types.ObjectId[];
   following?: mongoose.Types.ObjectId[];
-  
+
   // Organizer Verification (Admin Approval Required)
   organizerVerificationStatus?: 'pending' | 'approved' | 'rejected';
   organizerVerificationSubmittedAt?: Date;
@@ -145,7 +145,7 @@ export interface UserDocument extends Document {
   organizerVerificationRejectedAt?: Date;
   organizerVerificationRejectionReason?: string;
   organizerVerificationReviewedBy?: mongoose.Types.ObjectId;
-  
+
   // User Reputation & Level System
   reputation?: {
     points: number;
@@ -158,7 +158,7 @@ export interface UserDocument extends Document {
       description: string;
     }>;
   };
-  
+
   // Behavioral Tracking for Recommendations
   activityLog?: Array<{
     action: string;
@@ -167,7 +167,7 @@ export interface UserDocument extends Document {
     timestamp: Date;
     metadata?: any;
   }>;
-  
+
   isVerified?: boolean;
   emailVerified?: boolean;
   emailVerificationOtp?: string;
@@ -228,21 +228,21 @@ const userSchema = new Schema(
     email: { type: String, required: true, unique: true, lowercase: true, index: true },
     passwordHash: { type: String, required: true },
     name: { type: String, required: true },
-    username: { 
-      type: String, 
-      unique: true, 
-      sparse: true, 
+    username: {
+      type: String,
+      unique: true,
+      sparse: true,
       lowercase: true,
       index: true,
       match: /^[a-z0-9-_]+$/,
       minlength: 3,
       maxlength: 30
     },
-    role: { 
-      type: String, 
-      enum: ['traveler', 'organizer', 'admin', 'agent'], 
-      default: 'traveler', 
-      index: true 
+    role: {
+      type: String,
+      enum: ['traveler', 'organizer', 'admin', 'agent'],
+      default: 'traveler',
+      index: true
     },
     phone: { type: String },
     bio: { type: String, maxlength: 500 },
@@ -276,10 +276,10 @@ const userSchema = new Schema(
     preferences: {
       type: {
         categories: [{ type: String }],
-        budgetRange: { 
-          type: [Number], 
+        budgetRange: {
+          type: [Number],
           validate: {
-            validator: function(v: number[]) {
+            validator: function (v: number[]) {
               return !v || v.length === 0 || v.length === 2;
             },
             message: 'Budget range must have exactly 2 numbers or be empty'
@@ -373,10 +373,10 @@ const userSchema = new Schema(
     phoneVerificationExpires: { type: Date },
     phoneVerificationAttempts: { type: Number, default: 0 },
     phoneVerificationLastSentAt: { type: Date },
-    kycStatus: { 
-      type: String, 
-      enum: ['pending', 'submitted', 'under_review', 'approved', 'rejected'], 
-      default: 'pending' 
+    kycStatus: {
+      type: String,
+      enum: ['pending', 'submitted', 'under_review', 'approved', 'rejected'],
+      default: 'pending'
     },
     kycVerified: { type: Boolean, default: false },
     kycSubmittedAt: { type: Date },
@@ -384,15 +384,15 @@ const userSchema = new Schema(
     kycRejectionReason: { type: String },
     razorpayAccountId: { type: String },
     razorpayStakeholderId: { type: String },
-    idVerificationStatus: { 
-      type: String, 
-      enum: ['not_verified', 'pending', 'verified', 'rejected'], 
-      default: 'not_verified' 
+    idVerificationStatus: {
+      type: String,
+      enum: ['not_verified', 'pending', 'verified', 'rejected'],
+      default: 'not_verified'
     },
     idVerification: {
       type: {
-        documentType: { 
-          type: String, 
+        documentType: {
+          type: String,
           enum: ['aadhaar', 'pan', 'passport', 'driving_license', 'voter_id'],
           required: true
         },
@@ -435,7 +435,7 @@ const userSchema = new Schema(
     // Social graph relations
     followers: [{ type: Schema.Types.ObjectId, ref: 'User' }],
     following: [{ type: Schema.Types.ObjectId, ref: 'User' }],
-    
+
     // Organizer Verification Fields
     organizerVerificationStatus: {
       type: String,
@@ -448,7 +448,7 @@ const userSchema = new Schema(
     organizerVerificationRejectedAt: { type: Date },
     organizerVerificationRejectionReason: { type: String },
     organizerVerificationReviewedBy: { type: Schema.Types.ObjectId, ref: 'User' },
-    
+
     // Reputation & Level System
     reputation: {
       type: {
@@ -466,7 +466,7 @@ const userSchema = new Schema(
       },
       required: false
     },
-    
+
     // Activity Log for Recommendations
     activityLog: [{
       action: { type: String, required: true },
@@ -475,7 +475,7 @@ const userSchema = new Schema(
       timestamp: { type: Date, default: Date.now },
       metadata: { type: Schema.Types.Mixed }
     }],
-    
+
     resetPasswordToken: { type: String },
     resetPasswordExpires: { type: Date },
     firstOrganizerLogin: { type: Date }
@@ -486,7 +486,7 @@ const userSchema = new Schema(
 userSchema.index({ name: 'text', email: 'text' });
 
 // Pre-save middleware to ensure socialStats are initialized
-userSchema.pre('save', function(next) {
+userSchema.pre('save', function (next) {
   if (!this.socialStats) {
     this.socialStats = {
       followersCount: 0,
@@ -498,6 +498,6 @@ userSchema.pre('save', function(next) {
 });
 
 // Export with proper typing to avoid complex union types
-export const User = (mongoose.models.User || mongoose.model('User', userSchema)) as any as Model<UserDocument>;
+export const User = (mongoose.models.User || mongoose.model<UserDocument>('User', userSchema)) as Model<UserDocument>;
 
 
