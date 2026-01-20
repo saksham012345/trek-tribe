@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
 import { VerificationRequest } from '../models/VerificationRequest';
+import { OrganizerSubscription } from '../models/OrganizerSubscription';
 import { authenticateJwt, requireRole } from '../middleware/auth';
 import { emailService } from '../services/emailService';
 import { logger } from '../utils/logger';
@@ -16,67 +17,47 @@ const router = Router();
 
 // Helper function to set secure httpOnly cookie with JWT token
 function setAuthCookie(res: Response, token: string, req?: any): void {
-  // More robust production detection:
-  // 1. Check NODE_ENV first
-  // 2. Check if request is over HTTPS (production-like environment)
-  // 3. Check if FRONTEND_URL contains https (production deployment indicator)
-  const isProductionEnv = process.env.NODE_ENV === 'production';
-  const isHttpsRequest = req?.secure || req?.headers?.['x-forwarded-proto'] === 'https' || req?.protocol === 'https';
-  const hasHttpsFrontend = process.env.FRONTEND_URL?.startsWith('https://');
-  const isProduction = isProductionEnv || (isHttpsRequest && hasHttpsFrontend);
+  // Enhanced production detection for Render/Cloud environments
+  const isProduction = process.env.NODE_ENV === 'production' ||
+    req?.headers?.['x-forwarded-proto'] === 'https' ||
+    process.env.FRONTEND_URL?.startsWith('https://');
 
-  const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+  const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-  // Cookie domain handling:
-  // - undefined = current domain only (recommended for same-origin)
-  // - .example.com = works for all subdomains (e.g., app.example.com, api.example.com)
-  // - For Render: leave undefined since frontend and backend are on different subdomains
-  //   but cookies won't be shared across subdomains anyway
-  // - Only set domain if you explicitly need cross-subdomain cookie sharing
-  const cookieDomain = process.env.COOKIE_DOMAIN && process.env.COOKIE_DOMAIN.trim() !== ''
-    ? process.env.COOKIE_DOMAIN.trim()
-    : undefined;
-
-  // In development, always use secure: false for HTTP
-  // In production, use secure: true only for HTTPS requests
-  // This ensures cookies work in development (HTTP) and production (HTTPS)
-  const secure = isProduction && isHttpsRequest;
-
-  // Determine sameSite:
-  // - 'none' for cross-origin requests in production (requires secure=true)
-  // - 'lax' for same-origin or development
   // Check if frontend and backend are on different origins
-  const isCrossOrigin = hasHttpsFrontend && process.env.FRONTEND_URL !== process.env.API_URL;
-  const sameSite = (isProduction && isCrossOrigin && secure) ? 'none' : 'lax';
+  // On Render, they often are (e.g., frontend.onrender.com vs backend.onrender.com)
+  const isCrossOrigin = process.env.FRONTEND_URL &&
+    process.env.API_URL &&
+    process.env.FRONTEND_URL !== process.env.API_URL;
+
+  // For cross-origin cookies to work in modern browsers:
+  // 1. Must be Secure (HTTPS)
+  // 2. Must be SameSite: 'none'
+  const secure = isProduction; // Always secure in production (assumed HTTPS)
+  const sameSite = isProduction && isCrossOrigin ? 'none' : 'lax';
 
   const cookieOptions: any = {
-    httpOnly: true, // Prevents JavaScript access (XSS protection)
-    secure: secure, // HTTPS only (required for sameSite: 'none')
+    httpOnly: true,
+    secure: secure,
     sameSite: sameSite,
     maxAge: maxAge,
-    path: '/', // Available on all paths
-    expires: new Date(Date.now() + maxAge) // Explicit expiry for better browser support
+    path: '/',
+    expires: new Date(Date.now() + maxAge)
   };
 
-  // Only set domain if explicitly configured (for shared subdomains)
-  // Leaving it undefined means cookie works for current domain only
-  if (cookieDomain) {
-    cookieOptions.domain = cookieDomain;
+  // Only set domain if EXPLICITLY provided and we are in production
+  // Leaving it undefined is usually safer for subdomains unless they share a top-level domain
+  if (isProduction && process.env.COOKIE_DOMAIN) {
+    cookieOptions.domain = process.env.COOKIE_DOMAIN;
   }
 
   res.cookie('token', token, cookieOptions);
 
-  // Log cookie setting for debugging (always log in dev, or if there's an issue)
   if (process.env.NODE_ENV === 'development' || process.env.DEBUG_COOKIES === 'true') {
-    console.log('🍪 Setting auth cookie:', {
-      httpOnly: cookieOptions.httpOnly,
+    logger.info('🍪 Auth cookie set', {
       secure: cookieOptions.secure,
       sameSite: cookieOptions.sameSite,
-      domain: cookieOptions.domain || 'undefined (current domain)',
-      maxAge: `${maxAge / 1000 / 60 / 60} hours`,
-      isProductionEnv,
-      isHttpsRequest,
-      hasHttpsFrontend,
+      domain: cookieOptions.domain || 'default',
       isProduction,
       isCrossOrigin
     });
@@ -317,7 +298,7 @@ router.post('/register', async (req, res) => {
 
     // Generate and store 10-minute OTP for email verification
     const otp = String(crypto.randomInt(100000, 999999));
-    const otpHash = await bcrypt.hash(otp, 10);
+    const otpHash = await bcrypt.hash(otp, 12);
     user.emailVerificationOtpHash = otpHash;
     user.emailVerificationExpires = new Date(Date.now() + 10 * 60 * 1000);
     user.emailVerificationAttempts = 0;
@@ -646,8 +627,28 @@ router.get('/me', authenticateJwt, async (req, res) => {
     }
     const user = await User.findById(userId).select('-passwordHash').lean();
     if (!user) return res.status(404).json({ error: 'User not found' });
-    // Return user object with proper id field for compatibility
-    const payload = { ...(user as any), id: (user as any)._id };
+
+    // Check for premium status if user is an organizer
+    let isPremium = false;
+    if (user.role === 'organizer') {
+      const subscription = await OrganizerSubscription.findOne({
+        organizerId: user._id,
+        status: 'active'
+      });
+
+      if (subscription) {
+        // Simple check: if they have an active subscription, they are premium
+        isPremium = true;
+      }
+    }
+
+    // Return user object with proper id field for compatibility and premium status
+    const payload = {
+      ...(user as any),
+      id: (user as any)._id,
+      isPremium
+    };
+
     // For test suites expecting flattened shape
     if (process.env.NODE_ENV === 'test') {
       return res.json(payload);
@@ -689,7 +690,7 @@ router.post('/forgot-password', async (req, res) => {
 
     // Generate reset token
     const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenHash = await bcrypt.hash(resetToken, 10);
+    const resetTokenHash = await bcrypt.hash(resetToken, 12);
     const resetTokenExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
     // Save reset token to user
@@ -764,7 +765,7 @@ router.post('/reset-password', async (req, res) => {
     }
 
     // Update password
-    const passwordHash = await bcrypt.hash(newPassword, 10);
+    const passwordHash = await bcrypt.hash(newPassword, 12);
     user.passwordHash = passwordHash;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
@@ -805,7 +806,7 @@ router.post('/create-agent', authenticateJwt, requireRole(['admin']), async (req
     }
 
     // Create agent user
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(password, 12);
     const agent = await User.create({
       email,
       passwordHash,
@@ -934,7 +935,7 @@ router.post('/resend-registration-otp', async (req, res) => {
 
     // Generate new OTP
     const otp = String(crypto.randomInt(100000, 999999));
-    const otpHash = await bcrypt.hash(otp, 10);
+    const otpHash = await bcrypt.hash(otp, 12);
 
     user.emailVerificationOtpHash = otpHash;
     user.emailVerificationExpires = new Date(Date.now() + 10 * 60 * 1000);
@@ -993,7 +994,7 @@ router.post('/verify-email/send-otp', async (req, res) => {
 
     // Generate 6-digit OTP
     const otp = String(crypto.randomInt(100000, 999999));
-    const otpHash = await bcrypt.hash(otp, 10);
+    const otpHash = await bcrypt.hash(otp, 12);
 
     user.emailVerificationOtpHash = otpHash;
     user.emailVerificationExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
@@ -1109,7 +1110,7 @@ router.post('/verify-phone/send-otp', authenticateJwt, async (req, res) => {
 
     // Generate 6-digit OTP
     const otp = String(crypto.randomInt(100000, 999999));
-    const otpHash = await bcrypt.hash(otp, 10);
+    const otpHash = await bcrypt.hash(otp, 12);
 
     user.phoneVerificationOtpHash = otpHash;
     user.phoneVerificationExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes

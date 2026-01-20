@@ -14,6 +14,12 @@ A comprehensive travel platform that connects travelers for group trips and adve
 - **CRM Features**: Lead capture, contact management, phone visibility
 - **Feature Flags**: Dynamic access control based on subscription tier
 
+### 🔒 Security Enhancements ⭐ NEW
+- **Salted Hashing (SHA-256)**: Sensitive data (key hashes, trip content) now uses SHA-256 with randomized salts and a secret server-side pepper.
+- **Improved Password Security**: Standardized `bcrypt` hashing to **12 salt rounds** for superior brute-force resistance.
+- **Secret Pepper Protection**: Implemented `HASH_PEPPER` environment variable for an extra layer of hashing security.
+- **Deterministic Content Hashing**: Enhanced trip duplicate detection using salted cryptographic hashes.
+
 ### Authentication & User Management
 - **Multi-role Authentication**: Register as traveler, organizer, or admin
 - **Secure JWT Authentication**: Password reset, email verification
@@ -260,7 +266,7 @@ If you prefer not to bake the model into your image, the container entrypoint wi
 │       │   ├── models/         # MongoDB/Mongoose models
 │       │   ├── routes/         # API route handlers
 │       │   ├── services/       # WhatsApp, AI, Firebase, Socket services
-│       │   ├── utils/          # Utility functions
+│       │   ├── utils/          # Utility functions (crypto, file handling)
 │       │   ├── cli/            # Command-line administration tools
 │       │   └── scripts/        # Database and maintenance scripts
 │       ├── healthcheck.js      # Container health monitoring
@@ -271,6 +277,10 @@ If you prefer not to bake the model into your image, the container entrypoint wi
 │   │   ├── pages/              # Page components
 │   │   └── services/           # Frontend API services
 │   └── package.json            # Frontend dependencies
+├── docs/                       # Project documentation
+│   ├── PRESET_USERS.md         # Test credentials and roles
+│   ├── PRODUCTION_SETUP.md     # Production deployment and management
+│   └── ENV.md                  # Comprehensive environment reference
 ├── frontend/                   # Additional frontend variant
 ├── docker-compose.yml          # Multi-service orchestration
 ├── nginx.conf                  # Reverse proxy configuration

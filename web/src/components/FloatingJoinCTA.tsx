@@ -11,8 +11,8 @@ const FloatingJoinCTA: React.FC = () => {
 
   // Don't show for premium organizers or on certain pages
   // Show for basic (non-premium) organizers so they can upgrade
-  const shouldHide = 
-    (user?.role === 'organizer' && (user as any)?.isPremium) || 
+  const shouldHide =
+    (user?.role === 'organizer' && (user as any)?.isPremium) ||
     location.pathname.includes('/subscribe') ||
     location.pathname.includes('/login') ||
     location.pathname.includes('/register');
@@ -34,7 +34,7 @@ const FloatingJoinCTA: React.FC = () => {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-24 right-4 z-40 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-3 rounded-full shadow-xl shadow-emerald-300/40 border border-white/20 transition transform hover:-translate-y-0.5"
+        className="fixed bottom-36 right-4 z-40 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-3 rounded-full shadow-xl shadow-emerald-300/40 border border-white/20 transition transform hover:-translate-y-0.5"
       >
         Join The Tribe – Become a Partner
       </button>

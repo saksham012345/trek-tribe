@@ -15,8 +15,19 @@
     "noImplicitReturns": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
+    "baseUrl": ".",
+    "paths": {
+      "*": [
+        "node_modules/*"
+      ]
+    },
+    "types": [
+      "node",
+      "whatwg-url"
+    ],
     "typeRoots": [
-      "./node_modules/@types"
+      "./node_modules/@types",
+      "../../node_modules/@types"
     ]
   },
   "include": [
@@ -27,9 +38,7 @@
     "dist",
     "**/__tests__/**",
     "**/*.test.ts",
-    "**/*.spec.ts",
-    "src/scripts/**/*",
-    "src/devServer.ts"
+    "**/*.spec.ts"
   ],
   "ts-node": {
     "files": true

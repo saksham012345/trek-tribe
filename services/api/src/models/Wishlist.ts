@@ -19,42 +19,42 @@ export interface WishlistDocument extends Document {
 // Define schema without explicit generic type to avoid union complexity
 const wishlistSchema = new Schema(
   {
-    userId: { 
-      type: Schema.Types.ObjectId, 
-      ref: 'User', 
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
       required: true,
-      index: true 
+      index: true
     },
-    tripId: { 
-      type: Schema.Types.ObjectId, 
-      ref: 'Trip', 
+    tripId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Trip',
       required: true,
-      index: true 
+      index: true
     },
-    notes: { 
-      type: String, 
+    notes: {
+      type: String,
       maxlength: 500,
       trim: true
     },
-    priority: { 
-      type: String, 
-      enum: ['low', 'medium', 'high'], 
+    priority: {
+      type: String,
+      enum: ['low', 'medium', 'high'],
       default: 'medium',
-      index: true 
+      index: true
     },
-    tags: [{ 
+    tags: [{
       type: String,
       lowercase: true,
       trim: true,
       maxlength: 50
     }]
   },
-  { 
+  {
     timestamps: true,
     // Transform output to include 'id' instead of '_id'
-    toJSON: { 
+    toJSON: {
       virtuals: true,
-      transform: function(doc: any, ret: any) {
+      transform: function (doc: any, ret: any) {
         ret.id = ret._id;
         if ('_id' in ret) delete ret._id;
         if ('__v' in ret) delete ret.__v;
@@ -75,13 +75,13 @@ wishlistSchema.index({ userId: 1, priority: -1, createdAt: -1 });
 wishlistSchema.index({ userId: 1, tags: 1 });
 
 // Node.js Concept: Mongoose Pre-hooks for validation
-wishlistSchema.pre('save', async function(next) {
+wishlistSchema.pre('save', async function (next) {
   try {
     if (this.isNew) {
       // Check if trip exists
       const Trip = mongoose.model('Trip');
       const trip = await Trip.findById(this.tripId);
-      
+
       if (!trip) {
         const error = new Error('Trip not found');
         (error as any).statusCode = 404;
@@ -102,8 +102,8 @@ wishlistSchema.pre('save', async function(next) {
 });
 
 // Node.js Concept: Static methods for complex queries
-wishlistSchema.statics.getUserWishlistWithTrips = async function(
-  userId: Types.ObjectId, 
+wishlistSchema.statics.getUserWishlistWithTrips = async function (
+  userId: Types.ObjectId,
   options: {
     priority?: string;
     tags?: string[];
@@ -124,7 +124,7 @@ wishlistSchema.statics.getUserWishlistWithTrips = async function(
 
   // Build match stage for aggregation
   const matchStage: any = { userId };
-  
+
   if (priority) matchStage.priority = priority;
   if (tags && tags.length > 0) matchStage.tags = { $in: tags };
 
@@ -137,7 +137,7 @@ wishlistSchema.statics.getUserWishlistWithTrips = async function(
   // Aggregation pipeline to join with trip data
   const pipeline = [
     { $match: matchStage },
-    { 
+    {
       $lookup: {
         from: 'trips',
         localField: 'tripId',
@@ -148,7 +148,7 @@ wishlistSchema.statics.getUserWishlistWithTrips = async function(
     { $unwind: '$trip' },
     // Only return active trips
     { $match: { 'trip.status': 'active' } },
-    { 
+    {
       $lookup: {
         from: 'users',
         localField: 'trip.organizerId',
@@ -204,12 +204,12 @@ wishlistSchema.statics.getUserWishlistWithTrips = async function(
 };
 
 // Node.js Concept: Instance methods for document operations
-wishlistSchema.methods.updatePriority = async function(newPriority: 'low' | 'medium' | 'high') {
+wishlistSchema.methods.updatePriority = async function (newPriority: 'low' | 'medium' | 'high') {
   this.priority = newPriority;
   return await this.save();
 };
 
-wishlistSchema.methods.addTags = async function(newTags: string[]) {
+wishlistSchema.methods.addTags = async function (newTags: string[]) {
   // Remove duplicates and add new tags
   const currentTags = new Set(this.tags);
   newTags.forEach(tag => currentTags.add(tag.toLowerCase().trim()));
@@ -217,17 +217,17 @@ wishlistSchema.methods.addTags = async function(newTags: string[]) {
   return await this.save();
 };
 
-wishlistSchema.methods.removeTags = async function(tagsToRemove: string[]) {
-  this.tags = this.tags.filter((tag: string) => 
+wishlistSchema.methods.removeTags = async function (tagsToRemove: string[]) {
+  this.tags = this.tags.filter((tag: string) =>
     !tagsToRemove.map((t: string) => t.toLowerCase().trim()).includes(tag)
   );
   return await this.save();
 };
 
 // Define model interface with static methods
-interface WishlistModel extends Model<WishlistDocument> {
+interface IWishlistModel extends Model<WishlistDocument> {
   getUserWishlistWithTrips(
-    userId: Types.ObjectId, 
+    userId: Types.ObjectId,
     options?: {
       priority?: string;
       tags?: string[];
@@ -249,6 +249,6 @@ interface WishlistModel extends Model<WishlistDocument> {
 }
 
 // Export with proper typing to avoid complex union types
-export const Wishlist = (mongoose.models.Wishlist || mongoose.model('Wishlist', wishlistSchema)) as WishlistModel;
+export const Wishlist = (mongoose.models.Wishlist || mongoose.model<WishlistDocument, IWishlistModel>('Wishlist', wishlistSchema)) as IWishlistModel;
 
 export default Wishlist;

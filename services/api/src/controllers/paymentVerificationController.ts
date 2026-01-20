@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import QRCode from 'qrcode';
 import crypto from 'crypto';
+import { hashWithSalt } from '../utils/cryptoUtils';
 
 // Payment Verification Model Schema
 interface IPaymentVerification {
@@ -45,7 +46,7 @@ export const generateAmountPaymentQR = async (req: Request, res: Response) => {
     // Verify Razorpay credentials are configured
     const razorpayKeyId = process.env.RAZORPAY_KEY_ID;
     const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET;
-    
+
     if (!razorpayKeyId || !razorpayKeySecret) {
       console.error('❌ Razorpay credentials not configured in environment variables');
       console.error('   RAZORPAY_KEY_ID:', razorpayKeyId ? 'SET' : 'MISSING');
@@ -73,12 +74,12 @@ export const generateAmountPaymentQR = async (req: Request, res: Response) => {
       referenceId,
       generatedAt: new Date().toISOString(),
       // Include keyId hash for verification (not the actual key)
-      keyIdHash: razorpayKeyId ? crypto.createHash('sha256').update(razorpayKeyId).digest('hex').substring(0, 8) : undefined,
+      keyIdHash: razorpayKeyId ? hashWithSalt(razorpayKeyId, 'razorpay-key-salt').substring(0, 16) : undefined,
     };
 
     try {
       const qrCodeUrl = await QRCode.toDataURL(JSON.stringify(payload));
-      
+
       console.log('✅ QR code generated successfully:', {
         referenceId,
         amount: numericAmount,
@@ -95,14 +96,14 @@ export const generateAmountPaymentQR = async (req: Request, res: Response) => {
         referenceId,
         payload,
         configured: !!(razorpayKeyId && razorpayKeySecret),
-        message: razorpayKeyId && razorpayKeySecret 
-          ? 'QR code generated with Razorpay credentials' 
+        message: razorpayKeyId && razorpayKeySecret
+          ? 'QR code generated with Razorpay credentials'
           : 'QR code generated (Razorpay credentials not configured - using fallback)'
       });
     } catch (qrError: any) {
       console.error('❌ Error generating QR code image:', qrError);
-      return res.status(500).json({ 
-        error: 'Failed to generate QR code image', 
+      return res.status(500).json({
+        error: 'Failed to generate QR code image',
         message: qrError.message,
         details: 'QRCode library error - check if qrcode package is installed'
       });
@@ -171,7 +172,7 @@ export const generatePaymentVerificationCode = async (req: Request, res: Respons
       expiresAt,
       totalVerifiedAmount: 0,
       verificationCount: 0,
-      isActive: function() {
+      isActive: function () {
         return this.status === 'active' && this.expiresAt > new Date();
       },
     };

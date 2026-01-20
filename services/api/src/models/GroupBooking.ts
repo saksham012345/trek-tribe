@@ -77,10 +77,10 @@ const groupParticipantSchema = new Schema({
   emergencyContactPhone: { type: String, required: true },
   medicalConditions: { type: String },
   dietaryRestrictions: { type: String },
-  experienceLevel: { 
-    type: String, 
-    enum: ['beginner', 'intermediate', 'advanced'], 
-    required: true 
+  experienceLevel: {
+    type: String,
+    enum: ['beginner', 'intermediate', 'advanced'],
+    required: true
   },
   specialRequests: { type: String },
   isMainBooker: { type: Boolean, default: false }
@@ -90,24 +90,24 @@ const groupBookingSchema = new Schema(
   {
     tripId: { type: Schema.Types.ObjectId, ref: 'Trip', required: true, index: true },
     mainBookerId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-    participants: { 
-      type: [groupParticipantSchema], 
+    participants: {
+      type: [groupParticipantSchema],
       required: true,
       validate: {
-        validator: function(participants: GroupParticipant[]) {
+        validator: function (participants: GroupParticipant[]) {
           return participants.length > 0 && participants.length <= 20; // Max 20 people per group
         },
         message: 'Group must have between 1 and 20 participants'
       }
     },
-    numberOfGuests: { 
-      type: Number, 
+    numberOfGuests: {
+      type: Number,
       required: true,
       min: 1,
       max: 20
     },
-    totalParticipants: { 
-      type: Number, 
+    totalParticipants: {
+      type: Number,
       required: true,
       min: 1,
       max: 20
@@ -123,9 +123,9 @@ const groupBookingSchema = new Schema(
     paymentType: { type: String, enum: ['full', 'advance'], default: 'full' },
     advanceAmount: { type: Number, min: 0 },
     remainingAmount: { type: Number, min: 0 },
-    paymentStatus: { 
-      type: String, 
-      enum: ['pending', 'partial', 'completed', 'failed', 'refunded'], 
+    paymentStatus: {
+      type: String,
+      enum: ['pending', 'partial', 'completed', 'failed', 'refunded'],
       default: 'pending',
       index: true
     },
@@ -163,9 +163,9 @@ const groupBookingSchema = new Schema(
     verifiedAt: { type: Date },
     verificationNotes: { type: String },
     rejectionReason: { type: String },
-    bookingStatus: { 
-      type: String, 
-      enum: ['confirmed', 'pending', 'cancelled', 'completed'], 
+    bookingStatus: {
+      type: String,
+      enum: ['confirmed', 'pending', 'cancelled', 'completed'],
       default: 'pending',
       index: true
     },
@@ -174,12 +174,12 @@ const groupBookingSchema = new Schema(
     cancellationReason: { type: String },
     cancellationDate: { type: Date },
     refundAmount: { type: Number, min: 0 },
-    refundStatus: { 
-      type: String, 
+    refundStatus: {
+      type: String,
       enum: ['pending', 'processed', 'failed']
     }
   },
-  { 
+  {
     timestamps: true,
     toJSON: { virtuals: true },
     toObject: { virtuals: true }
@@ -192,23 +192,23 @@ groupBookingSchema.index({ paymentStatus: 1, bookingStatus: 1 });
 groupBookingSchema.index({ createdAt: -1 });
 
 // Virtual for main booker participant
-groupBookingSchema.virtual('mainBooker').get(function() {
+groupBookingSchema.virtual('mainBooker').get(function () {
   return this.participants.find((p: any) => p.isMainBooker);
 });
 
 // Pre-save middleware to calculate amounts
-groupBookingSchema.pre('save', function(next) {
+groupBookingSchema.pre('save', function (next) {
   // Calculate total participants
   this.totalParticipants = this.participants.length;
-  
+
   // Sync numberOfGuests with totalParticipants if not explicitly set
   if (!this.numberOfGuests) {
     this.numberOfGuests = this.totalParticipants;
   }
-  
+
   // Calculate total amount before discount
   this.totalAmount = this.pricePerPerson * this.numberOfGuests;
-  
+
   // Apply group discount
   if (this.groupDiscount > 0) {
     this.discountAmount = (this.totalAmount * this.groupDiscount) / 100;
@@ -217,25 +217,25 @@ groupBookingSchema.pre('save', function(next) {
     this.discountAmount = 0;
     this.finalAmount = this.totalAmount;
   }
-  
+
   // Calculate payment breakdown for advance payments
   if (this.paymentType === 'advance' && this.advanceAmount) {
     this.remainingAmount = this.finalAmount - this.advanceAmount;
   } else {
     this.remainingAmount = 0;
   }
-  
+
   // Ensure at least one participant is marked as main booker
   const hasMainBooker = this.participants.some((p: any) => p.isMainBooker);
   if (!hasMainBooker && this.participants.length > 0) {
     this.participants[0].isMainBooker = true;
   }
-  
+
   next();
 });
 
 // Static method to calculate group discount
-groupBookingSchema.statics.calculateGroupDiscount = function(participantCount: number): number {
+groupBookingSchema.statics.calculateGroupDiscount = function (participantCount: number): number {
   if (participantCount >= 15) return 20; // 20% discount for 15+ people
   if (participantCount >= 10) return 15; // 15% discount for 10-14 people
   if (participantCount >= 6) return 10;  // 10% discount for 6-9 people
@@ -244,66 +244,66 @@ groupBookingSchema.statics.calculateGroupDiscount = function(participantCount: n
 };
 
 // Instance method to add participant
-groupBookingSchema.methods.addParticipant = function(participant: Omit<GroupParticipant, 'isMainBooker'>) {
+groupBookingSchema.methods.addParticipant = function (participant: Omit<GroupParticipant, 'isMainBooker'>) {
   if (this.participants.length >= 20) {
     throw new Error('Maximum 20 participants allowed per group booking');
   }
-  
+
   this.participants.push({
     ...participant,
     isMainBooker: false
   });
-  
+
   // Recalculate discount
   this.groupDiscount = (this.constructor as any).calculateGroupDiscount(this.participants.length);
-  
+
   return this.save();
 };
 
 // Instance method to remove participant
-groupBookingSchema.methods.removeParticipant = function(participantEmail: string) {
+groupBookingSchema.methods.removeParticipant = function (participantEmail: string) {
   const participantIndex = this.participants.findIndex(
     (p: GroupParticipant) => p.email.toLowerCase() === participantEmail.toLowerCase()
   );
-  
+
   if (participantIndex === -1) {
     throw new Error('Participant not found');
   }
-  
+
   const participant = this.participants[participantIndex];
   if (participant.isMainBooker && this.participants.length > 1) {
     throw new Error('Cannot remove main booker. Transfer main booker role first.');
   }
-  
+
   this.participants.splice(participantIndex, 1);
-  
+
   if (this.participants.length === 0) {
     throw new Error('Cannot remove all participants');
   }
-  
+
   // Recalculate discount
   this.groupDiscount = (this.constructor as any).calculateGroupDiscount(this.participants.length);
-  
+
   return this.save();
 };
 
 // Instance method to transfer main booker
-groupBookingSchema.methods.transferMainBooker = function(newMainBookerEmail: string) {
+groupBookingSchema.methods.transferMainBooker = function (newMainBookerEmail: string) {
   const currentMainBooker = this.participants.find((p: GroupParticipant) => p.isMainBooker);
   const newMainBooker = this.participants.find(
     (p: GroupParticipant) => p.email.toLowerCase() === newMainBookerEmail.toLowerCase()
   );
-  
+
   if (!newMainBooker) {
     throw new Error('New main booker not found in participants');
   }
-  
+
   if (currentMainBooker) {
     currentMainBooker.isMainBooker = false;
   }
-  
+
   newMainBooker.isMainBooker = true;
-  
+
   return this.save();
 };
 
@@ -319,5 +319,5 @@ export interface GroupBookingDocumentWithMethods extends GroupBookingDocument {
   transferMainBooker(newMainBookerEmail: string): Promise<GroupBookingDocument>;
 }
 
-export const GroupBooking = (mongoose.models.GroupBooking || 
-  mongoose.model('GroupBooking', groupBookingSchema)) as GroupBookingModel;
+export const GroupBooking = (mongoose.models.GroupBooking ||
+  mongoose.model<GroupBookingDocument, GroupBookingModel>('GroupBooking', groupBookingSchema)) as GroupBookingModel;

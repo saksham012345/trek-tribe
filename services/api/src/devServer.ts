@@ -31,7 +31,7 @@ async function startMemoryAndApi() {
     stdio: 'inherit'
   });
 
-  child.on('exit', (code) => {
+  child.on('exit', (code: number | null) => {
     console.log(`API process exited with code ${code}`);
     process.exit(code === null ? 1 : code);
   });

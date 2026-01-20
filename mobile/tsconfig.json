@@ -8,6 +8,10 @@
     "moduleResolution": "Node",
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "types": ["react", "react-native"]
-  }
+    "types": [
+      "react",
+      "react-native"
+    ]
+  },
+  "extends": "expo/tsconfig.base"
 }

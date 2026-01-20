@@ -19,13 +19,8 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react",
-    "downlevelIteration": true,
-    "types": [
-      "node",
-      "react",
-      "react-dom"
-    ]
+    "jsx": "react-jsx",
+    "downlevelIteration": true
   },
   "include": [
     "src"

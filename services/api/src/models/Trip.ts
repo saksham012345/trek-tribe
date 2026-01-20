@@ -219,10 +219,10 @@ const tripSchema = new Schema(
       type: { type: String, enum: ['Point'] },
       coordinates: { type: [Number], index: '2dsphere' },
     },
-    schedule: [{ 
-      day: { type: Number, required: true }, 
-      title: { type: String, required: true }, 
-      activities: [{ type: String }] 
+    schedule: [{
+      day: { type: Number, required: true },
+      title: { type: String, required: true },
+      activities: [{ type: String }]
     }],
     images: [{ type: String }],
     coverImage: { type: String },
@@ -250,11 +250,11 @@ const tripSchema = new Schema(
     averageRating: { type: Number, default: 0, min: 0, max: 5 },
     reviewCount: { type: Number, default: 0, min: 0 },
     // Live trip photos (mandatory)
-    livePhotos: { 
-      type: [livePhotoSchema], 
+    livePhotos: {
+      type: [livePhotoSchema],
       default: [],
       validate: {
-        validator: function(photos: any[]) {
+        validator: function (photos: any[]) {
           // Only validate if trip has started (past startDate)
           const trip = this as any;
           if (trip.startDate && new Date() > new Date(trip.startDate)) {
@@ -267,9 +267,9 @@ const tripSchema = new Schema(
     },
     thumbnail: { type: String },
     // Verification and approval
-    verificationStatus: { 
-      type: String, 
-      enum: ['pending', 'approved', 'rejected'], 
+    verificationStatus: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
       default: 'pending',
       index: true
     },
@@ -279,8 +279,8 @@ const tripSchema = new Schema(
     adminNotes: { type: String, maxlength: 1000 },
     // Safety and trust
     safetyInfo: { type: safetyInfoSchema },
-    safetyDisclaimer: { 
-      type: String, 
+    safetyDisclaimer: {
+      type: String,
       required: true,
       default: 'This trip involves physical activity and potential risks. Participants must be in good health and follow safety guidelines. The organizer is not liable for accidents, injuries, or loss of belongings. Travel insurance is recommended.'
     },
@@ -295,6 +295,6 @@ const tripSchema = new Schema(
 tripSchema.index({ title: 'text', description: 'text', destination: 'text' });
 
 // Export with proper typing to avoid complex union types
-export const Trip = (mongoose.models.Trip || mongoose.model('Trip', tripSchema)) as any as Model<TripDocument>;
+export const Trip = (mongoose.models.Trip || mongoose.model<TripDocument>('Trip', tripSchema)) as Model<TripDocument>;
 
 

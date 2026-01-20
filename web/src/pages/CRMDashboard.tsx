@@ -99,7 +99,7 @@ const CRMDashboard: React.FC = () => {
     }
     try {
       console.log('🔍 Checking CRM access...');
-      const response = await api.get('/api/subscriptions/verify-crm-access');
+      const response = await api.get('/api/subscriptions/verify-crm-access', { _skipLogout: true } as any);
       console.log('📊 CRM access response:', response.data);
 
       if (response.data.hasCRMAccess) {
@@ -715,14 +715,14 @@ const CRMDashboard: React.FC = () => {
                                 value={lead.status}
                                 onChange={(e) => updateLeadStatus(lead._id, e.target.value)}
                                 className={`px-3 py-1 rounded-full text-xs font-semibold border-2 focus:outline-none ${lead.status === 'new'
-                                    ? 'bg-blue-100 border-blue-300 text-blue-700'
-                                    : lead.status === 'contacted'
-                                      ? 'bg-yellow-100 border-yellow-300 text-yellow-700'
-                                      : lead.status === 'interested'
-                                        ? 'bg-orange-100 border-orange-300 text-orange-700'
-                                        : lead.status === 'qualified'
-                                          ? 'bg-green-100 border-green-300 text-green-700'
-                                          : 'bg-red-100 border-red-300 text-red-700'
+                                  ? 'bg-blue-100 border-blue-300 text-blue-700'
+                                  : lead.status === 'contacted'
+                                    ? 'bg-yellow-100 border-yellow-300 text-yellow-700'
+                                    : lead.status === 'interested'
+                                      ? 'bg-orange-100 border-orange-300 text-orange-700'
+                                      : lead.status === 'qualified'
+                                        ? 'bg-green-100 border-green-300 text-green-700'
+                                        : 'bg-red-100 border-red-300 text-red-700'
                                   }`}
                               >
                                 <option value="new">New</option>
