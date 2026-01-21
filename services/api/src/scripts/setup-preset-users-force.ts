@@ -15,11 +15,15 @@ const ADMIN_EMAIL = process.env.PRESET_ADMIN_EMAIL || 'trektribe_root@trektribe.
 const ADMIN_PHONE = process.env.PRESET_ADMIN_PHONE || '+919999999999';
 const ADMIN_PASSWORD = process.env.PRESET_ADMIN_PASSWORD || 'Saksham@4700';
 
-// Demo Organizer for testing payments
 const DEMO_ORGANIZER_NAME = process.env.PRESET_DEMO_ORGANIZER_NAME || 'Saksham Taneja';
 const DEMO_ORGANIZER_EMAIL = process.env.PRESET_DEMO_ORGANIZER_EMAIL || 'tanejasaksham44@gmail.com';
 const DEMO_ORGANIZER_PHONE = process.env.PRESET_DEMO_ORGANIZER_PHONE || '+919876543210';
 const DEMO_ORGANIZER_PASSWORD = process.env.PRESET_DEMO_ORGANIZER_PASSWORD || 'Demo@1234';
+
+const PREMIUM_ORGANIZER_NAME = 'Saksham Taneja Premium';
+const PREMIUM_ORGANIZER_EMAIL = 'sakshamtaneja098@gmail.com';
+const PREMIUM_ORGANIZER_PHONE = '+919876543211';
+const PREMIUM_ORGANIZER_PASSWORD = 'Saksham@Premium123';
 
 const presetUsers = [
   {
@@ -55,16 +59,37 @@ const presetUsers = [
     phoneVerified: true,
     profilePhoto: null,
     location: 'Delhi, India',
-    // Set first organizer login to now for testing
     firstOrganizerLogin: new Date(),
-    // Enable Premium Features
     autoPay: {
       isSetup: true,
       setupRequired: false,
-      scheduledPaymentDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 60 days from now
+      scheduledPaymentDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
       amount: 149900,
       currency: 'INR',
-      listingsIncluded: 100, // Premium limit
+      listingsIncluded: 100,
+      isSetupCompleted: true,
+      autoPayEnabled: true
+    }
+  },
+  {
+    name: PREMIUM_ORGANIZER_NAME,
+    email: PREMIUM_ORGANIZER_EMAIL,
+    phone: PREMIUM_ORGANIZER_PHONE,
+    role: 'organizer' as const,
+    password: PREMIUM_ORGANIZER_PASSWORD,
+    bio: 'Primary Premium Organizer Account',
+    isEmailVerified: true,
+    phoneVerified: true,
+    profilePhoto: null,
+    location: 'Mumbai, India',
+    firstOrganizerLogin: new Date(),
+    autoPay: {
+      isSetup: true,
+      setupRequired: false,
+      scheduledPaymentDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
+      amount: 149900,
+      currency: 'INR',
+      listingsIncluded: 1000,
       isSetupCompleted: true,
       autoPayEnabled: true
     }
@@ -74,80 +99,51 @@ const presetUsers = [
 async function setupPresetUsers() {
   try {
     console.log('🔄 Connecting to database...');
-
     const mongoUri = process.env.MONGODB_URI;
-    if (!mongoUri) {
-      throw new Error('MONGODB_URI environment variable is required');
-    }
+    if (!mongoUri) throw new Error('MONGODB_URI environment variable is required');
 
     await mongoose.connect(mongoUri);
-    console.log('✅ Connected to database');
-    console.log('');
-    console.log('🔐 Using Environment Variables:');
-    console.log(`   PRESET_ADMIN_EMAIL: ${process.env.PRESET_ADMIN_EMAIL || '(not set, using default)'}`);
-    console.log(`   PRESET_ADMIN_PASSWORD: ${process.env.PRESET_ADMIN_PASSWORD ? '(set)' : '(not set, using default)'}`);
-    console.log(`   PRESET_AGENT_EMAIL: ${process.env.PRESET_AGENT_EMAIL || '(not set, using default)'}`);
-    console.log(`   PRESET_AGENT_PASSWORD: ${process.env.PRESET_AGENT_PASSWORD ? '(set)' : '(not set, using default)'}`);
-    console.log('');
-
-    console.log('🔄 Setting up preset users with FORCE UPDATE...');
-    console.log('');
+    console.log('✅ Connected to database\n');
 
     for (const userData of presetUsers) {
       try {
-        // Check if user already exists
+        console.log(`Processing ${userData.role}: ${userData.email}...`);
+        const hashedPassword = await bcrypt.hash(userData.password, 12);
         const existingUser = await User.findOne({ email: userData.email });
 
-        // Hash the password
-        const hashedPassword = await bcrypt.hash(userData.password, 10);
-
         if (existingUser) {
-          console.log(`⚠️  User ${userData.email} already exists. FORCE UPDATING...`);
-
+          console.log(`⚠️ User exists. FORCE UPDATING...`);
           const updateData: any = {
             passwordHash: hashedPassword,
             role: userData.role,
+            name: userData.name,
+            phone: userData.phone,
             bio: userData.bio,
             emailVerified: true,
-            phoneVerified: true,
-            phone: userData.phone,
-            name: userData.name
+            phoneVerified: true
           };
 
-          // Add organizer-specific fields
           if (userData.role === 'organizer') {
-            updateData.location = userData.location;
-            updateData.firstOrganizerLogin = userData.firstOrganizerLogin;
-
-            if ((userData as any).autoPay) {
-              updateData['organizerProfile.autoPay'] = (userData as any).autoPay;
-            }
-
-            // Initialize organizerProfile if not exists
-            if (!existingUser.organizerProfile) {
-              updateData.organizerProfile = {
-                bio: userData.bio,
-                specialties: [],
-                certifications: [],
-                languages: [],
-                qrCodes: [],
-                ...((userData as any).autoPay ? { autoPay: (userData as any).autoPay } : {})
-              };
-            }
+            updateData.location = (userData as any).location;
+            updateData.firstOrganizerLogin = (userData as any).firstOrganizerLogin || new Date();
+            updateData.organizerProfile = {
+              bio: userData.bio,
+              location: (userData as any).location,
+              specialties: [],
+              certifications: [],
+              languages: [],
+              qrCodes: [],
+              autoPay: (userData as any).autoPay || {
+                isSetupRequired: false,
+                isSetupCompleted: false,
+                autoPayEnabled: false
+              }
+            };
           }
 
           await User.findByIdAndUpdate(existingUser._id, updateData);
-
-          console.log(`✅ FORCE UPDATED ${userData.role}: ${userData.email}`);
-          console.log(`   🔑 New Password Hash: ${hashedPassword.substring(0, 20)}...`);
-
-          // Verify the password was updated correctly
-          const verifyUser = await User.findById(existingUser._id);
-          const passwordMatches = await bcrypt.compare(userData.password, verifyUser!.passwordHash);
-          console.log(`   ✔️  Password verification: ${passwordMatches ? 'SUCCESS' : 'FAILED'}`);
-
+          console.log(`✅ FORCE UPDATED: ${userData.email}`);
         } else {
-          // Create new user
           const newUserData: any = {
             name: userData.name,
             email: userData.email,
@@ -155,89 +151,58 @@ async function setupPresetUsers() {
             passwordHash: hashedPassword,
             role: userData.role,
             bio: userData.bio,
-            location: userData.location || 'India',
+            location: (userData as any).location || 'India',
             emailVerified: true,
             phoneVerified: true,
             profilePhoto: userData.profilePhoto
           };
 
-          // Add organizer-specific fields
           if (userData.role === 'organizer') {
-            newUserData.firstOrganizerLogin = userData.firstOrganizerLogin;
+            newUserData.firstOrganizerLogin = (userData as any).firstOrganizerLogin || new Date();
             newUserData.organizerProfile = {
               bio: userData.bio,
               specialties: [],
               certifications: [],
               languages: [],
-              qrCodes: []
+              qrCodes: [],
+              autoPay: (userData as any).autoPay || {
+                isSetupRequired: false,
+                isSetupCompleted: false,
+                autoPayEnabled: false
+              }
             };
-
-            if ((userData as any).autoPay) {
-              newUserData.organizerProfile.autoPay = (userData as any).autoPay;
-            }
           }
 
           const newUser = await User.create(newUserData);
-
           console.log(`✅ Created ${userData.role}: ${userData.email} (ID: ${newUser._id})`);
         }
-
-        console.log(`   📧 Email: ${userData.email}`);
-        console.log(`   🔒 Password: ${userData.password}`);
-        console.log(`   👤 Role: ${userData.role}`);
-        console.log(`   📱 Phone: ${userData.phone}`);
-        console.log('');
-      } catch (error: any) {
-        console.error(`❌ Failed to setup user ${userData.email}:`, error.message);
+      } catch (userError: any) {
+        console.error(`❌ Error processing ${userData.email}:`, userError.message);
       }
     }
 
-    // Display login information
-    console.log('');
+    console.log('\n🌟 Granting premium status to ALL existing organizers...');
+    const result = await User.updateMany(
+      { role: 'organizer' },
+      {
+        $set: {
+          'organizerProfile.autoPay.autoPayEnabled': true,
+          'organizerProfile.autoPay.isSetupCompleted': true,
+          'organizerProfile.autoPay.isSetupRequired': false,
+          'organizerProfile.autoPay.scheduledPaymentDate': new Date(Date.now() + 60 * 24 * 60 * 60 * 1000)
+        }
+      }
+    );
+    console.log(`✅ Granted premium status to ${result.modifiedCount} organizers.`);
+
+    console.log('\n' + '='.repeat(70));
+    console.log('✅ Setup completed successfully!');
     console.log('='.repeat(70));
-    console.log('🎯 PRESET USER CREDENTIALS (UPDATED)');
-    console.log('='.repeat(70));
-    console.log('');
-
-    console.log('🔐 ADMIN LOGIN:');
-    console.log(`   Email: ${ADMIN_EMAIL}`);
-    console.log(`   Password: ${ADMIN_PASSWORD}`);
-    console.log(`   Phone: ${ADMIN_PHONE}`);
-    console.log('   Access: Admin Dashboard, Full System Control');
-    console.log('');
-
-    console.log('🎧 AGENT LOGIN:');
-    console.log(`   Email: ${AGENT_EMAIL}`);
-    console.log(`   Password: ${AGENT_PASSWORD}`);
-    console.log(`   Phone: ${AGENT_PHONE}`);
-    console.log('   Access: Agent Dashboard, CRM, Support Tickets');
-    console.log('');
-
-    console.log('🏔️  DEMO ORGANIZER LOGIN (FOR PAYMENT TESTING):');
-    console.log(`   Email: ${DEMO_ORGANIZER_EMAIL}`);
-    console.log(`   Password: ${DEMO_ORGANIZER_PASSWORD}`);
-    console.log(`   Phone: ${DEMO_ORGANIZER_PHONE}`);
-    console.log('   Access: Organizer Dashboard, Trip Management');
-    console.log('');
-
-    console.log('='.repeat(70));
-    console.log('✅ All preset users have been FORCE UPDATED successfully!');
-    console.log('');
-    console.log('🧪 TESTING:');
-    console.log('   Try logging in now with the credentials above.');
-    console.log('   If you set environment variables, those values are being used.');
-    console.log('   Otherwise, the default values shown above are in effect.');
-    console.log('');
-    console.log('⚠️  IMPORTANT: Change these passwords in production!');
-    console.log('='.repeat(70));
-
     process.exit(0);
   } catch (error: any) {
     console.error('❌ Failed to setup preset users:', error.message);
-    console.error(error);
     process.exit(1);
   }
 }
 
-// Run the setup
 setupPresetUsers().catch(console.error);

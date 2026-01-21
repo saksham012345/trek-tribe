@@ -1,6 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from './roleCheck';
 import CRMSubscription from '../models/CRMSubscription';
+import { User } from '../models/User';
 
 /**
  * Middleware to check if organizer has active CRM subscription
@@ -31,19 +32,24 @@ export const requireCRMAccess = async (
       });
     }
 
-    // Check subscription
+    // Check AutoPay (The primary guard)
+    const user = await User.findById(req.user.id);
+    const autoPayEnabled = user?.organizerProfile?.autoPay?.autoPayEnabled === true;
+
+    if (!autoPayEnabled) {
+      return res.status(403).json({
+        success: false,
+        message: 'AutoPay is not enabled. Please subscribe to access CRM features.',
+        requiresAutoPay: true,
+        upgradeUrl: '/organizer/subscription',
+      });
+    }
+
+    // Check specific CRM subscription
     const subscription = await CRMSubscription.findOne({
       organizerId: req.user.id,
       status: 'active',
     });
-
-    if (!subscription) {
-      return res.status(403).json({
-        success: false,
-        message: 'No active CRM subscription found',
-        upgradeUrl: '/crm/subscribe',
-      });
-    }
 
     // Check if subscription has CRM bundle access
     if (!subscription.crmBundle?.hasAccess) {

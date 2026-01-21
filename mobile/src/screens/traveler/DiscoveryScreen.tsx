@@ -7,10 +7,12 @@ import {
     TextInput,
     ScrollView,
     TouchableOpacity,
-    RefreshControl
+    RefreshControl,
+    Image
 } from 'react-native';
-import { Search, Filter, SlidersHorizontal } from 'lucide-react-native';
+import { Search, Filter, SlidersHorizontal, LayoutGrid, Image as ImageIcon } from 'lucide-react-native';
 import { useTrips } from '../../hooks/useTrips';
+import { useNavigation } from '@react-navigation/native';
 import TripCard from '../../components/traveler/TripCard';
 import Loader from '../../components/ui/Loader';
 import EmptyState from '../../components/ui/EmptyState';
@@ -18,6 +20,7 @@ import EmptyState from '../../components/ui/EmptyState';
 const CATEGORIES = ['All', 'Mountain', 'Beach', 'Cultural', 'Spiritual', 'Adventure', 'Wildlife'];
 
 const DiscoveryScreen: React.FC = () => {
+    const navigation = useNavigation<any>();
     const [search, setSearch] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('All');
     const [filters, setFilters] = useState({
@@ -27,6 +30,13 @@ const DiscoveryScreen: React.FC = () => {
         date: undefined as string | undefined,
     });
     const [showFilters, setShowFilters] = useState(false);
+
+    // Mock data for Posts Preview
+    const postsPreview = [
+        { id: '1', organizer: 'Alps Explorers', image: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b' },
+        { id: '2', organizer: 'Desert King', image: 'https://images.unsplash.com/photo-1509059852496-f3822ae057bf' },
+        { id: '3', organizer: 'Beach Vibe', image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e' },
+    ];
 
     const {
         trips,
@@ -43,6 +53,51 @@ const DiscoveryScreen: React.FC = () => {
 
     const renderHeader = () => (
         <View style={styles.header}>
+            <View style={styles.welcomeSection}>
+                <Text style={styles.greeting}>Hey Explorer!</Text>
+                <Text style={styles.subGreeting}>Ready for your next adventure?</Text>
+            </View>
+
+            {/* Posts/Stories Preview Section */}
+            <View style={styles.postsSection}>
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Moments from Organizers</Text>
+                    <TouchableOpacity onPress={() => navigation.navigate('Community')}>
+                        <Text style={styles.seeAllText}>View Feed</Text>
+                    </TouchableOpacity>
+                </View>
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.postsList}
+                >
+                    {postsPreview.map(post => (
+                        <TouchableOpacity
+                            key={post.id}
+                            style={styles.postCard}
+                            onPress={() => navigation.navigate('Community')}
+                        >
+                            <Image
+                                source={{ uri: post.image }}
+                                style={styles.postImage}
+                            />
+                            <View style={styles.postOverlay}>
+                                <Text style={styles.postOrgName} numberOfLines={1}>{post.organizer}</Text>
+                            </View>
+                        </TouchableOpacity>
+                    ))}
+                    <TouchableOpacity
+                        style={styles.morePostsBtn}
+                        onPress={() => navigation.navigate('Community')}
+                    >
+                        <View style={styles.morePostsCircle}>
+                            <ImageIcon size={20} color="#047857" />
+                        </View>
+                        <Text style={styles.morePostsText}>See More</Text>
+                    </TouchableOpacity>
+                </ScrollView>
+            </View>
+
             <View style={styles.searchContainer}>
                 <Search size={20} color="#6b7280" style={styles.searchIcon} />
                 <TextInput
@@ -156,11 +211,104 @@ const styles = StyleSheet.create({
     },
     header: {
         backgroundColor: '#fff',
-        paddingTop: 12,
+        paddingTop: 20,
         paddingBottom: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f3f4f6',
-        marginBottom: 16,
+        borderBottomLeftRadius: 32,
+        borderBottomRightRadius: 32,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        elevation: 5,
+        marginBottom: 20,
+    },
+    welcomeSection: {
+        paddingHorizontal: 20,
+        marginBottom: 20,
+    },
+    greeting: {
+        fontSize: 28,
+        fontWeight: '800',
+        color: '#111827',
+    },
+    subGreeting: {
+        fontSize: 16,
+        color: '#6b7280',
+        marginTop: 4,
+    },
+    postsSection: {
+        marginBottom: 24,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        marginBottom: 12,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#111827',
+    },
+    seeAllText: {
+        fontSize: 14,
+        color: '#047857',
+        fontWeight: '600',
+    },
+    postsList: {
+        paddingHorizontal: 20,
+        gap: 12,
+    },
+    postCard: {
+        width: 110,
+        height: 160,
+        borderRadius: 20,
+        overflow: 'hidden',
+        backgroundColor: '#f3f4f6',
+    },
+    postImage: {
+        width: '100%',
+        height: '100%',
+    },
+    postOverlay: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        padding: 8,
+        backgroundColor: 'rgba(0,0,0,0.3)',
+    },
+    postOrgName: {
+        color: '#fff',
+        fontSize: 11,
+        fontWeight: '700',
+        textAlign: 'center',
+    },
+    morePostsBtn: {
+        width: 110,
+        height: 160,
+        borderRadius: 20,
+        borderWidth: 2,
+        borderColor: '#e5e7eb',
+        borderStyle: 'dashed',
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+    },
+    morePostsCircle: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: '#f0fdf4',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    morePostsText: {
+        fontSize: 12,
+        color: '#047857',
+        fontWeight: '700',
     },
     searchContainer: {
         flexDirection: 'row',

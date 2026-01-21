@@ -13,6 +13,7 @@ import { ChevronRight, ChevronLeft, Save, Plus, Trash2, Camera, MapPin, X, FileT
 import { useNavigation } from '@react-navigation/native';
 import Loader from '../../components/ui/Loader';
 import apiClient from '../../api/client';
+import { useAuth } from '../../contexts/AuthContext';
 
 const { width } = Dimensions.get('window');
 
@@ -22,8 +23,26 @@ const STEPS = [
 
 const CreateTripWizard: React.FC = () => {
     const navigation = useNavigation();
+    const { user } = useAuth();
     const [currentStep, setCurrentStep] = useState(0);
     const [loading, setLoading] = useState(false);
+
+    // Subscription Guard
+    const isPremium = user?.role === 'admin' || (user?.role === 'organizer' && user.organizerProfile?.autoPay?.autoPayEnabled);
+
+    React.useEffect(() => {
+        if (user && user.role === 'organizer' && !isPremium) {
+            Alert.alert(
+                'Subscription Required',
+                'You need an active subscription (AutoPay enabled) to create trips.',
+                [{ text: 'Go Back', onPress: () => navigation.goBack() }]
+            );
+        }
+    }, [user, isPremium, navigation]);
+
+    if (user?.role === 'organizer' && !isPremium) {
+        return <Loader fullScreen message="Checking subscription..." />;
+    }
 
     // Unified State for 7 Steps
     const [formData, setFormData] = useState({
