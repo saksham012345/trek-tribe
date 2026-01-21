@@ -8,14 +8,17 @@ import {
     ScrollView,
     TouchableOpacity,
     RefreshControl,
-    Image
+    Image,
+    StatusBar
 } from 'react-native';
-import { Search, Filter, SlidersHorizontal, LayoutGrid, Image as ImageIcon } from 'lucide-react-native';
+import { Search, SlidersHorizontal, Image as ImageIcon, MapPin } from 'lucide-react-native';
 import { useTrips } from '../../hooks/useTrips';
 import { useNavigation } from '@react-navigation/native';
 import TripCard from '../../components/traveler/TripCard';
 import Loader from '../../components/ui/Loader';
 import EmptyState from '../../components/ui/EmptyState';
+import { COLORS, SHADOWS, RADIUS, SPACING } from '../../theme/DesignSystem';
+import GlassCard from '../../components/ui/GlassCard';
 
 const CATEGORIES = ['All', 'Mountain', 'Beach', 'Cultural', 'Spiritual', 'Adventure', 'Wildlife'];
 
@@ -54,16 +57,16 @@ const DiscoveryScreen: React.FC = () => {
     const renderHeader = () => (
         <View style={styles.header}>
             <View style={styles.welcomeSection}>
-                <Text style={styles.greeting}>Hey Explorer!</Text>
-                <Text style={styles.subGreeting}>Ready for your next adventure?</Text>
+                <Text style={styles.greeting}>Hey Explorer! 🏔️</Text>
+                <Text style={styles.subGreeting}>Where will your soul wander today?</Text>
             </View>
 
             {/* Posts/Stories Preview Section */}
             <View style={styles.postsSection}>
                 <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Moments from Organizers</Text>
+                    <Text style={styles.sectionTitle}>Tribe Moments</Text>
                     <TouchableOpacity onPress={() => navigation.navigate('Community')}>
-                        <Text style={styles.seeAllText}>View Feed</Text>
+                        <Text style={styles.seeAllText}>View All</Text>
                     </TouchableOpacity>
                 </View>
                 <ScrollView
@@ -91,32 +94,34 @@ const DiscoveryScreen: React.FC = () => {
                         onPress={() => navigation.navigate('Community')}
                     >
                         <View style={styles.morePostsCircle}>
-                            <ImageIcon size={20} color="#047857" />
+                            <ImageIcon size={20} color={COLORS.primary} />
                         </View>
-                        <Text style={styles.morePostsText}>See More</Text>
+                        <Text style={styles.morePostsText}>+ More</Text>
                     </TouchableOpacity>
                 </ScrollView>
             </View>
 
-            <View style={styles.searchContainer}>
-                <Search size={20} color="#6b7280" style={styles.searchIcon} />
-                <TextInput
-                    style={styles.searchInput}
-                    placeholder="Where to next?"
-                    value={search}
-                    onChangeText={setSearch}
-                    placeholderTextColor="#9ca3af"
-                />
-                <TouchableOpacity
-                    style={[styles.filterBtn, (filters.maxPrice || filters.difficulty !== 'All') ? styles.activeFilterBtn : {}]}
-                    onPress={() => setShowFilters(!showFilters)}
-                >
-                    <SlidersHorizontal size={20} color={filters.maxPrice || filters.difficulty !== 'All' ? "#fff" : "#047857"} />
-                </TouchableOpacity>
+            <View style={styles.searchWrapper}>
+                <GlassCard style={styles.searchContainer}>
+                    <Search size={20} color={COLORS.textLighter} style={styles.searchIcon} />
+                    <TextInput
+                        style={styles.searchInput}
+                        placeholder="Search adventures..."
+                        value={search}
+                        onChangeText={setSearch}
+                        placeholderTextColor={COLORS.textLighter}
+                    />
+                    <TouchableOpacity
+                        style={[styles.filterBtn, (filters.maxPrice || filters.difficulty !== 'All') ? styles.activeFilterBtn : {}]}
+                        onPress={() => setShowFilters(!showFilters)}
+                    >
+                        <SlidersHorizontal size={20} color={filters.maxPrice || filters.difficulty !== 'All' ? "#fff" : COLORS.primary} />
+                    </TouchableOpacity>
+                </GlassCard>
             </View>
 
             {showFilters && (
-                <View style={styles.filterSection}>
+                <GlassCard style={styles.filterSection}>
                     <Text style={styles.filterTitle}>Quick Filters</Text>
                     <View style={styles.filterRow}>
                         <TouchableOpacity
@@ -135,10 +140,10 @@ const DiscoveryScreen: React.FC = () => {
                             style={[styles.filterChip, filters.difficulty === 'hard' && styles.activeChip]}
                             onPress={() => setFilters(f => ({ ...f, difficulty: f.difficulty === 'hard' ? 'All' : 'hard' }))}
                         >
-                            <Text style={[styles.filterChipText, filters.difficulty === 'hard' && styles.activeChipText]}>Challenging</Text>
+                            <Text style={[styles.filterChipText, filters.difficulty === 'hard' && styles.activeChipText]}>Advanced</Text>
                         </TouchableOpacity>
                     </View>
-                </View>
+                </GlassCard>
             )}
 
             <ScrollView
@@ -178,6 +183,7 @@ const DiscoveryScreen: React.FC = () => {
 
     return (
         <View style={styles.container}>
+            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
             <FlatList
                 data={trips}
                 keyExtractor={(item) => item._id}
@@ -193,7 +199,7 @@ const DiscoveryScreen: React.FC = () => {
                 onEndReached={loadMore}
                 onEndReachedThreshold={0.5}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#047857']} />
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />
                 }
                 contentContainerStyle={styles.listContent}
             />
@@ -204,68 +210,67 @@ const DiscoveryScreen: React.FC = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f9fafb',
+        backgroundColor: COLORS.background,
     },
     listContent: {
         paddingBottom: 20,
     },
     header: {
         backgroundColor: '#fff',
-        paddingTop: 20,
-        paddingBottom: 16,
-        borderBottomLeftRadius: 32,
-        borderBottomRightRadius: 32,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 5,
+        paddingTop: 40,
+        paddingBottom: 24,
+        borderBottomLeftRadius: 36,
+        borderBottomRightRadius: 36,
+        ...SHADOWS.lg,
         marginBottom: 20,
     },
     welcomeSection: {
-        paddingHorizontal: 20,
-        marginBottom: 20,
+        paddingHorizontal: 24,
+        marginBottom: 24,
     },
     greeting: {
-        fontSize: 28,
-        fontWeight: '800',
-        color: '#111827',
+        fontSize: 32,
+        fontWeight: '900',
+        color: COLORS.text,
+        letterSpacing: -0.5,
     },
     subGreeting: {
         fontSize: 16,
-        color: '#6b7280',
-        marginTop: 4,
+        color: COLORS.textLight,
+        marginTop: 6,
+        fontWeight: '500',
     },
     postsSection: {
-        marginBottom: 24,
+        marginBottom: 28,
     },
     sectionHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: 20,
-        marginBottom: 12,
+        paddingHorizontal: 24,
+        marginBottom: 16,
     },
     sectionTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#111827',
+        fontSize: 20,
+        fontWeight: '800',
+        color: COLORS.text,
     },
     seeAllText: {
         fontSize: 14,
-        color: '#047857',
-        fontWeight: '600',
+        color: COLORS.primary,
+        fontWeight: '700',
     },
     postsList: {
-        paddingHorizontal: 20,
-        gap: 12,
+        paddingHorizontal: 24,
+        gap: 14,
     },
     postCard: {
-        width: 110,
-        height: 160,
-        borderRadius: 20,
+        width: 120,
+        height: 180,
+        borderRadius: 24,
         overflow: 'hidden',
-        backgroundColor: '#f3f4f6',
+        backgroundColor: COLORS.border,
+        ...SHADOWS.md,
     },
     postImage: {
         width: '100%',
@@ -276,146 +281,146 @@ const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        padding: 8,
-        backgroundColor: 'rgba(0,0,0,0.3)',
+        padding: 10,
+        backgroundColor: 'rgba(0,0,0,0.4)',
     },
     postOrgName: {
         color: '#fff',
-        fontSize: 11,
-        fontWeight: '700',
+        fontSize: 12,
+        fontWeight: '800',
         textAlign: 'center',
     },
     morePostsBtn: {
-        width: 110,
-        height: 160,
-        borderRadius: 20,
+        width: 120,
+        height: 180,
+        borderRadius: 24,
         borderWidth: 2,
-        borderColor: '#e5e7eb',
+        borderColor: COLORS.primaryLight,
         borderStyle: 'dashed',
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: '#fff',
     },
     morePostsCircle: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: '#f0fdf4',
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: 'rgba(15, 118, 110, 0.1)',
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 8,
+        marginBottom: 10,
     },
     morePostsText: {
-        fontSize: 12,
-        color: '#047857',
-        fontWeight: '700',
+        fontSize: 13,
+        color: COLORS.primary,
+        fontWeight: '800',
+    },
+    searchWrapper: {
+        paddingHorizontal: 20,
+        marginBottom: 16,
     },
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#f3f4f6',
-        marginHorizontal: 16,
-        paddingHorizontal: 12,
-        borderRadius: 16,
-        height: 52,
-        marginBottom: 16,
+        paddingHorizontal: 16,
+        paddingVertical: 4,
+        height: 60,
     },
     searchIcon: {
-        marginRight: 10,
+        marginRight: 12,
     },
     searchInput: {
         flex: 1,
-        fontSize: 16,
-        color: '#111827',
+        fontSize: 17,
+        color: COLORS.text,
+        fontWeight: '500',
     },
     filterBtn: {
-        padding: 8,
-        backgroundColor: '#fff',
-        borderRadius: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
+        width: 44,
+        height: 44,
+        backgroundColor: 'rgba(15, 118, 110, 0.1)',
+        borderRadius: 14,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     activeFilterBtn: {
-        backgroundColor: '#047857',
+        backgroundColor: COLORS.primary,
     },
     filterSection: {
-        marginHorizontal: 16,
+        marginHorizontal: 24,
         marginBottom: 16,
-        padding: 12,
-        backgroundColor: '#f8fafc',
-        borderRadius: 16,
+        padding: 16,
     },
     filterTitle: {
         fontSize: 12,
-        fontWeight: '700',
-        color: '#64748b',
+        fontWeight: '800',
+        color: COLORS.textLighter,
         textTransform: 'uppercase',
-        marginBottom: 8,
+        letterSpacing: 1,
+        marginBottom: 12,
     },
     filterRow: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 8,
+        gap: 10,
     },
     filterChip: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 12,
         backgroundColor: '#fff',
         borderWidth: 1,
-        borderColor: '#e2e8f0',
+        borderColor: COLORS.border,
     },
     activeChip: {
-        backgroundColor: '#047857',
-        borderColor: '#047857',
+        backgroundColor: COLORS.primary,
+        borderColor: COLORS.primary,
     },
     filterChipText: {
-        fontSize: 12,
-        color: '#64748b',
-        fontWeight: '600',
+        fontSize: 13,
+        color: COLORS.textLight,
+        fontWeight: '700',
     },
     activeChipText: {
         color: '#fff',
     },
     categoryList: {
-        paddingHorizontal: 16,
-        gap: 10,
+        paddingHorizontal: 24,
+        gap: 12,
     },
     categoryChip: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 12,
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 16,
         backgroundColor: '#f3f4f6',
         borderWidth: 1,
-        borderColor: '#e5e7eb',
+        borderColor: COLORS.border,
     },
     activeCategoryChip: {
-        backgroundColor: '#047857',
-        borderColor: '#047857',
+        backgroundColor: COLORS.primary,
+        borderColor: COLORS.primary,
+        ...SHADOWS.colored,
     },
     categoryText: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#4b5563',
+        fontSize: 15,
+        fontWeight: '700',
+        color: COLORS.textLight,
     },
     activeCategoryText: {
         color: '#fff',
     },
     errorBanner: {
         backgroundColor: '#fef2f2',
-        marginHorizontal: 16,
-        marginTop: 12,
-        padding: 10,
-        borderRadius: 8,
+        marginHorizontal: 24,
+        marginTop: 16,
+        padding: 12,
+        borderRadius: 12,
         alignItems: 'center',
     },
     errorText: {
-        color: '#dc2626',
-        fontSize: 13,
-        fontWeight: '500',
+        color: COLORS.error,
+        fontSize: 14,
+        fontWeight: '600',
     },
 });
 
