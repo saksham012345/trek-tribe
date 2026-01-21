@@ -9,15 +9,10 @@ import {
     Dimensions
 } from 'react-native';
 import {
-    Plus,
-    TrendingUp,
-    Target,
-    IndianRupee,
-    BarChart3,
-    Users,
     Star,
     ChevronRight,
-    CreditCard
+    CreditCard,
+    Camera
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import apiClient from '../../api/client';
@@ -78,16 +73,24 @@ const OrganizerDashboardScreen: React.FC = () => {
         >
             <View style={styles.header}>
                 <View>
-                    <Text style={styles.welcomeText}>Business Overview</Text>
+                    <Text style={styles.welcomeText}>Business Hub</Text>
                     <Text style={styles.dateText}>{new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}</Text>
                 </View>
-                <TouchableOpacity
-                    style={styles.createBtn}
-                    onPress={() => navigation.navigate('CreateTrip')}
-                >
-                    <Plus size={20} color="#fff" />
-                    <Text style={styles.createBtnText}>Create Trip</Text>
-                </TouchableOpacity>
+                <View style={styles.headerActions}>
+                    <TouchableOpacity
+                        style={styles.postMomentBtn}
+                        onPress={() => alert('Feature coming soon: Share a moment with your tribe!')}
+                    >
+                        <Camera size={20} color="#4f46e5" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.createBtn}
+                        onPress={() => navigation.navigate('CreateTrip')}
+                    >
+                        <Plus size={20} color="#fff" />
+                        <Text style={styles.createBtnText}>Trip</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
 
             {/* Primary Stats Grid */}
@@ -222,19 +225,29 @@ const styles = StyleSheet.create({
         fontWeight: '800',
         color: '#0f172a',
     },
-    dateText: {
-        fontSize: 14,
-        color: '#64748b',
-        marginTop: 4,
+    headerActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    postMomentBtn: {
+        width: 44,
+        height: 44,
+        borderRadius: 12,
+        backgroundColor: '#f5f3ff',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#e0e7ff',
     },
     createBtn: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: '#4f46e5',
-        paddingHorizontal: 16,
+        paddingHorizontal: 12,
         paddingVertical: 10,
         borderRadius: 12,
-        gap: 8,
+        gap: 6,
         shadowColor: '#4f46e5',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.2,

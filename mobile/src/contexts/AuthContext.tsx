@@ -7,6 +7,13 @@ interface User {
     name: string;
     email: string;
     role: 'traveler' | 'organizer' | 'admin';
+    isVerified?: boolean;
+    organizerProfile?: {
+        autoPay?: {
+            autoPayEnabled: boolean;
+        };
+    };
+    organizerVerificationStatus?: 'pending' | 'approved' | 'rejected';
 }
 
 interface AuthContextType {

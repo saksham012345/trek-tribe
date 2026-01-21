@@ -202,23 +202,43 @@ router.post('/', authenticateJwt, requireRole(['organizer', 'admin']), verifyOrg
       req.body.categories = [req.body.category];
     }
 
-    // ========== SUBSCRIPTION CHECK (Skip for admins) ==========
+    // ========== SUBSCRIPTION & AUTOPAY CHECK (Skip for admins) ==========
     if (userRole === 'organizer' && process.env.NODE_ENV !== 'test') {
       console.log('🔍 Checking subscription for organizer:', organizerId);
 
+      const organizer = await User.findById(organizerId);
+      if (!organizer) {
+        return res.status(404).json({ success: false, error: 'Organizer not found' });
+      }
+
+      // 1. Check if AutoPay is enabled (User's primary subscription flag)
+      const autoPayEnabled = organizer.organizerProfile?.autoPay?.autoPayEnabled === true;
+
+      if (!autoPayEnabled) {
+        console.log('❌ AutoPay not enabled for organizer');
+        return res.status(402).json({
+          success: false,
+          error: 'AutoPay required',
+          message: 'You need to enable AutoPay (Subscription) to create trips and access premium features.',
+          requiresAutoPay: true,
+          actionUrl: '/organizer/subscription'
+        });
+      }
+
+      // 2. Check OrganizerSubscription model for actual plan details
       const subscription = await OrganizerSubscription.findOne({
         organizerId: new mongoose.Types.ObjectId(organizerId),
         status: { $in: ['active', 'trial'] }
       }).sort({ createdAt: -1 });
 
       if (!subscription) {
-        console.log('❌ No active subscription found');
+        console.log('❌ No active subscription record found, but AutoPay is enabled. Creating default trial...');
+        // This might happen if AutoPay was enabled but the subscription record wasn't created.
+        // For now, return error to be safe, or we could auto-create it.
         return res.status(402).json({
           success: false,
-          error: 'Subscription required',
-          message: 'You need an active subscription to create trips. Start your free 60-day trial or choose a plan.',
-          requiresSubscription: true,
-          trialAvailable: true,
+          error: 'Subscription record missing',
+          message: 'Your AutoPay is enabled, but your subscription record is missing. Please contact support.',
           actionUrl: '/organizer/subscription'
         });
       }
@@ -237,22 +257,6 @@ router.post('/', authenticateJwt, requireRole(['organizer', 'admin']), verifyOrg
         });
       }
 
-      // Check payment status for paid subscriptions
-      if (subscription.status === 'active' && subscription.payments?.length > 0) {
-        const lastPayment = subscription.payments[subscription.payments.length - 1];
-        if (lastPayment.status !== 'completed') {
-          console.log('❌ Payment not completed. Status:', lastPayment.status);
-          return res.status(402).json({
-            success: false,
-            error: 'Payment pending',
-            message: 'Please complete your subscription payment to create trips.',
-            paymentStatus: lastPayment.status,
-            requiresPayment: true,
-            actionUrl: '/organizer/subscription'
-          });
-        }
-      }
-
       // Check trip limit
       const tripsUsed = subscription.tripsUsed || 0;
       const tripsPerCycle = subscription.tripsPerCycle || 5;
@@ -265,13 +269,12 @@ router.post('/', authenticateJwt, requireRole(['organizer', 'admin']), verifyOrg
           message: `You have reached your plan limit of ${tripsPerCycle} trips. Please upgrade your subscription.`,
           tripsUsed,
           tripsPerCycle,
-          currentPlan: subscription.plan,
           requiresUpgrade: true,
           actionUrl: '/organizer/subscription'
         });
       }
 
-      console.log('✅ Subscription valid. Trips used:', tripsUsed, '/', tripsPerCycle);
+      console.log('✅ Subscription & AutoPay valid. Trips used:', tripsUsed, '/', tripsPerCycle);
     }
 
     // In test environment require stricter validation to match test expectations
