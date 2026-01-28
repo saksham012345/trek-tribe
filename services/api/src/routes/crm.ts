@@ -3,6 +3,7 @@ import leadController from '../controllers/leadController';
 import ticketController from '../controllers/ticketController';
 import verificationController from '../controllers/verificationController';
 import subscriptionController from '../controllers/subscriptionController';
+import bankDetailsController from '../controllers/bankDetailsController';
 import analyticsService from '../services/analyticsService';
 import notificationService from '../services/notificationService';
 import Lead from '../models/Lead';
@@ -45,12 +46,12 @@ router.get('/stats', requireOrganizerOrAdmin, async (req: AuthRequest, res) => {
   try {
     const userId = req.user?.id;
     const isAdmin = req.user?.role === 'admin';
-    
+
     // Build query filters based on role
     const leadQuery: any = {};
     const tripQuery: any = {};
     const bookingQuery: any = {};
-    
+
     if (!isAdmin && userId) {
       leadQuery.assignedTo = userId;
       tripQuery.organizerId = userId;
@@ -58,20 +59,20 @@ router.get('/stats', requireOrganizerOrAdmin, async (req: AuthRequest, res) => {
       const organizerTripIds = await Trip.find({ organizerId: userId }).distinct('_id');
       bookingQuery.tripId = { $in: organizerTripIds };
     }
-    
+
     // Get all leads for this organizer/admin
     const leads = await Lead.find(leadQuery).lean();
-    
+
     // Get trips for revenue calculation
     const trips = await Trip.find(tripQuery).select('_id price participants').lean();
-    
+
     // Get bookings for accurate revenue calculation
     bookingQuery.paymentStatus = { $in: ['completed', 'partial'] };
     bookingQuery.bookingStatus = { $in: ['confirmed', 'completed'] };
     const bookings = await GroupBooking.find(bookingQuery)
       .select('finalAmount paymentStatus bookingStatus createdAt')
       .lean();
-    
+
     // Calculate revenue metrics
     const totalRevenue = bookings.reduce((sum, booking) => {
       if (booking.paymentStatus === 'completed') {
@@ -82,7 +83,7 @@ router.get('/stats', requireOrganizerOrAdmin, async (req: AuthRequest, res) => {
       }
       return sum;
     }, 0);
-    
+
     // Calculate this month's revenue
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -96,7 +97,7 @@ router.get('/stats', requireOrganizerOrAdmin, async (req: AuthRequest, res) => {
         }
         return sum;
       }, 0);
-    
+
     // Calculate last month's revenue
     const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
@@ -113,19 +114,19 @@ router.get('/stats', requireOrganizerOrAdmin, async (req: AuthRequest, res) => {
         }
         return sum;
       }, 0);
-    
+
     // Calculate revenue growth
-    const revenueGrowth = lastMonthRevenue > 0 
-      ? ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100 
+    const revenueGrowth = lastMonthRevenue > 0
+      ? ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100
       : (thisMonthRevenue > 0 ? 100 : 0);
-    
+
     // Calculate total bookings
     const totalBookings = bookings.length;
     const confirmedBookings = bookings.filter(b => b.bookingStatus === 'confirmed' || b.bookingStatus === 'completed').length;
-    
+
     // Calculate average booking value
     const averageBookingValue = totalBookings > 0 ? totalRevenue / totalBookings : 0;
-    
+
     // Calculate stats
     const stats = {
       totalLeads: leads.length,
@@ -134,8 +135,8 @@ router.get('/stats', requireOrganizerOrAdmin, async (req: AuthRequest, res) => {
       interestedLeads: leads.filter((l: any) => l.status === 'interested').length,
       qualifiedLeads: leads.filter((l: any) => l.status === 'qualified').length,
       lostLeads: leads.filter((l: any) => l.status === 'lost').length,
-      conversionRate: leads.length > 0 
-        ? (leads.filter((l: any) => l.status === 'qualified').length / leads.length) * 100 
+      conversionRate: leads.length > 0
+        ? (leads.filter((l: any) => l.status === 'qualified').length / leads.length) * 100
         : 0,
       revenue: {
         total: totalRevenue,
@@ -154,7 +155,7 @@ router.get('/stats', requireOrganizerOrAdmin, async (req: AuthRequest, res) => {
         active: trips.filter((t: any) => t.status === 'active').length,
       },
     };
-    
+
     res.json(stats);
   } catch (error: any) {
     console.error('Get CRM stats error:', error);
@@ -225,6 +226,15 @@ router.get('/subscriptions', requireAdmin, subscriptionController.getAllSubscrip
 router.post('/subscriptions/use-trip-slot', requireAdmin, subscriptionController.useTripSlot);
 
 // ============================================
+// BANK DETAILS ROUTES
+// ============================================
+
+router.put('/bank-details', requireOrganizerOrAdmin, bankDetailsController.updateBankDetails);
+router.get('/bank-details', requireOrganizerOrAdmin, bankDetailsController.getBankDetails);
+router.get('/bank-details/:organizerId', requireAdmin, bankDetailsController.getFullBankDetails);
+router.delete('/bank-details', requireOrganizerOrAdmin, bankDetailsController.deleteBankDetails);
+
+// ============================================
 // ANALYTICS ROUTES
 // ============================================
 
@@ -234,25 +244,25 @@ router.get('/analytics/bookings-over-time', requireOrganizerOrAdmin, async (req:
     const userId = req.user?.id;
     const isAdmin = req.user?.role === 'admin';
     const days = parseInt(req.query.days as string) || 30;
-    
+
     const tripQuery: any = {};
     if (!isAdmin && userId) {
       tripQuery.organizerId = userId;
     }
-    
+
     const organizerTripIds = await Trip.find(tripQuery).distinct('_id');
     const bookingQuery: any = { tripId: { $in: organizerTripIds } };
-    
+
     const endDate = new Date();
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
-    
+
     bookingQuery.createdAt = { $gte: startDate, $lte: endDate };
-    
+
     const bookings = await GroupBooking.find(bookingQuery)
       .select('createdAt finalAmount paymentStatus')
       .lean();
-    
+
     // Group by date
     const bookingsByDate: Record<string, { count: number; revenue: number }> = {};
     bookings.forEach(booking => {
@@ -265,7 +275,7 @@ router.get('/analytics/bookings-over-time', requireOrganizerOrAdmin, async (req:
         bookingsByDate[date].revenue += booking.finalAmount || 0;
       }
     });
-    
+
     // Fill in missing dates with zeros
     const result = [];
     for (let i = 0; i < days; i++) {
@@ -278,7 +288,7 @@ router.get('/analytics/bookings-over-time', requireOrganizerOrAdmin, async (req:
         revenue: bookingsByDate[dateStr]?.revenue || 0,
       });
     }
-    
+
     res.json({ success: true, data: result });
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'Failed to fetch bookings over time', error: error.message });
@@ -289,24 +299,24 @@ router.get('/analytics/payment-status', requireOrganizerOrAdmin, async (req: Aut
   try {
     const userId = req.user?.id;
     const isAdmin = req.user?.role === 'admin';
-    
+
     const tripQuery: any = {};
     if (!isAdmin && userId) {
       tripQuery.organizerId = userId;
     }
-    
+
     const organizerTripIds = await Trip.find(tripQuery).distinct('_id');
     const bookingQuery: any = { tripId: { $in: organizerTripIds } };
-    
+
     const bookings = await GroupBooking.find(bookingQuery)
       .select('paymentStatus')
       .lean();
-    
+
     const statusCounts: Record<string, number> = {};
     bookings.forEach(booking => {
       statusCounts[booking.paymentStatus] = (statusCounts[booking.paymentStatus] || 0) + 1;
     });
-    
+
     res.json({
       success: true,
       data: Object.entries(statusCounts).map(([status, count]) => ({ status, count })),
@@ -320,24 +330,26 @@ router.get('/analytics/revenue-per-trip', requireOrganizerOrAdmin, async (req: A
   try {
     const userId = req.user?.id;
     const isAdmin = req.user?.role === 'admin';
-    
+
     const tripQuery: any = {};
     if (!isAdmin && userId) {
       tripQuery.organizerId = userId;
     }
-    
+
     const trips = await Trip.find(tripQuery).select('_id title').lean();
     const tripIds = trips.map(t => t._id);
-    
+
     const bookings = await GroupBooking.aggregate([
       { $match: { tripId: { $in: tripIds }, paymentStatus: { $in: ['completed', 'partial'] } } },
-      { $group: {
-        _id: '$tripId',
-        revenue: { $sum: '$finalAmount' },
-        bookings: { $sum: 1 },
-      }},
+      {
+        $group: {
+          _id: '$tripId',
+          revenue: { $sum: '$finalAmount' },
+          bookings: { $sum: 1 },
+        }
+      },
     ]);
-    
+
     const result = bookings.map(booking => {
       const trip = trips.find(t => t._id.toString() === booking._id.toString());
       return {
@@ -347,7 +359,7 @@ router.get('/analytics/revenue-per-trip', requireOrganizerOrAdmin, async (req: A
         bookings: booking.bookings,
       };
     }).sort((a, b) => b.revenue - a.revenue);
-    
+
     res.json({ success: true, data: result });
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'Failed to fetch revenue per trip', error: error.message });
@@ -358,22 +370,24 @@ router.get('/analytics/lead-sources', requireOrganizerOrAdmin, async (req: AuthR
   try {
     const userId = req.user?.id;
     const isAdmin = req.user?.role === 'admin';
-    
+
     const leadQuery: any = {};
     if (!isAdmin && userId) {
       leadQuery.assignedTo = userId;
     }
-    
+
     const leads = await Lead.aggregate([
       { $match: leadQuery },
-      { $group: {
-        _id: '$source',
-        count: { $sum: 1 },
-        converted: { $sum: { $cond: [{ $eq: ['$status', 'converted'] }, 1, 0] } },
-      }},
+      {
+        $group: {
+          _id: '$source',
+          count: { $sum: 1 },
+          converted: { $sum: { $cond: [{ $eq: ['$status', 'converted'] }, 1, 0] } },
+        }
+      },
       { $sort: { count: -1 } },
     ]);
-    
+
     res.json({
       success: true,
       data: leads.map(lead => ({
@@ -391,10 +405,10 @@ router.get('/analytics/lead-sources', requireOrganizerOrAdmin, async (req: AuthR
 // Organizer analytics
 router.get('/analytics/organizer', requireOrganizerOrAdmin, async (req: AuthRequest, res) => {
   try {
-    const organizerId = req.user?.role === 'admin' 
-      ? req.query.organizerId as string 
+    const organizerId = req.user?.role === 'admin'
+      ? req.query.organizerId as string
       : req.user?.id;
-    
+
     if (!organizerId) {
       return res.status(400).json({
         success: false,
@@ -428,10 +442,10 @@ router.get('/analytics/organizer', requireOrganizerOrAdmin, async (req: AuthRequ
 // User analytics
 router.get('/analytics/user', async (req: AuthRequest, res) => {
   try {
-    const userId = req.user?.role === 'admin' 
-      ? req.query.userId as string 
+    const userId = req.user?.role === 'admin'
+      ? req.query.userId as string
       : req.user?.id;
-    
+
     if (!userId) {
       return res.status(400).json({
         success: false,
@@ -528,7 +542,7 @@ router.get('/notifications', async (req: AuthRequest, res) => {
     }
 
     const { limit, skip, unreadOnly } = req.query;
-    
+
     const result = await notificationService.getUserNotifications(req.user.id, {
       limit: limit ? Number(limit) : undefined,
       skip: skip ? Number(skip) : undefined,
