@@ -66,6 +66,9 @@ const MarketplaceCheckout = React.lazy(() => retryLazyLoad(() => import('./pages
 const JoinTheTribe = React.lazy(() => retryLazyLoad(() => import('./pages/JoinTheTribe')));
 const Subscribe = React.lazy(() => retryLazyLoad(() => import('./pages/Subscribe')));
 const AdminOrganizerVerification = React.lazy(() => retryLazyLoad(() => import('./pages/AdminOrganizerVerification')));
+const RequestTripPage = React.lazy(() => retryLazyLoad(() => import('./pages/custom-trips/RequestTripPage')));
+const MyRequestsPage = React.lazy(() => retryLazyLoad(() => import('./pages/custom-trips/MyRequestsPage')));
+const ProposalViewPage = React.lazy(() => retryLazyLoad(() => import('./pages/custom-trips/ProposalViewPage')));
 
 // Error Boundary for lazy loading failures
 class ChunkErrorBoundary extends React.Component<
@@ -279,6 +282,18 @@ function AppContent() {
               <Route
                 path="/checkout/marketplace"
                 element={user ? <MarketplaceCheckout /> : <Navigate to="/login" />}
+              />
+              <Route
+                path="/request-trip"
+                element={user ? <RequestTripPage /> : <Navigate to="/login" />}
+              />
+              <Route
+                path="/my-requests"
+                element={user ? <MyRequestsPage /> : <Navigate to="/login" />}
+              />
+              <Route
+                path="/custom-trips/:requestId/proposal/:proposalId"
+                element={user ? <ProposalViewPage /> : <Navigate to="/login" />}
               />
             </Routes>
           </React.Suspense>

@@ -48,7 +48,9 @@ import webhookRoutes from './routes/webhooks';
 import autoPayRoutes from './routes/autoPay';
 import dashboardRoutes from './routes/dashboard';
 import paymentVerificationRoutes from './routes/paymentVerification';
+import paymentRoutes from './routes/payments';
 import marketplaceRoutes from './routes/marketplace';
+import customTripRoutes from './routes/customTrips';
 import seedRoutes from './routes/seed';
 import groupsRoutes from './routes/groups';
 import eventsRoutes from './routes/events';
@@ -396,6 +398,11 @@ export async function start() {
     console.log('✅ Marketplace routes mounted at /api/marketplace');
     logMessage('INFO', 'Marketplace routes registered');
 
+    // Custom Trip Routes
+    app.use('/api/custom-trips', customTripRoutes);
+    console.log('✅ Custom Trip routes mounted at /api/custom-trips');
+    logMessage('INFO', 'Custom Trip routes registered');
+
     // Analytics Routes
     app.use('/api/analytics', analyticsRoutes);
     console.log('✅ Analytics routes mounted at /api/analytics');
@@ -430,6 +437,11 @@ export async function start() {
     app.use('/api/payment-verification', paymentVerificationRoutes);
     console.log('✅ Payment verification routes mounted at /api/payment-verification');
     logMessage('INFO', 'Payment verification routes registered');
+
+    // Centralized Payment Routes
+    app.use('/api/payments', paymentRoutes);
+    console.log('✅ Payment routes mounted at /api/payments');
+    logMessage('INFO', 'Payment routes registered');
 
     // Bank Details Routes (Simplified, no route onboarding)
     app.use('/api/bank-details', bankDetailsRoutes);

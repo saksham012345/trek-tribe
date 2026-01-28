@@ -4,7 +4,7 @@ import api from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
 import { ToastProvider, useToast } from '../components/ui/Toast';
 import { Skeleton } from '../components/ui/Skeleton';
-import { loadRazorpay, getRazorpayInstance } from '../utils/razorpay';
+import { useRazorpay } from '../components/payment/RazorpayCheckout';
 
 interface Plan {
   id: 'STARTER' | 'BASIC' | 'PROFESSIONAL' | 'PREMIUM' | 'ENTERPRISE';
@@ -20,6 +20,7 @@ const SubscribeInner: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { add } = useToast();
+  const { isLoaded, openPayment } = useRazorpay();
 
   const [plans, setPlans] = useState<Plan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<Plan['id']>('PROFESSIONAL');
@@ -46,14 +47,9 @@ const SubscribeInner: React.FC = () => {
         if (plansData.length > 0) {
           setPlans(plansData);
         } else {
-          // Fallback: use default plans if API doesn't return them
-          setPlans([
-            { id: 'STARTER', name: 'Starter Plan', price: 599, trips: 2, features: ['List up to 2 trips', 'Basic analytics', 'Email support'], trialDays: 60 },
-            { id: 'BASIC', name: 'Basic Plan', price: 1299, trips: 4, features: ['List up to 4 trips', 'Basic analytics', 'Email support'], trialDays: 60 },
-            { id: 'PROFESSIONAL', name: 'Professional Plan', price: 2199, trips: 6, features: ['List up to 6 trips', 'Full CRM Access', 'Lead Capture'], trialDays: 60 },
-            { id: 'PREMIUM', name: 'Premium Plan', price: 3999, trips: 15, features: ['List up to 15 trips', 'Full CRM Access', 'Advanced analytics'], trialDays: 60 },
-            { id: 'ENTERPRISE', name: 'Enterprise Plan', price: 7999, trips: 40, features: ['List up to 40 trips', 'Full CRM Access', 'API access'], trialDays: 60 },
-          ]);
+          // If no plans returned, set empty to show error/empty state rather than stale hardcoded data
+          console.error('No plans data from API');
+          setPlans([]);
         }
 
         if (subRes.data) {
@@ -61,22 +57,13 @@ const SubscribeInner: React.FC = () => {
           const existingPlan = subRes.data?.subscription?.plan;
           if (existingPlan) {
             const normalized = existingPlan.toString().toUpperCase();
-            if (['STARTER', 'BASIC', 'PROFESSIONAL', 'PREMIUM', 'ENTERPRISE'].includes(normalized)) {
-              setSelectedPlan(normalized as Plan['id']);
-            }
+            setSelectedPlan(normalized as Plan['id']);
           }
         }
       } catch (error: any) {
         console.error('Failed to load subscription data:', error);
         setStatus(error.response?.data?.error || 'Failed to load subscription data');
-        // Set default plans on error so user can still see options
-        setPlans([
-          { id: 'STARTER', name: 'Starter Plan', price: 599, trips: 2, features: ['List up to 2 trips', 'Basic analytics'], trialDays: 60 },
-          { id: 'BASIC', name: 'Basic Plan', price: 1299, trips: 4, features: ['List up to 4 trips', 'Basic analytics'], trialDays: 60 },
-          { id: 'PROFESSIONAL', name: 'Professional Plan', price: 2199, trips: 6, features: ['List up to 6 trips', 'Full CRM Access'], trialDays: 60 },
-          { id: 'PREMIUM', name: 'Premium Plan', price: 3999, trips: 15, features: ['List up to 15 trips', 'Full CRM Access'], trialDays: 60 },
-          { id: 'ENTERPRISE', name: 'Enterprise Plan', price: 7999, trips: 40, features: ['List up to 40 trips', 'Full CRM Access'], trialDays: 60 },
-        ]);
+        setPlans([]);
       } finally {
         setLoadingState(false);
       }
@@ -121,27 +108,33 @@ const SubscribeInner: React.FC = () => {
         return;
       }
 
-      // Ensure Razorpay SDK is loaded
-      await loadRazorpay();
+      if (!isLoaded) {
+        throw new Error('Payment SDK not loaded yet. Please retry.');
+      }
 
-      // Get order details - handle both response formats
       const orderId = data.order?.id || data.orderId;
       const amount = data.order?.amount || data.amount;
       const currency = data.order?.currency || data.currency || 'INR';
       const keyId = data.keyId || process.env.REACT_APP_RAZORPAY_KEY_ID;
 
       if (!orderId || !keyId) {
-        throw new Error('Missing payment configuration. Please contact support.');
+        throw new Error('Missing payment configuration');
       }
 
-      const options = {
-        key: keyId,
-        amount: amount,
-        currency: currency,
+      await openPayment({
+        keyId,
+        amount,
+        currency,
         name: 'TrekTribe Organizer',
-        description: `${data.plan?.name || 'Organizer Subscription'}`,
-        order_id: orderId,
-        handler: async (response: any) => {
+        description: data.plan?.name || 'Organizer Subscription',
+        orderId,
+        prefill: {
+          name: user.name,
+          email: user.email,
+          contact: (user as any).phone || '',
+        },
+        themeColor: '#0f766e',
+        onSuccess: async (response) => {
           try {
             const verifyRes = await api.post('/api/subscriptions/verify-payment', {
               razorpay_order_id: response.razorpay_order_id,
@@ -165,34 +158,20 @@ const SubscribeInner: React.FC = () => {
             add(m, 'error');
           }
         },
-        prefill: {
-          name: user.name,
-          email: user.email,
-          contact: (user as any).phone || '',
+        onFailure: (error) => {
+          console.error('Payment failed:', error);
+          const m = error.message || 'Payment failed';
+          setStatus(m);
+          add(m, 'error');
         },
-        notes: {
-          planType: selectedPlan,
-          userId: user.id,
-        },
-        theme: { color: '#0f766e' },
-        modal: {
-          ondismiss: () => {
-            setStatus('Payment cancelled');
-            setLoading(false);
-          },
-        },
-      };
-
-      const rzp = await getRazorpayInstance(options);
-      rzp.on('payment.failed', (resp: any) => {
-        const m = resp.error?.description || resp.error?.reason || 'Payment failed';
-        setStatus(m);
-        add(m, 'error');
-        setLoading(false);
+        onDismiss: () => {
+          setStatus('Payment cancelled');
+          setLoading(false);
+        }
       });
-      rzp.open();
+
     } catch (error: any) {
-      const m = error.response?.data?.error || 'Failed to start subscription';
+      const m = error.response?.data?.error || error.message || 'Failed to start subscription';
       setStatus(m);
       add(m, 'error');
     } finally {

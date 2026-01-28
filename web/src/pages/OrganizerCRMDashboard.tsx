@@ -4,6 +4,7 @@ import { User } from '../types';
 import SubscriptionCard from '../components/crm/SubscriptionCard';
 import { useToast } from '../components/ui/Toast';
 import { Skeleton } from '../components/ui/Skeleton';
+import BankDetailsTab from '../components/crm/BankDetailsTab';
 
 // Payments Tab Component
 const PaymentsTab: React.FC<{ user: User }> = ({ user }) => {
@@ -58,21 +59,19 @@ const PaymentsTab: React.FC<{ user: User }> = ({ user }) => {
       <div className="mb-6 flex gap-4 border-b border-gray-200">
         <button
           onClick={() => setActiveView('subscription')}
-          className={`px-6 py-3 font-semibold transition-colors ${
-            activeView === 'subscription'
+          className={`px-6 py-3 font-semibold transition-colors ${activeView === 'subscription'
               ? 'text-blue-600 border-b-2 border-blue-600'
               : 'text-gray-600 hover:text-gray-900'
-          }`}
+            }`}
         >
           💳 Subscription Payments
         </button>
         <button
           onClick={() => setActiveView('verification')}
-          className={`px-6 py-3 font-semibold transition-colors ${
-            activeView === 'verification'
+          className={`px-6 py-3 font-semibold transition-colors ${activeView === 'verification'
               ? 'text-blue-600 border-b-2 border-blue-600'
               : 'text-gray-600 hover:text-gray-900'
-          }`}
+            }`}
         >
           ✅ Verified Payments
         </button>
@@ -108,12 +107,11 @@ const PaymentsTab: React.FC<{ user: User }> = ({ user }) => {
                         <span className="font-bold text-green-600">₹{payment.amount?.toLocaleString() || '0'}</span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                          payment.status === 'active' ? 'bg-green-100 text-green-800' :
-                          payment.status === 'trial' ? 'bg-blue-100 text-blue-800' :
-                          payment.status === 'expired' ? 'bg-red-100 text-red-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${payment.status === 'active' ? 'bg-green-100 text-green-800' :
+                            payment.status === 'trial' ? 'bg-blue-100 text-blue-800' :
+                              payment.status === 'expired' ? 'bg-red-100 text-red-800' :
+                                'bg-gray-100 text-gray-800'
+                          }`}>
                           {payment.status || 'N/A'}
                         </span>
                       </td>
@@ -179,10 +177,9 @@ const PaymentsTab: React.FC<{ user: User }> = ({ user }) => {
                         {payment.verifiedAt ? new Date(payment.verifiedAt).toLocaleString('en-IN') : 'N/A'}
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                          payment.status === 'verified' ? 'bg-green-100 text-green-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${payment.status === 'verified' ? 'bg-green-100 text-green-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
                           {payment.status || 'Verified'}
                         </span>
                       </td>
@@ -267,6 +264,7 @@ const OrganizerCRMDashboard: React.FC<OrganizerCRMProps> = ({ user }) => {
     { id: 'overview', name: 'Overview', icon: '📊' },
     { id: 'analytics', name: 'Analytics', icon: '📈' },
     { id: 'subscription', name: 'Subscription', icon: '💳' },
+    { id: 'bank-details', name: 'Bank Details', icon: '🏦' },
     { id: 'leads', name: 'Leads', icon: '🎯' },
     { id: 'tickets', name: 'Support', icon: '🎫' },
     { id: 'payments', name: 'Payments', icon: '💰' },
@@ -304,11 +302,10 @@ const OrganizerCRMDashboard: React.FC<OrganizerCRMProps> = ({ user }) => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 py-4 px-2 border-b-2 font-medium text-sm whitespace-nowrap transition-all ${
-                  activeTab === tab.id
+                className={`flex items-center gap-2 py-4 px-2 border-b-2 font-medium text-sm whitespace-nowrap transition-all ${activeTab === tab.id
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                  }`}
               >
                 <span>{tab.icon}</span>
                 {tab.name}
@@ -512,7 +509,7 @@ const OrganizerCRMDashboard: React.FC<OrganizerCRMProps> = ({ user }) => {
                     <span>Advanced Analytics</span>
                   </li>
                 </ul>
-                <button 
+                <button
                   onClick={() => setShowUpgradeModal(true)}
                   className="w-full bg-gradient-to-r from-amber-600 to-yellow-600 text-white py-2 rounded-lg font-semibold hover:from-amber-700 hover:to-yellow-700 transition-all"
                 >
@@ -553,11 +550,10 @@ const OrganizerCRMDashboard: React.FC<OrganizerCRMProps> = ({ user }) => {
                         <p className="font-semibold text-gray-900">{lead.travelerId.name}</p>
                         <p className="text-sm text-gray-600">{lead.tripId.title}</p>
                       </div>
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                        lead.status === 'new' ? 'bg-blue-100 text-blue-800' :
-                        lead.status === 'contacted' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-green-100 text-green-800'
-                      }`}>
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${lead.status === 'new' ? 'bg-blue-100 text-blue-800' :
+                          lead.status === 'contacted' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-green-100 text-green-800'
+                        }`}>
                         {lead.status.toUpperCase()}
                       </span>
                     </div>
@@ -603,18 +599,16 @@ const OrganizerCRMDashboard: React.FC<OrganizerCRMProps> = ({ user }) => {
                         </p>
                       </div>
                       <div className="flex gap-2">
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                          ticket.priority === 'high' ? 'bg-red-100 text-red-800' :
-                          ticket.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-green-100 text-green-800'
-                        }`}>
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${ticket.priority === 'high' ? 'bg-red-100 text-red-800' :
+                            ticket.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-green-100 text-green-800'
+                          }`}>
                           {ticket.priority}
                         </span>
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                          ticket.status === 'open' ? 'bg-blue-100 text-blue-800' :
-                          ticket.status === 'in_progress' ? 'bg-purple-100 text-purple-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${ticket.status === 'open' ? 'bg-blue-100 text-blue-800' :
+                            ticket.status === 'in_progress' ? 'bg-purple-100 text-purple-800' :
+                              'bg-gray-100 text-gray-800'
+                          }`}>
                           {ticket.status}
                         </span>
                       </div>
@@ -628,6 +622,10 @@ const OrganizerCRMDashboard: React.FC<OrganizerCRMProps> = ({ user }) => {
 
         {activeTab === 'payments' && (
           <PaymentsTab user={user} />
+        )}
+
+        {activeTab === 'bank-details' && (
+          <BankDetailsTab />
         )}
       </div>
 

@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
 import api from '../config/api';
 import { User } from '../types';
-import PaymentUpload from './PaymentUpload';
+import { useRazorpay } from './payment/RazorpayCheckout';
+// PaymentUpload removed as automated payment replaces it
 import IdVerificationUpload from './IdVerificationUpload';
 
 interface PackageOption {
@@ -73,7 +73,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
     agreeToTerms: false,
     paymentScreenshot: null as File | null
   });
-  
+
   const [travelerDetails, setTravelerDetails] = useState<TravelerDetails[]>([{
     name: user.name || '',
     age: 25,
@@ -82,11 +82,10 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
     medicalConditions: '',
     dietary: ''
   }]);
-  
+
+  const { isLoaded, openPayment } = useRazorpay();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [bookingResult, setBookingResult] = useState<any>(null);
-  const [showPaymentUpload, setShowPaymentUpload] = useState(false);
   const [showIdVerification, setShowIdVerification] = useState(false);
   const [idVerificationStatus, setIdVerificationStatus] = useState<string>('');
 
@@ -97,7 +96,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
         const response = await api.get('/id-verification/status');
         const status = response.data.status || 'not_submitted';
         setIdVerificationStatus(status);
-        
+
         // If ID verification is required and not verified, show upload modal
         if (status !== 'verified') {
           setShowIdVerification(true);
@@ -107,7 +106,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
         // Don't block booking if verification check fails
       }
     };
-    
+
     if (isOpen) {
       checkIdVerification();
     }
@@ -115,20 +114,20 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
-    const newValue = type === 'checkbox' ? (e.target as HTMLInputElement).checked : 
-                     type === 'number' ? Number(value) : value;
-    
+    const newValue = type === 'checkbox' ? (e.target as HTMLInputElement).checked :
+      type === 'number' ? Number(value) : value;
+
     setFormData(prev => {
       const updated = {
         ...prev,
         [name]: newValue
       };
-      
+
       // If numberOfGuests changes, update traveler details array
       if (name === 'numberOfGuests') {
         const currentCount = travelerDetails.length;
         const newCount = Number(value);
-        
+
         if (newCount > currentCount) {
           // Add new travelers
           const newTravelers = Array.from({ length: newCount - currentCount }, (_, index) => ({
@@ -145,17 +144,17 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
           setTravelerDetails(travelerDetails.slice(0, newCount));
         }
       }
-      
+
       return updated;
     });
   };
-  
+
   const handleTravelerChange = (index: number, field: keyof TravelerDetails, value: string | number) => {
-    setTravelerDetails(prev => prev.map((traveler, i) => 
+    setTravelerDetails(prev => prev.map((traveler, i) =>
       i === index ? { ...traveler, [field]: value } : traveler
     ));
   };
-  
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -167,7 +166,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
       }
     }
   };
-  
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -179,7 +178,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
       setLoading(false);
       return;
     }
-    
+
     // Validate traveler details
     for (let i = 0; i < travelerDetails.length; i++) {
       const traveler = travelerDetails[i];
@@ -198,7 +197,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
         setLoading(false);
         return;
       }
-      
+
       // Check minimum age requirement
       if (trip.minimumAge && traveler.age < trip.minimumAge) {
         setError(`Traveler ${i + 1} must be at least ${trip.minimumAge} years old to join this trip`);
@@ -206,19 +205,19 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
         return;
       }
     }
-    
+
     if (!formData.emergencyContactName.trim()) {
       setError('Please provide an emergency contact name');
       setLoading(false);
       return;
     }
-    
+
     if (!formData.emergencyContactPhone || !formData.emergencyContactPhone.length || formData.emergencyContactPhone.length < 10) {
       setError('Please provide a valid emergency contact phone number (minimum 10 digits)');
       setLoading(false);
       return;
     }
-    
+
     try {
       // Ultra-flexible booking payload - accepts ANY input format
       const bookingPayload: any = {
@@ -271,97 +270,90 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
         bookingPayload.emergencyContactPhone = formData.emergencyContactPhone.trim();
       }
 
-      console.log('📤 Sending booking payload:', {
-        ...bookingPayload,
-        travelerDetailsCount: bookingPayload.travelerDetails?.length,
-        types: {
-          tripId: typeof bookingPayload.tripId,
-          numberOfTravelers: typeof bookingPayload.numberOfTravelers,
-          contactPhone: typeof bookingPayload.contactPhone
+      console.log('📤 Initiating booking checkout:', {
+        tripId: trip._id,
+        numberOfTravelers: formData.numberOfGuests,
+        amount: ((formData.selectedPackage ? formData.selectedPackage.price : (trip.price || 0)) * formData.numberOfGuests)
+      });
+
+      // 1. Create Booking Order
+      const checkoutRes = await api.post('/api/payments/checkout/booking', {
+        tripId: trip._id,
+        packageId: formData.selectedPackage?.id,
+        numberOfTravelers: formData.numberOfGuests,
+        travelerDetails: travelerDetails.map(t => ({
+          name: t.name,
+          age: t.age,
+          phone: t.phone,
+          gender: 'other' // Add gender if collected, defaulted for now
+        })),
+        contactPhone: formData.emergencyContactPhone,
+        specialRequests: formData.specialRequests
+      });
+
+      const orderData = checkoutRes.data;
+      if (!orderData.success) {
+        throw new Error(orderData.error || 'Failed to initialize booking');
+      }
+
+      const { order, keyId } = orderData;
+
+      // 2. Open Razorpay
+      await openPayment({
+        keyId,
+        amount: order.amount,
+        currency: order.currency,
+        name: 'TrekTribe Adventure',
+        description: `Booking: ${trip.title}`,
+        orderId: order.id,
+        prefill: {
+          name: user.name,
+          email: user.email,
+          contact: user.phone || '',
+        },
+        themeColor: '#059669', // Emerald 600
+        onSuccess: async (response) => {
+          try {
+            // 3. Verify Payment & Confirm Booking
+            const verifyRes = await api.post('/api/payments/verify', {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              orderType: 'booking'
+            });
+
+            if (verifyRes.data.success) {
+              console.log('✅ Booking confirmed:', verifyRes.data);
+              onSuccess();
+              onClose();
+            } else {
+              setError(verifyRes.data.error || 'Payment verification failed');
+            }
+          } catch (verifyErr: any) {
+            console.error('Verification error:', verifyErr);
+            setError(verifyErr.response?.data?.error || 'Failed to verify payment');
+          }
+        },
+        onFailure: (err) => {
+          console.error('Payment failed:', err);
+          setError(err.message || 'Payment failed');
+        },
+        onDismiss: () => {
+          setLoading(false);
         }
       });
 
-      const response = await api.post('/bookings', bookingPayload);
-      
-      if (response.data) {
-        const bookingData = response.data as any;
-        setBookingResult(bookingData);
-        
-        console.log('✅ Booking successful:', bookingData);
-        
-        // If booking requires payment upload, show payment upload modal
-        if (bookingData.booking?.requiresPaymentUpload) {
-          setShowPaymentUpload(true);
-        } else {
-          // Traditional confirmed booking
-          onSuccess();
-          onClose();
-        }
-      }
     } catch (error: any) {
-      console.error('❌ Booking error:', error);
-      console.error('📋 Response data:', error.response?.data);
-      console.error('🔢 Status code:', error.response?.status);
-      
-      let errorMessage = 'Failed to join trip';
-      
-      if (error.response?.data) {
-        const responseData = error.response.data;
-        
-        if (typeof responseData.error === 'string') {
-          errorMessage = responseData.error;
-        }
-        
-        // Show detailed field errors if available
-        if (responseData.details && typeof responseData.details === 'string') {
-          errorMessage += `\n\nDetails: ${responseData.details}`;
-        }
-        
-        if (responseData.fields) {
-          const fieldErrors = Object.entries(responseData.fields)
-            .map(([field, errors]: [string, any]) => 
-              `${field}: ${Array.isArray(errors) ? errors.join(', ') : errors}`)
-            .join('\n');
-          errorMessage += `\n\n${fieldErrors}`;
-        }
-        
-        if (responseData.hint) {
-          errorMessage += `\n\n💡 ${responseData.hint}`;
-        }
-      }
-      
-      setError(errorMessage);
+      console.error('❌ Booking initiation error:', error);
+      setError(error.response?.data?.error || error.message || 'Failed to initiate booking');
     } finally {
-      setLoading(false);
+      // Loading state cleared in onDismiss or error
+      // If success, modal closes, so no need to clear loading strictly
+      if (!loading) setLoading(false);
     }
   };
 
-  const handlePaymentUploadSuccess = () => {
-    setShowPaymentUpload(false);
-    onSuccess(); // Refresh the trips list or show success message
-    onClose();
-  };
-
-  const handlePaymentUploadCancel = () => {
-    setShowPaymentUpload(false);
-    // Keep the main modal open so user can try again
-  };
-
-  if (!isOpen && !showPaymentUpload) return null;
-
-  // Show payment upload modal if booking requires it
-  if (showPaymentUpload && bookingResult) {
-    return (
-      <PaymentUpload
-        bookingId={bookingResult.booking.bookingId}
-        totalAmount={bookingResult.booking.totalAmount}
-        organizerId={trip.organizerId}
-        tripTitle={trip.title}
-        onUploadSuccess={handlePaymentUploadSuccess}
-        onCancel={handlePaymentUploadCancel}
-      />
-    );
-  }
+  if (!isOpen) return null;
 
   if (!isOpen || !trip) return null;
 
@@ -438,7 +430,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                 )}
               </div>
             </div>
-            
+
             {/* Package Selection */}
             {trip.packages && trip.packages.length > 0 && (
               <div className="space-y-4">
@@ -449,11 +441,10 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                   {(trip.packages || []).filter(pkg => pkg.isActive).map((packageOption) => (
                     <div
                       key={packageOption.id}
-                      className={`border-2 rounded-xl p-4 cursor-pointer transition-all duration-300 ${
-                        formData.selectedPackage?.id === packageOption.id
+                      className={`border-2 rounded-xl p-4 cursor-pointer transition-all duration-300 ${formData.selectedPackage?.id === packageOption.id
                           ? 'border-nature-500 bg-nature-50'
                           : 'border-forest-200 hover:border-forest-300'
-                      }`}
+                        }`}
                       onClick={() => setFormData(prev => ({ ...prev, selectedPackage: packageOption }))}
                     >
                       <div className="flex justify-between items-start mb-2">
@@ -473,9 +464,9 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                           <p className="text-sm text-forest-500">per person</p>
                         </div>
                       </div>
-                      
+
                       <p className="text-forest-600 mb-3">{packageOption.description}</p>
-                      
+
                       <div className="grid md:grid-cols-2 gap-4">
                         {Array.isArray(packageOption.inclusions) && packageOption.inclusions.length > 0 && (
                           <div>
@@ -489,7 +480,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                             </ul>
                           </div>
                         )}
-                        
+
                         {Array.isArray(packageOption.exclusions) && packageOption.exclusions.length > 0 && (
                           <div>
                             <p className="font-medium text-forest-700 text-sm mb-2">❌ Not Included:</p>
@@ -503,7 +494,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                           </div>
                         )}
                       </div>
-                      
+
                       {formData.numberOfGuests > 1 && (
                         <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded-lg">
                           <p className="text-sm text-blue-700">
@@ -514,7 +505,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                     </div>
                   ))}
                 </div>
-                
+
                 {!formData.selectedPackage && (
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                     <p className="text-sm text-amber-700">
@@ -524,7 +515,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                 )}
               </div>
             )}
-            
+
             {/* Group Booking */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-forest-800 flex items-center gap-2">
@@ -541,7 +532,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                   onChange={handleChange}
                   className="w-full px-3 py-2 border-2 border-forest-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300"
                 >
-                  {[1,2,3,4,5,6,7,8].map(num => (
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map(num => (
                     <option key={num} value={num} disabled={num > ((trip.capacity || 0) - (Array.isArray(trip.participants) ? trip.participants.length : 0))}>
                       {num} {num === 1 ? 'traveler' : 'travelers'} {num > ((trip.capacity || 0) - (Array.isArray(trip.participants) ? trip.participants.length : 0)) && '(Not available)'}
                     </option>
@@ -733,7 +724,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
               </select>
             </div>
 
-            
+
             {/* Special Requests */}
             <div>
               <label htmlFor="specialRequests" className="block text-sm font-medium text-forest-700 mb-2">
@@ -752,11 +743,11 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
 
             {/* Payment Information */}
             {trip.paymentConfig && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-forest-800 flex items-center gap-2">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-forest-800 flex items-center gap-2">
                   💳 Payment Information
-              </h3>
-              
+                </h3>
+
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200">
                   <h4 className="font-semibold text-blue-800 mb-2">💰 Payment Details</h4>
                   <div className="text-sm text-blue-700 space-y-1">
@@ -793,7 +784,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                   )}
                 </ul>
               </div>
-              
+
               <label className="flex items-start space-x-3">
                 <input
                   type="checkbox"
@@ -838,7 +829,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
           </form>
         </div>
       </div>
-      
+
       {/* ID Verification Modal - Show if ID not verified */}
       {showIdVerification && idVerificationStatus !== 'verified' && (
         <IdVerificationUpload
@@ -854,7 +845,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
           }}
         />
       )}
-      
+
       {/* Payment Upload Modal - Show after successful booking if payment upload required */}
       {showPaymentUpload && bookingResult && (
         <PaymentUpload

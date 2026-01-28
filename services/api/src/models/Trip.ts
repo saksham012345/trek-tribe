@@ -43,10 +43,10 @@ export interface PaymentConfig {
   refundPolicy?: string;
   paymentMethods: string[]; // e.g., ['upi', 'card', 'netbanking']
   instructions?: string;
-  collectionMode?: 'razorpay' | 'manual'; // Organizer chooses gateway vs manual screenshots
-  verificationMode?: 'automated' | 'manual'; // Automated via gateway vs manual review
-  manualProofRequired?: boolean; // Whether traveler must upload payment screenshot
-  trustLevel?: 'trusted' | 'manual'; // Display hint for users about trust
+  collectionMode?: 'razorpay'; // FORCED to razorpay - TrekTribe carries liability
+  verificationMode?: 'automated'; // Automated via gateway
+  manualProofRequired?: false; // No manual interaction
+  trustLevel?: 'trusted'; // Always trusted as we hold funds
   gatewayQR?: {
     provider: 'razorpay';
     amount: number;
@@ -126,7 +126,10 @@ export interface TripDocument extends Document {
   // NEW: Duplicate detection
   contentHash?: string; // Hash for duplicate detection
   isDuplicate: boolean;
-  originalTripId?: Types.ObjectId; // Reference to original if duplicate
+  // NEW: Custom Trip / Private Trip support
+  isPrivate: boolean;
+  allowedUserIds: Types.ObjectId[]; // Only these users can see/book if private
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -172,10 +175,10 @@ const paymentConfigSchema = new Schema({
   refundPolicy: { type: String },
   paymentMethods: { type: [String], default: ['upi'] },
   instructions: { type: String },
-  collectionMode: { type: String, enum: ['razorpay', 'manual'], default: 'razorpay' },
-  verificationMode: { type: String, enum: ['automated', 'manual'], default: 'automated' },
+  collectionMode: { type: String, enum: ['razorpay'], default: 'razorpay' },
+  verificationMode: { type: String, enum: ['automated'], default: 'automated' },
   manualProofRequired: { type: Boolean, default: false },
-  trustLevel: { type: String, enum: ['trusted', 'manual'], default: 'trusted' },
+  trustLevel: { type: String, enum: ['trusted'], default: 'trusted' },
   gatewayQR: {
     provider: { type: String, enum: ['razorpay'] },
     amount: { type: Number },
@@ -288,6 +291,10 @@ const tripSchema = new Schema(
     contentHash: { type: String, index: true },
     isDuplicate: { type: Boolean, default: false, index: true },
     originalTripId: { type: Schema.Types.ObjectId, ref: 'Trip' },
+
+    // Custom Trip / Private Trip support
+    isPrivate: { type: Boolean, default: false, index: true },
+    allowedUserIds: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   },
   { timestamps: true }
 );

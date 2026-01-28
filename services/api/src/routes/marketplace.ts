@@ -11,6 +11,7 @@ import { PayoutLedger } from '../models/PayoutLedger';
 import { OrganizerSubscription } from '../models/OrganizerSubscription';
 import { User } from '../models/User';
 import { logger } from '../utils/logger';
+import { DEFAULT_AUTOPAY_PLAN } from '../config/subscription.config';
 
 // Optional import with fallback
 let razorpaySubmerchantService: any = null;
@@ -45,25 +46,25 @@ router.post('/organizer/onboard', authenticateJwt, requireRole(['organizer', 'ad
     if (organizerOnboardingSchema && validatePaymentInput) {
       const validation = validatePaymentInput(req.body, organizerOnboardingSchema);
       if (!validation.valid) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: 'Validation failed',
-          details: validation.errors 
+          details: validation.errors
         });
       }
       validatedData = validation.data;
     }
 
     // Check subscription requirement
-    const activeSub = await OrganizerSubscription.findOne({ 
-      organizerId, 
+    const activeSub = await OrganizerSubscription.findOne({
+      organizerId,
       $or: [
         { status: 'active' },
         { status: 'trial', isTrialActive: true }
       ]
     }).sort({ createdAt: -1 });
-    
+
     if (!activeSub) {
-      return res.status(402).json({ 
+      return res.status(402).json({
         error: 'Subscription required before onboarding',
         message: 'Please activate a subscription plan first to enable marketplace features.'
       });
@@ -73,7 +74,7 @@ router.post('/organizer/onboard', authenticateJwt, requireRole(['organizer', 'ad
 
     // Create submerchant account using the service if available, otherwise use route service
     let accountResult: any;
-    
+
     if (razorpaySubmerchantService && razorpaySubmerchantService.createSubmerchantAccount) {
       accountResult = await razorpaySubmerchantService.createSubmerchantAccount({
         organizerId,
@@ -105,33 +106,33 @@ router.post('/organizer/onboard', authenticateJwt, requireRole(['organizer', 'ad
     // Initialize 60-day trial after route creation (not on first login)
     const User = require('../models/User').default;
     const organizer = await User.findById(organizerId);
-    
+
     if (organizer && organizer.role === 'organizer') {
       // Initialize auto-pay setup for organizer on route creation
       if (!organizer.organizerProfile) {
         organizer.organizerProfile = {};
       }
-      
+
       // Only initialize if not already set
       if (!organizer.organizerProfile.autoPay || !organizer.organizerProfile.autoPay.isSetupRequired) {
         const scheduledPaymentDate = new Date();
         scheduledPaymentDate.setDate(scheduledPaymentDate.getDate() + 60); // 60 days from route creation
-        
+
         organizer.organizerProfile.autoPay = {
           isSetupRequired: true,
           isSetupCompleted: false,
           firstLoginDate: organizer.firstOrganizerLogin || new Date(),
           routeCreationDate: new Date(),
           scheduledPaymentDate: scheduledPaymentDate,
-          paymentAmount: 149900, // Default: ₹1499 in paise
+          paymentAmount: DEFAULT_AUTOPAY_PLAN.amount, // Default from config
           autoPayEnabled: false
         };
-        
+
         await organizer.save();
-        
-        logger.info('60-day trial started on route creation, auto-pay scheduled', { 
-          userId: organizerId, 
-          scheduledDate: scheduledPaymentDate 
+
+        logger.info('60-day trial started on route creation, auto-pay scheduled', {
+          userId: organizerId,
+          scheduledDate: scheduledPaymentDate
         });
       }
     }
@@ -152,13 +153,13 @@ router.post('/organizer/onboard', authenticateJwt, requireRole(['organizer', 'ad
     });
 
   } catch (error: any) {
-    logger.error('Organizer onboarding failed', { 
+    logger.error('Organizer onboarding failed', {
       error: error.message,
       userId: req.user?.id
     });
-    res.status(400).json({ 
+    res.status(400).json({
       error: 'Onboarding failed',
-      message: error.message 
+      message: error.message
     });
   }
 });
@@ -167,13 +168,13 @@ router.post('/organizer/onboard', authenticateJwt, requireRole(['organizer', 'ad
 router.get('/organizer/status/:id?', authenticateJwt, requireRole(['organizer', 'admin']), async (req: Request, res: Response) => {
   try {
     const organizerId = req.params.id || req.user?.id;
-    
+
     // Use new submerchant service to get account status
     const accountStatus = await razorpaySubmerchantService.getAccountStatus(organizerId);
-    
+
     if (!accountStatus) {
-      return res.json({ 
-        onboarded: false, 
+      return res.json({
+        onboarded: false,
         status: 'pending',
         message: 'No account found. Start onboarding to create an account.'
       });
@@ -194,13 +195,13 @@ router.get('/organizer/status/:id?', authenticateJwt, requireRole(['organizer', 
       nextSettlementDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Weekly
     });
   } catch (error: any) {
-    logger.error('Failed to get organizer status', { 
+    logger.error('Failed to get organizer status', {
       error: error.message,
       organizerId: req.params.id || req.user?.id
     });
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to retrieve organizer status',
-      message: error.message 
+      message: error.message
     });
   }
 });
@@ -359,16 +360,16 @@ router.get('/orders/:id', authenticateJwt, requireRole(['organizer', 'admin']), 
 router.get('/config', authenticateJwt, requireRole(['organizer', 'admin']), async (req: Request, res: Response) => {
   try {
     const organizerId = req.user?.id as string;
-    
+
     // Get organizer's payout configuration
     const payoutConfig = await OrganizerPayoutConfig.findOne({ organizerId });
-    
+
     // Get organizer user to check routingEnabled
     const organizer = await User.findById(organizerId);
-    
+
     // Check subscription status
-    const subscription = await OrganizerSubscription.findOne({ 
-      organizerId, 
+    const subscription = await OrganizerSubscription.findOne({
+      organizerId,
       $or: [
         { status: 'active' },
         { status: 'trial', isTrialActive: true }
@@ -401,13 +402,13 @@ router.get('/config', authenticateJwt, requireRole(['organizer', 'admin']), asyn
 
     res.json({ success: true, config });
   } catch (error: any) {
-    logger.error('Failed to get marketplace config', { 
+    logger.error('Failed to get marketplace config', {
       error: error.message,
       organizerId: req.user?.id
     });
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to retrieve configuration',
-      message: error.message 
+      message: error.message
     });
   }
 });

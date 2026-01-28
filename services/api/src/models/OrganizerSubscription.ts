@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document, Model, Types } from 'mongoose';
 
-export type SubscriptionStatus = 'trial' | 'active' | 'expired' | 'cancelled';
+export type SubscriptionStatus = 'pending_payment' | 'active' | 'expired' | 'cancelled';
 export type SubscriptionPlan = 'trial' | 'free-trial' | 'starter' | 'basic' | 'pro' | 'professional' | 'premium' | 'enterprise';
 
 export interface PaymentRecord {
@@ -27,11 +27,6 @@ export interface OrganizerSubscriptionDocument extends Document {
   plan: SubscriptionPlan;
   status: SubscriptionStatus;
   crmAccess?: boolean;
-
-  // Trial period (2 months free)
-  isTrialActive: boolean;
-  trialStartDate: Date;
-  trialEndDate: Date;
 
   // Subscription dates
   subscriptionStartDate?: Date;
@@ -129,25 +124,13 @@ const organizerSubscriptionSchema = new Schema(
     },
     status: {
       type: String,
-      enum: ['trial', 'active', 'expired', 'cancelled'],
-      default: 'trial',
+      enum: ['pending_payment', 'active', 'expired', 'cancelled'],
+      default: 'pending_payment',
       index: true
     },
 
     // Feature Access
     crmAccess: { type: Boolean, default: false },
-
-    // Trial period (2 months)
-    isTrialActive: { type: Boolean, default: true },
-    trialStartDate: { type: Date, default: Date.now },
-    trialEndDate: {
-      type: Date,
-      default: () => {
-        const date = new Date();
-        date.setMonth(date.getMonth() + 2); // 2 months free trial
-        return date;
-      }
-    },
 
     // Subscription dates
     subscriptionStartDate: { type: Date },
@@ -199,15 +182,13 @@ const organizerSubscriptionSchema = new Schema(
 );
 
 // Indexes for performance
-organizerSubscriptionSchema.index({ status: 1, trialEndDate: 1 });
+organizerSubscriptionSchema.index({ status: 1 });
 organizerSubscriptionSchema.index({ status: 1, nextPaymentDue: 1 });
 organizerSubscriptionSchema.index({ organizerId: 1, status: 1 });
 
 // Virtual for checking if subscription is valid
 organizerSubscriptionSchema.virtual('isValid').get(function () {
-  if (this.isTrialActive && new Date() <= this.trialEndDate) {
-    return true;
-  }
+  // Subscription is valid only if active and not expired
   if (this.status === 'active' && this.subscriptionEndDate && new Date() <= this.subscriptionEndDate) {
     return true;
   }
@@ -216,7 +197,7 @@ organizerSubscriptionSchema.virtual('isValid').get(function () {
 
 // Virtual for days remaining
 organizerSubscriptionSchema.virtual('daysRemaining').get(function () {
-  const targetDate = this.isTrialActive ? this.trialEndDate : this.subscriptionEndDate;
+  const targetDate = this.subscriptionEndDate;
   if (!targetDate) return 0;
 
   const diff = new Date(targetDate).getTime() - new Date().getTime();
@@ -227,12 +208,9 @@ organizerSubscriptionSchema.virtual('daysRemaining').get(function () {
 organizerSubscriptionSchema.pre('save', function (next) {
   this.tripsRemaining = Math.max(0, this.tripsPerCycle - this.tripsUsed);
 
-  // Update status based on trial
-  if (this.isTrialActive && new Date() > this.trialEndDate) {
-    this.isTrialActive = false;
-    if (this.status === 'trial') {
-      this.status = 'expired';
-    }
+  // Update status based on expiry
+  if (this.status === 'active' && this.subscriptionEndDate && new Date() > this.subscriptionEndDate) {
+    this.status = 'expired';
   }
 
   next();
@@ -311,9 +289,12 @@ organizerSubscriptionSchema.statics.canCreateTrip = async function (organizerId:
   const subscription = await this.findOne({ organizerId });
 
   if (!subscription) {
-    // Create new trial subscription for first-time organizer
+    // No subscription found - Create new pending subscription
     const newSubscription = await this.create({ organizerId });
-    return { allowed: true, message: 'Trial subscription activated. 5 trips available for 2 months.' };
+    return {
+      allowed: false,
+      message: 'No active subscription found. Please purchase a plan to start creating trips.'
+    };
   }
 
   // Check if subscription is valid

@@ -45,35 +45,7 @@ export const requireCRMAccess = async (
       });
     }
 
-    // Check specific CRM subscription
-    const subscription = await CRMSubscription.findOne({
-      organizerId: req.user.id,
-      status: 'active',
-    });
-
-    // Check if subscription has CRM bundle access
-    if (!subscription.crmBundle?.hasAccess) {
-      return res.status(403).json({
-        success: false,
-        message: 'CRM access bundle required. Please upgrade your subscription.',
-        currentPlan: subscription.planType,
-        upgradeUrl: '/crm/subscribe',
-      });
-    }
-
-    // Check if subscription is valid
-    if (subscription.endDate && subscription.endDate < new Date()) {
-      return res.status(403).json({
-        success: false,
-        message: 'Your CRM subscription has expired',
-        expiryDate: subscription.endDate,
-        renewUrl: '/crm/renew',
-      });
-    }
-
-    // Attach subscription to request for use in controllers
-    (req as any).crmSubscription = subscription;
-
+    // CRM access granted - AutoPay is enabled
     next();
   } catch (error) {
     console.error('CRM access check error:', error);
