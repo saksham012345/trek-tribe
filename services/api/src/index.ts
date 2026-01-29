@@ -141,10 +141,19 @@ if (process.env.NODE_ENV !== 'test') {
 const getAllowedOrigins = (): string[] => {
   const origins: string[] = [];
 
+  // Helper to split comma-separated values from env vars
+  const addOrigins = (val: string | undefined) => {
+    if (!val) return;
+    val.split(',').forEach(o => {
+      const clean = o.trim().replace(/\/$/, ''); // Remove trailing slash
+      if (clean) origins.push(clean);
+    });
+  };
+
   // Add environment variable origins
-  if (process.env.FRONTEND_URL) origins.push(process.env.FRONTEND_URL);
-  if (process.env.CORS_ORIGIN) origins.push(process.env.CORS_ORIGIN);
-  if (process.env.WEB_URL) origins.push(process.env.WEB_URL);
+  addOrigins(process.env.FRONTEND_URL);
+  addOrigins(process.env.CORS_ORIGIN);
+  addOrigins(process.env.WEB_URL);
   if (process.env.VERCEL_URL) origins.push(`https://${process.env.VERCEL_URL}`);
 
   // In production, always include common production domains
@@ -152,6 +161,8 @@ const getAllowedOrigins = (): string[] => {
     origins.push('https://trektribe.in');
     origins.push('https://www.trektribe.in');
     origins.push('https://trek-tribe-web.onrender.com');
+    // Backend domain itself
+    origins.push('https://trek-tribe-1-56gm.onrender.com');
     origins.push('https://trek-tribe-api.onrender.com');
   }
 
@@ -160,6 +171,7 @@ const getAllowedOrigins = (): string[] => {
     origins.push('http://localhost:3000');
     origins.push('http://localhost:3001');
     origins.push('http://127.0.0.1:3000');
+    origins.push('http://localhost:5000');
   }
 
   return [...new Set(origins)]; // Remove duplicates

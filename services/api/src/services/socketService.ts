@@ -41,12 +41,36 @@ class SocketService {
 
   initialize(server: HttpServer) {
     // Configure allowed origins for Socket.IO
-    const allowedOrigins = process.env.NODE_ENV === 'production' ? [
-      process.env.FRONTEND_URL,
-      process.env.SOCKET_ORIGIN,
-      process.env.CORS_ORIGIN,
-      // Add production domains via environment variables, not hardcoded
-    ].filter(Boolean) : ['http://localhost:3000', 'http://localhost:3001'];
+    // Configure allowed origins for Socket.IO with robust parsing
+    const getSocketOrigins = (): string[] => {
+      const origins: string[] = [];
+      const addOrigins = (val: string | undefined) => {
+        if (!val) return;
+        val.split(',').forEach(o => {
+          const clean = o.trim().replace(/\/$/, '');
+          if (clean) origins.push(clean);
+        });
+      };
+
+      if (process.env.NODE_ENV === 'production') {
+        addOrigins(process.env.FRONTEND_URL);
+        addOrigins(process.env.SOCKET_ORIGIN);
+        addOrigins(process.env.CORS_ORIGIN);
+
+        // Critical: Explicitly allow production domains
+        origins.push('https://trektribe.in');
+        origins.push('https://www.trektribe.in');
+        origins.push('https://trek-tribe-web.onrender.com');
+        origins.push('https://trek-tribe-1-56gm.onrender.com');
+      } else {
+        origins.push('http://localhost:3000');
+        origins.push('http://localhost:3001');
+        origins.push('http://localhost:5000');
+      }
+      return [...new Set(origins)];
+    };
+
+    const allowedOrigins = getSocketOrigins();
 
     this.io = new SocketIOServer(server, {
       cors: {
