@@ -28,6 +28,7 @@ export interface GroupBookingDocument extends Document {
   groupDiscount: number;
   discountAmount: number;
   finalAmount: number;
+  paidAmount?: number; // Amount actually paid
   // Payment breakdown
   paymentType: 'full' | 'advance';
   advanceAmount?: number;
@@ -119,6 +120,7 @@ const groupBookingSchema = new Schema(
     groupDiscount: { type: Number, default: 0, min: 0, max: 100 }, // Percentage
     discountAmount: { type: Number, default: 0, min: 0 },
     finalAmount: { type: Number, required: true, min: 0 },
+    paidAmount: { type: Number, min: 0 },
     // Payment breakdown
     paymentType: { type: String, enum: ['full', 'advance'], default: 'full' },
     advanceAmount: { type: Number, min: 0 },

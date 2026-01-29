@@ -271,7 +271,7 @@ router.post('/verify', authenticateJwt, async (req, res) => {
 
             if (!booking || !trip) throw new Error('Booking or Trip not found');
 
-            booking.paymentStatus = 'full';
+            booking.paymentStatus = 'completed';
             booking.bookingStatus = 'confirmed'; // Auto-confirm on payment
             booking.paymentMethod = 'razorpay';
             booking.paidAmount = payment.amount / 100; // Convert back to rupees
