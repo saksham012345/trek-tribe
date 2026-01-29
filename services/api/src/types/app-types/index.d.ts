@@ -43,8 +43,11 @@ export interface AuthRequest<
   ReqQuery = Query,
   Locals extends Record<string, any> = Record<string, any>
 > extends Request<P, ResBody, ReqBody, ReqQuery, Locals> {
-  user?: AuthPayload | any;
-  auth?: JwtPayload | AuthPayload | any;
+  user?: AuthPayload;
+  auth?: JwtPayload | AuthPayload;
+  body: ReqBody;
+  query: ReqQuery;
+  params: P;
 }
 
 // AuthenticatedRequest explicitly includes all Request properties
@@ -56,5 +59,11 @@ export interface AuthenticatedRequest<
   Locals extends Record<string, any> = Record<string, any>
 > extends Request<P, ResBody, ReqBody, ReqQuery, Locals> {
   userId?: string;
-  user?: AuthPayload | any;
+  user?: AuthPayload;
+  body: ReqBody;
+  query: ReqQuery;
+  params: P;
+  files?: { [key: string]: Express.Multer.File[] } | Express.Multer.File[];
+  file?: Express.Multer.File;
 }
+
