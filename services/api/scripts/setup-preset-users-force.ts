@@ -1,29 +1,29 @@
 import 'dotenv/config';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
-import { User } from '../models/User';
-import { logger } from '../utils/logger';
+import { User } from '../src/models/User';
+import { logger } from '../src/utils/logger';
 
 // Allow overriding preset credentials via environment variables
 const AGENT_NAME = process.env.PRESET_AGENT_NAME || 'Saksham Taneja';
 const AGENT_EMAIL = process.env.PRESET_AGENT_EMAIL || 'trektribeagent@gmail.com';
 const AGENT_PHONE = process.env.PRESET_AGENT_PHONE || '+919999999998';
-const AGENT_PASSWORD = process.env.PRESET_AGENT_PASSWORD;
+const AGENT_PASSWORD = process.env.PRESET_AGENT_PASSWORD || 'Agent@9800';
 
 const ADMIN_NAME = process.env.PRESET_ADMIN_NAME || 'Root Admin';
 const ADMIN_EMAIL = process.env.PRESET_ADMIN_EMAIL || 'trektribe_root@trektribe.in';
 const ADMIN_PHONE = process.env.PRESET_ADMIN_PHONE || '+919999999999';
-const ADMIN_PASSWORD = process.env.PRESET_ADMIN_PASSWORD;
+const ADMIN_PASSWORD = process.env.PRESET_ADMIN_PASSWORD || 'Saksham@4700';
 
 const DEMO_ORGANIZER_NAME = process.env.PRESET_DEMO_ORGANIZER_NAME || 'Saksham Taneja';
 const DEMO_ORGANIZER_EMAIL = process.env.PRESET_DEMO_ORGANIZER_EMAIL || 'tanejasaksham44@gmail.com';
 const DEMO_ORGANIZER_PHONE = process.env.PRESET_DEMO_ORGANIZER_PHONE || '+919876543210';
-const DEMO_ORGANIZER_PASSWORD = process.env.PRESET_DEMO_ORGANIZER_PASSWORD;
+const DEMO_ORGANIZER_PASSWORD = process.env.PRESET_DEMO_ORGANIZER_PASSWORD || 'Demo@1234';
 
 const PREMIUM_ORGANIZER_NAME = 'Saksham Taneja Premium';
 const PREMIUM_ORGANIZER_EMAIL = 'sakshamtaneja098@gmail.com';
 const PREMIUM_ORGANIZER_PHONE = '+919876543211';
-const PREMIUM_ORGANIZER_PASSWORD = process.env.PREMIUM_ORGANIZER_PASSWORD;
+const PREMIUM_ORGANIZER_PASSWORD = process.env.PREMIUM_ORGANIZER_PASSWORD || 'Premium@1234';
 
 const presetUsers = [
   {
