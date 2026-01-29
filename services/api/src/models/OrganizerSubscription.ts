@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document, Model, Types } from 'mongoose';
 
-export type SubscriptionStatus = 'pending_payment' | 'active' | 'expired' | 'cancelled';
+export type SubscriptionStatus = 'pending_payment' | 'active' | 'expired' | 'cancelled' | 'trial';
 export type SubscriptionPlan = 'trial' | 'free-trial' | 'starter' | 'basic' | 'pro' | 'professional' | 'premium' | 'enterprise';
 
 export interface PaymentRecord {
@@ -26,11 +26,14 @@ export interface OrganizerSubscriptionDocument extends Document {
   // Subscription plan details
   plan: SubscriptionPlan;
   status: SubscriptionStatus;
+  isTrialActive: boolean;
   crmAccess?: boolean;
 
   // Subscription dates
   subscriptionStartDate?: Date;
   subscriptionEndDate?: Date;
+  trialStartDate?: Date;
+  trialEndDate?: Date;
   currentPeriodStart?: Date;
   currentPeriodEnd?: Date;
 
@@ -124,10 +127,13 @@ const organizerSubscriptionSchema = new Schema(
     },
     status: {
       type: String,
-      enum: ['pending_payment', 'active', 'expired', 'cancelled'],
+      enum: ['pending_payment', 'active', 'expired', 'cancelled', 'trial'],
       default: 'pending_payment',
       index: true
     },
+
+    // Trial status
+    isTrialActive: { type: Boolean, default: false },
 
     // Feature Access
     crmAccess: { type: Boolean, default: false },
@@ -135,6 +141,8 @@ const organizerSubscriptionSchema = new Schema(
     // Subscription dates
     subscriptionStartDate: { type: Date },
     subscriptionEndDate: { type: Date },
+    trialStartDate: { type: Date },
+    trialEndDate: { type: Date },
     currentPeriodStart: { type: Date },
     currentPeriodEnd: { type: Date },
 

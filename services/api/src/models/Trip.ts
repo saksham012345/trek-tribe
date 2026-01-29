@@ -126,6 +126,7 @@ export interface TripDocument extends Document {
   // NEW: Duplicate detection
   contentHash?: string; // Hash for duplicate detection
   isDuplicate: boolean;
+  originalTripId?: Types.ObjectId;
   // NEW: Custom Trip / Private Trip support
   isPrivate: boolean;
   allowedUserIds: Types.ObjectId[]; // Only these users can see/book if private
