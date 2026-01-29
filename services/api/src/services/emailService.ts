@@ -75,8 +75,8 @@ class EmailService {
         return;
       }
       // Require credentials from environment
-      const emailUser = process.env.GMAIL_USER;
-      const emailPassword = process.env.GMAIL_APP_PASSWORD;
+      const emailUser = process.env.GMAIL_USER || process.env.EMAIL_USER;
+      const emailPassword = process.env.GMAIL_APP_PASSWORD || process.env.EMAIL_PASSWORD;
 
       if (!emailUser || !emailPassword) {
         logger.warn('Gmail credentials not configured (GMAIL_USER / GMAIL_APP_PASSWORD). Email service will be disabled.');
