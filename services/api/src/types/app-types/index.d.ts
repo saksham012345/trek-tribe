@@ -65,5 +65,7 @@ export interface AuthenticatedRequest<
   params: P;
   files?: { [key: string]: Express.Multer.File[] } | Express.Multer.File[];
   file?: Express.Multer.File;
+  protocol: string;
+  get(name: string): string | undefined;
 }
 
