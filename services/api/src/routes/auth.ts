@@ -17,19 +17,20 @@ const router = Router();
 
 // Helper function to set secure httpOnly cookie with JWT token
 function setAuthCookie(res: Response, token: string, req?: any): void {
-  // Enhanced production detection for Render/Cloud environments
-  const isProduction = process.env.NODE_ENV === 'production' ||
-    req?.headers?.['x-forwarded-proto'] === 'https' ||
-    process.env.FRONTEND_URL?.startsWith('https://');
+  // Robustly determine if we are operating over HTTPS
+  // 'trust proxy' in index.ts ensures req.secure is accurate behind valid proxies (Render/Heroku/AWS)
+  const isSecureConnection = req?.secure ||
+    (req?.headers?.['x-forwarded-proto'] as string)?.includes('https') ||
+    process.env.NODE_ENV === 'production';
+
+  const isProduction = process.env.NODE_ENV === 'production';
 
   const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
 
   // Critical for cross-origin auth (trektribe.in -> onrender.com)
-  // We default to 'none' in production to ensure cookies function across domains
-  const secure = isProduction; // Always secure in production
-
-  // Force 'none' in production to allow cross-site usage
-  const sameSite = isProduction ? 'none' : 'lax';
+  // If we are on HTTPS, assume we need cross-site capability
+  const secure = isSecureConnection;
+  const sameSite = isSecureConnection ? 'none' : 'lax';
 
   const cookieOptions: any = {
     httpOnly: true,
@@ -52,6 +53,7 @@ function setAuthCookie(res: Response, token: string, req?: any): void {
       secure: cookieOptions.secure,
       sameSite: cookieOptions.sameSite,
       domain: cookieOptions.domain || 'default',
+      isSecureConnection,
       isProduction
     });
   }
