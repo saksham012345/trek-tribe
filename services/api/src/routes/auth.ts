@@ -41,10 +41,13 @@ function setAuthCookie(res: Response, token: string, req?: any): void {
     expires: new Date(Date.now() + maxAge)
   };
 
-  // Only set domain if EXPLICITLY provided and we are in production
-  if (isProduction && process.env.COOKIE_DOMAIN) {
-    cookieOptions.domain = process.env.COOKIE_DOMAIN;
-  }
+  // SAFETY: Do NOT set domain explicitly for cross-site contexts on Render
+  // If we set domain to '.trektribe.in' but are serving from 'onrender.com', browser blocks it.
+  // Leaving domain undefined makes it a "host-only" cookie for the backend domain, 
+  // which is valid for SameSite: None.
+  // if (isProduction && process.env.COOKIE_DOMAIN) {
+  //   cookieOptions.domain = process.env.COOKIE_DOMAIN;
+  // }
 
   res.cookie('token', token, cookieOptions);
 
