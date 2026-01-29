@@ -1,4 +1,6 @@
+
 import api from '../config/api';
+import React, { useEffect, useState } from 'react';
 import { User } from '../types';
 import { useRazorpay } from './payment/RazorpayCheckout';
 // PaymentUpload removed as automated payment replaces it
@@ -131,7 +133,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
         if (newCount > currentCount) {
           // Add new travelers
           const newTravelers = Array.from({ length: newCount - currentCount }, (_, index) => ({
-            name: `Traveler ${currentCount + index + 1}`,
+            name: `Traveler ${currentCount + index + 1} `,
             age: 25,
             phone: '',
             emergencyContact: '',
@@ -249,7 +251,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
 
       if (travelerDetails && travelerDetails.length > 0) {
         bookingPayload.travelerDetails = travelerDetails.map((traveler, index) => ({
-          name: traveler.name || user.name || `Traveler ${index + 1}`,
+          name: traveler.name || user.name || `Traveler ${index + 1} `,
           age: traveler.age || 25,
           phone: traveler.phone || user.phone || '',
           emergencyContact: traveler.emergencyContact || formData.emergencyContactPhone || user.phone || '',
@@ -304,7 +306,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
         amount: order.amount,
         currency: order.currency,
         name: 'TrekTribe Adventure',
-        description: `Booking: ${trip.title}`,
+        description: `Booking: ${trip.title} `,
         orderId: order.id,
         prefill: {
           name: user.name,
@@ -441,10 +443,10 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                   {(trip.packages || []).filter(pkg => pkg.isActive).map((packageOption) => (
                     <div
                       key={packageOption.id}
-                      className={`border-2 rounded-xl p-4 cursor-pointer transition-all duration-300 ${formData.selectedPackage?.id === packageOption.id
-                          ? 'border-nature-500 bg-nature-50'
-                          : 'border-forest-200 hover:border-forest-300'
-                        }`}
+                      className={`border - 2 rounded - xl p - 4 cursor - pointer transition - all duration - 300 ${formData.selectedPackage?.id === packageOption.id
+                        ? 'border-nature-500 bg-nature-50'
+                        : 'border-forest-200 hover:border-forest-300'
+                        } `}
                       onClick={() => setFormData(prev => ({ ...prev, selectedPackage: packageOption }))}
                     >
                       <div className="flex justify-between items-start mb-2">
@@ -555,7 +557,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                 {(travelerDetails || []).map((traveler, index) => (
                   <div key={index} className="bg-gradient-to-r from-forest-50 to-nature-50 rounded-xl p-4 border border-forest-200">
                     <h4 className="font-medium text-forest-700 mb-3">
-                      {index === 0 ? '👑 Primary Traveler (You)' : `👤 Traveler ${index + 1}`}
+                      {index === 0 ? '👑 Primary Traveler (You)' : `👤 Traveler ${index + 1} `}
                     </h4>
                     <div className="grid md:grid-cols-3 gap-4">
                       <div>
@@ -846,21 +848,7 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
         />
       )}
 
-      {/* Payment Upload Modal - Show after successful booking if payment upload required */}
-      {showPaymentUpload && bookingResult && (
-        <PaymentUpload
-          bookingId={bookingResult.booking._id}
-          totalAmount={bookingResult.booking.totalAmount}
-          organizerId={bookingResult.booking.organizerUpiId}
-          tripTitle={bookingResult.booking.tripTitle}
-          onUploadSuccess={() => {
-            setShowPaymentUpload(false);
-            onSuccess();
-            onClose();
-          }}
-          onCancel={() => setShowPaymentUpload(false)}
-        />
-      )}
+
     </div>
   );
 };

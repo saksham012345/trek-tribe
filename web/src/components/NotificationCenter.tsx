@@ -34,7 +34,7 @@ const NotificationCenter: React.FC = () => {
   useEffect(() => {
     if (user) {
       initializeSocket();
-      
+
       // Close dropdown when clicking outside
       const handleClickOutside = (event: MouseEvent) => {
         if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -73,7 +73,7 @@ const NotificationCenter: React.FC = () => {
         path: '/socket.io/',
         transports: ['websocket', 'polling'],
         withCredentials: true // Send cookies
-      });
+      } as any);
 
       newSocket.on('connect', () => {
         console.log('🔌 Notification center connected');
@@ -114,7 +114,7 @@ const NotificationCenter: React.FC = () => {
       read: false,
       link
     };
-    
+
     setNotifications(prev => [notification, ...prev].slice(0, 50)); // Keep last 50
   };
 
@@ -218,9 +218,8 @@ const NotificationCenter: React.FC = () => {
                 {notifications.map((notification) => (
                   <div
                     key={notification.id}
-                    className={`p-4 hover:bg-gray-50 transition-colors cursor-pointer border-l-4 ${
-                      !notification.read ? 'bg-blue-50/50 border-blue-500' : 'border-transparent'
-                    } ${getNotificationColor(notification.type)}`}
+                    className={`p-4 hover:bg-gray-50 transition-colors cursor-pointer border-l-4 ${!notification.read ? 'bg-blue-50/50 border-blue-500' : 'border-transparent'
+                      } ${getNotificationColor(notification.type)}`}
                     onClick={() => {
                       if (!notification.read) markAsRead(notification.id);
                       if (notification.link) {

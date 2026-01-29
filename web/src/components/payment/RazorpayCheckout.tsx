@@ -25,7 +25,7 @@ interface RazorpayOptions {
 // Global Razorpay declaration
 declare global {
     interface Window {
-        Razorpay: new (options: RazorpayOptions) => any;
+        Razorpay: any;
     }
 }
 

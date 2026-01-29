@@ -62,7 +62,7 @@ const EnhancedAgentDashboard: React.FC<AgentDashboardProps> = ({ user }) => {
   const [error, setError] = useState('');
   const [socket, setSocket] = useState<any | null>(null);
   const [notifications, setNotifications] = useState<Array<{ id: string; message: string; type: 'success' | 'info' | 'error'; timestamp: Date }>>([]);
-  
+
   // Search and filters
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -71,7 +71,7 @@ const EnhancedAgentDashboard: React.FC<AgentDashboardProps> = ({ user }) => {
   useEffect(() => {
     fetchDashboardData();
     initializeSocket();
-    
+
     return () => {
       if (socket) {
         socket.disconnect();
@@ -86,7 +86,7 @@ const EnhancedAgentDashboard: React.FC<AgentDashboardProps> = ({ user }) => {
     const newSocket = io(process.env.REACT_APP_API_URL || process.env.REACT_APP_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : ''), {
       path: '/socket.io/',
       withCredentials: true // Send cookies
-    });
+    } as any);
 
     newSocket.on('connect', () => {
       console.log('🔌 Agent dashboard connected to real-time updates');
@@ -126,7 +126,7 @@ const EnhancedAgentDashboard: React.FC<AgentDashboardProps> = ({ user }) => {
         api.get('/agent/queries'),
         api.get('/agent/ai-recommendations')
       ]);
-      
+
       setTrips((tripsResponse.data as any) || []);
       setCustomerQueries((queriesResponse.data as any).queries || []);
       setAiRecommendations((aiResponse.data as any).recommendations || []);
@@ -145,9 +145,9 @@ const EnhancedAgentDashboard: React.FC<AgentDashboardProps> = ({ user }) => {
       type,
       timestamp: new Date()
     };
-    
+
     setNotifications(prev => [notification, ...prev.slice(0, 4)]); // Keep only 5 most recent
-    
+
     // Auto-remove after 5 seconds
     setTimeout(() => {
       setNotifications(prev => prev.filter(n => n.id !== notification.id));
@@ -157,14 +157,14 @@ const EnhancedAgentDashboard: React.FC<AgentDashboardProps> = ({ user }) => {
   const handleViewDetails = async (tripId: string) => {
     try {
       console.log('🔍 Fetching trip details for ID:', tripId);
-      
+
       if (!tripId) {
         throw new Error('Trip ID is required');
       }
 
       const response = await api.get(`/trips/${tripId}`);
       const tripData = response.data as any;
-      
+
       if (!tripData) {
         throw new Error('Trip not found');
       }
@@ -194,13 +194,13 @@ const EnhancedAgentDashboard: React.FC<AgentDashboardProps> = ({ user }) => {
 
       setSelectedTrip(completeTripData);
       setActiveTab('tripDetails');
-      
+
     } catch (error: any) {
       console.error('❌ Error fetching trip details:', error);
       const errorMessage = error.response?.data?.error || error.message || 'Failed to fetch trip details';
       setError(errorMessage);
       addNotification(`Error: ${errorMessage}`, 'error');
-      
+
       // Still show what data we have
       const fallbackTrip: Trip = {
         _id: tripId,
@@ -220,7 +220,7 @@ const EnhancedAgentDashboard: React.FC<AgentDashboardProps> = ({ user }) => {
           phone: 'Not available'
         }
       };
-      
+
       setSelectedTrip(fallbackTrip);
       setActiveTab('tripDetails');
     }
@@ -236,7 +236,7 @@ const EnhancedAgentDashboard: React.FC<AgentDashboardProps> = ({ user }) => {
           searchQuery: searchQuery
         }
       });
-      
+
       setAiRecommendations((response.data as any).recommendations || []);
       addNotification('AI recommendations updated!', 'success');
     } catch (error: any) {
@@ -248,14 +248,14 @@ const EnhancedAgentDashboard: React.FC<AgentDashboardProps> = ({ user }) => {
   };
 
   const filteredTrips = trips.filter(trip => {
-    const matchesSearch = searchQuery === '' || 
+    const matchesSearch = searchQuery === '' ||
       trip.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       trip.destination.toLowerCase().includes(searchQuery.toLowerCase());
 
     const categories = Array.isArray(trip.categories) ? trip.categories : [];
     const matchesCategory = categoryFilter === 'all' || categories.includes(categoryFilter);
     const matchesPrice = trip.price >= priceRange.min && trip.price <= priceRange.max;
-    
+
     return matchesSearch && matchesCategory && matchesPrice;
   });
 
@@ -291,13 +291,12 @@ const EnhancedAgentDashboard: React.FC<AgentDashboardProps> = ({ user }) => {
             {notifications.map((notification) => (
               <div
                 key={notification.id}
-                className={`p-3 rounded-lg shadow-lg border-l-4 ${
-                  notification.type === 'success' 
+                className={`p-3 rounded-lg shadow-lg border-l-4 ${notification.type === 'success'
                     ? 'bg-green-50 border-green-500 text-green-800'
                     : notification.type === 'error'
-                    ? 'bg-red-50 border-red-500 text-red-800'
-                    : 'bg-blue-50 border-blue-500 text-blue-800'
-                } animate-slide-down`}
+                      ? 'bg-red-50 border-red-500 text-red-800'
+                      : 'bg-blue-50 border-blue-500 text-blue-800'
+                  } animate-slide-down`}
               >
                 <div className="flex justify-between items-start">
                   <p className="text-sm font-medium">{notification.message}</p>
@@ -337,11 +336,10 @@ const EnhancedAgentDashboard: React.FC<AgentDashboardProps> = ({ user }) => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
-                  activeTab === tab.id
+                className={`flex-1 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${activeTab === tab.id
                     ? 'bg-gradient-to-r from-forest-600 to-nature-600 text-white shadow-lg'
                     : 'text-forest-600 hover:bg-forest-50'
-                }`}
+                  }`}
               >
                 {tab.label}
               </button>
@@ -412,25 +410,25 @@ const EnhancedAgentDashboard: React.FC<AgentDashboardProps> = ({ user }) => {
             <div className="bg-white rounded-xl shadow-lg p-6">
               <h3 className="text-lg font-bold text-forest-800 mb-4">🚀 Quick Actions</h3>
               <div className="space-y-3">
-                <button 
+                <button
                   onClick={generateAIRecommendations}
                   className="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg hover:from-purple-700 hover:to-purple-800 transition-all duration-200"
                 >
                   🤖 Generate AI Recommendations
                 </button>
-                <button 
+                <button
                   onClick={() => setActiveTab('trips')}
                   className="w-full px-4 py-3 bg-gradient-to-r from-forest-600 to-nature-600 text-white rounded-lg hover:from-forest-700 hover:to-nature-700 transition-all duration-200"
                 >
                   🎯 Browse All Trips
                 </button>
-                <button 
+                <button
                   onClick={() => setActiveTab('queries')}
                   className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200"
                 >
                   💬 Check Customer Queries
                 </button>
-                <button 
+                <button
                   onClick={fetchDashboardData}
                   className="w-full px-4 py-3 border-2 border-forest-300 text-forest-700 rounded-lg hover:bg-forest-50 transition-all duration-200"
                 >
@@ -493,25 +491,24 @@ const EnhancedAgentDashboard: React.FC<AgentDashboardProps> = ({ user }) => {
                   <div className="p-6">
                     <div className="flex justify-between items-start mb-3">
                       <h3 className="text-lg font-bold text-forest-800 line-clamp-1">{trip.title}</h3>
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                        trip.status === 'active' ? 'bg-green-100 text-green-800' :
-                        trip.status === 'completed' ? 'bg-blue-100 text-blue-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${trip.status === 'active' ? 'bg-green-100 text-green-800' :
+                          trip.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                            'bg-gray-100 text-gray-800'
+                        }`}>
                         {trip.status}
                       </span>
                     </div>
-                    
+
                     <p className="text-forest-600 text-sm mb-3">📍 {trip.destination}</p>
                     <p className="text-forest-700 text-sm mb-4 line-clamp-2">{trip.description}</p>
-                    
+
                     <div className="flex justify-between items-center mb-4">
                       <span className="text-2xl font-bold text-nature-600">₹{trip.price.toLocaleString()}</span>
                       <span className="text-sm text-forest-600">
                         {trip.participants.length}/{trip.capacity} joined
                       </span>
                     </div>
-                    
+
                     <div className="flex gap-2 mb-4">
                       {trip.categories.slice(0, 2).map((category) => (
                         <span key={category} className="px-2 py-1 bg-forest-100 text-forest-700 rounded-full text-xs">
@@ -519,7 +516,7 @@ const EnhancedAgentDashboard: React.FC<AgentDashboardProps> = ({ user }) => {
                         </span>
                       ))}
                     </div>
-                    
+
                     <button
                       onClick={() => handleViewDetails(trip._id)}
                       className="w-full px-4 py-2 bg-gradient-to-r from-forest-600 to-nature-600 text-white rounded-lg hover:from-forest-700 hover:to-nature-700 transition-all duration-200"
@@ -580,10 +577,10 @@ const EnhancedAgentDashboard: React.FC<AgentDashboardProps> = ({ user }) => {
                           </span>
                         </div>
                       </div>
-                      
+
                       <p className="text-forest-600 text-sm mb-2">📍 {rec.destination}</p>
                       <p className="text-2xl font-bold text-nature-600 mb-3">₹{rec.price.toLocaleString()}</p>
-                      
+
                       <div className="mb-3">
                         <p className="text-sm font-medium text-forest-700 mb-1">Why recommended:</p>
                         <ul className="text-sm text-forest-600 list-disc list-inside space-y-1">
@@ -592,7 +589,7 @@ const EnhancedAgentDashboard: React.FC<AgentDashboardProps> = ({ user }) => {
                           ))}
                         </ul>
                       </div>
-                      
+
                       <div className="flex gap-2 mb-4">
                         {rec.categories.slice(0, 3).map((category) => (
                           <span key={category} className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs">
@@ -600,7 +597,7 @@ const EnhancedAgentDashboard: React.FC<AgentDashboardProps> = ({ user }) => {
                           </span>
                         ))}
                       </div>
-                      
+
                       <button
                         onClick={() => handleViewDetails(rec.tripId)}
                         className="w-full px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg hover:from-purple-700 hover:to-purple-800 transition-all duration-200"
@@ -625,17 +622,16 @@ const EnhancedAgentDashboard: React.FC<AgentDashboardProps> = ({ user }) => {
               >
                 ← Back to Trips
               </button>
-              
+
               <div className="flex justify-between items-start">
                 <div>
                   <h2 className="text-3xl font-bold text-forest-800 mb-2">{selectedTrip.title}</h2>
                   <p className="text-forest-600 text-lg">📍 {selectedTrip.destination}</p>
                 </div>
-                <span className={`px-4 py-2 rounded-full text-sm font-semibold ${
-                  selectedTrip.status === 'active' ? 'bg-green-100 text-green-800' :
-                  selectedTrip.status === 'completed' ? 'bg-blue-100 text-blue-800' :
-                  'bg-gray-100 text-gray-800'
-                }`}>
+                <span className={`px-4 py-2 rounded-full text-sm font-semibold ${selectedTrip.status === 'active' ? 'bg-green-100 text-green-800' :
+                    selectedTrip.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                      'bg-gray-100 text-gray-800'
+                  }`}>
                   {selectedTrip.status.charAt(0).toUpperCase() + selectedTrip.status.slice(1)}
                 </span>
               </div>
@@ -692,8 +688,8 @@ const EnhancedAgentDashboard: React.FC<AgentDashboardProps> = ({ user }) => {
                         {selectedTrip.participants.length}/{selectedTrip.capacity} spots filled
                       </p>
                       <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                        <div 
-                          className="bg-nature-600 h-2 rounded-full" 
+                        <div
+                          className="bg-nature-600 h-2 rounded-full"
                           style={{
                             width: `${(selectedTrip.participants.length / selectedTrip.capacity) * 100}%`
                           }}
@@ -750,7 +746,7 @@ const EnhancedAgentDashboard: React.FC<AgentDashboardProps> = ({ user }) => {
         {activeTab === 'queries' && (
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h3 className="text-2xl font-bold text-forest-800 mb-6">💬 Customer Queries</h3>
-            
+
             {customerQueries.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-6xl mb-4">💬</div>
@@ -767,11 +763,10 @@ const EnhancedAgentDashboard: React.FC<AgentDashboardProps> = ({ user }) => {
                         <p className="text-sm text-forest-600">{query.customerEmail}</p>
                       </div>
                       <div className="text-right">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          query.status === 'open' ? 'bg-red-100 text-red-800' :
-                          query.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-green-100 text-green-800'
-                        }`}>
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${query.status === 'open' ? 'bg-red-100 text-red-800' :
+                            query.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-green-100 text-green-800'
+                          }`}>
                           {query.status.replace('_', ' ')}
                         </span>
                         <p className="text-xs text-forest-500 mt-1">

@@ -135,7 +135,7 @@ const AdminDashboard: React.FC = () => {
     const newSocket = io(process.env.REACT_APP_API_URL || process.env.REACT_APP_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : ''), {
       path: '/socket.io/',
       withCredentials: true // Send cookies
-    });
+    } as any);
 
     newSocket.on('connect', () => {
       console.log('🔌 Admin dashboard connected to real-time updates');

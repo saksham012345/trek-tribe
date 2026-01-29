@@ -85,7 +85,7 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
   useEffect(() => {
     fetchDashboardData();
     initializeSocket();
-    
+
     return () => {
       if (socket) {
         socket.disconnect();
@@ -97,10 +97,10 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
     if (!user) return; // Use user from AuthContext instead of token
 
     // Cookies are sent automatically, no need to pass token in auth
-      const newSocket = io(process.env.REACT_APP_API_URL || process.env.REACT_APP_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : ''), {
+    const newSocket = io(process.env.REACT_APP_API_URL || process.env.REACT_APP_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : ''), {
       path: '/socket.io/',
       withCredentials: true // Send cookies
-    });
+    } as any);
 
     newSocket.on('connect', () => {
       console.log('🔌 Connected to real-time updates');
@@ -115,7 +115,7 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
     newSocket.on('organizer_notification', (data) => {
       console.log('🔔 Organizer notification:', data);
       addNotification(data.message, 'success');
-      
+
       if (data.type === 'joined' || data.type === 'payment_verified') {
         fetchDashboardData();
       }
@@ -134,7 +134,7 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
         api.get('/organizer/trips'),
         api.get('/organizer/pending-verifications')
       ]);
-      
+
       setTrips((tripsResponse.data as any).trips || []);
       setPendingBookings((bookingsResponse.data as any).bookings || []);
       // Fetch CRM subscription info (if any)
@@ -188,9 +188,9 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
       type,
       timestamp: new Date()
     };
-    
+
     setNotifications(prev => [notification, ...prev.slice(0, 4)]); // Keep only 5 most recent
-    
+
     // Auto-remove after 5 seconds
     setTimeout(() => {
       setNotifications(prev => prev.filter(n => n.id !== notification.id));
@@ -200,16 +200,16 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
   const handleVerifyPayment = async (bookingId: string, action: 'verify' | 'reject') => {
     setVerificationLoading(bookingId);
     try {
-      await api.post(`/organizer/verify-payment/${bookingId}`, { 
+      await api.post(`/organizer/verify-payment/${bookingId}`, {
         action,
         notes: action === 'reject' ? 'Payment verification failed' : 'Payment verified successfully'
       });
-      
+
       addNotification(
-        `Payment ${action === 'verify' ? 'verified' : 'rejected'} successfully!`, 
+        `Payment ${action === 'verify' ? 'verified' : 'rejected'} successfully!`,
         action === 'verify' ? 'success' : 'info'
       );
-      
+
       // Refresh data
       fetchDashboardData();
     } catch (error: any) {
@@ -256,13 +256,12 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
             {notifications.map((notification) => (
               <div
                 key={notification.id}
-                className={`p-4 rounded-xl shadow-lg border-l-4 ${
-                  notification.type === 'success' 
+                className={`p-4 rounded-xl shadow-lg border-l-4 ${notification.type === 'success'
                     ? 'bg-green-50 border-green-500 text-green-800'
                     : notification.type === 'error'
-                    ? 'bg-red-50 border-red-500 text-red-800'
-                    : 'bg-blue-50 border-blue-500 text-blue-800'
-                } animate-slide-down`}
+                      ? 'bg-red-50 border-red-500 text-red-800'
+                      : 'bg-blue-50 border-blue-500 text-blue-800'
+                  } animate-slide-down`}
               >
                 <div className="flex justify-between items-start">
                   <p className="text-sm font-medium">{notification.message}</p>
@@ -300,7 +299,7 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
               </p>
               <p className="text-emerald-100 text-xs mt-2">From all confirmed bookings</p>
             </div>
-            
+
             {/* Active Trips Revenue */}
             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
               <p className="text-emerald-100 text-sm mb-1">Active Trips Revenue</p>
@@ -314,7 +313,7 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
                 {trips.filter(trip => trip.status === 'active').length} active trip{trips.filter(trip => trip.status === 'active').length !== 1 ? 's' : ''}
               </p>
             </div>
-            
+
             {/* Total Participants */}
             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
               <p className="text-emerald-100 text-sm mb-1">Total Participants</p>
@@ -336,7 +335,7 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
             <h2 className="text-2xl font-bold text-forest-800 mb-6 flex items-center gap-2">
               🎯 Your Trips Overview
             </h2>
-            
+
             {trips.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-6xl mb-4">🏕️</div>
@@ -353,16 +352,15 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
                         <p className="text-forest-600">📍 {trip.destination}</p>
                       </div>
                       <div className="text-right">
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          trip.status === 'active' ? 'bg-green-100 text-green-800' :
-                          trip.status === 'completed' ? 'bg-blue-100 text-blue-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${trip.status === 'active' ? 'bg-green-100 text-green-800' :
+                            trip.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                              'bg-gray-100 text-gray-800'
+                          }`}>
                           {trip.status.charAt(0).toUpperCase() + trip.status.slice(1)}
                         </span>
                       </div>
                     </div>
-                    
+
                     <div className="grid grid-cols-4 gap-4 text-sm">
                       <div>
                         <span className="text-forest-600">📅 Dates:</span>
@@ -389,7 +387,7 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
                         </p>
                       </div>
                     </div>
-                    
+
                     {trip.pendingVerifications > 0 && (
                       <div className="mt-3 p-2 bg-amber-50 border border-amber-200 rounded-lg">
                         <p className="text-sm text-amber-700 font-medium">
@@ -410,7 +408,7 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
             <h2 className="text-2xl font-bold text-forest-800 mb-6 flex items-center gap-2">
               💳 Payment Verification
             </h2>
-            
+
             {pendingBookings.length === 0 ? (
               <div className="text-center py-8">
                 <div className="text-4xl mb-3">✅</div>
@@ -435,7 +433,7 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="space-y-3">
                       <div className="text-sm">
                         <p className="text-forest-600 mb-1">Travelers:</p>
@@ -448,7 +446,7 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
                           ))}
                         </div>
                       </div>
-                      
+
                       {booking.paymentScreenshot && (
                         <div>
                           <p className="text-sm text-forest-600 mb-2">Payment Screenshot:</p>
@@ -465,7 +463,7 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
                           </div>
                         </div>
                       )}
-                      
+
                       <div className="flex gap-2 pt-2">
                         <button
                           onClick={() => handleVerifyPayment(booking._id, 'verify')}
@@ -483,7 +481,7 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
                         </button>
                       </div>
                     </div>
-                    
+
                     <div className="mt-3 pt-2 border-t border-blue-200 text-xs text-forest-500">
                       Booking created: {new Date(booking.createdAt).toLocaleString()}
                     </div>
