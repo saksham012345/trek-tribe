@@ -24,17 +24,12 @@ function setAuthCookie(res: Response, token: string, req?: any): void {
 
   const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-  // Check if frontend and backend are on different origins
-  // On Render, they often are (e.g., frontend.onrender.com vs backend.onrender.com)
-  const isCrossOrigin = process.env.FRONTEND_URL &&
-    process.env.API_URL &&
-    process.env.FRONTEND_URL !== process.env.API_URL;
+  // Critical for cross-origin auth (trektribe.in -> onrender.com)
+  // We default to 'none' in production to ensure cookies function across domains
+  const secure = isProduction; // Always secure in production
 
-  // For cross-origin cookies to work in modern browsers:
-  // 1. Must be Secure (HTTPS)
-  // 2. Must be SameSite: 'none'
-  const secure = isProduction; // Always secure in production (assumed HTTPS)
-  const sameSite = isProduction && isCrossOrigin ? 'none' : 'lax';
+  // Force 'none' in production to allow cross-site usage
+  const sameSite = isProduction ? 'none' : 'lax';
 
   const cookieOptions: any = {
     httpOnly: true,
@@ -46,36 +41,30 @@ function setAuthCookie(res: Response, token: string, req?: any): void {
   };
 
   // Only set domain if EXPLICITLY provided and we are in production
-  // Leaving it undefined is usually safer for subdomains unless they share a top-level domain
   if (isProduction && process.env.COOKIE_DOMAIN) {
     cookieOptions.domain = process.env.COOKIE_DOMAIN;
   }
 
   res.cookie('token', token, cookieOptions);
 
-  if (process.env.NODE_ENV === 'development' || process.env.DEBUG_COOKIES === 'true') {
+  if (process.env.NODE_ENV === 'development') {
     logger.info('🍪 Auth cookie set', {
       secure: cookieOptions.secure,
       sameSite: cookieOptions.sameSite,
       domain: cookieOptions.domain || 'default',
-      isProduction,
-      isCrossOrigin
+      isProduction
     });
   }
 }
 
 // Helper function to clear auth cookie
 function clearAuthCookie(res: Response, req?: any): void {
-  // Use same production detection as setAuthCookie
-  const isProductionEnv = process.env.NODE_ENV === 'production';
-  const isHttpsRequest = req?.secure || req?.headers?.['x-forwarded-proto'] === 'https' || req?.protocol === 'https';
-  const hasHttpsFrontend = process.env.FRONTEND_URL?.startsWith('https://');
-  const isProduction = isProductionEnv || (isHttpsRequest && hasHttpsFrontend);
-  // In development, always use secure: false for HTTP
-  // In production, use secure: true only for HTTPS requests
-  const secure = isProduction && isHttpsRequest;
-  const isCrossOrigin = hasHttpsFrontend && process.env.FRONTEND_URL !== process.env.API_URL;
-  const sameSite = (isProduction && isCrossOrigin && secure) ? 'none' : 'lax';
+  const isProduction = process.env.NODE_ENV === 'production' ||
+    req?.headers?.['x-forwarded-proto'] === 'https' ||
+    process.env.FRONTEND_URL?.startsWith('https://');
+
+  const secure = isProduction;
+  const sameSite = isProduction ? 'none' : 'lax';
 
   const cookieDomain = process.env.COOKIE_DOMAIN && process.env.COOKIE_DOMAIN.trim() !== ''
     ? process.env.COOKIE_DOMAIN.trim()
