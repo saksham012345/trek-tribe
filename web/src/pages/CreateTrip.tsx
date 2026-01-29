@@ -68,7 +68,7 @@ interface PaymentConfig {
 const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   // All hooks must be called before any conditional returns
   const [currentStep, setCurrentStep] = useState(1);
   const [subscriptionChecked, setSubscriptionChecked] = useState(false);
@@ -99,7 +99,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       joinLink: ''
     }
   });
-  
+
   const [schedule, setSchedule] = useState<ScheduleDay[]>([]);
   const [pickupPoints, setPickupPoints] = useState<PickupDropPoint[]>([]);
   const [dropOffPoints, setDropOffPoints] = useState<PickupDropPoint[]>([]);
@@ -142,24 +142,24 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
         }
 
         const response = await api.get('/api/subscriptions/my');
-        const hasActive = response.data?.hasSubscription && response.data?.subscription?.isActive;
+        const hasActive = response.data?.hasSubscription && (response.data?.subscription?.isValid || response.data?.subscription?.status === 'active');
         setHasSubscription(hasActive);
-        
+
         if (!hasActive) {
           // Redirect to subscription page if no active subscription
-          navigate('/subscribe', { 
-            state: { 
+          navigate('/subscribe', {
+            state: {
               message: 'You need an active subscription to create trips',
               from: { pathname: '/create-trip' }
-            } 
+            }
           });
           return;
         }
-        
+
         setSubscriptionChecked(true);
       } catch (error: any) {
         console.error('Failed to check subscription:', error);
-        
+
         // If 401, user is not authenticated - don't navigate, let auth system handle
         if (error?.response?.status === 401) {
           // User not authenticated - auth context will handle redirect
@@ -169,27 +169,27 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
           // Don't navigate - let the auth system redirect to login
           return;
         }
-        
+
         // For premium organizers, allow anyway
         if ((user as any)?.isPremium) {
           setHasSubscription(true);
           setSubscriptionChecked(true);
           return;
         }
-        
+
         // For other errors (network issues, etc.), allow user to continue but show warning
         // The API will validate subscription when trip is submitted
         console.warn('Subscription check failed, but allowing user to continue');
         setSubscriptionChecked(true);
         setHasSubscription(false);
-        
+
         // Only redirect if we're sure it's a subscription issue (not network error)
         if (error?.response?.status === 403 || error?.response?.status === 402) {
-          navigate('/subscribe', { 
-            state: { 
+          navigate('/subscribe', {
+            state: {
               message: 'Please subscribe to create trips',
               from: { pathname: '/create-trip' }
-            } 
+            }
           });
         }
       }
@@ -214,12 +214,12 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
   }
 
   const categories = ['Adventure', 'Cultural', 'Beach', 'Mountain', 'City', 'Nature', 'Wildlife', 'Desert', 'Arctic', 'Botanical', 'Photography', 'Spiritual', 'Culinary', 'Historical', 'Sports'];
-  
+
   const includedItemsOptions = [
-    'Accommodation', 'Meals', 'Transportation', 'Guide', 'Equipment', 
+    'Accommodation', 'Meals', 'Transportation', 'Guide', 'Equipment',
     'Permits', 'Insurance', 'First Aid', 'Photography', 'Activities'
   ];
-  
+
   const requirementsOptions = [
     'Good Physical Fitness', 'Swimming Ability', 'Previous Experience',
     'Medical Certificate', 'Valid ID/Passport', 'Special Equipment',
@@ -232,7 +232,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       [e.target.name]: e.target.value
     });
   };
-  
+
   const handleArrayChange = (field: keyof typeof formData, value: string) => {
     const currentArray = formData[field] as string[];
     setFormData({
@@ -242,10 +242,10 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
         : [...currentArray, value]
     });
   };
-  
+
   // Enhanced file upload with progress tracking
   const uploadFileToServer = async (file: File): Promise<string> => {
-    
+
     // Convert file to base64 for our API
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -308,7 +308,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       setQrGenerating(false);
     }
   };
-  
+
   // Schedule management
   const addScheduleDay = () => {
     const newDay = {
@@ -318,7 +318,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
     };
     setSchedule([...schedule, newDay]);
   };
-  
+
   const updateScheduleDay = (dayIndex: number, field: keyof ScheduleDay, value: any) => {
     const updatedSchedule = [...schedule];
     if (field === 'activities') {
@@ -328,25 +328,25 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
     }
     setSchedule(updatedSchedule);
   };
-  
+
   const addActivity = (dayIndex: number) => {
     const updatedSchedule = [...schedule];
     updatedSchedule[dayIndex].activities.push('');
     setSchedule(updatedSchedule);
   };
-  
+
   const removeActivity = (dayIndex: number, activityIndex: number) => {
     const updatedSchedule = [...schedule];
     updatedSchedule[dayIndex].activities.splice(activityIndex, 1);
     setSchedule(updatedSchedule);
   };
-  
+
   const removeScheduleDay = (dayIndex: number) => {
     const updatedSchedule = schedule.filter((_, index) => index !== dayIndex)
       .map((day, index) => ({ ...day, day: index + 1 }));
     setSchedule(updatedSchedule);
   };
-  
+
   // Pickup and drop-off point management
   const addPickupPoint = () => {
     setPickupPoints([...pickupPoints, {
@@ -359,17 +359,17 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       instructions: ''
     }]);
   };
-  
+
   const updatePickupPoint = (index: number, field: keyof PickupDropPoint, value: string) => {
     const updated = [...pickupPoints];
     (updated[index] as any)[field] = value;
     setPickupPoints(updated);
   };
-  
+
   const removePickupPoint = (index: number) => {
     setPickupPoints(pickupPoints.filter((_, i) => i !== index));
   };
-  
+
   const addDropOffPoint = () => {
     setDropOffPoints([...dropOffPoints, {
       name: '',
@@ -381,13 +381,13 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       instructions: ''
     }]);
   };
-  
+
   const updateDropOffPoint = (index: number, field: keyof PickupDropPoint, value: string) => {
     const updated = [...dropOffPoints];
     (updated[index] as any)[field] = value;
     setDropOffPoints(updated);
   };
-  
+
   const removeDropOffPoint = (index: number) => {
     setDropOffPoints(dropOffPoints.filter((_, i) => i !== index));
   };
@@ -409,7 +409,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
   };
 
   const updatePackage = (packageId: string, field: keyof PackageOption, value: any) => {
-    setPackages(packages.map(pkg => 
+    setPackages(packages.map(pkg =>
       pkg.id === packageId ? { ...pkg, [field]: value } : pkg
     ));
   };
@@ -429,20 +429,20 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
   const handleMultipleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     const validImages = files.filter(file => file.type.startsWith('image/'));
-    
+
     if (validImages.length !== files.length) {
       setError('Some files were not valid images and were skipped');
     }
-    
+
     if (validImages.length > 10) {
       setError('Maximum 10 images allowed');
       return;
     }
-    
+
     setImages([...images, ...validImages].slice(0, 10));
     setError('');
   };
-  
+
   const removeImage = (index: number) => {
     const newImages = images.filter((_, i) => i !== index);
     setImages(newImages);
@@ -450,7 +450,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       setCoverImageIndex(Math.max(0, newImages.length - 1));
     }
   };
-  
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'itinerary' | 'paymentQR') => {
     const file = e.target.files?.[0];
     if (file && type === 'itinerary') {
@@ -469,20 +469,20 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       }
     }
   };
-  
+
   // Step navigation
   const nextStep = () => {
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
     }
   };
-  
+
   const prevStep = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
     }
   };
-  
+
   const isStepValid = (step: number): boolean => {
     switch (step) {
       case 1:
@@ -511,7 +511,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
     setLoading(true);
     setError('');
     setUploadProgress(0);
-    
+
     let tripData: any = null;
 
     try {
@@ -523,34 +523,34 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       if (!formData.capacity || parseInt(formData.capacity) < 2) throw new Error('Capacity must be at least 2');
       if (formData.categories.length === 0) throw new Error('At least one category is required');
       if (paymentConfig.collectionMode === 'manual' && !paymentQR) throw new Error('Upload a manual payment QR/screenshot or switch to automated Razorpay');
-      
+
       const startDate = new Date(formData.startDate);
       const endDate = new Date(formData.endDate);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      
+
       if (startDate < today) throw new Error('Start date cannot be in the past');
       if (startDate >= endDate) throw new Error('End date must be after start date');
 
       // Upload files with progress tracking
       let uploadedImageUrls: string[] = [];
       let uploadedPdfUrl: string | undefined;
-      
+
       setUploadProgress(10);
-      
+
       if (images.length > 0) {
         setUploadProgress(20);
         const imageUploadPromises = images.map(image => uploadFileToServer(image));
         uploadedImageUrls = await Promise.all(imageUploadPromises);
         setUploadProgress(50);
       }
-      
+
       if (itineraryPdf) {
         setUploadProgress(70);
         uploadedPdfUrl = await uploadFileToServer(itineraryPdf);
         setUploadProgress(75);
       }
-      
+
       let uploadedQRUrl: string | undefined;
       if (paymentConfig.collectionMode === 'manual' && paymentQR) {
         setUploadProgress(80);
@@ -594,26 +594,26 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       };
 
       setUploadProgress(90);
-      
+
       // Submit with timeout (increased for Render)
       const response = await Promise.race([
         api.post('/trips', tripData),
-        new Promise((_, reject) => 
+        new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Request timeout - please try again')), 30000)
         )
       ]) as any;
-      
+
       setUploadProgress(100);
       console.log('Trip created successfully:', response?.data);
-      
+
       // Success notification
       // const tripId = response?.data?.trip?._id; // For future use
       alert(`🎉 Trip "${formData.title}" created successfully! Redirecting...`);
-      
+
       setTimeout(() => {
         navigate('/trips');
       }, 1000);
-      
+
     } catch (error: any) {
       // Enhanced error logging for debugging
       console.error('❌ Error creating trip:', error);
@@ -622,14 +622,14 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       console.error('🔍 Error message:', error.message);
       console.error('📦 Response data:', error.response?.data);
       console.error('📤 Trip data being sent:', JSON.stringify(tripData, null, 2));
-      
+
       // Enhanced error handling
       let errorMessage = 'Failed to create trip';
-      
+
       // Handle QR code requirement error specifically
-      if (error.response?.data?.actionRequired === 'upload_qr_code' || 
-          error.response?.data?.error === 'Payment QR code required' ||
-          error.response?.data?.message?.toLowerCase().includes('qr code')) {
+      if (error.response?.data?.actionRequired === 'upload_qr_code' ||
+        error.response?.data?.error === 'Payment QR code required' ||
+        error.response?.data?.message?.toLowerCase().includes('qr code')) {
         errorMessage = error.response.data.message || 'Please upload at least one payment QR code before creating a trip. You can upload QR codes from your profile settings.';
         // Optionally redirect to profile settings
         setTimeout(() => {
@@ -662,12 +662,12 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       } else if (error.code === 'NETWORK_ERROR') {
         errorMessage = 'Network error. Please check your connection.';
       }
-      
+
       // Add debug info for development
       if (process.env.NODE_ENV === 'development') {
         errorMessage += ` (Debug: ${error.response?.status} - ${JSON.stringify(error.response?.data).substring(0, 200)})`;
       }
-      
+
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -684,7 +684,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
               <h2 className="text-2xl font-bold text-forest-800 mb-2">✨ Basic Information</h2>
               <p className="text-forest-600">Tell us about your amazing adventure</p>
             </div>
-            
+
             <div className="grid md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
                 <label htmlFor="title" className="block text-sm font-semibold text-forest-700 mb-3">
@@ -701,7 +701,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                   placeholder="Epic Himalayan Trek, Bali Cultural Journey, etc."
                 />
               </div>
-              
+
               <div className="md:col-span-2">
                 <label htmlFor="description" className="block text-sm font-semibold text-forest-700 mb-3">
                   📝 Adventure Description
@@ -717,7 +717,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                   placeholder="Describe what makes this adventure special, what participants can expect, and what makes it unique..."
                 />
               </div>
-              
+
               <div>
                 <label htmlFor="destination" className="block text-sm font-semibold text-forest-700 mb-3">
                   📍 Destination
@@ -733,7 +733,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                   placeholder="Manali, Himachal Pradesh, India"
                 />
               </div>
-              
+
               <div>
                 <label htmlFor="difficultyLevel" className="block text-sm font-semibold text-forest-700 mb-3">
                   ⚡ Difficulty Level
@@ -753,7 +753,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
             </div>
           </div>
         );
-        
+
       case 2:
         return (
           <div className="space-y-6">
@@ -761,7 +761,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
               <h2 className="text-2xl font-bold text-forest-800 mb-2">💰 Pricing & Schedule</h2>
               <p className="text-forest-600">Set your dates and pricing details</p>
             </div>
-            
+
             <div className="grid md:grid-cols-2 gap-6">
               <div>
                 <label htmlFor="price" className="block text-sm font-semibold text-forest-700 mb-3">
@@ -780,7 +780,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                   placeholder="Enter price"
                 />
               </div>
-              
+
               <div>
                 <label htmlFor="capacity" className="block text-sm font-semibold text-forest-700 mb-3">
                   👥 Group Size (Max Participants)
@@ -798,7 +798,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                   placeholder="Enter capacity"
                 />
               </div>
-              
+
               <div>
                 <label htmlFor="minimumAge" className="block text-sm font-semibold text-forest-700 mb-3">
                   🎂 Minimum Age Requirement
@@ -818,7 +818,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                   Leave empty if no age restriction. Only travelers meeting this age requirement can join.
                 </p>
               </div>
-              
+
               <div>
                 <label htmlFor="startDate" className="block text-sm font-semibold text-forest-700 mb-3">
                   🗓️ Start Date
@@ -834,7 +834,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                   className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
                 />
               </div>
-              
+
               <div>
                 <label htmlFor="endDate" className="block text-sm font-semibold text-forest-700 mb-3">
                   🏁 End Date
@@ -851,7 +851,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                 />
               </div>
             </div>
-            
+
             <div>
               <label htmlFor="cancellationPolicy" className="block text-sm font-semibold text-forest-700 mb-3">
                 🔄 Cancellation Policy
@@ -870,7 +870,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
             </div>
           </div>
         );
-        
+
       case 3:
         return (
           <div className="space-y-6">
@@ -878,7 +878,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
               <h2 className="text-2xl font-bold text-forest-800 mb-2">🏷️ Categories & Details</h2>
               <p className="text-forest-600">Choose categories and specify what's included</p>
             </div>
-            
+
             <div>
               <label className="block text-sm font-semibold text-forest-700 mb-4">
                 🎯 Adventure Categories (Select all that apply)
@@ -889,18 +889,17 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                     key={category}
                     type="button"
                     onClick={() => handleCategoryChange(category)}
-                    className={`px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 border-2 ${
-                      formData.categories.includes(category)
+                    className={`px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 border-2 ${formData.categories.includes(category)
                         ? 'bg-nature-500 text-white border-nature-500 shadow-lg transform scale-105'
                         : 'bg-forest-50 text-forest-700 border-forest-200 hover:border-nature-300 hover:bg-nature-50'
-                    }`}
+                      }`}
                   >
                     {category}
                   </button>
                 ))}
               </div>
             </div>
-            
+
             <div className="grid md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-semibold text-forest-700 mb-3">
@@ -920,7 +919,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                   ))}
                 </div>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-semibold text-forest-700 mb-3">
                   📋 Requirements
@@ -942,7 +941,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
             </div>
           </div>
         );
-        
+
       case 4:
         return (
           <div className="space-y-6">
@@ -950,7 +949,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
               <h2 className="text-2xl font-bold text-forest-800 mb-2">📸 Media & Itinerary</h2>
               <p className="text-forest-600">Add photos and detailed schedule</p>
             </div>
-            
+
             {/* Image Upload */}
             <div>
               <label className="block text-sm font-semibold text-forest-700 mb-3">
@@ -974,7 +973,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                 </button>
                 <p className="mt-2 text-sm text-forest-600">JPG, PNG, WebP up to 10MB each</p>
               </div>
-              
+
               {/* Image Preview */}
               {images.length > 0 && (
                 <div className="mt-4">
@@ -985,21 +984,19 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                         <img
                           src={URL.createObjectURL(image)}
                           alt={`Upload ${index + 1}`}
-                          className={`w-full h-24 object-cover rounded-lg border-2 ${
-                            coverImageIndex === index 
-                              ? 'border-nature-500 ring-2 ring-nature-200' 
+                          className={`w-full h-24 object-cover rounded-lg border-2 ${coverImageIndex === index
+                              ? 'border-nature-500 ring-2 ring-nature-200'
                               : 'border-forest-200'
-                          }`}
+                            }`}
                         />
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
                           <button
                             type="button"
                             onClick={() => setCoverImageIndex(index)}
-                            className={`px-2 py-1 text-xs rounded ${
-                              coverImageIndex === index 
-                                ? 'bg-nature-500 text-white' 
+                            className={`px-2 py-1 text-xs rounded ${coverImageIndex === index
+                                ? 'bg-nature-500 text-white'
                                 : 'bg-white text-forest-700'
-                            }`}
+                              }`}
                           >
                             {coverImageIndex === index ? '⭐ Cover' : 'Set Cover'}
                           </button>
@@ -1017,7 +1014,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                 </div>
               )}
             </div>
-            
+
             {/* Itinerary */}
             <div className="grid md:grid-cols-2 gap-6">
               <div>
@@ -1034,7 +1031,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                   placeholder="Day 1: Arrival and orientation...\nDay 2: Morning hike to base camp...\nDay 3: Summit day..."
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-semibold text-forest-700 mb-3">
                   📄 Itinerary PDF (Optional)
@@ -1054,14 +1051,14 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                     📋 Choose PDF
                   </label>
                   <p className="mt-2 text-sm text-forest-600">Detailed itinerary for participants</p>
-                  
+
                   {itineraryPdf && (
                     <div className="mt-3 text-sm text-forest-700 bg-forest-50 p-2 rounded">
                       ✅ Selected: {itineraryPdf.name}
                     </div>
                   )}
                 </div>
-                
+
                 {/* Payment QR Code Upload (manual collection only) */}
                 {paymentConfig.collectionMode === 'manual' && (
                   <div className="mt-6">
@@ -1086,7 +1083,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                       <div className="mt-2 text-xs text-amber-600">
                         ⚠️ Less trusted. Consider switching to automated Razorpay for higher trust.
                       </div>
-                      
+
                       {paymentQR && (
                         <div className="mt-4">
                           <div className="text-sm text-forest-700 bg-amber-50 p-2 rounded mb-2">
@@ -1102,7 +1099,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                     </div>
                   </div>
                 )}
-                
+
                 {/* Schedule Builder */}
                 <div className="mt-6">
                   <div className="flex items-center justify-between mb-3">
@@ -1117,7 +1114,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                       ➕ Add Day
                     </button>
                   </div>
-                  
+
                   <div className="space-y-3 max-h-64 overflow-y-auto">
                     {schedule.map((day, dayIndex) => (
                       <div key={dayIndex} className="border border-forest-200 rounded-lg p-3 bg-forest-50/30">
@@ -1131,7 +1128,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                             🗑️ Remove
                           </button>
                         </div>
-                        
+
                         <input
                           type="text"
                           placeholder="Day title (e.g., 'Summit Day', 'Rest & Explore')"
@@ -1139,7 +1136,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                           onChange={(e) => updateScheduleDay(dayIndex, 'title', e.target.value)}
                           className="w-full px-3 py-2 mb-2 text-sm border border-forest-300 rounded focus:outline-none focus:ring-1 focus:ring-nature-500"
                         />
-                        
+
                         {day.activities.map((activity, activityIndex) => (
                           <div key={activityIndex} className="flex gap-2 mb-1">
                             <input
@@ -1164,7 +1161,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                             )}
                           </div>
                         ))}
-                        
+
                         <button
                           type="button"
                           onClick={() => addActivity(dayIndex)}
@@ -1180,7 +1177,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
             </div>
           </div>
         );
-        
+
       case 5:
         return (
           <div className="space-y-6">
@@ -1188,7 +1185,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
               <h2 className="text-2xl font-bold text-forest-800 mb-2">🎁 Package Options & Payment</h2>
               <p className="text-forest-600">Create different package options and configure payment settings</p>
             </div>
-            
+
             {/* Package Options */}
             <div>
               <div className="flex items-center justify-between mb-4">
@@ -1203,7 +1200,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                   ➕ Add Package
                 </button>
               </div>
-              
+
               <div className="space-y-4 max-h-64 overflow-y-auto">
                 {packages.map((pkg, index) => (
                   <div key={pkg.id} className="border border-forest-200 rounded-xl p-4 bg-forest-50/30">
@@ -1217,7 +1214,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                         🗑️ Remove
                       </button>
                     </div>
-                    
+
                     <div className="grid md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-forest-700 mb-1">
@@ -1231,7 +1228,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                           className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
                         />
                       </div>
-                      
+
                       <div>
                         <label className="block text-sm font-medium text-forest-700 mb-1">
                           Price per Person (₹) *
@@ -1245,7 +1242,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                           className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
                         />
                       </div>
-                      
+
                       <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-forest-700 mb-1">
                           Description *
@@ -1258,7 +1255,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                           className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500 resize-none"
                         />
                       </div>
-                      
+
                       <div>
                         <label className="block text-sm font-medium text-forest-700 mb-1">
                           Inclusions (comma separated)
@@ -1271,7 +1268,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                           className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
                         />
                       </div>
-                      
+
                       <div>
                         <label className="block text-sm font-medium text-forest-700 mb-1">
                           Exclusions (comma separated)
@@ -1287,7 +1284,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                     </div>
                   </div>
                 ))}
-                
+
                 {packages.length === 0 && (
                   <div className="text-center py-8 text-forest-500">
                     <p>No packages added yet. Add different package options to give travelers more choices!</p>
@@ -1295,7 +1292,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                 )}
               </div>
             </div>
-            
+
             {/* Payment Configuration */}
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
               <h3 className="text-lg font-semibold text-forest-700 mb-4">💳 Payment Configuration</h3>
@@ -1362,14 +1359,14 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                   </label>
                   <select
                     value={paymentConfig.paymentType}
-                    onChange={(e) => setPaymentConfig({...paymentConfig, paymentType: e.target.value as 'full' | 'advance'})}
+                    onChange={(e) => setPaymentConfig({ ...paymentConfig, paymentType: e.target.value as 'full' | 'advance' })}
                     className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
                   >
                     <option value="full">Full Payment Required</option>
                     <option value="advance">Advance Payment</option>
                   </select>
                 </div>
-                
+
                 {paymentConfig.paymentType === 'advance' && (
                   <div>
                     <label className="block text-sm font-medium text-forest-700 mb-1">
@@ -1380,7 +1377,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                       min="0"
                       step="1"
                       value={paymentConfig.advanceAmount || ''}
-                      onChange={(e) => setPaymentConfig({...paymentConfig, advanceAmount: e.target.value ? parseInt(e.target.value) : 0})}
+                      onChange={(e) => setPaymentConfig({ ...paymentConfig, advanceAmount: e.target.value ? parseInt(e.target.value) : 0 })}
                       className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
                       placeholder="Enter amount"
                     />
@@ -1393,7 +1390,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
             </div>
           </div>
         );
-        
+
       case 6:
         return (
           <div className="space-y-6">
@@ -1401,7 +1398,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
               <h2 className="text-2xl font-bold text-forest-800 mb-2">🚌 Pickup & Drop-off Points</h2>
               <p className="text-forest-600">Add convenient pickup and drop-off locations for participants</p>
             </div>
-            
+
             {/* Pickup Points */}
             <div>
               <div className="flex items-center justify-between mb-4">
@@ -1416,7 +1413,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                   ➕ Add Pickup Point
                 </button>
               </div>
-              
+
               <div className="space-y-4 max-h-64 overflow-y-auto">
                 {pickupPoints.map((point, index) => (
                   <div key={index} className="border border-forest-200 rounded-xl p-4 bg-forest-50/30">
@@ -1430,7 +1427,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                         🗑️ Remove
                       </button>
                     </div>
-                    
+
                     <div className="grid md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-forest-700 mb-1">
@@ -1444,7 +1441,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                           className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
                         />
                       </div>
-                      
+
                       <div>
                         <label className="block text-sm font-medium text-forest-700 mb-1">
                           Pickup Time
@@ -1456,7 +1453,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                           className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
                         />
                       </div>
-                      
+
                       <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-forest-700 mb-1">
                           Full Address *
@@ -1469,7 +1466,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                           className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
                         />
                       </div>
-                      
+
                       <div>
                         <label className="block text-sm font-medium text-forest-700 mb-1">
                           Contact Person
@@ -1482,7 +1479,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                           className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
                         />
                       </div>
-                      
+
                       <div>
                         <label className="block text-sm font-medium text-forest-700 mb-1">
                           Contact Phone
@@ -1495,7 +1492,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                           className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
                         />
                       </div>
-                      
+
                       <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-forest-700 mb-1">
                           Landmarks & Instructions
@@ -1511,7 +1508,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                     </div>
                   </div>
                 ))}
-                
+
                 {pickupPoints.length === 0 && (
                   <div className="text-center py-8 text-forest-500">
                     <p>No pickup points added yet. Add at least one pickup point to help participants.</p>
@@ -1519,7 +1516,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                 )}
               </div>
             </div>
-            
+
             {/* Drop-off Points */}
             <div>
               <div className="flex items-center justify-between mb-4">
@@ -1534,7 +1531,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                   ➕ Add Drop-off Point
                 </button>
               </div>
-              
+
               <div className="space-y-4 max-h-64 overflow-y-auto">
                 {dropOffPoints.map((point, index) => (
                   <div key={index} className="border border-forest-200 rounded-xl p-4 bg-forest-50/30">
@@ -1548,7 +1545,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                         🗑️ Remove
                       </button>
                     </div>
-                    
+
                     <div className="grid md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-forest-700 mb-1">
@@ -1562,7 +1559,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                           className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
                         />
                       </div>
-                      
+
                       <div>
                         <label className="block text-sm font-medium text-forest-700 mb-1">
                           Expected Drop-off Time
@@ -1574,7 +1571,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                           className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
                         />
                       </div>
-                      
+
                       <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-forest-700 mb-1">
                           Full Address *
@@ -1587,7 +1584,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                           className="w-full px-3 py-2 border border-forest-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-500"
                         />
                       </div>
-                      
+
                       <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-forest-700 mb-1">
                           Instructions for Participants
@@ -1603,7 +1600,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                     </div>
                   </div>
                 ))}
-                
+
                 {dropOffPoints.length === 0 && (
                   <div className="text-center py-8 text-forest-500">
                     <p>No drop-off points added yet. You can use the same locations as pickup points or specify different ones.</p>
@@ -1611,7 +1608,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                 )}
               </div>
             </div>
-            
+
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
               <h3 className="font-medium text-blue-800 mb-2">💡 Tips for Pickup & Drop-off Points:</h3>
               <ul className="text-sm text-blue-700 space-y-1">
@@ -1624,7 +1621,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
             </div>
           </div>
         );
-        
+
       case 7:
         return (
           <div className="space-y-6">
@@ -1632,7 +1629,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
               <h2 className="text-2xl font-bold text-forest-800 mb-2">💬 WhatsApp Group</h2>
               <p className="text-forest-600">Create a WhatsApp group for participants to connect before the trip</p>
             </div>
-            
+
             <div className="bg-green-50 border border-green-200 rounded-xl p-6">
               <div className="flex items-start space-x-4">
                 <div className="flex-shrink-0">
@@ -1643,10 +1640,10 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold text-green-800 mb-2">Connect Your Participants</h3>
                   <p className="text-green-700 mb-4">
-                    Create a WhatsApp group to help participants connect, share excitement, and coordinate before the trip. 
+                    Create a WhatsApp group to help participants connect, share excitement, and coordinate before the trip.
                     This builds community and makes the experience more enjoyable for everyone!
                   </p>
-                  
+
                   <div className="space-y-4">
                     <div className="flex items-center">
                       <input
@@ -1666,7 +1663,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                         Enable WhatsApp group for this trip
                       </label>
                     </div>
-                    
+
                     {formData.whatsappGroup.enabled && (
                       <div className="space-y-4 pl-6 border-l-2 border-green-200">
                         <div>
@@ -1688,7 +1685,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                             className="w-full px-3 py-2 border border-green-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                           />
                         </div>
-                        
+
                         <div>
                           <label htmlFor="groupDescription" className="block text-sm font-medium text-green-800 mb-1">
                             Group Description
@@ -1708,7 +1705,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                             className="w-full px-3 py-2 border border-green-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none"
                           />
                         </div>
-                        
+
                         <div>
                           <label htmlFor="joinLink" className="block text-sm font-medium text-green-800 mb-1">
                             WhatsApp Group Join Link
@@ -1737,7 +1734,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                 </div>
               </div>
             </div>
-            
+
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
               <h3 className="font-medium text-blue-800 mb-2">💡 Benefits of WhatsApp Groups:</h3>
               <ul className="text-sm text-blue-700 space-y-1">
@@ -1748,7 +1745,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                 <li>• Stay connected even after the adventure ends</li>
               </ul>
             </div>
-            
+
             {!formData.whatsappGroup.enabled && (
               <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
                 <p className="text-sm text-gray-600">
@@ -1758,7 +1755,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
             )}
           </div>
         );
-        
+
       default:
         return <div>Step content not found</div>;
     }
@@ -1774,7 +1771,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
               🏔️ Create Epic Adventure
             </h1>
             <p className="text-sm sm:text-base text-forest-100">Design an unforgettable journey for fellow adventurers</p>
-            
+
             {/* Progress Bar */}
             <div className="mt-6">
               <div className="flex justify-between items-center mb-2">
@@ -1782,14 +1779,14 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                 <span className="text-sm font-medium text-forest-100">{Math.round((currentStep / totalSteps) * 100)}%</span>
               </div>
               <div className="w-full bg-forest-500/30 rounded-full h-2">
-                <div 
+                <div
                   className="bg-white rounded-full h-2 transition-all duration-500 ease-out"
                   style={{ width: `${(currentStep / totalSteps) * 100}%` }}
                 ></div>
               </div>
             </div>
           </div>
-          
+
           {/* Form Content */}
           <div className="p-4 sm:p-6 lg:p-8">
             <div>
@@ -1803,7 +1800,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                   </div>
                 </div>
               )}
-              
+
               {/* Upload Progress */}
               {loading && uploadProgress > 0 && (
                 <div className="mb-6 bg-blue-50 border border-blue-200 rounded-xl p-4">
@@ -1812,14 +1809,14 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                     <span className="text-sm font-medium text-blue-700">{uploadProgress}%</span>
                   </div>
                   <div className="w-full bg-blue-200 rounded-full h-2">
-                    <div 
+                    <div
                       className="bg-blue-600 rounded-full h-2 transition-all duration-300"
                       style={{ width: `${uploadProgress}%` }}
                     ></div>
                   </div>
                 </div>
               )}
-              
+
               {/* Step Content */}
               <div className="min-h-[500px]">
                 {renderStepContent()}
@@ -1834,7 +1831,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                 >
                   ← Cancel
                 </button>
-                
+
                 <div className="order-1 sm:order-2 flex items-center gap-2 sm:gap-3">
                   {currentStep > 1 && (
                     <button
@@ -1845,17 +1842,16 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                       ← Back
                     </button>
                   )}
-                  
+
                   {currentStep < totalSteps ? (
                     <button
                       type="button"
                       onClick={nextStep}
                       disabled={!isStepValid(currentStep)}
-                      className={`flex-1 sm:flex-none px-4 sm:px-5 py-2.5 rounded-xl text-white transition-colors text-sm sm:text-base ${
-                        isStepValid(currentStep)
+                      className={`flex-1 sm:flex-none px-4 sm:px-5 py-2.5 rounded-xl text-white transition-colors text-sm sm:text-base ${isStepValid(currentStep)
                           ? 'bg-nature-600 hover:bg-nature-700'
                           : 'bg-nature-300 cursor-not-allowed'
-                      }`}
+                        }`}
                     >
                       Next →
                     </button>
