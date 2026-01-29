@@ -27,7 +27,12 @@ const api: any = axios.create({
 api.interceptors.request.use(
   (config: any) => {
     // Tokens are now in httpOnly cookies, sent automatically by browser
-    // No need to manually add Authorization header
+    // However, for Hybrid Auth (Admin routes fallback where cookies might fail cross-origin),
+    // we also attach the Bearer token if available in storage.
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
 
     // Check cache for GET requests (excluding sensitive endpoints)
     if (config.method === 'get' && !config.url?.includes('/auth') && !config.url?.includes('/payment')) {

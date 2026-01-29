@@ -62,7 +62,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const response = await api.get('/auth/me', {
           withCredentials: true
         });
-        
+
         // Handle both { user: User } and direct User object formats
         const userData = response.data?.user || response.data;
         if (userData && (userData._id || userData.id)) {
@@ -140,14 +140,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       const responseData = response.data as { token?: string; user: User };
       const userData = responseData.user;
-      
-      // Token is now in httpOnly cookie, no need to store it
-      // Only store user data (non-sensitive) for faster UI loading
+
+      // Store token locally as a fallback for admin/cross-origin requests (Hybrid Auth)
+      if (responseData.token) {
+        localStorage.setItem('token', responseData.token);
+      }
+
       localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
-      
+
       console.log('✅ Login successful - cookie should be set. Check browser DevTools > Application > Cookies');
-      
+
       return { success: true };
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Login failed';
