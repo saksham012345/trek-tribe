@@ -69,11 +69,8 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
     emergencyContactName: '',
     emergencyContactPhone: '',
     medicalConditions: '',
-    dietaryRestrictions: '',
-    experienceLevel: 'beginner' as 'beginner' | 'intermediate' | 'advanced',
     specialRequests: '',
-    agreeToTerms: false,
-    paymentScreenshot: null as File | null
+    agreeToTerms: false
   });
 
   const [travelerDetails, setTravelerDetails] = useState<TravelerDetails[]>([{
@@ -155,18 +152,6 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
     setTravelerDetails(prev => prev.map((traveler, i) =>
       i === index ? { ...traveler, [field]: value } : traveler
     ));
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.type.startsWith('image/')) {
-        setFormData(prev => ({ ...prev, paymentScreenshot: file }));
-        setError('');
-      } else {
-        setError('Please upload a valid image file (PNG, JPG, etc.)');
-      }
-    }
   };
 
 
@@ -757,14 +742,14 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
                     {trip.paymentConfig?.advanceAmount && (
                       <p><strong>Amount to Pay Now:</strong> ₹{trip.paymentConfig.advanceAmount.toLocaleString()}</p>
                     )}
-                    <p><strong>Accepted Methods:</strong> {Array.isArray(trip.paymentConfig?.paymentMethods) ? trip.paymentConfig.paymentMethods.join(', ') : 'UPI, Bank Transfer'}</p>
+                    <p><strong>Accepted Methods:</strong> UPI, Card, Net Banking</p>
                     {trip.paymentConfig?.instructions && (
                       <p><strong>Instructions:</strong> {trip.paymentConfig.instructions}</p>
                     )}
                   </div>
                   <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                    <p className="text-sm text-amber-800">
-                      ℹ️ After booking, you'll be prompted to upload payment screenshot for verification.
+                    <p className="text-sm text-amber-800 font-medium">
+                      ℹ️ A 4% platform handling fee applies to this transaction.
                     </p>
                   </div>
                 </div>
