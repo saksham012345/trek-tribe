@@ -91,7 +91,7 @@ interface Post {
 const EnhancedProfilePage: React.FC = () => {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, logout } = useAuth();
   const [resolvedUserId, setResolvedUserId] = useState<string | null>(userId || currentUser?.id || null);
   const [isOwnProfile, setIsOwnProfile] = useState<boolean>(!userId || userId === currentUser?.id);
 
@@ -440,6 +440,20 @@ const EnhancedProfilePage: React.FC = () => {
               >
                 <span className="text-xl">✅</span>
                 <span className="font-semibold">Save Profile</span>
+              </button>
+            )}
+            {!editing && (
+              <button
+                onClick={() => {
+                  if (window.confirm('Are you sure you want to logout?')) {
+                    logout();
+                    navigate('/login');
+                  }
+                }}
+                className="px-6 py-3 bg-red-50 text-red-600 border border-red-100 rounded-xl hover:bg-red-100 transition-all duration-200 flex items-center gap-2"
+              >
+                <span className="text-xl">🚪</span>
+                <span className="font-semibold">Logout</span>
               </button>
             )}
           </div>
