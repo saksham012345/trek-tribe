@@ -9,7 +9,7 @@ const PhoneVerification: React.FC = () => {
   const location = useLocation();
   const { user, refreshUser } = useAuth();
   const { toasts, success, error: showErrorToast, removeToast } = useToast();
-  
+
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
@@ -17,7 +17,7 @@ const PhoneVerification: React.FC = () => {
   const [error, setError] = useState('');
   const [countdown, setCountdown] = useState(0);
   const [devOtp, setDevOtp] = useState('');
-  
+
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Check if already verified
@@ -55,9 +55,9 @@ const PhoneVerification: React.FC = () => {
 
   const handleSendOTP = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    
+
     const cleanPhone = phone.replace(/\s/g, '');
-    
+
     if (!validatePhone(cleanPhone)) {
       setError('Please enter a valid phone number (e.g., +919876543210)');
       return;
@@ -68,17 +68,17 @@ const PhoneVerification: React.FC = () => {
 
     try {
       const response = await api.post('/auth/verify-phone/send-otp', { phone: cleanPhone });
-      
+
       // Store dev OTP if available
       if (response.data.otp) {
         setDevOtp(response.data.otp);
         console.log('DEV OTP:', response.data.otp);
       }
-      
+
       setStep('otp');
       setCountdown(60);
       success('OTP sent to your phone!');
-      
+
       // Focus first OTP input
       setTimeout(() => otpInputRefs.current[0]?.focus(), 100);
     } catch (error: any) {
@@ -119,11 +119,11 @@ const PhoneVerification: React.FC = () => {
   const handleOtpPaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
     const pastedData = e.clipboardData.getData('text').slice(0, 6);
-    
+
     if (/^\d+$/.test(pastedData)) {
       const newOtp = pastedData.split('').concat(Array(6).fill('')).slice(0, 6);
       setOtp(newOtp);
-      
+
       // Focus last filled input or first empty
       const focusIndex = Math.min(pastedData.length, 5);
       otpInputRefs.current[focusIndex]?.focus();
@@ -137,7 +137,7 @@ const PhoneVerification: React.FC = () => {
 
   const handleVerifyOTP = async (otpValue?: string) => {
     const otpCode = otpValue || otp.join('');
-    
+
     if (otpCode.length !== 6) {
       setError('Please enter all 6 digits');
       return;
@@ -153,7 +153,7 @@ const PhoneVerification: React.FC = () => {
       });
 
       success('Phone verified successfully!');
-      
+
       // Refresh user data
       if (refreshUser) {
         await refreshUser();
@@ -162,7 +162,7 @@ const PhoneVerification: React.FC = () => {
       // Redirect based on next required step
       setTimeout(() => {
         const nextStep = (location.state as any)?.nextStep;
-        
+
         if (nextStep === 'auto-pay') {
           navigate('/setup-auto-pay', { replace: true });
         } else if (nextStep === 'complete-profile') {
@@ -175,7 +175,7 @@ const PhoneVerification: React.FC = () => {
       const errorMsg = error.response?.data?.error || 'Invalid OTP';
       setError(errorMsg);
       showErrorToast(errorMsg);
-      
+
       // Clear OTP on error
       setOtp(['', '', '', '', '', '']);
       otpInputRefs.current[0]?.focus();
@@ -186,7 +186,7 @@ const PhoneVerification: React.FC = () => {
 
   const handleResendOTP = async () => {
     if (countdown > 0) return;
-    
+
     setOtp(['', '', '', '', '', '']);
     await handleSendOTP();
   };
@@ -213,7 +213,7 @@ const PhoneVerification: React.FC = () => {
               Verify Your Phone
             </h2>
             <p className="mt-2 text-sm text-forest-600">
-              {step === 'phone' 
+              {step === 'phone'
                 ? 'Enter your phone number to receive a verification code'
                 : 'Enter the 6-digit code sent to your phone'
               }
@@ -316,7 +316,7 @@ const PhoneVerification: React.FC = () => {
                     {otp.map((digit, index) => (
                       <input
                         key={index}
-                        ref={(el) => (otpInputRefs.current[index] = el)}
+                        ref={(el) => { if (el) otpInputRefs.current[index] = el; }}
                         type="text"
                         inputMode="numeric"
                         maxLength={1}

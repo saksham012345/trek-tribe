@@ -40,7 +40,7 @@ const AISmartSearch: React.FC<AISmartSearchProps> = ({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-  const searchTimeoutRef = useRef<NodeJS.Timeout>();
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const sampleQueries = [
     "Show me trekking trips in Himachal under ₹8,000",
@@ -56,7 +56,7 @@ const AISmartSearch: React.FC<AISmartSearchProps> = ({
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
-      
+
       searchTimeoutRef.current = setTimeout(() => {
         processSmartSearch(query);
       }, 800);
@@ -88,7 +88,7 @@ const AISmartSearch: React.FC<AISmartSearchProps> = ({
       if ((response.data as any).success && (response.data as any).data) {
         const result: SmartSearchResult = (response.data as any).data;
         setSearchResult(result);
-        
+
         if (onSuggestionsChange) {
           onSuggestionsChange(result.suggestions);
         }
@@ -161,7 +161,7 @@ const AISmartSearch: React.FC<AISmartSearchProps> = ({
               )}
             </div>
           </div>
-          
+
           <input
             ref={inputRef}
             type="text"
@@ -171,7 +171,7 @@ const AISmartSearch: React.FC<AISmartSearchProps> = ({
             placeholder={placeholder}
             className="w-full pl-20 pr-12 py-4 text-gray-900 placeholder-gray-500 bg-white border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-200"
           />
-          
+
           <button
             type="submit"
             disabled={!query.trim() || isProcessing}
@@ -199,7 +199,7 @@ const AISmartSearch: React.FC<AISmartSearchProps> = ({
             <span className="text-lg">🧠</span>
             <h4 className="font-semibold text-blue-900">AI Understanding</h4>
           </div>
-          
+
           <div className="space-y-3">
             <div>
               <p className="text-sm text-gray-600 mb-1">Intent:</p>
