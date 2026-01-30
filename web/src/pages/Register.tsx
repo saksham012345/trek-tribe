@@ -39,9 +39,14 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
   } | undefined>(undefined);
 
   // Redirect if already logged in
+  // Redirect if already logged in
   useEffect(() => {
     if (user) {
-      navigate('/', { replace: true });
+      if (user.emailVerified === false && user.role !== 'admin' && user.role !== 'agent') {
+        navigate('/verify-email', { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
     }
   }, [user, navigate]);
 
@@ -157,16 +162,16 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
       });
 
       const responseData = response.data as any;
-      
+
       // Registration successful, now verify email
       if (responseData.requiresVerification && responseData.userId) {
         setUserId(responseData.userId);
-        
+
         // Show dev OTP if available
         if (responseData.otp) {
           setDevOtp(responseData.otp);
         }
-        
+
         // Show email verification modal
         setShowEmailVerification(true);
         setError('');
@@ -184,9 +189,12 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
         } else {
           errorMessage = error.response.data.error;
         }
-        
+
         // Provide better guidance for common errors
-        if (errorMessage.includes('Email already in use')) {
+        if (error.response.data.code === 'ACCOUNT_UNVERIFIED') {
+          setError('Account exists but is unverified. Please log in to complete verification.');
+          // Optional: You could automatically redirect to login or show a button
+        } else if (errorMessage.includes('Email already in use')) {
           setError('This email is already registered. Try logging in instead, or use a different email address.');
         } else {
           setError(errorMessage);
@@ -203,7 +211,7 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
 
   const handleEmailVerified = async () => {
     setShowEmailVerification(false);
-    
+
     // Phone verified, now login
     try {
       const result = await onLogin(formData.email, formData.password);
@@ -238,7 +246,7 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
                 bio: organizerDraft.bio,
               }
             });
-          } catch {}
+          } catch { }
         }
         // After successful registration & auto-login, redirect to homepage
         navigate('/', { replace: true });
@@ -283,200 +291,201 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
           {/* Right: Form card */}
           <div className="w-full space-y-6 sm:space-y-8">
             <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-6 sm:p-8 border border-forest-200">
-          {/* Google Sign-Up - only show if not logged in */}
-          {!user && (
-            <div className="space-y-3 mb-4">
-              <GoogleLoginButton 
-                className="w-full"
-                onError={(msg) => setError(msg || 'Google sign-in failed')}
-                onSuccess={() => {
-                  setError('');
-                  // After Google sign-in, collect role basics
-                  setShowRoleModal(true);
+              {/* Google Sign-Up - only show if not logged in */}
+              {!user && (
+                <div className="space-y-3 mb-4">
+                  <GoogleLoginButton
+                    className="w-full"
+                    onError={(msg) => setError(msg || 'Google sign-in failed')}
+                    onSuccess={() => {
+                      setError('');
+                      // After Google sign-in, collect role basics
+                      setShowRoleModal(true);
+                    }}
+                  />
+                  <div className="flex items-center gap-2">
+                    <div className="h-px bg-forest-200 flex-1" />
+                    <span className="text-forest-500 text-sm">or</span>
+                    <div className="h-px bg-forest-200 flex-1" />
+                  </div>
+                </div>
+              )}
+
+              <RoleSelectModal
+                open={showRoleModal}
+                onClose={() => setShowRoleModal(false)}
+                onSelect={(role, data) => {
+                  setFormData(prev => ({ ...prev, role }));
+                  setOrganizerDraft(data);
+                  setShowRoleModal(false);
                 }}
               />
-              <div className="flex items-center gap-2">
-                <div className="h-px bg-forest-200 flex-1" />
-                <span className="text-forest-500 text-sm">or</span>
-                <div className="h-px bg-forest-200 flex-1" />
-              </div>
-            </div>
-          )}
 
-          <RoleSelectModal 
-            open={showRoleModal}
-            onClose={() => setShowRoleModal(false)}
-            onSelect={(role, data) => {
-              setFormData(prev => ({ ...prev, role }));
-              setOrganizerDraft(data);
-              setShowRoleModal(false);
-            }}
-          />
-          
-          <EmailVerificationModal
-            open={showEmailVerification}
-            email={formData.email}
-            userId={userId}
-            onVerified={handleEmailVerified}
-            onClose={() => {
-              setShowEmailVerification(false);
-              setError('Registration cancelled. Please try again.');
-            }}
-            initialDevOtp={devOtp}
-          />
-          <form className="space-y-4 sm:space-y-6" onSubmit={handleSubmit}>
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2">
-                <span className="text-xl">⚠️</span>
-                <span className="text-sm">{error}</span>
-              </div>
-            )}
-          
-            <div className="space-y-6">
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
-                  👤 Full Name
-                </label>
-                <input
-                  id="name"
-                  name="name"
-                  type="text"
-                  autoComplete="name"
-                  required
-                  value={formData.name}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
-                  placeholder="Enter your full name"
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="username" className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
-                  🔗 Username (profile URL)
-                </label>
-                <input
-                  id="username"
-                  name="username"
-                  type="text"
-                  value={formData.username}
-                  onChange={handleChange}
-                  onBlur={() => checkUsernameAvailability(formData.username)}
-                  className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
-                  placeholder="e.g., trekker-jane"
-                  required
-                />
-                <p className="text-xs text-forest-600 mt-1">
-                  This becomes your profile link: trektribe.com/profile/{formData.username || 'your-name'}
-                  {usernameStatus === 'checking' && ' • Checking availability...'}
-                  {usernameStatus === 'available' && ' • Available!'}
-                  {usernameStatus === 'taken' && ' • Already taken'}
-                </p>
-              </div>
-
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
-                  📧 Email address
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
-                  placeholder="Enter your email"
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="phoneNumber" className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
-                  📱 Phone Number <span className="text-xs text-gray-500">(Optional)</span>
-                </label>
-                <input
-                  id="phoneNumber"
-                  name="phoneNumber"
-                  type="tel"
-                  autoComplete="tel"
-                  value={formData.phoneNumber}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
-                  placeholder="+1234567890 (include country code)"
-                />
-                <p className="text-xs text-forest-600 mt-1">You'll receive an email verification code</p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
-                  🎯 Join as
-                </label>
-                <div className="flex gap-3">
-                  <button type="button" onClick={() => setShowRoleModal(true)} className="px-4 py-2 border-2 border-forest-200 rounded-xl hover:border-nature-500 hover:bg-nature-50 transition">Select role</button>
-                  {formData.role && (
-                    <span className="px-3 py-2 bg-forest-100 text-forest-700 rounded-xl text-sm">{formData.role === 'traveler' ? 'Adventurer' : 'Organizer'} selected</span>
-                  )}
-                </div>
-              </div>
-              
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
-                  🔐 Password
-                </label>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
-                  placeholder="Create a secure password"
-                />
-                <p className="text-xs text-forest-600 mt-1">{passwordHint}</p>
-              </div>
-              
-              <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
-                  ✅ Confirm Password
-                </label>
-                <input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
-                  placeholder="Confirm your password"
-                />
-              </div>
-            </div>
-
-            <div className="pt-2 sm:pt-4">
-              <button
-                type="submit"
-                disabled={loading}
-                className="group relative w-full flex justify-center py-3 sm:py-4 px-4 sm:px-6 border border-transparent text-base sm:text-lg font-bold rounded-xl text-white bg-gradient-to-r from-nature-600 to-forest-600 hover:from-nature-700 hover:to-forest-700 focus:outline-none focus:ring-4 focus:ring-nature-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
-              >
-                {loading ? (
-                  <span className="flex items-center gap-2">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    Creating your adventure profile...
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-2">
-                    🌱 Join the Tribe
-                    <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </span>
+              <EmailVerificationModal
+                open={showEmailVerification}
+                email={formData.email}
+                userId={userId}
+                onVerified={handleEmailVerified}
+                onClose={() => {
+                  setShowEmailVerification(false);
+                  setError('Registration cancelled. Please try again.');
+                }}
+                initialDevOtp={devOtp}
+              />
+              <form className="space-y-4 sm:space-y-6" onSubmit={handleSubmit}>
+                {error && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2">
+                    <span className="text-xl">⚠️</span>
+                    <span className="text-sm">{error}</span>
+                  </div>
                 )}
-              </button>
-            </div>
-          </form>
+
+                <div className="space-y-6">
+                  <div>
+                    <label htmlFor="name" className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
+                      👤 Full Name
+                    </label>
+                    <input
+                      id="name"
+                      name="name"
+                      type="text"
+                      autoComplete="name"
+                      required
+                      value={formData.name}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
+                      placeholder="Enter your full name"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="username" className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
+                      🔗 Username (profile URL)
+                    </label>
+                    <input
+                      id="username"
+                      name="username"
+                      type="text"
+                      value={formData.username}
+                      onChange={handleChange}
+                      onBlur={() => checkUsernameAvailability(formData.username)}
+                      className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
+                      placeholder="e.g., trekker-jane"
+                      required
+                    />
+                    <p className="text-xs text-forest-600 mt-1">
+                      This becomes your profile link: trektribe.com/profile/{formData.username || 'your-name'}
+                      {usernameStatus === 'checking' && ' • Checking availability...'}
+                      {usernameStatus === 'available' && ' • Available!'}
+                      {usernameStatus === 'taken' && ' • Already taken'}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
+                      📧 Email address
+                    </label>
+                    <input
+                      id="email"
+                      name="email"
+                      type="email"
+                      autoComplete="email"
+                      required
+                      value={formData.email}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
+                      placeholder="Enter your email"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="phoneNumber" className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
+                      📱 Phone Number <span className="text-xs text-red-500">*</span>
+                    </label>
+                    <input
+                      id="phoneNumber"
+                      name="phoneNumber"
+                      type="tel"
+                      autoComplete="tel"
+                      required
+                      value={formData.phoneNumber}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
+                      placeholder="+1234567890 (include country code)"
+                    />
+                    <p className="text-xs text-forest-600 mt-1">Required for trip coordination.</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
+                      🎯 Join as
+                    </label>
+                    <div className="flex gap-3">
+                      <button type="button" onClick={() => setShowRoleModal(true)} className="px-4 py-2 border-2 border-forest-200 rounded-xl hover:border-nature-500 hover:bg-nature-50 transition">Select role</button>
+                      {formData.role && (
+                        <span className="px-3 py-2 bg-forest-100 text-forest-700 rounded-xl text-sm">{formData.role === 'traveler' ? 'Adventurer' : 'Organizer'} selected</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="password" className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
+                      🔐 Password
+                    </label>
+                    <input
+                      id="password"
+                      name="password"
+                      type="password"
+                      autoComplete="new-password"
+                      required
+                      value={formData.password}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
+                      placeholder="Create a secure password"
+                    />
+                    <p className="text-xs text-forest-600 mt-1">{passwordHint}</p>
+                  </div>
+
+                  <div>
+                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
+                      ✅ Confirm Password
+                    </label>
+                    <input
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      type="password"
+                      autoComplete="new-password"
+                      required
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
+                      placeholder="Confirm your password"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 sm:pt-4">
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="group relative w-full flex justify-center py-3 sm:py-4 px-4 sm:px-6 border border-transparent text-base sm:text-lg font-bold rounded-xl text-white bg-gradient-to-r from-nature-600 to-forest-600 hover:from-nature-700 hover:to-forest-700 focus:outline-none focus:ring-4 focus:ring-nature-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                  >
+                    {loading ? (
+                      <span className="flex items-center gap-2">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                        Creating your adventure profile...
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-2">
+                        🌱 Join the Tribe
+                        <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>

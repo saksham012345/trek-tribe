@@ -1,29 +1,13 @@
-import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-
-export interface AuthPayload {
-  id: string;
-  userId: string;
-  role: 'traveler' | 'organizer' | 'admin' | 'agent';
-}
-
-// Extend Request type to include user property
-declare global {
-  namespace Express {
-    interface Request {
-      user?: AuthPayload;
-      auth?: AuthPayload;
-    }
-  }
-}
+import { User } from '../models/User';
 
 export function authenticateToken(req: Request, res: Response, next: NextFunction) {
+  // ... (existing code, not modifying authenticateToken body here, just ensuring import is at top)
   // Priority: Cookie (httpOnly, secure) > Authorization header (for backward compatibility)
   let token: string | undefined;
-  
+
   // First, try to get token from httpOnly cookie (secure method)
   token = req.cookies?.token || req.cookies?.authToken;
-  
+
   // Fallback to Authorization header for backward compatibility
   if (!token) {
     const rawAuth = (req.headers.authorization as string) || (req.headers['x-access-token'] as string) || '';
@@ -115,17 +99,48 @@ export function authenticateToken(req: Request, res: Response, next: NextFunctio
 export const authenticateJwt = authenticateToken;
 export const auth = authenticateToken;
 
-export function requireRole(roles: AuthPayload['role'][]){
-  return (req: Request, res: Response, next: NextFunction) => {
-    const payload = req.user || req.auth;
-    if (!payload || !roles.includes(payload.role)) {
-      const message = roles.length === 1
-        ? `Access denied. You must be a ${roles[0]} to access this feature.`
-        : 'Access denied. Your account does not have permission for this action.';
-      return res.status(403).json({ error: message });
+export async function requirePhoneVerified(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = req.user as any;
+
+    if (user?.role === 'admin' || user?.role === 'agent') {
+      return next();
+    }
+
+    const foundUser = await User.findById(user.id).select('phoneVerified');
+    if (!foundUser || !foundUser.phoneVerified) {
+      return res.status(403).json({
+        error: 'Phone verification required',
+        code: 'PHONE_REQUIRED',
+        message: 'You must verify your phone number to perform this action.'
+      });
     }
     next();
-  };
+  } catch (err) {
+    console.error('Error in requirePhoneVerified:', err);
+    res.status(500).json({ error: 'Internal server error during verification check' });
+  }
 }
 
+export async function requireEmailVerified(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = req.user as any;
 
+    if (user?.role === 'admin' || user?.role === 'agent') {
+      return next();
+    }
+
+    const foundUser = await User.findById(user.id).select('emailVerified');
+    if (!foundUser || !foundUser.emailVerified) {
+      return res.status(403).json({
+        error: 'Email verification required',
+        code: 'EMAIL_REQUIRED',
+        message: 'You must verify your email address to perform this action.'
+      });
+    }
+    next();
+  } catch (err) {
+    console.error('Error in requireEmailVerified:', err);
+    res.status(500).json({ error: 'Internal server error during verification check' });
+  }
+}

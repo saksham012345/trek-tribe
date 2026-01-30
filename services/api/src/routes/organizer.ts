@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { Trip } from '../models/Trip';
 import { GroupBooking } from '../models/GroupBooking';
 import { User } from '../models/User';
-import { authenticateJwt, requireRole } from '../middleware/auth';
+import { authenticateJwt, requireRole, requireEmailVerified } from '../middleware/auth';
 import { socketService } from '../services/socketService';
 import { emailService } from '../services/emailService';
 import { logger } from '../utils/logger';
@@ -13,10 +13,10 @@ const router = Router();
 router.get('/trips', authenticateJwt, requireRole(['organizer', 'admin']), async (req, res) => {
   try {
     const organizerId = (req as any).auth.userId;
-    
+
     // Get all trips created by this organizer
     const trips = await Trip.find({ organizerId }).lean();
-    
+
     // For each trip, get pending verification count
     const tripsWithCounts = await Promise.all(
       trips.map(async (trip) => {
@@ -24,16 +24,16 @@ router.get('/trips', authenticateJwt, requireRole(['organizer', 'admin']), async
           tripId: trip._id,
           paymentVerificationStatus: 'pending'
         });
-        
+
         return {
           ...trip,
           pendingVerifications
         };
       })
     );
-    
+
     res.json({ trips: tripsWithCounts });
-    
+
   } catch (error: any) {
     logger.error('Error fetching organizer trips', { error: error.message, organizerId: (req as any).auth.userId });
     res.status(500).json({ error: 'Failed to fetch trips' });
@@ -44,26 +44,26 @@ router.get('/trips', authenticateJwt, requireRole(['organizer', 'admin']), async
 router.get('/pending-verifications', authenticateJwt, requireRole(['organizer', 'admin']), async (req, res) => {
   try {
     const organizerId = (req as any).auth.userId;
-    
+
     // Find all bookings for this organizer's trips that need verification
     const pendingBookings = await GroupBooking.find({
       paymentVerificationStatus: 'pending'
     })
-    .populate({
-      path: 'tripId',
-      match: { organizerId },
-      select: 'title destination organizerId'
-    })
-    .populate('mainBookerId', 'name email phone')
-    .sort({ createdAt: -1 });
-    
+      .populate({
+        path: 'tripId',
+        match: { organizerId },
+        select: 'title destination organizerId'
+      })
+      .populate('mainBookerId', 'name email phone')
+      .sort({ createdAt: -1 });
+
     // Filter out bookings where trip population failed (not organizer's trips)
     const validBookings = pendingBookings
       .filter(booking => booking.tripId !== null)
       .map(booking => {
         const trip = booking.tripId as any;
         const mainBooker = booking.mainBookerId as any;
-        
+
         return {
           _id: booking._id,
           tripId: trip._id,
@@ -83,9 +83,9 @@ router.get('/pending-verifications', authenticateJwt, requireRole(['organizer', 
           }))
         };
       });
-    
+
     res.json({ bookings: validBookings });
-    
+
   } catch (error: any) {
     logger.error('Error fetching pending verifications', { error: error.message, organizerId: (req as any).auth.userId });
     res.status(500).json({ error: 'Failed to fetch pending verifications' });
@@ -98,35 +98,35 @@ router.post('/verify-payment/:bookingId', authenticateJwt, requireRole(['organiz
     const organizerId = (req as any).auth.userId;
     const { bookingId } = req.params;
     const { action, notes } = req.body; // action: 'verify' | 'reject'
-    
+
     if (!['verify', 'reject'].includes(action)) {
       return res.status(400).json({ error: 'Invalid action. Must be "verify" or "reject"' });
     }
-    
+
     // Find the booking and ensure it belongs to organizer's trip
     const booking = await GroupBooking.findById(bookingId)
       .populate('tripId', 'organizerId title')
       .populate('mainBookerId', 'name email');
-    
+
     if (!booking) {
       return res.status(404).json({ error: 'Booking not found' });
     }
-    
+
     const trip = booking.tripId as any;
     if (trip.organizerId.toString() !== organizerId) {
       return res.status(403).json({ error: 'You can only verify payments for your own trips' });
     }
-    
+
     if (booking.paymentVerificationStatus !== 'pending') {
       return res.status(400).json({ error: 'Payment verification already processed' });
     }
-    
+
     // Update booking status
     if (action === 'verify') {
       booking.paymentVerificationStatus = 'verified';
       booking.bookingStatus = 'confirmed';
       booking.paymentStatus = 'completed';
-      
+
       // Add participants to trip if not already added
       const trip = await Trip.findById(booking.tripId);
       if (trip && !trip.participants.includes(booking.mainBookerId as any)) {
@@ -138,29 +138,29 @@ router.post('/verify-payment/:bookingId', authenticateJwt, requireRole(['organiz
       booking.bookingStatus = 'cancelled';
       booking.rejectionReason = notes || 'Payment verification failed';
     }
-    
+
     booking.verifiedBy = organizerId;
     booking.verifiedAt = new Date();
     booking.verificationNotes = notes;
-    
+
     await booking.save();
-    
+
     // Broadcast real-time update
     const bookingData = {
       ...booking.toObject(),
       tripTitle: trip.title,
       organizerId: trip.organizerId
     };
-    
+
     socketService.broadcastBookingUpdate(bookingData, action === 'verify' ? 'payment_verified' : 'cancelled');
-    
+
     logger.info('Payment verification processed', {
       bookingId,
       action,
       organizerId,
       tripTitle: trip.title
     });
-    
+
     res.json({
       message: `Payment ${action === 'verify' ? 'verified' : 'rejected'} successfully`,
       booking: {
@@ -169,7 +169,7 @@ router.post('/verify-payment/:bookingId', authenticateJwt, requireRole(['organiz
         paymentVerificationStatus: booking.paymentVerificationStatus
       }
     });
-    
+
   } catch (error: any) {
     logger.error('Error processing payment verification', {
       error: error.message,
@@ -184,43 +184,43 @@ router.post('/verify-payment/:bookingId', authenticateJwt, requireRole(['organiz
 router.get('/stats', authenticateJwt, requireRole(['organizer', 'admin']), async (req, res) => {
   try {
     const organizerId = (req as any).auth.userId;
-    
+
     // Get trip statistics
     const totalTrips = await Trip.countDocuments({ organizerId });
     const activeTrips = await Trip.countDocuments({ organizerId, status: 'active' });
     const completedTrips = await Trip.countDocuments({ organizerId, status: 'completed' });
-    
+
     // Get booking statistics from organizer's trips
     const tripIds = await Trip.find({ organizerId }).distinct('_id');
-    
+
     const totalBookings = await GroupBooking.countDocuments({ tripId: { $in: tripIds } });
-    const pendingVerifications = await GroupBooking.countDocuments({ 
-      tripId: { $in: tripIds }, 
-      paymentVerificationStatus: 'pending' 
+    const pendingVerifications = await GroupBooking.countDocuments({
+      tripId: { $in: tripIds },
+      paymentVerificationStatus: 'pending'
     });
-    const confirmedBookings = await GroupBooking.countDocuments({ 
-      tripId: { $in: tripIds }, 
-      bookingStatus: 'confirmed' 
+    const confirmedBookings = await GroupBooking.countDocuments({
+      tripId: { $in: tripIds },
+      bookingStatus: 'confirmed'
     });
-    
+
     // Calculate total revenue from confirmed bookings
     const revenueData = await GroupBooking.aggregate([
       { $match: { tripId: { $in: tripIds }, bookingStatus: 'confirmed' } },
       { $group: { _id: null, totalRevenue: { $sum: '$finalAmount' } } }
     ]);
-    
+
     const totalRevenue = revenueData.length > 0 ? revenueData[0].totalRevenue : 0;
-    
+
     // Get recent bookings
-    const recentBookings = await GroupBooking.find({ 
-      tripId: { $in: tripIds } 
+    const recentBookings = await GroupBooking.find({
+      tripId: { $in: tripIds }
     })
-    .populate('tripId', 'title destination')
-    .populate('mainBookerId', 'name')
-    .sort({ createdAt: -1 })
-    .limit(5)
-    .lean();
-    
+      .populate('tripId', 'title destination')
+      .populate('mainBookerId', 'name')
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .lean();
+
     const stats = {
       trips: {
         total: totalTrips,
@@ -244,9 +244,9 @@ router.get('/stats', authenticateJwt, requireRole(['organizer', 'admin']), async
         createdAt: booking.createdAt
       }))
     };
-    
+
     res.json({ stats });
-    
+
   } catch (error: any) {
     logger.error('Error fetching organizer stats', { error: error.message, organizerId: (req as any).auth.userId });
     res.status(500).json({ error: 'Failed to fetch statistics' });
@@ -258,21 +258,21 @@ router.get('/trip/:tripId/participants', authenticateJwt, requireRole(['organize
   try {
     const organizerId = (req as any).auth.userId;
     const { tripId } = req.params;
-    
+
     // Verify trip belongs to organizer
     const trip = await Trip.findOne({ _id: tripId, organizerId });
     if (!trip) {
       return res.status(404).json({ error: 'Trip not found or access denied' });
     }
-    
+
     // Get all confirmed bookings for this trip
-    const bookings = await GroupBooking.find({ 
-      tripId, 
-      bookingStatus: 'confirmed' 
+    const bookings = await GroupBooking.find({
+      tripId,
+      bookingStatus: 'confirmed'
     })
-    .populate('mainBookerId', 'name email phone')
-    .sort({ createdAt: 1 });
-    
+      .populate('mainBookerId', 'name email phone')
+      .sort({ createdAt: 1 });
+
     const participants = bookings.map(booking => ({
       bookingId: booking._id,
       mainBooker: {
@@ -286,7 +286,7 @@ router.get('/trip/:tripId/participants', authenticateJwt, requireRole(['organize
       specialRequests: booking.specialRequests,
       bookedAt: booking.createdAt
     }));
-    
+
     res.json({
       trip: {
         id: trip._id,
@@ -299,7 +299,7 @@ router.get('/trip/:tripId/participants', authenticateJwt, requireRole(['organize
       },
       participants
     });
-    
+
   } catch (error: any) {
     logger.error('Error fetching trip participants', { error: error.message, tripId: req.params.tripId });
     res.status(500).json({ error: 'Failed to fetch trip participants' });

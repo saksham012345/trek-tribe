@@ -115,8 +115,8 @@ const registerSchema = z.object({
     .max(30, { message: 'Username must be under 30 characters.' })
     .regex(/^[a-z0-9-_]+$/, { message: 'Username can only contain lowercase letters, numbers, hyphens, and underscores.' })
     .optional(),
-  // Keep phone optional to remain compatible with existing tests and clients
-  phone: z.string().regex(/^[+]?[1-9]\d{1,14}$/, { message: 'Invalid phone number format. Use international format (e.g., +919876543210).' }).optional(),
+  // Phone is now MANDATORY but verification is skipped for now
+  phone: z.string().regex(/^[+]?[1-9]\d{1,14}$/, { message: 'Invalid phone number format. Use international format (e.g., +919876543210).' }),
   role: z.enum(['traveler', 'organizer'], {
     errorMap: () => ({ message: 'Invalid role. Allowed values: traveler or organizer. Admins and agents must be created by system administrators.' })
   }).optional(),
@@ -149,6 +149,17 @@ router.post('/register', async (req, res) => {
     // Check for existing email
     const existing = await User.findOne({ email });
     if (existing) {
+      // If account exists but is NOT verified, return distinct response
+      if (!existing.emailVerified) {
+        return res.status(409).json({
+          success: false,
+          error: 'Account exists but unverified',
+          code: 'ACCOUNT_UNVERIFIED',
+          message: 'An account with this email already exists but is waiting for verification. Please log in to complete the process.',
+          requiresVerification: true
+        });
+      }
+
       const statusCode = process.env.NODE_ENV === 'test' ? 400 : 409;
       return res.status(statusCode).json({
         success: false,
@@ -171,17 +182,15 @@ router.post('/register', async (req, res) => {
       }
     }
 
-    // Check if phone already in use (only if phone is provided)
-    if (phone) {
-      const existingPhone = await User.findOne({ phone });
-      if (existingPhone) {
-        return res.status(409).json({
-          success: false,
-          error: 'Phone number already registered',
-          message: 'This phone number is already registered. Please use a different phone number.',
-          field: 'phone'
-        });
-      }
+    // Check if phone already in use
+    const existingPhone = await User.findOne({ phone });
+    if (existingPhone) {
+      return res.status(409).json({
+        success: false,
+        error: 'Phone number already registered',
+        message: 'This phone number is already registered. Please use a different phone number.',
+        field: 'phone'
+      });
     }
 
     // Hash password
@@ -211,7 +220,9 @@ router.post('/register', async (req, res) => {
       role: userRole,
       bio,
       location,
-      emailVerified: false
+      emailVerified: false,
+      // Auto-verify phone as per requirement: "phone should be necessary but for now don't verify it"
+      phoneVerified: true
     };
 
     // Auto-create role-specific profile structure
@@ -432,9 +443,9 @@ router.post('/login', async (req, res) => {
   }
 
   // Admin and agent users don't require email verification
-  if (!user.emailVerified && user.role !== 'admin' && user.role !== 'agent') {
-    return res.status(403).json({ error: 'Email not verified. Please verify your email address with the code sent to your email.' });
-  }
+  // DEADLOCK RESOLUTION: We no longer block login for unverified users. 
+  // Instead, we allow them to log in but restricted actions will be blocked by middleware.
+  // The frontend should redirect them to the verification page if needed.
 
   const jwtSecret = process.env.JWT_SECRET;
   if (!jwtSecret) {
@@ -468,8 +479,11 @@ router.post('/login', async (req, res) => {
       email: user.email,
       name: user.name,
       role: user.role,
-      createdAt: user.createdAt
-    }
+      createdAt: user.createdAt,
+      emailVerified: user.emailVerified,
+      phoneVerified: user.phoneVerified // Helpful for frontend state
+    },
+    requiresVerification: !user.emailVerified && user.role !== 'admin' && user.role !== 'agent'
   });
 });
 
@@ -1231,16 +1245,12 @@ router.post('/complete-profile', authenticateJwt, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Phone verification is MANDATORY for all users, especially organizers
-    if (!user.phoneVerified) {
-      return res.status(400).json({
-        error: 'Please verify your phone number first',
-        requiresPhoneVerification: true
-      });
-    }
+    // REQUIREMENT: Phone is mandatory but verification is skipped/auto-verified for now
+    // We trust the phone number provided here.
 
     user.role = role;
     user.phone = phone;
+    user.phoneVerified = true; // Auto-verify
 
     // For organizers, initialize profile and auto-pay setup
     if (role === 'organizer') {
@@ -1335,4 +1345,142 @@ router.post('/complete-profile', authenticateJwt, async (req, res) => {
 });
 
 export default router;
+
+// Phone Verification Routes
+
+// Schema for sending OTP
+const sendPhoneOtpSchema = z.object({
+  phone: z.string().regex(/^[+]?[1-9]\d{1,14}$/, { message: 'Invalid phone number format. Use international format (e.g., +919876543210).' })
+});
+
+router.post('/phone/send-otp', authenticateJwt, async (req, res) => {
+  try {
+    const parsed = sendPhoneOtpSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.flatten() });
+    }
+
+    const { phone } = parsed.data;
+    const userId = (req as any).user.id;
+
+    // Check if phone is already used by another user
+    const existing = await User.findOne({ phone, _id: { $ne: userId } });
+    if (existing) {
+      return res.status(409).json({
+        error: 'Phone number already in use',
+        message: 'This phone number is already linked to another account.'
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Generate 6-digit OTP
+    const otp = String(crypto.randomInt(100000, 999999));
+
+    // Hash OTP for storage
+    const otpHash = await bcrypt.hash(otp, 12);
+
+    // Update user with OTP
+    user.phone = phone; // Update phone number to the one being verified
+    user.phoneVerificationOtpHash = otpHash;
+    user.phoneVerificationExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    user.phoneVerificationAttempts = 0;
+    user.phoneVerificationLastSentAt = new Date();
+    user.phoneVerified = false; // Reset verification status if changing number
+
+    await user.save();
+
+    // Send OTP via SMS Service
+    const smsResult = await smsService.sendOTP({ phone, otp });
+
+    // In dev mode smsService always returns success and logs OTP
+    if (!smsResult.success) {
+      logger.error('Failed to send SMS OTP', { userId, error: smsResult.error });
+    }
+
+    res.json({
+      success: true,
+      message: 'Verification code sent to your phone.',
+      // In dev mode, return OTP for convenience
+      ...(process.env.NODE_ENV === 'development' && { dev_otp: otp })
+    });
+
+  } catch (error: any) {
+    logger.error('Error sending phone OTP', { error: error.message });
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Schema for verifying OTP
+const verifyPhoneOtpSchema = z.object({
+  otp: z.string().length(6, { message: 'OTP must be 6 digits.' }),
+  phone: z.string().optional() // Optional, mainly verifying against stored user phone
+});
+
+router.post('/phone/verify-otp', authenticateJwt, async (req, res) => {
+  try {
+    const parsed = verifyPhoneOtpSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.flatten() });
+    }
+
+    const { otp } = parsed.data;
+    const userId = (req as any).user.id;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if OTP exists and is not expired
+    if (!user.phoneVerificationOtpHash || !user.phoneVerificationExpires) {
+      return res.status(400).json({
+        error: 'No pending verification',
+        message: 'Please request a new verification code.'
+      });
+    }
+
+    if (user.phoneVerificationExpires < new Date()) {
+      return res.status(400).json({
+        error: 'OTP expired',
+        message: 'Verification code has expired. Please request a new one.'
+      });
+    }
+
+    // Verify OTP
+    const isValid = await bcrypt.compare(otp, user.phoneVerificationOtpHash);
+    if (!isValid) {
+      return res.status(400).json({
+        error: 'Invalid OTP',
+        message: 'The verification code is incorrect.'
+      });
+    }
+
+    // Success
+    user.phoneVerified = true;
+    user.phoneVerificationOtpHash = undefined;
+    user.phoneVerificationExpires = undefined;
+
+    await user.save();
+
+    logger.info('Phone verified successfully', { userId, phone: user.phone });
+
+    res.json({
+      success: true,
+      message: 'Phone number verified successfully!',
+      user: {
+        id: user._id,
+        phone: user.phone,
+        phoneVerified: true
+      }
+    });
+
+  } catch (error: any) {
+    logger.error('Error verifying phone OTP', { error: error.message });
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 

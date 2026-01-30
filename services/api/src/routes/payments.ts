@@ -1,7 +1,7 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import { z } from 'zod';
-import { authenticateJwt } from '../middleware/auth';
+import { authenticateJwt, requireEmailVerified } from '../middleware/auth';
 import { razorpayService, SUBSCRIPTION_PLANS } from '../services/razorpayService';
 import { Payment } from '../models/Payment';
 import { OrganizerSubscription } from '../models/OrganizerSubscription';
@@ -20,7 +20,7 @@ const subscriptionCheckoutSchema = z.object({
     planId: z.string()
 });
 
-router.post('/checkout/subscription', authenticateJwt, async (req, res) => {
+router.post('/checkout/subscription', authenticateJwt, requireEmailVerified, async (req, res) => {
     try {
         const userId = (req as any).auth.userId;
         const { planId } = subscriptionCheckoutSchema.parse(req.body);

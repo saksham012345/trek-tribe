@@ -69,6 +69,8 @@ const AdminOrganizerVerification = React.lazy(() => retryLazyLoad(() => import('
 const RequestTripPage = React.lazy(() => retryLazyLoad(() => import('./pages/custom-trips/RequestTripPage')));
 const MyRequestsPage = React.lazy(() => retryLazyLoad(() => import('./pages/custom-trips/MyRequestsPage')));
 const ProposalViewPage = React.lazy(() => retryLazyLoad(() => import('./pages/custom-trips/ProposalViewPage')));
+const CompleteProfile = React.lazy(() => retryLazyLoad(() => import('./pages/CompleteProfile')));
+const VerifyEmail = React.lazy(() => retryLazyLoad(() => import('./pages/VerifyEmail')));
 
 // Error Boundary for lazy loading failures
 class ChunkErrorBoundary extends React.Component<
@@ -162,6 +164,7 @@ function AppContent() {
                 path="/register"
                 element={user ? <Navigate to="/home" /> : <Register onLogin={handleLogin} />}
               />
+              <Route path="/verify-email" element={<VerifyEmail />} />
               <Route path="/join-the-tribe" element={<JoinTheTribe />} />
               <Route
                 path="/subscribe"
@@ -294,6 +297,10 @@ function AppContent() {
               <Route
                 path="/custom-trips/:requestId/proposal/:proposalId"
                 element={user ? <ProposalViewPage /> : <Navigate to="/login" />}
+              />
+              <Route
+                path="/complete-profile"
+                element={user ? <CompleteProfile /> : <Navigate to="/login" />}
               />
             </Routes>
           </React.Suspense>

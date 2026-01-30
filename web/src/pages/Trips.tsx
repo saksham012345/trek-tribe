@@ -57,7 +57,7 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
     const fetchTrips = async () => {
       try {
         const params = new URLSearchParams();
-        if (searchTerm) params.append('search', searchTerm);
+        if (searchTerm) params.append('q', searchTerm);
         if (selectedCategory) params.append('category', selectedCategory);
 
         console.log('🔍 Fetching trips with params:', params.toString());
@@ -441,14 +441,14 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
                     <div className="flex gap-2">
                       <Link
                         to={`/trip/${trip._id}`}
-                        className="flex-1 bg-forest-100 hover:bg-forest-200 text-forest-700 px-3 py-2 rounded-lg font-medium text-sm transition-all duration-300 border border-forest-200 text-center"
+                        className="flex-1 bg-forest-100 hover:bg-forest-200 text-forest-700 px-3 py-2 rounded-lg font-medium text-sm transition-all duration-300 border border-forest-200 text-center relative z-10"
                       >
                         👁️ View Details
                       </Link>
                       {trip.participants?.includes(user?.id || '') ? (
                         <button
                           onClick={() => handleLeaveTrip(trip._id)}
-                          className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-4 py-2 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 text-sm"
+                          className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-4 py-2 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 text-sm relative z-10"
                         >
                           🚪 Leave Trip
                         </button>
@@ -462,7 +462,7 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
                       ) : (
                         <button
                           onClick={() => handleJoinTrip(trip)}
-                          className="bg-gradient-to-r from-forest-600 to-nature-600 hover:from-forest-700 hover:to-nature-700 text-white px-4 py-2 rounded-xl font-medium transition-all duration-300 transform hover:scale-105"
+                          className="bg-gradient-to-r from-forest-600 to-nature-600 hover:from-forest-700 hover:to-nature-700 text-white px-4 py-2 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 relative z-10"
                         >
                           🌟 Join Adventure
                         </button>

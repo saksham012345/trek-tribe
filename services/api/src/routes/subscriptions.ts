@@ -1324,7 +1324,12 @@ router.patch('/:organizerId', authenticateJwt, requireRole(['admin']), async (re
     if (updates.plan) subscription.plan = updates.plan;
     if (updates.status) subscription.status = updates.status;
     if (updates.crmAccess !== undefined) subscription.crmAccess = updates.crmAccess;
-    if (updates.tripsRemaining !== undefined) subscription.tripsRemaining = updates.tripsRemaining;
+    if (updates.tripsRemaining !== undefined) {
+      // Fix: Update tripsPerCycle so the pre-save hook calculates the correct remaining amount
+      // tripsRemaining = tripsPerCycle - tripsUsed  =>  tripsPerCycle = tripsRemaining + tripsUsed
+      subscription.tripsPerCycle = Number(updates.tripsRemaining) + subscription.tripsUsed;
+      subscription.tripsRemaining = Number(updates.tripsRemaining);
+    }
     if (updates.validUntil) {
       subscription.subscriptionEndDate = new Date(updates.validUntil);
       subscription.currentPeriodEnd = new Date(updates.validUntil);

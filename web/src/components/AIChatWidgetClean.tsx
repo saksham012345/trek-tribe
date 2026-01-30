@@ -21,10 +21,15 @@ const AIChatWidgetClean: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   // Load messages from localStorage on component mount
+  // Load messages from localStorage on component mount
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     if (typeof window !== 'undefined') {
       try {
-        const savedMessages = localStorage.getItem('chatMessages');
+        // Use user-specific key if available, otherwise guest
+        // Note: user might be null on first render if auth is loading, so we might start with guest
+        // and then switch in useEffect
+        const key = `chatMessages_${user?.id || 'guest'}`;
+        const savedMessages = localStorage.getItem(key);
         return savedMessages ? JSON.parse(savedMessages) : [];
       } catch (e) {
         console.error('Error loading chat messages from localStorage:', e);
@@ -60,12 +65,27 @@ const AIChatWidgetClean: React.FC = () => {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem('chatMessages', JSON.stringify(messages));
+        const key = `chatMessages_${user?.id || 'guest'}`;
+        localStorage.setItem(key, JSON.stringify(messages));
       } catch (e) {
         console.error('Error saving chat messages to localStorage:', e);
       }
     }
-  }, [messages]);
+  }, [messages, user?.id]);
+
+  // Reload messages when user changes (e.g. login/logout)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const key = `chatMessages_${user?.id || 'guest'}`;
+        const savedMessages = localStorage.getItem(key);
+        setMessages(savedMessages ? JSON.parse(savedMessages) : []);
+      } catch (e) {
+        console.error('Error switching chat history:', e);
+        setMessages([]);
+      }
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     if (isOpen && !socketRef.current) {

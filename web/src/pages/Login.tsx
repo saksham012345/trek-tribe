@@ -26,9 +26,16 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   }>({});
 
   // Redirect if already logged in
+  // Redirect if already logged in
   useEffect(() => {
     if (user) {
-      navigate('/', { replace: true });
+      // Check for email verification
+      // Admin/Agent roles might be exempt (checked in backend, but good to check here too if needed, though backend sets fields)
+      if (user.emailVerified === false && user.role !== 'admin' && user.role !== 'agent') {
+        navigate('/verify-email', { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
     }
   }, [user, navigate]);
 
@@ -38,7 +45,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       ...formData,
       [name]: value
     });
-    
+
     // Clear validation error for this field when user starts typing
     if (validationErrors[name as keyof typeof validationErrors]) {
       setValidationErrors(prev => ({ ...prev, [name]: undefined }));
@@ -47,32 +54,32 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
   const validateForm = (): boolean => {
     const errors: typeof validationErrors = {};
-    
+
     // Email or username validation
     if (!formData.email) {
       errors.email = 'Email or username is required';
     }
     // No format validation - can be email or username
-    
+
     // Password validation
     if (!formData.password) {
       errors.password = 'Password is required';
     } else if (formData.password.length < 6) {
       errors.password = 'Password must be at least 6 characters';
     }
-    
+
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate form before submitting
     if (!validateForm()) {
       return;
     }
-    
+
     setLoading(true);
     // Clear the previous error only when the user presses the button again
     setError('');
@@ -83,7 +90,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         // Clear error on successful login
         setError('');
         success('Welcome back! Redirecting...');
-        
+
         // Small delay to show success toast before navigation
         setTimeout(() => {
           // Get the intended destination or default to home
@@ -107,202 +114,200 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     <>
       <ToastContainer toasts={toasts} onRemove={removeToast} />
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-forest-50 via-nature-50 to-forest-100 py-8 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-nature-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-forest-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-nature-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
-      </div>
-
-      <div className="max-w-md w-full space-y-6 sm:space-y-8 relative z-10">
-        {/* Header Section */}
-        <div className="text-center animate-fade-in">
-          <div className="mx-auto h-16 w-16 sm:h-20 sm:w-20 bg-gradient-to-br from-forest-600 via-nature-500 to-forest-700 rounded-2xl flex items-center justify-center shadow-2xl transform hover:scale-110 transition-transform duration-300">
-            <span className="text-white font-bold text-2xl sm:text-3xl">🌲</span>
-          </div>
-          <h2 className="mt-6 sm:mt-8 text-center text-3xl sm:text-4xl font-extrabold text-forest-900">
-            Welcome Back,
-            <br/>
-            <span className="bg-gradient-to-r from-forest-600 to-nature-600 bg-clip-text text-transparent">
-              Adventurer!
-            </span>
-          </h2>
-          <p className="mt-3 text-center text-sm sm:text-base text-forest-600">
-            New to the tribe?{' '}
-            <Link to="/register" className="font-semibold text-nature-600 hover:text-nature-700 transition-colors underline decoration-2 underline-offset-2">
-              Join our community
-            </Link>
-          </p>
+        {/* Animated background elements */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-nature-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-forest-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-nature-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
         </div>
-        
-        {/* Login Card */}
-        <div className="bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl p-6 sm:p-8 md:p-10 border border-white/20 transform transition-all duration-300 hover:shadow-3xl">
-          {/* Google Sign-In - only show if not logged in */}
-          {!user && (
-            <div className="space-y-4 mb-6">
-              <GoogleLoginButton 
-                className="w-full"
-                onError={(msg) => {
-                  const errorMsg = msg || 'Google login failed';
-                  setError(errorMsg);
-                  showErrorToast(errorMsg);
-                }}
-                onSuccess={() => {
-                  setError('');
-                  success('Successfully logged in with Google!');
-                  setTimeout(() => {
-                    const from = (location.state as any)?.from?.pathname || '/home';
-                    navigate(from, { replace: true });
-                  }, 800);
-                }}
-              />
-              <div className="flex items-center gap-3 my-6">
-                <div className="h-px bg-gradient-to-r from-transparent via-forest-300 to-transparent flex-1" />
-                <span className="text-forest-500 text-sm font-medium px-2">or continue with email</span>
-                <div className="h-px bg-gradient-to-r from-transparent via-forest-300 to-transparent flex-1" />
-              </div>
-            </div>
-          )}
 
-          <form className="space-y-5" onSubmit={handleSubmit}>
-            {/* Error Display */}
-            {error && (
-              <div className="bg-red-50 border-l-4 border-red-500 text-red-700 px-4 py-3 rounded-lg flex items-start gap-3 animate-shake">
-                <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-                <span className="text-sm font-medium flex-1">{error}</span>
+        <div className="max-w-md w-full space-y-6 sm:space-y-8 relative z-10">
+          {/* Header Section */}
+          <div className="text-center animate-fade-in">
+            <div className="mx-auto h-16 w-16 sm:h-20 sm:w-20 bg-gradient-to-br from-forest-600 via-nature-500 to-forest-700 rounded-2xl flex items-center justify-center shadow-2xl transform hover:scale-110 transition-transform duration-300">
+              <span className="text-white font-bold text-2xl sm:text-3xl">🌲</span>
+            </div>
+            <h2 className="mt-6 sm:mt-8 text-center text-3xl sm:text-4xl font-extrabold text-forest-900">
+              Welcome Back,
+              <br />
+              <span className="bg-gradient-to-r from-forest-600 to-nature-600 bg-clip-text text-transparent">
+                Adventurer!
+              </span>
+            </h2>
+            <p className="mt-3 text-center text-sm sm:text-base text-forest-600">
+              New to the tribe?{' '}
+              <Link to="/register" className="font-semibold text-nature-600 hover:text-nature-700 transition-colors underline decoration-2 underline-offset-2">
+                Join our community
+              </Link>
+            </p>
+          </div>
+
+          {/* Login Card */}
+          <div className="bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl p-6 sm:p-8 md:p-10 border border-white/20 transform transition-all duration-300 hover:shadow-3xl">
+            {/* Google Sign-In - only show if not logged in */}
+            {!user && (
+              <div className="space-y-4 mb-6">
+                <GoogleLoginButton
+                  className="w-full"
+                  onError={(msg) => {
+                    const errorMsg = msg || 'Google login failed';
+                    setError(errorMsg);
+                    showErrorToast(errorMsg);
+                  }}
+                  onSuccess={() => {
+                    setError('');
+                    success('Successfully logged in with Google!');
+                    setTimeout(() => {
+                      const from = (location.state as any)?.from?.pathname || '/home';
+                      navigate(from, { replace: true });
+                    }, 800);
+                  }}
+                />
+                <div className="flex items-center gap-3 my-6">
+                  <div className="h-px bg-gradient-to-r from-transparent via-forest-300 to-transparent flex-1" />
+                  <span className="text-forest-500 text-sm font-medium px-2">or continue with email</span>
+                  <div className="h-px bg-gradient-to-r from-transparent via-forest-300 to-transparent flex-1" />
+                </div>
               </div>
             )}
-            
-            {/* Email or Username Field */}
-            <div className="space-y-2">
-              <label htmlFor="email" className="block text-sm font-semibold text-forest-700">
-                Email or Username
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <svg className="w-5 h-5 text-forest-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+
+            <form className="space-y-5" onSubmit={handleSubmit}>
+              {/* Error Display */}
+              {error && (
+                <div className="bg-red-50 border-l-4 border-red-500 text-red-700 px-4 py-3 rounded-lg flex items-start gap-3 animate-shake">
+                  <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                   </svg>
+                  <span className="text-sm font-medium flex-1">{error}</span>
                 </div>
-                <input
-                  id="email"
-                  name="email"
-                  type="text"
-                  autoComplete="email username"
-                  required
-                  value={formData.email}
-                  onChange={handleChange}
-                  className={`w-full pl-12 pr-4 py-3.5 border-2 rounded-xl focus:outline-none focus:ring-2 transition-all duration-300 bg-white text-forest-900 placeholder-forest-400 ${
-                    validationErrors.email 
-                      ? 'border-red-400 focus:ring-red-300 focus:border-red-500' 
-                      : 'border-forest-200 focus:ring-nature-500 focus:border-nature-500 hover:border-forest-300'
-                  }`}
-                  placeholder="username or you@example.com"
-                />
-              </div>
-              {validationErrors.email && (
-                <p className="text-red-600 text-xs mt-1 ml-1 flex items-center gap-1">
-                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  {validationErrors.email}
-                </p>
               )}
-            </div>
-              
-            {/* Password Field */}
-            <div className="space-y-2">
-              <label htmlFor="password" className="block text-sm font-semibold text-forest-700">
-                Password
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <svg className="w-5 h-5 text-forest-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
+
+              {/* Email or Username Field */}
+              <div className="space-y-2">
+                <label htmlFor="email" className="block text-sm font-semibold text-forest-700">
+                  Email or Username
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <svg className="w-5 h-5 text-forest-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                    </svg>
+                  </div>
+                  <input
+                    id="email"
+                    name="email"
+                    type="text"
+                    autoComplete="email username"
+                    required
+                    value={formData.email}
+                    onChange={handleChange}
+                    className={`w-full pl-12 pr-4 py-3.5 border-2 rounded-xl focus:outline-none focus:ring-2 transition-all duration-300 bg-white text-forest-900 placeholder-forest-400 ${validationErrors.email
+                        ? 'border-red-400 focus:ring-red-300 focus:border-red-500'
+                        : 'border-forest-200 focus:ring-nature-500 focus:border-nature-500 hover:border-forest-300'
+                      }`}
+                    placeholder="username or you@example.com"
+                  />
                 </div>
-                <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  required
-                  value={formData.password}
-                  onChange={handleChange}
-                  className={`w-full pl-12 pr-12 py-3.5 border-2 rounded-xl focus:outline-none focus:ring-2 transition-all duration-300 bg-white text-forest-900 placeholder-forest-400 ${
-                    validationErrors.password 
-                      ? 'border-red-400 focus:ring-red-300 focus:border-red-500' 
-                      : 'border-forest-200 focus:ring-nature-500 focus:border-nature-500 hover:border-forest-300'
-                  }`}
-                  placeholder="Enter your password"
-                />
+                {validationErrors.email && (
+                  <p className="text-red-600 text-xs mt-1 ml-1 flex items-center gap-1">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {validationErrors.email}
+                  </p>
+                )}
+              </div>
+
+              {/* Password Field */}
+              <div className="space-y-2">
+                <label htmlFor="password" className="block text-sm font-semibold text-forest-700">
+                  Password
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <svg className="w-5 h-5 text-forest-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    required
+                    value={formData.password}
+                    onChange={handleChange}
+                    className={`w-full pl-12 pr-12 py-3.5 border-2 rounded-xl focus:outline-none focus:ring-2 transition-all duration-300 bg-white text-forest-900 placeholder-forest-400 ${validationErrors.password
+                        ? 'border-red-400 focus:ring-red-300 focus:border-red-500'
+                        : 'border-forest-200 focus:ring-nature-500 focus:border-nature-500 hover:border-forest-300'
+                      }`}
+                    placeholder="Enter your password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-forest-400 hover:text-forest-600 transition-colors"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.736m0 0L21 21" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+                {validationErrors.password && (
+                  <p className="text-red-600 text-xs mt-1 ml-1 flex items-center gap-1">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {validationErrors.password}
+                  </p>
+                )}
+              </div>
+
+              {/* Forgot Password Link */}
+              <div className="flex items-center justify-end">
+                <Link to="/forgot-password" className="text-sm font-medium text-nature-600 hover:text-nature-700 transition-colors hover:underline">
+                  Forgot your password?
+                </Link>
+              </div>
+
+              {/* Submit Button */}
+              <div className="pt-2">
                 <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-forest-400 hover:text-forest-600 transition-colors"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  type="submit"
+                  disabled={loading}
+                  className="group relative w-full flex justify-center items-center py-4 px-6 text-base font-bold rounded-xl text-white bg-gradient-to-r from-forest-600 via-nature-500 to-forest-600 bg-size-200 bg-pos-0 hover:bg-pos-100 focus:outline-none focus:ring-4 focus:ring-nature-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-500 transform hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl overflow-hidden"
                 >
-                  {showPassword ? (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.736m0 0L21 21" />
-                    </svg>
+                  <span className="absolute inset-0 bg-gradient-to-r from-forest-700 via-nature-600 to-forest-700 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></span>
+                  {loading ? (
+                    <span className="relative flex items-center gap-3">
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                      <span>Entering the wilderness...</span>
+                    </span>
                   ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
+                    <span className="relative flex items-center gap-2">
+                      <span>🏕️</span>
+                      <span>Enter the Tribe</span>
+                      <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </span>
                   )}
                 </button>
               </div>
-              {validationErrors.password && (
-                <p className="text-red-600 text-xs mt-1 ml-1 flex items-center gap-1">
-                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  {validationErrors.password}
-                </p>
-              )}
-            </div>
-
-            {/* Forgot Password Link */}
-            <div className="flex items-center justify-end">
-              <Link to="/forgot-password" className="text-sm font-medium text-nature-600 hover:text-nature-700 transition-colors hover:underline">
-                Forgot your password?
-              </Link>
-            </div>
-
-            {/* Submit Button */}
-            <div className="pt-2">
-              <button
-                type="submit"
-                disabled={loading}
-                className="group relative w-full flex justify-center items-center py-4 px-6 text-base font-bold rounded-xl text-white bg-gradient-to-r from-forest-600 via-nature-500 to-forest-600 bg-size-200 bg-pos-0 hover:bg-pos-100 focus:outline-none focus:ring-4 focus:ring-nature-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-500 transform hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl overflow-hidden"
-              >
-                <span className="absolute inset-0 bg-gradient-to-r from-forest-700 via-nature-600 to-forest-700 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></span>
-                {loading ? (
-                  <span className="relative flex items-center gap-3">
-                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                    <span>Entering the wilderness...</span>
-                  </span>
-                ) : (
-                  <span className="relative flex items-center gap-2">
-                    <span>🏕️</span>
-                    <span>Enter the Tribe</span>
-                    <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </span>
-                )}
-              </button>
-            </div>
-          </form>
+            </form>
+          </div>
         </div>
-      </div>
-      
-      {/* Add custom animations via style tag */}
-      <style>{`
+
+        {/* Add custom animations via style tag */}
+        <style>{`
         @keyframes blob {
           0%, 100% { transform: translate(0, 0) scale(1); }
           33% { transform: translate(30px, -50px) scale(1.1); }
@@ -342,7 +347,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           background-position: 100% 50%;
         }
       `}</style>
-    </div>
+      </div>
     </>
   );
 };

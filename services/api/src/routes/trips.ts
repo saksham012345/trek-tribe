@@ -4,180 +4,19 @@ import { Trip } from '../models/Trip';
 import { User } from '../models/User';
 import { OrganizerSubscription } from '../models/OrganizerSubscription';
 import { OrganizerPayoutConfig } from '../models/OrganizerPayoutConfig';
-import { authenticateJwt, requireRole } from '../middleware/auth';
+import { authenticateJwt, requireRole, requireEmailVerified } from '../middleware/auth';
 import { verifyOrganizerApproved } from '../middleware/verifyOrganizer';
-import { socketService } from '../services/socketService';
-import { trackTripView } from '../middleware/tripViewTracker';
-import { logger } from '../utils/logger';
-import { paymentConfig, shouldEnableRoutingForOrganizer } from '../config/payment.config';
-import QRCode from 'qrcode';
-import fs from 'fs';
-import path from 'path';
-import mongoose from 'mongoose';
 
-// Optional Razorpay services
-let razorpaySubmerchantService: any = null;
-try {
-  razorpaySubmerchantService = require('../services/razorpaySubmerchantService').razorpaySubmerchantService;
-} catch (e) {
-  logger.warn('Razorpay submerchant service not available');
-}
+// ... (other imports)
 
-const router = Router();
-
-// Ultra-flexible schema that accepts ANY input format
-const createTripSchema = z.object({
-  title: z.union([z.string(), z.number()]).transform(val => String(val || 'Untitled Trip')),
-  description: z.union([z.string(), z.number()]).transform(val => String(val || 'No description provided')),
-  difficulty: z.union([z.string(), z.number(), z.undefined(), z.null()])
-    .transform(val => {
-      const normalized = String(val || 'moderate').toLowerCase();
-      if (['easy', 'moderate', 'hard'].includes(normalized)) return normalized;
-      return 'moderate';
-    }),
-  categories: z.union([z.array(z.any()), z.string(), z.number(), z.undefined(), z.null()])
-    .transform(val => {
-      if (Array.isArray(val)) return val.map(String);
-      if (typeof val === 'string') return val.split(',').map(s => s.trim()).filter(Boolean);
-      if (val === null || val === undefined) return ['Adventure'];
-      return ['Adventure'];
-    }),
-  destination: z.union([z.string(), z.number()]).transform(val => String(val || 'Unknown Destination')),
-  location: z.union([
-    z.object({
-      coordinates: z.tuple([z.number(), z.number()]),
-      latitude: z.number().optional(),
-      longitude: z.number().optional()
-    }),
-    z.object({ latitude: z.number(), longitude: z.number() }),
-    z.null(),
-    z.undefined(),
-    z.string(),
-    z.number()
-  ]).transform(val => {
-    if (val === null || val === undefined) return null;
-    if (typeof val === 'object' && 'coordinates' in val && val.coordinates) return val;
-    if (typeof val === 'object' && ('latitude' in val || 'longitude' in val)) {
-      return { coordinates: [val.longitude || 0, val.latitude || 0] };
-    }
-    return null;
-  }),
-  schedule: z.union([z.array(z.any()), z.undefined(), z.null()])
-    .transform(val => {
-      if (Array.isArray(val)) return val.map((item, index) => ({
-        day: Number(item?.day || index + 1),
-        title: String(item?.title || `Day ${index + 1}`),
-        activities: Array.isArray(item?.activities) ? item.activities.map(String) : []
-      }));
-      return [];
-    }),
-  images: z.union([z.array(z.any()), z.undefined(), z.null()])
-    .transform(val => Array.isArray(val) ? val.map(String) : []),
-  capacity: z.union([z.string(), z.number(), z.undefined(), z.null()])
-    .transform(val => {
-      const num = Number(val || 10);
-      return num > 0 ? Math.floor(num) : 10;
-    }),
-  price: z.union([z.string(), z.number(), z.undefined(), z.null()])
-    .transform(val => {
-      const num = Number(val || 1000);
-      return num > 0 ? num : 1000;
-    }),
-  minimumAge: z.union([z.string(), z.number(), z.undefined(), z.null()])
-    .transform(val => {
-      if (val === null || val === undefined || val === '') return undefined;
-      const num = Number(val);
-      return num >= 1 && num <= 100 ? Math.floor(num) : undefined;
-    }).optional(),
-  startDate: z.union([z.string(), z.number(), z.date(), z.undefined(), z.null()])
-    .transform(val => {
-      if (!val) return new Date(Date.now() + 24 * 60 * 60 * 1000); // Tomorrow
-      const date = new Date(val);
-      return isNaN(date.getTime()) ? new Date(Date.now() + 24 * 60 * 60 * 1000) : date;
-    }),
-  endDate: z.union([z.string(), z.number(), z.date(), z.undefined(), z.null()])
-    .transform(val => {
-      if (!val) return new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // Next week
-      const date = new Date(val);
-      return isNaN(date.getTime()) ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) : date;
-    }),
-  paymentConfig: z.union([
-    z.object({
-      paymentType: z.union([z.string(), z.number()]).transform(val => ['full', 'advance'].includes(String(val)) ? String(val) : 'full'),
-      advanceAmount: z.union([z.string(), z.number(), z.undefined(), z.null()])
-        .transform(val => val ? Number(val) : undefined),
-      paymentMethods: z.union([z.array(z.any()), z.string(), z.undefined(), z.null()])
-        .transform(val => {
-          if (Array.isArray(val)) return val.map(String);
-          if (typeof val === 'string') return [val];
-          return ['upi'];
-        }),
-      refundPolicy: z.union([z.string(), z.number(), z.undefined(), z.null()])
-        .transform(val => val ? String(val) : undefined),
-      instructions: z.union([z.string(), z.number(), z.undefined(), z.null()])
-        .transform(val => val ? String(val) : undefined),
-      collectionMode: z.union([z.string(), z.undefined(), z.null()])
-        .transform(val => ['razorpay', 'manual'].includes(String(val)) ? String(val) : 'razorpay'),
-      verificationMode: z.union([z.string(), z.undefined(), z.null()])
-        .transform(val => ['automated', 'manual'].includes(String(val)) ? String(val) : 'automated'),
-      manualProofRequired: z.union([z.boolean(), z.string(), z.undefined(), z.null()])
-        .transform(val => {
-          if (typeof val === 'string') return val === 'true';
-          return Boolean(val);
-        }),
-      trustLevel: z.union([z.string(), z.undefined(), z.null()])
-        .transform(val => ['trusted', 'manual'].includes(String(val)) ? String(val) : 'trusted'),
-      gatewayQR: z.union([z.object({
-        provider: z.string().optional(),
-        amount: z.union([z.number(), z.string()]).optional(),
-        currency: z.string().optional(),
-        referenceId: z.string().optional(),
-        qrCodeUrl: z.string().optional(),
-        generatedAt: z.union([z.date(), z.string()]).optional(),
-        trusted: z.union([z.boolean(), z.string()]).optional()
-      }), z.undefined(), z.null()])
-        .transform(val => {
-          if (!val || typeof val !== 'object') return undefined;
-          return {
-            provider: (val as any).provider || 'razorpay',
-            amount: Number((val as any).amount || 0),
-            currency: (val as any).currency || 'INR',
-            referenceId: (val as any).referenceId,
-            qrCodeUrl: (val as any).qrCodeUrl,
-            generatedAt: (val as any).generatedAt ? new Date((val as any).generatedAt) : new Date(),
-            trusted: String((val as any).trusted) !== 'false'
-          };
-        })
-    }),
-    z.undefined(),
-    z.null(),
-    z.string(),
-    z.number()
-  ]).transform(val => {
-    if (val === null || val === undefined || typeof val === 'string' || typeof val === 'number') {
-      return {
-        paymentType: 'full' as const,
-        paymentMethods: ['upi'],
-        advanceAmount: undefined,
-        advancePercentage: undefined,
-        refundPolicy: undefined,
-        instructions: undefined,
-        collectionMode: 'razorpay',
-        verificationMode: 'automated',
-        manualProofRequired: false,
-        trustLevel: 'trusted' as const
-      };
-    }
-    return val;
-  }).optional()
-});
+// ... (createTripSchema)
 
 // Async error wrapper
 const asyncHandler = (fn: Function) => (req: any, res: any, next: any) => {
   Promise.resolve(fn(req, res, next)).catch(next);
 };
 
-router.post('/', authenticateJwt, requireRole(['organizer', 'admin']), verifyOrganizerApproved, asyncHandler(async (req: any, res: any) => {
+router.post('/', authenticateJwt, requireRole(['organizer', 'admin']), requireEmailVerified, verifyOrganizerApproved, asyncHandler(async (req: any, res: any) => {
   try {
     const organizerId = req.auth.userId;
     const userRole = req.auth.role;

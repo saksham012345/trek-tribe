@@ -101,6 +101,14 @@ api.interceptors.response.use(
         console.warn('401 Unauthorized on:', error.config?.url);
       }
     }
+    if (error.response?.status === 403 && error.response?.data?.code === 'PHONE_REQUIRED') {
+      // Redirect to profile completion if phone verification is required
+      if (!window.location.pathname.includes('/complete-profile')) {
+        window.location.href = '/complete-profile';
+        return Promise.reject(error); // Reject to stop current flow
+      }
+    }
+
     return Promise.reject(error);
   }
 );

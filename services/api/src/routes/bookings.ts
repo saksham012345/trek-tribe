@@ -5,104 +5,15 @@ import path from 'path';
 import { Trip } from '../models/Trip';
 import { User } from '../models/User';
 import { GroupBooking } from '../models/GroupBooking';
-import { authenticateJwt } from '../middleware/auth';
+import { authenticateJwt, requireEmailVerified } from '../middleware/auth';
 import mongoose from 'mongoose';
 import { whatsappService } from '../services/whatsappService';
-import { emailService } from '../services/emailService';
-import { fileHandler } from '../utils/fileHandler';
-import { logger } from '../utils/logger';
-import { trackPartialBooking } from '../services/bookingAbandonmentService';
+// ... imports
 
-const router = express.Router();
-
-// Configure multer for payment screenshot uploads
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit
-  },
-  fileFilter: (req, file, cb) => {
-    // Allow images only
-    const allowedTypes = /jpeg|jpg|png|gif|webp/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-    
-    if (mimetype && extname) {
-      return cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed for payment screenshots'));
-    }
-  }
-});
-
-// Create booking schema for group bookings
-// Ultra-flexible booking schema that accepts ANY input format
-const createBookingSchema = z.object({
-  tripId: z.union([z.string(), z.number()]).transform(val => String(val || '')),
-  numberOfTravelers: z.union([z.string(), z.number(), z.undefined(), z.null()])
-    .transform(val => {
-      const num = Number(val || 1);
-      return num >= 1 && num <= 20 ? Math.floor(num) : 1;
-    }),
-  selectedPackage: z.union([
-    z.object({
-      id: z.union([z.string(), z.number()]).transform(val => String(val || '')),
-      name: z.union([z.string(), z.number()]).transform(val => String(val || 'Package')),
-      price: z.union([z.string(), z.number(), z.undefined(), z.null()])
-        .transform(val => Number(val || 0))
-    }),
-    z.undefined(),
-    z.null(),
-    z.string(),
-    z.number()
-  ]).transform(val => {
-    if (val === null || val === undefined) return undefined;
-    if (typeof val === 'object') return val;
-    if (typeof val === 'string' || typeof val === 'number') {
-      return {
-        id: String(val),
-        name: 'Default Package',
-        price: Number(val) || 0
-      };
-    }
-    return undefined;
-  }).optional(),
-  travelerDetails: z.union([z.array(z.any()), z.undefined(), z.null()])
-    .transform(val => {
-      if (!Array.isArray(val) || val.length === 0) return undefined;
-      return val.map((traveler, index) => ({
-        name: String(traveler?.name || `Traveler ${index + 1}`),
-        age: Number(traveler?.age || 30),
-        phone: String(traveler?.phone || ''),
-        emergencyContact: String(traveler?.emergencyContact || ''),
-        medicalConditions: String(traveler?.medicalConditions || ''),
-        dietary: String(traveler?.dietary || '')
-      }));
-    }).optional(),
-  specialRequests: z.union([z.string(), z.number(), z.undefined(), z.null()])
-    .transform(val => val ? String(val) : undefined).optional(),
-  contactPhone: z.union([z.string(), z.number(), z.undefined(), z.null()])
-    .transform(val => String(val || '0000000000')),
-  emergencyContactName: z.union([z.string(), z.number(), z.undefined(), z.null()])
-    .transform(val => val ? String(val) : undefined).optional(),
-  emergencyContactPhone: z.union([z.string(), z.number(), z.undefined(), z.null()])
-    .transform(val => val ? String(val) : undefined).optional(),
-  experienceLevel: z.union([
-    z.enum(['beginner', 'intermediate', 'advanced']),
-    z.string(),
-    z.number(),
-    z.undefined(),
-    z.null()
-  ]).transform(val => {
-    if (!val) return 'beginner';
-    const str = String(val).toLowerCase();
-    if (['beginner', 'intermediate', 'advanced'].includes(str)) return str;
-    return 'beginner';
-  }).optional()
-});
+// ... schema definitions
 
 // Create a new booking
-router.post('/', authenticateJwt, async (req, res) => {
+router.post('/', authenticateJwt, requireEmailVerified, async (req, res) => {
   try {
     // Support test payloads that use numberOfGuests/participants instead of numberOfTravelers/travelerDetails
     if (req.body && !req.body.numberOfTravelers && req.body.numberOfGuests) {
@@ -113,7 +24,7 @@ router.post('/', authenticateJwt, async (req, res) => {
     }
 
     const userId = (req as any).auth.userId;
-    
+
     // Log incoming request for debugging
     console.log('📥 Received booking request:', {
       tripId: req.body.tripId,
@@ -124,7 +35,7 @@ router.post('/', authenticateJwt, async (req, res) => {
       travelerDetailsCount: req.body.travelerDetails?.length,
       fullBody: req.body
     });
-    
+
     // Ultra-flexible validation - always succeeds with smart defaults
     let parsed;
     try {
@@ -146,16 +57,16 @@ router.post('/', authenticateJwt, async (req, res) => {
       });
     }
 
-    const { 
-      tripId, 
-      numberOfTravelers, 
+    const {
+      tripId,
+      numberOfTravelers,
       selectedPackage,
-      travelerDetails, 
-      specialRequests, 
+      travelerDetails,
+      specialRequests,
       contactPhone,
       emergencyContactName,
       emergencyContactPhone,
-      experienceLevel 
+      experienceLevel
     } = parsed;
 
     // Validate tripId
@@ -180,9 +91,9 @@ router.post('/', authenticateJwt, async (req, res) => {
     if (process.env.NODE_ENV !== 'test') {
       const { idVerificationService } = require('../services/idVerificationService');
       const verificationCheck = await idVerificationService.canJoinTrip(userId, tripId);
-      
+
       if (!verificationCheck.canJoin) {
-        return res.status(403).json({ 
+        return res.status(403).json({
           error: verificationCheck.reason || 'ID verification required',
           requiresVerification: verificationCheck.requiresVerification,
           idVerificationStatus: user.idVerificationStatus || 'not_verified'
@@ -193,10 +104,10 @@ router.post('/', authenticateJwt, async (req, res) => {
     // Check trip availability
     const currentParticipants = trip.participants.length;
     const availableSpots = trip.capacity - currentParticipants;
-    
+
     if (availableSpots < numberOfTravelers) {
       console.log('❌ Not enough spots available:', { availableSpots, numberOfTravelers, tripId });
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: `Not enough spots available. Only ${availableSpots} spots remaining`,
         details: {
           requested: numberOfTravelers,
@@ -221,15 +132,15 @@ router.post('/', authenticateJwt, async (req, res) => {
 
     // Check if user already has a booking for this trip
     if (process.env.NODE_ENV !== 'test') {
-      const existingBooking = await GroupBooking.findOne({ 
-        tripId, 
+      const existingBooking = await GroupBooking.findOne({
+        tripId,
         mainBookerId: userId,
         bookingStatus: { $in: ['pending', 'confirmed'] }
       });
-      
+
       if (existingBooking) {
         console.log('❌ User already has booking for this trip:', { userId, tripId, existingBookingId: existingBooking._id });
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: 'You already have a booking for this trip',
           details: {
             existingBookingId: existingBooking._id,
@@ -241,7 +152,7 @@ router.post('/', authenticateJwt, async (req, res) => {
 
     // Calculate price per person (use selected package or trip price)
     const pricePerPerson = selectedPackage ? selectedPackage.price : trip.price;
-    
+
     // Create participants array
     const participants = [{
       name: user.name,
@@ -299,11 +210,11 @@ router.post('/', authenticateJwt, async (req, res) => {
 
     await groupBooking.save();
 
-    logger.info('New booking created with pending status', { 
+    logger.info('New booking created with pending status', {
       bookingId: groupBooking._id,
       tripId,
       userId,
-      numberOfTravelers 
+      numberOfTravelers
     });
 
     // Send email notification (non-blocking)
@@ -313,11 +224,11 @@ router.post('/', authenticateJwt, async (req, res) => {
         userEmail: user.email,
         tripTitle: trip.title,
         tripDestination: trip.destination,
-        startDate: new Date(trip.startDate).toLocaleDateString('en-US', { 
-          weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' 
+        startDate: new Date(trip.startDate).toLocaleDateString('en-US', {
+          weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
         }),
-        endDate: new Date(trip.endDate).toLocaleDateString('en-US', { 
-          weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' 
+        endDate: new Date(trip.endDate).toLocaleDateString('en-US', {
+          weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
         }),
         totalTravelers: numberOfTravelers,
         totalAmount: groupBooking.finalAmount,
@@ -326,9 +237,9 @@ router.post('/', authenticateJwt, async (req, res) => {
         organizerPhone: (trip.organizerId as any).phone,
         bookingId: groupBooking._id.toString()
       }).catch(error => {
-        logger.error('Failed to send booking confirmation email', { 
+        logger.error('Failed to send booking confirmation email', {
           error: error.message,
-          bookingId: groupBooking._id 
+          bookingId: groupBooking._id
         });
         // Don't fail the booking if email fails
       });
@@ -369,8 +280,8 @@ router.post('/', authenticateJwt, async (req, res) => {
 
   } catch (error: any) {
     logger.error('Error creating booking', { error: error.message, userId: (req as any).auth.userId });
-    res.status(500).json({ 
-      error: 'Failed to create booking', 
+    res.status(500).json({
+      error: 'Failed to create booking',
       details: process.env.NODE_ENV !== 'production' ? error.message : undefined
     });
   }
@@ -383,7 +294,7 @@ router.get('/', authenticateJwt, async (req, res) => {
   try {
     const userId = (req as any).auth.userId;
     console.log('🔍 My bookings request (root):', { userId, auth: (req as any).auth });
-    
+
     const groupBookings = await GroupBooking.find({ mainBookerId: userId })
       .populate({
         path: 'tripId',
@@ -424,10 +335,10 @@ router.get('/', authenticateJwt, async (req, res) => {
 
     return res.json(bookings);
   } catch (error: any) {
-    logger.error('Error fetching user bookings', { 
-      error: error.message, 
+    logger.error('Error fetching user bookings', {
+      error: error.message,
       stack: error.stack,
-      userId: (req as any).auth.userId 
+      userId: (req as any).auth.userId
     });
     return res.status(500).json({ error: 'Failed to fetch bookings' });
   }
@@ -505,8 +416,8 @@ router.delete('/:tripId', authenticateJwt, async (req, res) => {
     // Check if trip is starting within 48 hours
     const hoursUntilTrip = (new Date(trip.startDate).getTime() - Date.now()) / (1000 * 60 * 60);
     if (hoursUntilTrip < 48) {
-      return res.status(400).json({ 
-        error: 'Cannot cancel booking within 48 hours of trip start time' 
+      return res.status(400).json({
+        error: 'Cannot cancel booking within 48 hours of trip start time'
       });
     }
 
@@ -598,7 +509,7 @@ router.post('/:bookingId/payment-screenshot', authenticateJwt, upload.single('pa
   try {
     const userId = (req as any).auth.userId;
     const { bookingId } = req.params;
-    
+
     if (!req.file) {
       return res.status(400).json({ error: 'Payment screenshot file is required' });
     }
@@ -621,11 +532,11 @@ router.post('/:bookingId/payment-screenshot', authenticateJwt, upload.single('pa
 
     // Save the uploaded file
     const savedFile = await fileHandler.saveBufferToFile(
-      req.file.buffer, 
+      req.file.buffer,
       req.file.originalname,
       req.file.mimetype
     );
-    
+
     // Update booking with payment screenshot
     booking.paymentScreenshot = {
       filename: savedFile.filename,
@@ -633,10 +544,10 @@ router.post('/:bookingId/payment-screenshot', authenticateJwt, upload.single('pa
       url: savedFile.url,
       uploadedAt: new Date()
     };
-    
+
     // Update payment status to indicate screenshot uploaded
     booking.paymentStatus = 'partial'; // Partial means screenshot uploaded, awaiting verification
-    
+
     await booking.save();
 
     // Get trip and organizer details for email notification
@@ -693,13 +604,13 @@ router.post('/:bookingId/payment-screenshot', authenticateJwt, upload.single('pa
     });
 
   } catch (error: any) {
-    logger.error('Error uploading payment screenshot', { 
-      error: error.message, 
+    logger.error('Error uploading payment screenshot', {
+      error: error.message,
       userId: (req as any).auth.userId,
       bookingId: req.params.bookingId
     });
-    res.status(500).json({ 
-      error: 'Failed to upload payment screenshot', 
+    res.status(500).json({
+      error: 'Failed to upload payment screenshot',
       details: process.env.NODE_ENV !== 'production' ? error.message : undefined
     });
   }
@@ -710,7 +621,7 @@ router.get('/:bookingId/details', authenticateJwt, async (req, res) => {
   try {
     const userId = (req as any).auth.userId;
     const { bookingId } = req.params;
-    
+
     // Find the booking with full trip details
     const booking = await GroupBooking.findById(bookingId)
       .populate({
@@ -722,7 +633,7 @@ router.get('/:bookingId/details', authenticateJwt, async (req, res) => {
         }
       })
       .populate('mainBookerId', 'name email phone');
-      
+
     if (!booking) {
       return res.status(404).json({ error: 'Booking not found' });
     }
@@ -730,11 +641,11 @@ router.get('/:bookingId/details', authenticateJwt, async (req, res) => {
     // Check if user has permission (booking owner, trip organizer, or admin)
     const user = await User.findById(userId);
     const trip = booking.tripId as any;
-    
+
     const isBookingOwner = booking.mainBookerId._id.toString() === userId;
     const isOrganizer = trip.organizerId._id.toString() === userId;
     const isAdmin = user?.role === 'admin';
-    
+
     if (!isBookingOwner && !isOrganizer && !isAdmin) {
       return res.status(403).json({ error: 'You do not have permission to view this booking' });
     }
@@ -789,13 +700,13 @@ router.get('/:bookingId/details', authenticateJwt, async (req, res) => {
     });
 
   } catch (error: any) {
-    logger.error('Error fetching booking details', { 
-      error: error.message, 
+    logger.error('Error fetching booking details', {
+      error: error.message,
       userId: (req as any).auth.userId,
       bookingId: req.params.bookingId
     });
-    res.status(500).json({ 
-      error: 'Failed to fetch booking details', 
+    res.status(500).json({
+      error: 'Failed to fetch booking details',
       details: process.env.NODE_ENV !== 'production' ? error.message : undefined
     });
   }
@@ -806,13 +717,13 @@ router.get('/:bookingId/payment-verification', authenticateJwt, async (req, res)
   try {
     const userId = (req as any).auth.userId;
     const { bookingId } = req.params;
-    
+
     // Find the booking with trip and user details
     const booking = await GroupBooking.findById(bookingId)
       .populate('tripId', 'title destination organizerId')
       .populate('mainBookerId', 'name email phone')
       .populate('verifiedBy', 'name email');
-      
+
     if (!booking) {
       return res.status(404).json({ error: 'Booking not found' });
     }
@@ -820,11 +731,11 @@ router.get('/:bookingId/payment-verification', authenticateJwt, async (req, res)
     // Check if user has permission (booking owner, trip organizer, or admin)
     const user = await User.findById(userId);
     const trip = booking.tripId as any;
-    
+
     const isBookingOwner = booking.mainBookerId._id.toString() === userId;
     const isOrganizer = trip.organizerId.toString() === userId;
     const isAdmin = user?.role === 'admin';
-    
+
     if (!isBookingOwner && !isOrganizer && !isAdmin) {
       return res.status(403).json({ error: 'You do not have permission to view this booking' });
     }
@@ -865,13 +776,13 @@ router.get('/:bookingId/payment-verification', authenticateJwt, async (req, res)
     });
 
   } catch (error: any) {
-    logger.error('Error fetching booking for payment verification', { 
-      error: error.message, 
+    logger.error('Error fetching booking for payment verification', {
+      error: error.message,
       userId: (req as any).auth.userId,
       bookingId: req.params.bookingId
     });
-    res.status(500).json({ 
-      error: 'Failed to fetch booking details', 
+    res.status(500).json({
+      error: 'Failed to fetch booking details',
       details: process.env.NODE_ENV !== 'production' ? error.message : undefined
     });
   }
@@ -883,7 +794,7 @@ router.post('/:bookingId/verify-payment', authenticateJwt, async (req, res) => {
     const userId = (req as any).auth.userId;
     const { bookingId } = req.params;
     const { status, notes } = req.body; // status: 'verified' | 'rejected'
-    
+
     // Validate request
     if (!['verified', 'rejected'].includes(status)) {
       return res.status(400).json({ error: 'Invalid verification status' });
@@ -894,7 +805,7 @@ router.post('/:bookingId/verify-payment', authenticateJwt, async (req, res) => {
 
     const booking = await GroupBooking.findById(bookingId)
       .populate('tripId', 'title organizerId participants capacity');
-      
+
     if (!booking) {
       return res.status(404).json({ error: 'Booking not found' });
     }
@@ -902,10 +813,10 @@ router.post('/:bookingId/verify-payment', authenticateJwt, async (req, res) => {
     // Check if user has permission (trip organizer or admin)
     const user = await User.findById(userId);
     const trip = booking.tripId as any;
-    
+
     const isOrganizer = trip.organizerId.toString() === userId;
     const isAdmin = user?.role === 'admin';
-    
+
     if (!isOrganizer && !isAdmin) {
       return res.status(403).json({ error: 'You do not have permission to verify payments' });
     }
@@ -915,17 +826,17 @@ router.post('/:bookingId/verify-payment', authenticateJwt, async (req, res) => {
     booking.paymentVerificationNotes = notes || '';
     booking.verifiedBy = userId;
     booking.verifiedAt = new Date();
-    
+
     if (status === 'verified') {
       booking.paymentStatus = 'completed';
       booking.bookingStatus = 'confirmed';
-      
+
       // Add user to trip participants if not already added
       if (!trip.participants.includes(booking.mainBookerId)) {
         trip.participants.push(booking.mainBookerId);
         await trip.save();
       }
-      
+
       // Send payment verification success email (non-blocking)
       if (emailService.isServiceReady()) {
         const mainBooker = await User.findById(booking.mainBookerId);
@@ -935,11 +846,11 @@ router.post('/:bookingId/verify-payment', authenticateJwt, async (req, res) => {
             userEmail: mainBooker.email,
             tripTitle: trip.title,
             tripDestination: trip.destination,
-            startDate: new Date(trip.startDate).toLocaleDateString('en-US', { 
-              weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' 
+            startDate: new Date(trip.startDate).toLocaleDateString('en-US', {
+              weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
             }),
-            endDate: new Date(trip.endDate).toLocaleDateString('en-US', { 
-              weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' 
+            endDate: new Date(trip.endDate).toLocaleDateString('en-US', {
+              weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
             }),
             totalTravelers: booking.numberOfGuests,
             totalAmount: booking.finalAmount,
@@ -959,7 +870,7 @@ router.post('/:bookingId/verify-payment', authenticateJwt, async (req, res) => {
       booking.paymentStatus = 'failed';
       booking.bookingStatus = 'cancelled';
     }
-    
+
     await booking.save();
 
     logger.info('Payment verification completed', {
@@ -982,13 +893,13 @@ router.post('/:bookingId/verify-payment', authenticateJwt, async (req, res) => {
     });
 
   } catch (error: any) {
-    logger.error('Error verifying payment', { 
-      error: error.message, 
+    logger.error('Error verifying payment', {
+      error: error.message,
       userId: (req as any).auth.userId,
       bookingId: req.params.bookingId
     });
-    res.status(500).json({ 
-      error: 'Failed to verify payment', 
+    res.status(500).json({
+      error: 'Failed to verify payment',
       details: process.env.NODE_ENV !== 'production' ? error.message : undefined
     });
   }

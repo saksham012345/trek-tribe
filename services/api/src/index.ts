@@ -46,6 +46,7 @@ import analyticsRoutes from './routes/analytics';
 import receiptRoutes from './routes/receipts';
 import webhookRoutes from './routes/webhooks';
 import autoPayRoutes from './routes/autoPay';
+import usersRoutes from './routes/users';
 import dashboardRoutes from './routes/dashboard';
 import paymentVerificationRoutes from './routes/paymentVerification';
 import paymentRoutes from './routes/payments';
@@ -434,6 +435,11 @@ export async function start() {
     app.use('/api/auto-pay', autoPayRoutes);
     console.log('✅ Auto-pay routes mounted at /api/auto-pay');
     logMessage('INFO', 'Auto-pay routes registered');
+
+    // Users Routes (Username & Profile helpers)
+    app.use('/api/users', usersRoutes);
+    console.log('✅ Users routes mounted at /api/users');
+    logMessage('INFO', 'Users routes registered');
 
     // Dashboard Routes (role-specific)
     app.use('/api/dashboard', dashboardRoutes);
