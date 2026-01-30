@@ -295,35 +295,6 @@ class RazorpayRouteService {
     return refundDoc;
   }
 
-  async generateQRCode(params: {
-    fixedAmount?: boolean;
-    amount?: number; // in paise
-    description: string;
-    organizerId: string;
-    tripId?: string;
-  }) {
-    if (!this.razorpay) {
-      throw new Error('Razorpay not configured');
-    }
-
-    const options: any = {
-      type: 'upi_qr',
-      usage: 'single_use',
-      fixed_amount: params.fixedAmount,
-      payment_amount: params.amount,
-      description: params.description,
-      notes: {
-        organizerId: params.organizerId,
-        tripId: params.tripId
-      }
-    };
-
-    // Cast to any because the type definition might be incomplete for qrCode
-    const qrCode = await (this.razorpay as any).qrCode.create(options);
-
-    return qrCode;
-  }
-
   verifyWebhookSignature(payload: any, signature: string, secret: string) {
     const shasum = crypto.createHmac('sha256', secret);
     shasum.update(payload);

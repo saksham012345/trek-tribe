@@ -57,7 +57,6 @@ import groupsRoutes from './routes/groups';
 import eventsRoutes from './routes/events';
 import bankDetailsRoutes from './routes/bankDetails';
 import { apiLimiter, authLimiter, otpLimiter } from './middleware/rateLimiter';
-import { emailService } from './services/emailService';
 import { cronScheduler } from './services/cronScheduler';
 import { chargeRetryWorker } from './services/chargeRetryWorker';
 import { logger } from './utils/logger';
@@ -491,7 +490,6 @@ export async function start() {
           ping: dbTest ? 'successful' : 'failed'
         },
         socketIO: socketService.getServiceStatus(),
-        email: await emailService.getServiceStatus(),
         uptime: process.uptime(),
         memory: process.memoryUsage(),
         version: process.version

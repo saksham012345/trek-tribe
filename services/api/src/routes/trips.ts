@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import mongoose from 'mongoose';
 import { Trip } from '../models/Trip';
 import { User } from '../models/User';
 import { OrganizerSubscription } from '../models/OrganizerSubscription';
@@ -12,15 +11,8 @@ import { paymentConfig, shouldEnableRoutingForOrganizer } from '../config/paymen
 import { razorpayRouteService as razorpaySubmerchantService } from '../services/razorpayRouteService';
 import { socketService } from '../services/socketService';
 import { trackTripView } from '../middleware/tripViewTracker';
-import { logger } from '../utils/logger';
-import { emailService } from '../services/emailService';
 
-const router = Router();
-
-// Async handler wrapper
-const asyncHandler = (fn: Function) => (req: any, res: any, next: any) => {
-  Promise.resolve(fn(req, res, next)).catch(next);
-};
+// ... (other imports)
 
 const createTripSchema = z.object({
   title: z.string().min(1),
@@ -320,11 +312,11 @@ router.post('/', authenticateJwt, requireRole(['organizer', 'admin']), requireEm
             } else {
               // Generate QR code for this trip with organizer's route account
               try {
-                const qrResult = await razorpaySubmerchantService.generateQRCode({
-                  description: `Payment for ${body.title} trip by ${organizer.name}`,
-                  organizerId: organizer._id.toString(),
-                  tripId: trip._id.toString()
-                });
+                const qrResult = await razorpaySubmerchantService.generateQRCode(
+                  payoutConfig.razorpayAccountId,
+                  `${organizer.name} - ${body.title}`,
+                  `Payment for ${body.title} trip by ${organizer.name}`
+                );
 
                 logger.info('QR code generated for trip with routing', {
                   tripId: trip._id,

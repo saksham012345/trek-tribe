@@ -12,7 +12,6 @@ import crypto from 'crypto';
 import axios from 'axios';
 import { OAuth2Client } from 'google-auth-library';
 import { smsService } from '../services/smsService';
-import { sendPhoneOtpSchema, verifyPhoneOtpSchema } from '../validators/authSchemas';
 
 const router = Router();
 
@@ -639,7 +638,7 @@ router.post('/logout', (req, res) => {
 
 router.get('/me', authenticateJwt, async (req, res) => {
   try {
-    const userId = req.auth?.userId || req.user?.userId || req.user?.id;
+    const userId = (req as any).auth?.userId || (req as any).user?.userId || (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -1101,7 +1100,9 @@ router.post('/verify-email/verify-otp', async (req, res) => {
 });
 
 // Phone verification - Send OTP
-
+const sendPhoneOtpSchema = z.object({
+  phone: z.string().regex(/^[+]?[1-9]\d{1,14}$/)
+});
 
 router.post('/verify-phone/send-otp', authenticateJwt, async (req, res) => {
   try {
@@ -1111,7 +1112,7 @@ router.post('/verify-phone/send-otp', authenticateJwt, async (req, res) => {
     }
 
     const { phone } = parsed.data;
-    const userId = req.auth!.userId;
+    const userId = (req as any).auth.userId;
     const user = await User.findById(userId);
 
     if (!user) {
@@ -1158,7 +1159,10 @@ router.post('/verify-phone/send-otp', authenticateJwt, async (req, res) => {
 });
 
 // Phone verification - Verify OTP
-
+const verifyPhoneOtpSchema = z.object({
+  phone: z.string().regex(/^[+]?[1-9]\d{1,14}$/),
+  otp: z.string().regex(/^\d{6}$/)
+});
 
 router.post('/verify-phone/verify-otp', authenticateJwt, async (req, res) => {
   try {
@@ -1168,7 +1172,7 @@ router.post('/verify-phone/verify-otp', authenticateJwt, async (req, res) => {
     }
 
     const { phone, otp } = parsed.data;
-    const userId = req.auth!.userId;
+    const userId = (req as any).auth.userId;
     const user = await User.findById(userId);
 
     if (!user) {
@@ -1243,7 +1247,7 @@ router.post('/complete-profile', authenticateJwt, async (req, res) => {
     }
 
     const { role, phone, organizerProfile } = parsed.data;
-    const userId = req.auth!.userId;
+    const userId = (req as any).auth.userId;
     const user = await User.findById(userId);
 
     if (!user) {

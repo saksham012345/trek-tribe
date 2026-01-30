@@ -62,8 +62,6 @@ interface EmailVerificationOTPData {
 class EmailService {
   private transporter: nodemailer.Transporter | null = null;
   private isInitialized: boolean = false;
-  private initializationError: string | null = null;
-  private configSource: string | null = null;
 
   constructor() {
     this.initialize();
@@ -74,7 +72,6 @@ class EmailService {
       // Allow disabling email initialization explicitly to avoid noisy logs
       if ((process.env.DISABLE_EMAIL || 'false').toLowerCase() === 'true') {
         logger.info('Email service explicitly disabled via DISABLE_EMAIL=true');
-        this.configSource = 'disabled';
         return;
       }
       // Require credentials from environment
@@ -83,12 +80,8 @@ class EmailService {
 
       if (!emailUser || !emailPassword) {
         logger.warn('Gmail credentials not configured (GMAIL_USER / GMAIL_APP_PASSWORD). Email service will be disabled.');
-        this.initializationError = 'Missing credentials (GMAIL_USER or EMAIL_USER)';
-        this.configSource = 'missing_credentials';
         return;
       }
-
-      this.configSource = process.env.GMAIL_USER ? 'GMAIL_USER' : 'EMAIL_USER';
 
       this.transporter = nodemailer.createTransport({
         service: 'gmail',
@@ -105,27 +98,22 @@ class EmailService {
       try {
         await this.transporter.verify();
         this.isInitialized = true;
-        this.initializationError = null;
         logger.info('Email service initialized successfully with Gmail SMTP');
       } catch (verifyError: any) {
         // Treat verification failures as non-fatal: log a concise warning and
         // disable the email service so application continues running.
-        const errorMessage = verifyError?.message || 'Unknown verification error';
-        logger.warn('Email service disabled: SMTP verification failed.', { error: errorMessage });
-        this.initializationError = `SMTP Verification failed: ${errorMessage}`;
+        logger.warn('Email service disabled: SMTP verification failed. Check GMAIL_USER/GMAIL_APP_PASSWORD or set DISABLE_EMAIL=true to skip email.', { error: verifyError?.message });
         this.transporter = null;
         this.isInitialized = false;
       }
 
     } catch (error: any) {
       // For unexpected errors during initialization, warn and disable the service
-      const errorMsg = error?.message || 'Unknown error';
       logger.error('❌ Email service initialization FATAL error', {
-        error: errorMsg,
+        error: error?.message,
         stack: error?.stack,
         code: error?.code
       });
-      this.initializationError = `Fatal init error: ${errorMsg}`;
       this.transporter = null;
       this.isInitialized = false;
     }
@@ -133,40 +121,6 @@ class EmailService {
 
   isServiceReady(): boolean {
     return this.isInitialized && this.transporter !== null;
-  }
-
-  private async testConnection(): Promise<boolean> {
-    if (!this.transporter) {
-      return false;
-    }
-    try {
-      await this.transporter.verify();
-      return true;
-    } catch (error) {
-      logger.error('Email service connection test failed', { error: error?.message });
-      return false;
-    }
-  }
-
-  async getServiceStatus() {
-    const hasGmailUser = !!process.env.GMAIL_USER;
-    const hasEmailUser = !!process.env.EMAIL_USER;
-    const hasGmailPass = !!process.env.GMAIL_APP_PASSWORD;
-    const hasEmailPass = !!process.env.EMAIL_PASSWORD;
-
-    return {
-      isReady: this.isServiceReady(),
-      configSource: this.configSource,
-      hasCredentials: (hasGmailUser || hasEmailUser) && (hasGmailPass || hasEmailPass),
-      credentialDetails: {
-        hasGmailUser,
-        hasEmailUser,
-        hasGmailPass,
-        hasEmailPass
-      },
-      initializationError: this.initializationError,
-      lastTest: this.isServiceReady() ? await this.testConnection() : false
-    };
   }
 
   private generateBookingConfirmationHTML(data: BookingEmailData): string {
@@ -648,8 +602,145 @@ class EmailService {
       return false;
     }
   }
-}
 
+  async testConnection(): Promise<boolean> {
+    if (!this.transporter) {
+      return false;
+    }
+
+    try {
+      await this.transporter.verify();
+      return true;
+    } catch (error: any) {
+      logger.error('Email service connection test failed', { error: error?.message || error });
+      return false;
+    }
+  }
+
+  private generateAgentReplyHTML(data: AgentReplyData): string {
+    return `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Agent Reply - Trek Tribe Support</title>
+        <style>
+          body { font-family: 'Arial', sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
+          .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
+          .header { background: linear-gradient(135deg, #2d5a3d, #4a7c59); color: white; padding: 30px; text-align: center; }
+          .header h1 { margin: 0; font-size: 28px; }
+          .content { padding: 30px; }
+          .agent-reply { background: #e8f4fd; border-left: 4px solid #007bff; padding: 20px; margin: 20px 0; border-radius: 5px; }
+          .ticket-info { background: #f8f9fa; border: 1px solid #dee2e6; padding: 15px; margin: 20px 0; border-radius: 5px; }
+          .button { background: #4a7c59; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
+          .footer { background: #2d5a3d; color: white; padding: 20px; text-align: center; font-size: 14px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🌲 Trek Tribe Support</h1>
+            <p style="margin: 10px 0 0 0; font-size: 18px;">New Agent Reply</p>
+          </div>
+          
+          <div class="content">
+            <h2 style="color: #2d5a3d;">Hello ${data.userName}! 👋</h2>
+            <p>Great news! Our support agent <strong>${data.agentName}</strong> has replied to your support ticket.</p>
+            
+            <div class="ticket-info">
+              <h3 style="color: #2d5a3d; margin-top: 0;">🎫 Ticket Details</h3>
+              <p><strong>Ticket ID:</strong> ${data.ticketId}</p>
+              <p><strong>Subject:</strong> ${data.ticketSubject}</p>
+              <p><strong>Agent:</strong> ${data.agentName}</p>
+            </div>
+            
+            <div class="agent-reply">
+              <h3 style="color: #007bff; margin-top: 0;">💬 Agent Reply:</h3>
+              <p style="margin-bottom: 0;">${data.agentMessage}</p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${data.replyUrl}" class="button">
+                💬 Reply to Agent
+              </a>
+            </div>
+            
+            <p>You can reply directly through our support portal or via email. We're here to help with any questions!</p>
+            
+            <h3 style="color: #2d5a3d;">📞 Need immediate help?</h3>
+            <p>📧 Email: trektribeagent@gmail.com<br>
+               📱 Phone: 9876177839</p>
+          </div>
+          
+          <div class="footer">
+            <p><strong>Trek Tribe</strong> - Always Here to Help</p>
+            <p style="font-size: 12px; margin: 10px 0 0 0;">
+              This is an automated message from Trek Tribe support system.
+            </p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  async sendAgentReplyNotification(data: AgentReplyData): Promise<boolean> {
+    if (!this.isServiceReady()) {
+      logger.warn('Email service not ready, skipping agent reply notification');
+      return false;
+    }
+
+    try {
+      const mailOptions = {
+        from: `"Trek Tribe Support" <${process.env.GMAIL_USER || 'trektribeagent@gmail.com'}>`,
+        to: data.userEmail,
+        subject: `🎧 Agent Reply - ${data.ticketSubject} [${data.ticketId}]`,
+        html: this.generateAgentReplyHTML(data),
+        text: `Hello ${data.userName}!\n\nOur support agent ${data.agentName} has replied to your ticket.\n\nTicket ID: ${data.ticketId}\nSubject: ${data.ticketSubject}\n\nAgent Reply:\n${data.agentMessage}\n\nReply here: ${data.replyUrl}\n\nTrek Tribe Support Team`
+      };
+
+      await this.transporter!.sendMail(mailOptions);
+      logger.info('Agent reply notification email sent successfully', {
+        userEmail: data.userEmail,
+        ticketId: data.ticketId,
+        agentName: data.agentName
+      });
+
+      return true;
+    } catch (error: any) {
+      logger.error('Failed to send agent reply notification email', {
+        error: error.message,
+        userEmail: data.userEmail,
+        ticketId: data.ticketId
+      });
+      return false;
+    }
+  }
+
+  async sendTicketResolvedNotification(data: { userName: string; userEmail: string; ticketId: string; resolutionNote?: string; }): Promise<boolean> {
+    if (!this.isServiceReady()) {
+      logger.warn('Email service not ready, skipping ticket resolved notification');
+      return false;
+    }
+
+    try {
+      const mailOptions = {
+        from: `"Trek Tribe Support" <${process.env.GMAIL_USER || 'no-reply@trektribe.com'}>`,
+        to: data.userEmail,
+        subject: `✅ Your support ticket ${data.ticketId} has been resolved`,
+        text: `Hello ${data.userName},\n\nYour support ticket ${data.ticketId} has been marked as resolved.\n\nResolution:\n${data.resolutionNote || 'Resolved by support agent.'}\n\nIf you feel the issue is not resolved, reply to this email or open the ticket in your account.\n\nThanks,\nTrek Tribe Support Team`
+      };
+
+      await this.transporter!.sendMail(mailOptions);
+      logger.info('Ticket resolved notification email sent', { userEmail: data.userEmail, ticketId: data.ticketId });
+      return true;
+    } catch (error: any) {
+      logger.error('Failed to send ticket resolved notification email', { error: error.message, userEmail: data.userEmail, ticketId: data.ticketId });
+      return false;
+    }
+  }
+}
 
 // Export singleton instance
 export const emailService = new EmailService();

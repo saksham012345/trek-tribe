@@ -8,7 +8,14 @@ export interface AuthPayload {
   role: 'admin' | 'organizer' | 'traveler' | 'agent';
 }
 
-
+declare global {
+  namespace Express {
+    interface Request {
+      user?: AuthPayload;
+      auth?: AuthPayload;
+    }
+  }
+}
 
 export const requireRole = (roles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
