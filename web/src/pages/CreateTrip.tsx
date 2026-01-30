@@ -4,6 +4,9 @@ import api from '../config/api';
 import { User } from '../types';
 
 
+
+import { uploadFileToServer } from '../utils/fileUpload';
+
 interface CreateTripProps {
   user: User;
 }
@@ -123,7 +126,9 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
   const [coverImageIndex, setCoverImageIndex] = useState(0);
   const [itineraryPdf, setItineraryPdf] = useState<File | null>(null);
 
-  // Removed paymentQR state
+  const [paymentQR, setPaymentQR] = useState<File | null>(null);
+  const [gatewayQR, setGatewayQR] = useState<PaymentConfig['gatewayQR'] | null>(null);
+  const [qrGenerating, setQrGenerating] = useState(false);
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -158,19 +163,193 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'itinerary') => {
+  // Constants
+  const categories = ['Adventure', 'Cultural', 'Beach', 'Mountain', 'City', 'Nature', 'Wildlife', 'Desert', 'Arctic', 'Botanical', 'Photography', 'Spiritual', 'Culinary', 'Historical', 'Sports'];
+
+  const includedItemsOptions = [
+    'Accommodation', 'Meals', 'Transportation', 'Guide', 'Equipment',
+    'Permits', 'Insurance', 'First Aid', 'Photography', 'Activities'
+  ];
+
+  const requirementsOptions = [
+    'Good Physical Fitness', 'Swimming Ability', 'Previous Experience',
+    'Medical Certificate', 'Valid ID/Passport', 'Special Equipment',
+    'Age Restrictions', 'No Health Conditions'
+  ];
+
+  // Generic Handlers
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleArrayChange = (field: keyof typeof formData, value: string) => {
+    // Only works for array fields
+    if (!Array.isArray(formData[field as keyof typeof formData])) return;
+
+    const currentArray = formData[field as keyof typeof formData] as string[];
+    const newArray = currentArray.includes(value)
+      ? currentArray.filter(item => item !== value)
+      : [...currentArray, value];
+
+    setFormData({
+      ...formData,
+      [field]: newArray
+    });
+  };
+
+  const handleCategoryChange = (category: string) => {
+    handleArrayChange('categories', category);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'itinerary' | 'paymentQR') => {
     const file = e.target.files?.[0];
-    if (file && type === 'itinerary') {
+    if (!file) return;
+
+    if (type === 'itinerary') {
       if (file.type === 'application/pdf') {
         setItineraryPdf(file);
         setError('');
       } else {
         setError('Please select a valid PDF file for itinerary');
       }
+    } else if (type === 'paymentQR') {
+      if (file.type.startsWith('image/')) {
+        setPaymentQR(file);
+        setError('');
+      } else {
+        setError('Please upload a valid image for QR code');
+      }
     }
   };
 
-  // ... (navigation functions remain same) ...
+  // Schedule Handlers
+  const addScheduleDay = () => {
+    setSchedule([...schedule, { day: schedule.length + 1, title: '', activities: [''] }]);
+  };
+
+  const updateScheduleDay = (index: number, field: keyof ScheduleDay, value: any) => {
+    const newSchedule = [...schedule];
+    if (field === 'activities') {
+      newSchedule[index].activities = value;
+    } else {
+      (newSchedule[index] as any)[field] = value;
+    }
+    setSchedule(newSchedule);
+  };
+
+  const removeScheduleDay = (index: number) => {
+    const newSchedule = schedule.filter((_, i) => i !== index).map((day, i) => ({ ...day, day: i + 1 }));
+    setSchedule(newSchedule);
+  };
+
+  const addActivity = (dayIndex: number) => {
+    const newSchedule = [...schedule];
+    newSchedule[dayIndex].activities.push('');
+    setSchedule(newSchedule);
+  };
+
+  const removeActivity = (dayIndex: number, activityIndex: number) => {
+    const newSchedule = [...schedule];
+    newSchedule[dayIndex].activities.splice(activityIndex, 1);
+    setSchedule(newSchedule);
+  };
+
+  // Package Handlers
+  const addPackage = () => {
+    setPackages([...packages, {
+      id: Date.now().toString(),
+      name: '',
+      description: '',
+      price: 0,
+      inclusions: [],
+      exclusions: [],
+      isActive: true,
+      sortOrder: packages.length
+    }]);
+  };
+
+  const removePackage = (id: string) => {
+    setPackages(packages.filter(p => p.id !== id));
+  };
+
+  const updatePackage = (id: string, field: keyof PackageOption, value: any) => {
+    setPackages(packages.map(p => p.id === id ? { ...p, [field]: value } : p));
+  };
+
+  const updatePackageInclusions = (id: string, inclusions: string[]) => {
+    updatePackage(id, 'inclusions', inclusions);
+  };
+
+  const updatePackageExclusions = (id: string, exclusions: string[]) => {
+    updatePackage(id, 'exclusions', exclusions);
+  };
+
+  // Pickup/Dropoff Handlers
+  const addPickupPoint = () => {
+    setPickupPoints([...pickupPoints, { name: '', address: '' }]);
+  };
+
+  const removePickupPoint = (index: number) => {
+    setPickupPoints(pickupPoints.filter((_, i) => i !== index));
+  };
+
+  const updatePickupPoint = (index: number, field: keyof PickupDropPoint, value: any) => {
+    const newPoints = [...pickupPoints];
+    (newPoints[index] as any)[field] = value;
+    setPickupPoints(newPoints);
+  };
+
+  const addDropOffPoint = () => {
+    setDropOffPoints([...dropOffPoints, { name: '', address: '' }]);
+  };
+
+  const removeDropOffPoint = (index: number) => {
+    setDropOffPoints(dropOffPoints.filter((_, i) => i !== index));
+  };
+
+  const updateDropOffPoint = (index: number, field: keyof PickupDropPoint, value: any) => {
+    const newPoints = [...dropOffPoints];
+    (newPoints[index] as any)[field] = value;
+    setDropOffPoints(newPoints);
+  };
+
+  // QR Handler
+  const handleGenerateGatewayQR = async () => {
+    if (!formData.price || parseFloat(formData.price) <= 0) {
+      setError('Please set a valid price first');
+      return;
+    }
+    setQrGenerating(true);
+    // Simulate API call for now or use real one if available
+    setTimeout(() => {
+      setGatewayQR({
+        provider: 'razorpay',
+        amount: parseFloat(formData.price),
+        currency: 'INR',
+        referenceId: `REF-${Date.now()}`,
+        qrCodeUrl: 'https://via.placeholder.com/300?text=QR+Code',
+        generatedAt: new Date().toISOString(),
+        trusted: true
+      });
+      setQrGenerating(false);
+    }, 1500);
+  };
+
+  // Navigation
+  const nextStep = () => setCurrentStep(prev => Math.min(prev + 1, totalSteps));
+  const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
+
+  const isStepValid = (step: number) => {
+    switch (step) {
+      case 1: return !!formData.title && !!formData.description && !!formData.destination;
+      case 2: return !!formData.startDate && !!formData.endDate && !!formData.price;
+      case 3: return formData.categories.length > 0;
+      default: return true;
+    }
+  };
 
   const handleSubmit = async (e?: React.FormEvent | React.MouseEvent) => {
     if (e) {

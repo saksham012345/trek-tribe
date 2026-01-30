@@ -62,6 +62,8 @@ interface EmailVerificationOTPData {
 class EmailService {
   private transporter: nodemailer.Transporter | null = null;
   private isInitialized: boolean = false;
+  private initializationError: string | null = null;
+  private configSource: string | null = null;
 
   constructor() {
     this.initialize();
@@ -739,6 +741,16 @@ class EmailService {
       logger.error('Failed to send ticket resolved notification email', { error: error.message, userEmail: data.userEmail, ticketId: data.ticketId });
       return false;
     }
+  }
+  async getServiceStatus() {
+    const hasCreds = !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
+    return {
+      isReady: this.isServiceReady(),
+      hasCredentials: hasCreds,
+      lastTest: this.isServiceReady() ? await this.testConnection() : false,
+      initializationError: this.initializationError,
+      configSource: this.configSource
+    };
   }
 }
 

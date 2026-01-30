@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import mongoose from 'mongoose';
 import { Trip } from '../models/Trip';
 import { User } from '../models/User';
 import { OrganizerSubscription } from '../models/OrganizerSubscription';
@@ -11,6 +12,9 @@ import { paymentConfig, shouldEnableRoutingForOrganizer } from '../config/paymen
 import { razorpayRouteService as razorpaySubmerchantService } from '../services/razorpayRouteService';
 import { socketService } from '../services/socketService';
 import { trackTripView } from '../middleware/tripViewTracker';
+import { logger } from '../utils/logger';
+
+const router = Router();
 
 // ... (other imports)
 
@@ -42,9 +46,9 @@ const createTripSchema = z.object({
 });
 
 // Async error wrapper
-// const asyncHandler = (fn: Function) => (req: any, res: any, next: any) => {
-//   Promise.resolve(fn(req, res, next)).catch(next);
-// };
+const asyncHandler = (fn: Function) => (req: any, res: any, next: any) => {
+  Promise.resolve(fn(req, res, next)).catch(next);
+};
 
 
 router.post('/', authenticateJwt, requireRole(['organizer', 'admin']), requireEmailVerified, verifyOrganizerApproved, asyncHandler(async (req: any, res: any) => {

@@ -302,6 +302,29 @@ class RazorpayRouteService {
     return digest === signature;
   }
 
+  async generateQRCode(accountId: string, name: string, description: string) {
+    if (!this.razorpay) throw new Error('Razorpay not initialized');
+
+    // Create a QR Code
+    // API Ref: https://razorpay.com/docs/api/qr-codes/create/
+    const response = await this.razorpay.qrCode.create({
+      type: 'upi_qr',
+      name: name,
+      usage: 'multiple_use', // Changed to multiple_use as it might be used by multiple people for the trip? Or keep single? trips.ts logic implies generic trip QR.
+      fixed_amount: false,
+      description: description,
+      notes: {
+        accountId: accountId
+      }
+    });
+
+    return {
+      qrCodeId: response.id,
+      imageUrl: response.image_url,
+      status: response.status
+    };
+  }
+
   private async getCommissionRate(organizerId: string) {
     const config = await OrganizerPayoutConfig.findOne({ organizerId });
     return config?.commissionRate ?? Number(process.env.PLATFORM_COMMISSION_RATE || 5);

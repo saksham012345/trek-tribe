@@ -70,7 +70,9 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
     emergencyContactPhone: '',
     medicalConditions: '',
     specialRequests: '',
-    agreeToTerms: false
+    agreeToTerms: false,
+    experienceLevel: 'beginner',
+    dietaryRestrictions: ''
   });
 
   const [travelerDetails, setTravelerDetails] = useState<TravelerDetails[]>([{
