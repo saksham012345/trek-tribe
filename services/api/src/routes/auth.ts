@@ -271,29 +271,38 @@ router.post('/register', async (req, res) => {
     // Create verification request for organizers
     if (userRole === 'organizer') {
       try {
-        await VerificationRequest.create({
-          organizerId: user._id,
-          organizerName: user.name,
-          organizerEmail: user.email,
-          requestType: 'initial',
-          status: 'pending',
-          priority: 'medium',
-          documents: [],
-          kycDetails: {
-            phone: phone || '',
-            businessName: name  // Use provided name as initial business name
-          }
-        });
+        const existingRequest = await VerificationRequest.findOne({ organizerId: user._id });
 
-        logger.info('Verification request created for new organizer', {
-          userId: user._id,
-          email: user.email
-        });
+        if (!existingRequest) {
+          await VerificationRequest.create({
+            organizerId: user._id,
+            organizerName: user.name,
+            organizerEmail: user.email,
+            requestType: 'initial',
+            status: 'pending',
+            priority: 'medium',
+            documents: [],
+            kycDetails: {
+              phone: phone || '',
+              businessName: name  // Use provided name as initial business name
+            }
+          });
+
+          logger.info('Verification request created for new organizer', {
+            userId: user._id,
+            email: user.email
+          });
+        } else {
+          logger.info('Verification request already exists for organizer', {
+            userId: user._id,
+            requestId: existingRequest._id
+          });
+        }
 
         // TODO: Send notification to admin about new verification request
         // This could be an email, webhook, or push notification
       } catch (verifyError: any) {
-        logger.error('Failed to create verification request', {
+        logger.error('Failed to created/check verification request', {
           userId: user._id,
           error: verifyError.message
         });

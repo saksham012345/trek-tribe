@@ -11,7 +11,7 @@ const CompleteProfile: React.FC = () => {
   const location = useLocation();
 
   // States
-  const [step, setStep] = useState<'username' | 'phone' | 'otp' | 'completed'>('loading');
+  const [step, setStep] = useState<'username' | 'phone' | 'otp' | 'completed' | 'loading'>('loading');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');

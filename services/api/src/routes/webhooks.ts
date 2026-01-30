@@ -176,13 +176,51 @@ async function handlePaymentCaptured(payment: any) {
       }).populate('organizerId', 'name email');
 
       if (subscription) {
+        // Extract Plan ID from notes or fallback
+        const planId = notes?.planId || notes?.plan_id;
+
+        // Import config
+        const { SUBSCRIPTION_PLANS, DEFAULT_AUTOPAY_PLAN } = require('../config/subscription.config');
+
+        // Determine Plan Config
+        let planConfig = DEFAULT_AUTOPAY_PLAN;
+        if (planId && SUBSCRIPTION_PLANS[planId]) {
+          planConfig = SUBSCRIPTION_PLANS[planId];
+        } else if (subscription.planType && SUBSCRIPTION_PLANS[subscription.planType]) {
+          // Fallback to Plan Type stored in DB if not in notes
+          planConfig = SUBSCRIPTION_PLANS[subscription.planType];
+        }
+
         subscription.status = 'active';
         subscription.razorpayPaymentId = paymentId;
+
+        // Apply Plan Limits directly to Subscription
+        subscription.planType = planConfig.id;
+        subscription.tripsPerCycle = planConfig.trips;
+
+        // Apply CRM Access
+        if (!subscription.crmBundle) {
+          subscription.crmBundle = {
+            hasAccess: planConfig.crmAccess,
+            price: 0,
+            features: planConfig.features
+          };
+        } else {
+          subscription.crmBundle.hasAccess = planConfig.crmAccess;
+          subscription.crmBundle.features = planConfig.features;
+        }
+
+        // Reset usage for new cycle if needed (optional logic depending on exact business rule)
+        // For now, we just activate. Cycle reset handled by scheduled jobs usually.
+
         await subscription.save();
 
         logger.info('Subscription activated via webhook', {
           subscriptionId: subscription._id,
-          paymentId
+          paymentId,
+          planId: planConfig.id,
+          trips: planConfig.trips,
+          crm: planConfig.crmAccess
         });
 
         // Send subscription activated email
@@ -190,15 +228,15 @@ async function handlePaymentCaptured(payment: any) {
           const user = subscription.organizerId as any;
           const emailHtml = emailTemplates.subscriptionActivated({
             userName: user.name,
-            planName: subscription.plan,
-            planTrips: subscription.tripsPerCycle,
+            planName: planConfig.name, // Use actual plan name
+            planTrips: planConfig.trips, // Use actual trip limit
             expiryDate: (subscription.subscriptionEndDate || subscription.trialEndDate || new Date()).toLocaleDateString('en-IN'),
             amount: amount / 100, // Convert paise to rupees
             features: [
-              `Post ${subscription.tripsPerCycle} trips`,
-              'Payment integration',
-              'Booking management',
-              'Analytics dashboard'
+              `Post ${planConfig.trips} trips`,
+              planConfig.crmAccess ? 'Full CRM Access' : 'Basic Dashboard',
+              planConfig.phoneNumbers ? 'Traveler Phone Numbers' : 'Email Support Only',
+              ...planConfig.features.slice(0, 2) // Add top 2 features
             ]
           });
 
@@ -215,7 +253,7 @@ async function handlePaymentCaptured(payment: any) {
           action: 'PAYMENT',
           resource: 'Subscription',
           resourceId: subscription._id.toString(),
-          metadata: { type: 'subscription.payment_captured', paymentId, orderId, amount: amount / 100 }
+          metadata: { type: 'subscription.payment_captured', paymentId, orderId, amount: amount / 100, plan: planConfig.id }
         });
       }
     }

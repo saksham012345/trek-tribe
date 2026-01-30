@@ -2,8 +2,8 @@ export const SUBSCRIPTION_PLANS = {
     STARTER: {
         id: 'STARTER',
         name: 'Starter Plan',
-        price: 599, // Price in INR
-        amount: 59900, // Price in Paise (for Razorpay)
+        price: 799, // Price in INR
+        amount: 79900, // Price in Paise (for Razorpay)
         currency: 'INR',
         trips: 2,
         duration: 30,
@@ -23,8 +23,8 @@ export const SUBSCRIPTION_PLANS = {
     BASIC: {
         id: 'BASIC',
         name: 'Basic Plan',
-        price: 1299,
-        amount: 129900,
+        price: 1499,
+        amount: 149900,
         currency: 'INR',
         trips: 4,
         duration: 30,
@@ -45,8 +45,8 @@ export const SUBSCRIPTION_PLANS = {
     PROFESSIONAL: {
         id: 'PROFESSIONAL',
         name: 'Professional Plan',
-        price: 2199,
-        amount: 219900,
+        price: 2399,
+        amount: 239900,
         currency: 'INR',
         trips: 6,
         duration: 30,
@@ -71,8 +71,8 @@ export const SUBSCRIPTION_PLANS = {
     PREMIUM: {
         id: 'PREMIUM',
         name: 'Premium Plan',
-        price: 3999,
-        amount: 399900,
+        price: 4199,
+        amount: 419900,
         currency: 'INR',
         trips: 15,
         duration: 30,
@@ -100,8 +100,8 @@ export const SUBSCRIPTION_PLANS = {
     ENTERPRISE: {
         id: 'ENTERPRISE',
         name: 'Enterprise Plan',
-        price: 7999,
-        amount: 799900,
+        price: 8199,
+        amount: 819900,
         currency: 'INR',
         trips: 40,
         duration: 30,

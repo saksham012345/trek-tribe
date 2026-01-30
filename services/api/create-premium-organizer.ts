@@ -63,7 +63,7 @@ async function createPremiumOrganizerAccount() {
 
     // Step 2: Create active premium subscription
     console.log('💳 Step 2: Creating Active Premium Subscription...');
-    
+
     // Check if subscription already exists
     let subscription = await OrganizerSubscription.findOne({ organizerId: organizer._id });
 
@@ -100,11 +100,11 @@ async function createPremiumOrganizerAccount() {
             status: 'active',
           },
         ],
-        pricePerCycle: 149900, // ₹1,499
+        pricePerCycle: 239900, // ₹2,399
         currency: 'INR',
         payments: [
           {
-            amount: 149900,
+            amount: 239900,
             currency: 'INR',
             paymentMethod: 'razorpay',
             transactionId: 'PAY_' + Date.now(),
@@ -112,7 +112,7 @@ async function createPremiumOrganizerAccount() {
             status: 'completed',
           },
         ],
-        totalPaid: 149900,
+        totalPaid: 239900,
         lastPaymentDate: new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000),
         nextPaymentDue: expiryDate,
         autoRenew: true,
@@ -131,15 +131,15 @@ async function createPremiumOrganizerAccount() {
     console.log(`📧 Email:    ${PREMIUM_ORGANIZER.email}`);
     console.log(`🔒 Password: ${PREMIUM_ORGANIZER.password}`);
     console.log(`📱 Phone:    ${PREMIUM_ORGANIZER.phone}\n`);
-    
+
     console.log('💳 SUBSCRIPTION STATUS:\n');
     console.log('✅ Status:            ACTIVE (Premium)');
-    console.log('📅 Plan:              Pro (₹1,499/60 days)');
+    console.log('📅 Plan:              Pro (₹2,399/60 days)');
     console.log('🎫 Trips Available:   3 remaining (5 total)');
     console.log('🏆 Trips Created:     2');
     console.log('⏰ Renewal Date:      ' + subscription.subscriptionEndDate?.toLocaleDateString());
     console.log('🔄 Auto-Renewal:      Enabled\n');
-    
+
     console.log('📊 ORGANIZER PROFILE:\n');
     console.log(`👤 Name:              ${PREMIUM_ORGANIZER.name}`);
     console.log(`🌍 Location:          Dehradun, India`);
