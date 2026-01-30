@@ -107,6 +107,13 @@ interface OrganizerProfile {
   verificationBadge?: 'none' | 'bronze' | 'silver' | 'gold' | 'platinum';
   routingEnabled?: boolean;  // Admin can enable Razorpay routing for this organizer
   razorpayRouteId?: string;  // Razorpay route ID if routing enabled
+  planType?: string; // e.g. 'standard', 'premium' (matches OrganizerSubscription)
+  crmBundle?: {
+    hasAccess: boolean;
+    price: number;
+    features: string[];
+    expiryDate?: Date;
+  };
 }
 
 export interface UserDocument extends Document {
@@ -353,7 +360,16 @@ const userSchema = new Schema(
             paymentMethodId: { type: String },
             lastPaymentDate: { type: Date },
             nextPaymentDate: { type: Date },
-            autoPayEnabled: { type: Boolean, default: false }
+          },
+          required: false
+        },
+        planType: { type: String },
+        crmBundle: {
+          type: {
+            hasAccess: { type: Boolean, default: false },
+            price: { type: Number },
+            features: [{ type: String }],
+            expiryDate: { type: Date }
           },
           required: false
         }

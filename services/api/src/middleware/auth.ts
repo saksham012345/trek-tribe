@@ -1,4 +1,24 @@
+import { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
+
+export interface AuthPayload {
+  id: string;
+  userId: string;
+  role: 'admin' | 'organizer' | 'traveler' | 'agent';
+}
+
+
+
+export const requireRole = (roles: string[]) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const user = req.user as AuthPayload;
+    if (!user || !roles.includes(user.role)) {
+      return res.status(403).json({ error: 'Forbidden: Insufficient permissions' });
+    }
+    next();
+  };
+};
 
 export function authenticateToken(req: Request, res: Response, next: NextFunction) {
   // ... (existing code, not modifying authenticateToken body here, just ensuring import is at top)

@@ -91,7 +91,8 @@ async function fixDuplicates() {
             const user = await User.findById(req.organizerId);
             if (user && user.organizerVerificationStatus !== req.status) {
                 console.log(`  Fixing mismatch for User ${user._id}: User=${user.organizerVerificationStatus}, Request=${req.status}`);
-                user.organizerVerificationStatus = req.status;
+                // Sync user verification status
+                user.organizerVerificationStatus = req.status as any;
                 if (req.status === 'approved') {
                     user.organizerVerificationApprovedAt = req.reviewedAt || new Date();
                     user.isVerified = true;

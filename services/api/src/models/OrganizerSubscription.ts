@@ -25,9 +25,15 @@ export interface OrganizerSubscriptionDocument extends Document {
 
   // Subscription plan details
   plan: SubscriptionPlan;
+  planType?: string; // e.g., 'PROFESSIONAL'
   status: SubscriptionStatus;
   isTrialActive: boolean;
   crmAccess?: boolean;
+  crmBundle?: {
+    hasAccess: boolean;
+    price: number;
+    features: string[];
+  };
 
   // Subscription dates
   subscriptionStartDate?: Date;
@@ -125,6 +131,7 @@ const organizerSubscriptionSchema = new Schema(
       enum: ['trial', 'free-trial', 'starter', 'basic', 'pro', 'professional', 'premium', 'enterprise'],
       default: 'free-trial'
     },
+    planType: { type: String }, // Stores the config ID like 'PROFESSIONAL'
     status: {
       type: String,
       enum: ['pending_payment', 'active', 'expired', 'cancelled', 'trial'],
@@ -137,6 +144,11 @@ const organizerSubscriptionSchema = new Schema(
 
     // Feature Access
     crmAccess: { type: Boolean, default: false },
+    crmBundle: {
+      hasAccess: { type: Boolean, default: false },
+      price: { type: Number, default: 0 },
+      features: [String]
+    },
 
     // Subscription dates
     subscriptionStartDate: { type: Date },

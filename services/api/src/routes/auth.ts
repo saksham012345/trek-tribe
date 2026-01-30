@@ -12,6 +12,7 @@ import crypto from 'crypto';
 import axios from 'axios';
 import { OAuth2Client } from 'google-auth-library';
 import { smsService } from '../services/smsService';
+import { sendPhoneOtpSchema, verifyPhoneOtpSchema } from '../validators/authSchemas';
 
 const router = Router();
 
@@ -638,7 +639,7 @@ router.post('/logout', (req, res) => {
 
 router.get('/me', authenticateJwt, async (req, res) => {
   try {
-    const userId = (req as any).auth?.userId || (req as any).user?.userId || (req as any).user?.id;
+    const userId = req.auth?.userId || req.user?.userId || req.user?.id;
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -1100,9 +1101,7 @@ router.post('/verify-email/verify-otp', async (req, res) => {
 });
 
 // Phone verification - Send OTP
-const sendPhoneOtpSchema = z.object({
-  phone: z.string().regex(/^[+]?[1-9]\d{1,14}$/)
-});
+
 
 router.post('/verify-phone/send-otp', authenticateJwt, async (req, res) => {
   try {
@@ -1112,7 +1111,7 @@ router.post('/verify-phone/send-otp', authenticateJwt, async (req, res) => {
     }
 
     const { phone } = parsed.data;
-    const userId = (req as any).auth.userId;
+    const userId = req.auth!.userId;
     const user = await User.findById(userId);
 
     if (!user) {
@@ -1159,10 +1158,7 @@ router.post('/verify-phone/send-otp', authenticateJwt, async (req, res) => {
 });
 
 // Phone verification - Verify OTP
-const verifyPhoneOtpSchema = z.object({
-  phone: z.string().regex(/^[+]?[1-9]\d{1,14}$/),
-  otp: z.string().regex(/^\d{6}$/)
-});
+
 
 router.post('/verify-phone/verify-otp', authenticateJwt, async (req, res) => {
   try {
@@ -1172,7 +1168,7 @@ router.post('/verify-phone/verify-otp', authenticateJwt, async (req, res) => {
     }
 
     const { phone, otp } = parsed.data;
-    const userId = (req as any).auth.userId;
+    const userId = req.auth!.userId;
     const user = await User.findById(userId);
 
     if (!user) {
@@ -1247,7 +1243,7 @@ router.post('/complete-profile', authenticateJwt, async (req, res) => {
     }
 
     const { role, phone, organizerProfile } = parsed.data;
-    const userId = (req as any).auth.userId;
+    const userId = req.auth!.userId;
     const user = await User.findById(userId);
 
     if (!user) {
@@ -1357,139 +1353,5 @@ export default router;
 
 // Phone Verification Routes
 
-// Schema for sending OTP
-const sendPhoneOtpSchema = z.object({
-  phone: z.string().regex(/^[+]?[1-9]\d{1,14}$/, { message: 'Invalid phone number format. Use international format (e.g., +919876543210).' })
-});
 
-router.post('/phone/send-otp', authenticateJwt, async (req, res) => {
-  try {
-    const parsed = sendPhoneOtpSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ error: parsed.error.flatten() });
-    }
-
-    const { phone } = parsed.data;
-    const userId = (req as any).user.id;
-
-    // Check if phone is already used by another user
-    const existing = await User.findOne({ phone, _id: { $ne: userId } });
-    if (existing) {
-      return res.status(409).json({
-        error: 'Phone number already in use',
-        message: 'This phone number is already linked to another account.'
-      });
-    }
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    // Generate 6-digit OTP
-    const otp = String(crypto.randomInt(100000, 999999));
-
-    // Hash OTP for storage
-    const otpHash = await bcrypt.hash(otp, 12);
-
-    // Update user with OTP
-    user.phone = phone; // Update phone number to the one being verified
-    user.phoneVerificationOtpHash = otpHash;
-    user.phoneVerificationExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-    user.phoneVerificationAttempts = 0;
-    user.phoneVerificationLastSentAt = new Date();
-    user.phoneVerified = false; // Reset verification status if changing number
-
-    await user.save();
-
-    // Send OTP via SMS Service
-    const smsResult = await smsService.sendOTP({ phone, otp });
-
-    // In dev mode smsService always returns success and logs OTP
-    if (!smsResult.success) {
-      logger.error('Failed to send SMS OTP', { userId, error: smsResult.error });
-    }
-
-    res.json({
-      success: true,
-      message: 'Verification code sent to your phone.',
-      // In dev mode, return OTP for convenience
-      ...(process.env.NODE_ENV === 'development' && { dev_otp: otp })
-    });
-
-  } catch (error: any) {
-    logger.error('Error sending phone OTP', { error: error.message });
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// Schema for verifying OTP
-const verifyPhoneOtpSchema = z.object({
-  otp: z.string().length(6, { message: 'OTP must be 6 digits.' }),
-  phone: z.string().optional() // Optional, mainly verifying against stored user phone
-});
-
-router.post('/phone/verify-otp', authenticateJwt, async (req, res) => {
-  try {
-    const parsed = verifyPhoneOtpSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ error: parsed.error.flatten() });
-    }
-
-    const { otp } = parsed.data;
-    const userId = (req as any).user.id;
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    // Check if OTP exists and is not expired
-    if (!user.phoneVerificationOtpHash || !user.phoneVerificationExpires) {
-      return res.status(400).json({
-        error: 'No pending verification',
-        message: 'Please request a new verification code.'
-      });
-    }
-
-    if (user.phoneVerificationExpires < new Date()) {
-      return res.status(400).json({
-        error: 'OTP expired',
-        message: 'Verification code has expired. Please request a new one.'
-      });
-    }
-
-    // Verify OTP
-    const isValid = await bcrypt.compare(otp, user.phoneVerificationOtpHash);
-    if (!isValid) {
-      return res.status(400).json({
-        error: 'Invalid OTP',
-        message: 'The verification code is incorrect.'
-      });
-    }
-
-    // Success
-    user.phoneVerified = true;
-    user.phoneVerificationOtpHash = undefined;
-    user.phoneVerificationExpires = undefined;
-
-    await user.save();
-
-    logger.info('Phone verified successfully', { userId, phone: user.phone });
-
-    res.json({
-      success: true,
-      message: 'Phone number verified successfully!',
-      user: {
-        id: user._id,
-        phone: user.phone,
-        phoneVerified: true
-      }
-    });
-
-  } catch (error: any) {
-    logger.error('Error verifying phone OTP', { error: error.message });
-    res.status(500).json({ error: 'Server error' });
-  }
-});
 

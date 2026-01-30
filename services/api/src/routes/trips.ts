@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import mongoose from 'mongoose';
 import { Trip } from '../models/Trip';
 import { User } from '../models/User';
 import { OrganizerSubscription } from '../models/OrganizerSubscription';
@@ -7,14 +8,52 @@ import { OrganizerPayoutConfig } from '../models/OrganizerPayoutConfig';
 import { authenticateJwt, requireRole, requireEmailVerified } from '../middleware/auth';
 import { verifyOrganizerApproved } from '../middleware/verifyOrganizer';
 
-// ... (other imports)
+import { paymentConfig, shouldEnableRoutingForOrganizer } from '../config/payment.config';
+import { razorpayRouteService as razorpaySubmerchantService } from '../services/razorpayRouteService';
+import { socketService } from '../services/socketService';
+import { trackTripView } from '../middleware/tripViewTracker';
+import { logger } from '../utils/logger';
+import { emailService } from '../services/emailService';
 
-// ... (createTripSchema)
+const router = Router();
 
-// Async error wrapper
+// Async handler wrapper
 const asyncHandler = (fn: Function) => (req: any, res: any, next: any) => {
   Promise.resolve(fn(req, res, next)).catch(next);
 };
+
+const createTripSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().min(1),
+  destination: z.string().min(1),
+  startDate: z.coerce.date(),
+  endDate: z.coerce.date(),
+  price: z.number().positive(),
+  capacity: z.number().int().positive(),
+  categories: z.array(z.string()).min(1),
+  images: z.array(z.string()).optional(),
+  schedule: z.array(z.object({ day: z.number(), title: z.string(), activities: z.array(z.string()) })).optional(),
+  location: z.object({ coordinates: z.tuple([z.number(), z.number()]) }).optional(),
+  paymentConfig: z.object({
+    paymentType: z.string().optional(),
+    paymentMethods: z.array(z.string()).optional(),
+    advanceAmount: z.number().optional(),
+    collectionMode: z.string().optional(),
+    verificationMode: z.string().optional(),
+    manualProofRequired: z.boolean().optional(),
+    trustLevel: z.string().optional()
+  }).optional(),
+  itinerary: z.string().optional(),
+  coverImage: z.string().optional(),
+  itineraryPdf: z.string().optional(),
+  minimumAge: z.number().optional()
+});
+
+// Async error wrapper
+// const asyncHandler = (fn: Function) => (req: any, res: any, next: any) => {
+//   Promise.resolve(fn(req, res, next)).catch(next);
+// };
+
 
 router.post('/', authenticateJwt, requireRole(['organizer', 'admin']), requireEmailVerified, verifyOrganizerApproved, asyncHandler(async (req: any, res: any) => {
   try {
@@ -281,11 +320,11 @@ router.post('/', authenticateJwt, requireRole(['organizer', 'admin']), requireEm
             } else {
               // Generate QR code for this trip with organizer's route account
               try {
-                const qrResult = await razorpaySubmerchantService.generateQRCode(
-                  payoutConfig.razorpayAccountId,
-                  `${organizer.name} - ${body.title}`,
-                  `Payment for ${body.title} trip by ${organizer.name}`
-                );
+                const qrResult = await razorpaySubmerchantService.generateQRCode({
+                  description: `Payment for ${body.title} trip by ${organizer.name}`,
+                  organizerId: organizer._id.toString(),
+                  tripId: trip._id.toString()
+                });
 
                 logger.info('QR code generated for trip with routing', {
                   tripId: trip._id,
