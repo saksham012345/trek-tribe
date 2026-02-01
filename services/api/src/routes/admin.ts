@@ -1669,4 +1669,100 @@ router.post('/users/:id/subscription-override', async (req, res) => {
   }
 });
 
+// ==========================================
+// TRUST SCORE & VERIFICATION ROUTES
+// ==========================================
+
+// Calculate and update organizer trust score
+router.post('/users/:id/trust-score', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminId = (req as any).auth.userId;
+
+    // Check if user exists and is an organizer
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.role !== 'organizer') {
+      return res.status(400).json({ error: 'Trust score is only applicable for organizers' });
+    }
+
+    // Calculate score using service
+    const trustScore = await TrustScoreService.updateOrganizerTrustScore(id);
+
+    logger.info('Trust score recalculated by admin', {
+      adminId,
+      organizerId: id,
+      newScore: trustScore.overall
+    });
+
+    res.json({
+      success: true,
+      message: 'Trust score recalculated successfully',
+      trustScore,
+      badge: TrustScoreService.getBadgeForScore(trustScore.overall)
+    });
+
+  } catch (error: any) {
+    logger.error('Error calculating trust score', { error: error.message });
+    res.status(500).json({ error: 'Failed to calculate trust score' });
+  }
+});
+
+// Verify organizer (Manual or based on score)
+router.post('/users/:id/verify-organizer', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, notes } = req.body; // status: 'approved' | 'rejected'
+    const adminId = (req as any).auth.userId;
+
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid verification status' });
+    }
+
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    user.organizerVerificationStatus = status;
+    // We also update the generic isVerified flag for compatibility
+    user.isVerified = status === 'approved';
+
+    // Store verification details in organizerProfile if needed, or we might need to add fields to User model
+    // For now, assuming isVerified is the main gate.
+
+    await user.save();
+
+    // Notify organizer
+    try {
+      if (user.email) {
+        const subject = status === 'approved'
+          ? 'Your Organizer Account is Verified! 🎉'
+          : 'Update on your Organizer Account Application';
+
+        const html = status === 'approved'
+          ? `<p>Hi ${user.name},</p><p>Congratulations! Your account has been verified. You can now publish trips and accept bookings.</p>`
+          : `<p>Hi ${user.name},</p><p>Thank you for your application. Unfortunately, we could not verify your account at this time.</p><p>Reason: ${notes || 'Does not meet criteria'}</p>`;
+
+        await emailService.sendEmail({ to: user.email, subject, html });
+      }
+    } catch (e) {
+      logger.warn('Failed to send verification email', { error: (e as any).message });
+    }
+
+    logger.info('Organizer verification updated', {
+      adminId,
+      organizerId: id,
+      status
+    });
+
+    res.json({ message: `Organizer ${status} successfully`, user });
+
+  } catch (error: any) {
+    logger.error('Error verifying organizer', { error: error.message });
+    res.status(500).json({ error: 'Failed to verify organizer' });
+  }
+});
+
 export default router;

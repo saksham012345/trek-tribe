@@ -499,6 +499,28 @@ router.get('/', async (req, res) => {
 
     // Build filter
     const filter: any = {};
+
+    // Status filter: Default to exclude completed and cancelled if not specified
+    // If user specifically asks for 'completed' or 'all', handle it.
+    // Assuming public only wants to see 'active' (or pending if organizer). 
+    // Usually public 'discover' should only show 'active'.
+    // User request: "completed trip shall not be visible ... untill the user filters for completed trips"
+
+    // Check if a specific status is requested
+    const statusQuery = (req.query.status as string)?.toLowerCase();
+
+    if (statusQuery === 'completed') {
+      filter.status = 'completed';
+    } else if (statusQuery === 'all') {
+      // Show all except maybe deleted?
+      // Usually we don't show cancelled either unless asked
+      filter.status = { $in: ['active', 'completed', 'cancelled'] };
+    } else {
+      // Default behavior: Show only ACTIVE trips (Ready to book)
+      // This hides 'completed', 'cancelled', and 'pending' by default.
+      filter.status = 'active';
+    }
+
     if (q) filter.$text = { $search: q };
     if (category) filter.categories = category;
     if (difficulty) filter.difficulty = difficulty;

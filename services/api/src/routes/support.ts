@@ -378,9 +378,9 @@ router.post('/tickets/:ticketId/resolve', async (req, res, next) => {
 
     logger.info('Ticket deleted after resolution', { ticketId: ticket.ticketId, resolvedBy: userId });
 
-    logger.info('Ticket resolved via AI/chat', { ticketId: updated.ticketId, resolvedBy: userId });
+    logger.info('Ticket resolved via AI/chat', { ticketId: ticket.ticketId, resolvedBy: userId });
 
-    res.json({ message: 'Ticket resolved', ticketId: updated.ticketId });
+    res.json({ message: 'Ticket resolved', ticketId: ticket.ticketId });
   } catch (error: any) {
     logger.error('Error resolving ticket', { error: error.message, ticketId: req.params.ticketId });
     return next(error);

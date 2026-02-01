@@ -29,7 +29,7 @@ router.use(requireAgent);
 router.get('/stats', async (req, res) => {
   try {
     const agentId = (req as any).auth.userId;
-    
+
     // Get ticket statistics
     const [totalTickets, openTickets, inProgressTickets, resolvedTickets] = await Promise.all([
       SupportTicket.countDocuments({ assignedAgentId: agentId }),
@@ -58,20 +58,20 @@ router.get('/stats', async (req, res) => {
       resolvedAt: { $gte: thirtyDaysAgo }
     });
 
-    const avgResolutionTime = resolvedInPeriod.length > 0 
+    const avgResolutionTime = resolvedInPeriod.length > 0
       ? resolvedInPeriod.reduce((acc, ticket) => {
-          if (ticket.resolutionTime && ticket.createdAt) {
-            return acc + (ticket.resolutionTime.getTime() - ticket.createdAt.getTime());
-          }
-          return acc;
-        }, 0) / resolvedInPeriod.length / (1000 * 60 * 60) // Convert to hours
+        if (ticket.resolutionTime && ticket.createdAt) {
+          return acc + (ticket.resolutionTime.getTime() - ticket.createdAt.getTime());
+        }
+        return acc;
+      }, 0) / resolvedInPeriod.length / (1000 * 60 * 60) // Convert to hours
       : 0;
 
-    const avgSatisfactionRating = resolvedInPeriod.length > 0 
+    const avgSatisfactionRating = resolvedInPeriod.length > 0
       ? resolvedInPeriod
-          .filter(ticket => ticket.customerSatisfactionRating)
-          .reduce((acc, ticket) => acc + (ticket.customerSatisfactionRating || 0), 0) / 
-        resolvedInPeriod.filter(ticket => ticket.customerSatisfactionRating).length
+        .filter(ticket => ticket.customerSatisfactionRating)
+        .reduce((acc, ticket) => acc + (ticket.customerSatisfactionRating || 0), 0) /
+      resolvedInPeriod.filter(ticket => ticket.customerSatisfactionRating).length
       : 0;
 
     res.json({
@@ -161,7 +161,7 @@ router.get('/tickets', async (req, res) => {
 router.get('/tickets/:ticketId', async (req, res) => {
   try {
     const { ticketId } = req.params;
-    
+
     const ticket = await SupportTicket.findOne({ ticketId })
       .populate('userId', 'name email phone profilePhoto')
       .populate('assignedAgentId', 'name email')
@@ -188,7 +188,7 @@ router.post('/tickets/:ticketId/assign', async (req, res) => {
 
     const ticket = await SupportTicket.findOneAndUpdate(
       { ticketId },
-      { 
+      {
         assignedAgentId: assignedAgentId || currentAgentId,
         status: 'in-progress'
       },
@@ -199,10 +199,10 @@ router.post('/tickets/:ticketId/assign', async (req, res) => {
       return res.status(404).json({ error: 'Ticket not found' });
     }
 
-    logger.info('Ticket assigned', { 
-      ticketId, 
+    logger.info('Ticket assigned', {
+      ticketId,
       assignedTo: assignedAgentId || currentAgentId,
-      assignedBy: currentAgentId 
+      assignedBy: currentAgentId
     });
 
     res.json({ ticket, message: 'Ticket assigned successfully' });
@@ -335,7 +335,7 @@ router.post('/tickets/:ticketId/messages', async (req, res) => {
   try {
     const { ticketId } = req.params;
     const agentId = (req as any).auth.userId;
-    
+
     const parsed = addMessageSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: 'Invalid message data', details: parsed.error.flatten() });
@@ -377,7 +377,7 @@ router.post('/tickets/:ticketId/messages', async (req, res) => {
         if (emailService.isServiceReady()) {
           const frontendUrl = process.env.FRONTEND_URL || 'https://www.trektribe.in';
           const replyUrl = `${frontendUrl}/support/tickets/${ticketId}`;
-          
+
           await emailService.sendAgentReplyNotification({
             userName: ticket.customerName,
             userEmail: ticket.customerEmail,
@@ -387,7 +387,7 @@ router.post('/tickets/:ticketId/messages', async (req, res) => {
             agentMessage: message,
             replyUrl
           });
-          
+
           logger.info('Agent reply email notification sent', {
             ticketId,
             userEmail: ticket.customerEmail,
@@ -395,7 +395,7 @@ router.post('/tickets/:ticketId/messages', async (req, res) => {
           });
         }
       } catch (error: any) {
-        logger.error('Failed to send agent reply email notification', { 
+        logger.error('Failed to send agent reply email notification', {
           error: error.message,
           ticketId,
           userEmail: ticket.customerEmail
@@ -438,7 +438,7 @@ const createTicketSchema = z.object({
 router.post('/tickets', async (req, res) => {
   try {
     const agentId = (req as any).auth.userId;
-    
+
     const parsed = createTicketSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: 'Invalid ticket data', details: parsed.error.flatten() });
@@ -488,7 +488,7 @@ router.post('/tickets', async (req, res) => {
 router.get('/customers/search', async (req, res) => {
   try {
     const search = req.query.q as string || '';
-    
+
     if (search.length < 2) {
       return res.json({ customers: [] });
     }
@@ -500,8 +500,8 @@ router.get('/customers/search', async (req, res) => {
         { phone: { $regex: search, $options: 'i' } }
       ]
     })
-    .select('name email phone role createdAt')
-    .limit(20);
+      .select('name email phone role createdAt')
+      .limit(20);
 
     res.json({ customers });
 
@@ -588,9 +588,9 @@ router.get('/queries', async (req, res) => {
     const queries = await SupportTicket.find({
       status: { $in: ['open', 'in-progress'] }
     })
-    .populate('userId', 'name email')
-    .sort({ priority: 1, createdAt: -1 })
-    .limit(20);
+      .populate('userId', 'name email')
+      .sort({ priority: 1, createdAt: -1 })
+      .limit(20);
 
     const formattedQueries = queries.map(ticket => ({
       _id: ticket._id,
@@ -600,8 +600,8 @@ router.get('/queries', async (req, res) => {
       status: ticket.status === 'in-progress' ? 'in_progress' : ticket.status,
       priority: ticket.priority || 'medium',
       createdAt: ticket.createdAt,
-      lastResponse: ticket.messages && ticket.messages.length > 0 
-        ? ticket.messages[ticket.messages.length - 1].message 
+      lastResponse: ticket.messages && ticket.messages.length > 0
+        ? ticket.messages[ticket.messages.length - 1].message
         : undefined
     }));
 
@@ -653,18 +653,18 @@ router.post('/generate-recommendations', async (req, res) => {
 
     // Build query based on preferences
     const query: any = { status: 'active' };
-    
+
     if (categories && categories.length > 0) {
       query.categories = { $in: categories };
     }
-    
+
     if (priceRange && priceRange.max > 0) {
       query.price = { $lte: priceRange.max };
       if (priceRange.min > 0) {
         query.price.$gte = priceRange.min;
       }
     }
-    
+
     if (searchQuery) {
       query.$or = [
         { title: { $regex: searchQuery, $options: 'i' } },
@@ -706,7 +706,7 @@ router.post('/generate-recommendations', async (req, res) => {
 router.get('/availability', async (req, res) => {
   try {
     const availability = socketService.getAgentAvailability();
-    
+
     res.json({
       success: true,
       data: {
@@ -725,7 +725,7 @@ router.get('/availability', async (req, res) => {
 router.get('/pending-tickets', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit as string) || 20;
-    
+
     // Get unassigned or waiting-agent tickets
     const pendingTickets = await SupportTicket.find({
       $or: [
@@ -752,8 +752,8 @@ router.get('/pending-tickets', async (req, res) => {
       customerEmail: ticket.customerEmail || (ticket.userId as any)?.email,
       customerPhone: ticket.customerPhone || (ticket.userId as any)?.phone,
       messageCount: ticket.messages?.length || 0,
-      lastMessage: ticket.messages && ticket.messages.length > 0 
-        ? ticket.messages[ticket.messages.length - 1].message 
+      lastMessage: ticket.messages && ticket.messages.length > 0
+        ? ticket.messages[ticket.messages.length - 1].message
         : ticket.description,
       relatedTrip: ticket.relatedTripId ? {
         title: (ticket.relatedTripId as any).title,
@@ -789,9 +789,9 @@ router.post('/tickets/:ticketId/assign', async (req, res) => {
 
     // Check if already assigned
     if (ticket.assignedAgentId) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Ticket already assigned',
-        assignedTo: ticket.assignedAgentId 
+        assignedTo: ticket.assignedAgentId
       });
     }
 
@@ -799,37 +799,182 @@ router.post('/tickets/:ticketId/assign', async (req, res) => {
     ticket.assignedAgentId = agentId as any;
     ticket.status = 'in-progress';
     ticket.updatedAt = new Date();
-    
-    // Add system message
-    const agent = await User.findById(agentId);
-    if (agent) {
-      ticket.messages.push({
-        sender: 'agent',
-        senderName: agent.name,
-        senderId: agentId,
-        message: `Agent ${agent.name} has joined to assist you.`,
-        timestamp: new Date(),
-        isSystem: true
-      } as any);
-    }
 
     await ticket.save();
 
-    logger.info('Ticket assigned to agent', { ticketId, agentId });
+    logger.info('Ticket assigned', { ticketId, agentId });
+
+    res.json({ ticket, message: 'Ticket assigned successfully' });
+
+  } catch (error: any) {
+    logger.error('Error assigning pending ticket', { error: error.message });
+    res.status(500).json({ error: 'Failed to assign ticket' });
+  }
+});
+
+// ==========================================
+// TRIP MANAGEMENT ROUTES (New Role: Agents)
+// ==========================================
+
+// Get trips for agent review/management
+router.get('/trips', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const status = req.query.status as string; // pending, active, cancelled, completed
+    const search = req.query.search as string || '';
+
+    const query: any = {};
+
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { destination: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Special filter for Pending Verification
+    if (status === 'pending') {
+      // Trips that are pending verification
+      query.verificationStatus = 'pending';
+    }
+
+    const total = await Trip.countDocuments(query);
+    const trips = await Trip.find(query)
+      .populate('organizerId', 'name email phone organizerProfile')
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
 
     res.json({
-      success: true,
-      message: 'Ticket assigned successfully',
-      ticket: {
-        ticketId: ticket.ticketId,
-        status: ticket.status,
-        assignedAgentId: ticket.assignedAgentId
+      trips,
+      pagination: {
+        current: page,
+        pages: Math.ceil(total / limit),
+        total
       }
     });
 
   } catch (error: any) {
-    logger.error('Error assigning ticket', { error: error.message });
-    res.status(500).json({ error: 'Failed to assign ticket' });
+    logger.error('Error fetching trips for agent', { error: error.message });
+    res.status(500).json({ error: 'Failed to fetch trips' });
+  }
+});
+
+// Verify (Approve) a trip
+router.post('/trips/:id/verify', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const agentId = (req as any).auth.userId;
+    const { notes } = req.body;
+
+    const trip = await Trip.findById(id).populate('organizerId', 'name email');
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+
+    if (trip.verificationStatus === 'approved') {
+      return res.status(400).json({ error: 'Trip already approved' });
+    }
+
+    trip.verificationStatus = 'approved';
+    trip.verifiedBy = agentId;
+    trip.verifiedAt = new Date();
+    if (notes) trip.adminNotes = notes; // Reusing adminNotes field for agent notes
+    trip.status = 'active'; // Trip goes live
+
+    await trip.save();
+
+    // Notify organizer
+    try {
+      const organizer: any = trip.organizerId;
+      if (organizer && organizer.email) {
+        await emailService.sendEmail({
+          to: organizer.email,
+          subject: `Your trip "${trip.title}" has been approved!`,
+          html: `<p>Hi ${organizer.name},</p><p>Good news! Your trip <strong>${trip.title}</strong> has been verified by our team and is now live.</p><p>Agent Notes: ${notes || 'None'}</p>`
+        });
+      }
+    } catch (e: any) {
+      logger.warn('Failed to send trip approval email', { error: e.message });
+    }
+
+    logger.info('Trip verified by agent', { tripId: id, agentId });
+    res.json({ message: 'Trip approved successfully', trip });
+
+  } catch (error: any) {
+    logger.error('Error verifying trip', { error: error.message });
+    res.status(500).json({ error: 'Failed to verify trip' });
+  }
+});
+
+// Reject a trip
+router.post('/trips/:id/reject', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const agentId = (req as any).auth.userId;
+    const { reason } = req.body;
+
+    if (!reason) return res.status(400).json({ error: 'Rejection reason is required' });
+
+    const trip = await Trip.findById(id).populate('organizerId', 'name email');
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+
+    trip.verificationStatus = 'rejected';
+    trip.rejectionReason = reason;
+    trip.verifiedBy = agentId;
+    trip.verifiedAt = new Date();
+    trip.status = 'cancelled';
+
+    await trip.save();
+
+    // Notify organizer
+    try {
+      const organizer: any = trip.organizerId;
+      if (organizer && organizer.email) {
+        await emailService.sendEmail({
+          to: organizer.email,
+          subject: `Urgent: Issue with your trip "${trip.title}"`,
+          html: `<p>Hi ${organizer.name},</p><p>Your trip <strong>${trip.title}</strong> was not approved.</p><p><strong>Reason:</strong> ${reason}</p><p>Please update your trip details and submit again.</p>`
+        });
+      }
+    } catch (e: any) {
+      logger.warn('Failed to send trip rejection email', { error: e.message });
+    }
+
+    logger.info('Trip rejected by agent', { tripId: id, agentId });
+    res.json({ message: 'Trip rejected', trip });
+
+  } catch (error: any) {
+    logger.error('Error rejecting trip', { error: error.message });
+    res.status(500).json({ error: 'Failed to reject trip' });
+  }
+});
+
+// Complete a trip (e.g. after it finishes)
+router.post('/trips/:id/complete', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const agentId = (req as any).auth.userId;
+
+    const trip = await Trip.findById(id);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+
+    if (trip.status !== 'active') {
+      return res.status(400).json({ error: 'Only active trips can be marked as completed' });
+    }
+
+    trip.status = 'completed';
+    await trip.save();
+
+    logger.info('Trip marked as completed by agent', { tripId: id, agentId });
+    res.json({ message: 'Trip marked as completed', trip });
+
+  } catch (error: any) {
+    logger.error('Error completing trip', { error: error.message });
+    res.status(500).json({ error: 'Failed to complete trip' });
   }
 });
 
