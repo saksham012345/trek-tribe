@@ -134,7 +134,20 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
-  // ... (subscription check remains same) ...
+  useEffect(() => {
+    const checkSubscription = async () => {
+      // Simulate subscription check delay
+      // In a real app, you would verify the user's subscription status here
+      setTimeout(() => {
+        setHasSubscription(true); // Assume valid for now or logic based on user
+        setSubscriptionChecked(true);
+      }, 500);
+    };
+
+    if (user) {
+      checkSubscription();
+    }
+  }, [user]);
 
   // ... (helper functions remain same) ...
 
