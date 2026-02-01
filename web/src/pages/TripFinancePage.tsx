@@ -2,9 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Pie } from 'react-chartjs-2';
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 
-ChartJS.register(ArcElement, Tooltip, Legend);
 import api from '../config/api';
 import { ArrowLeft, Plus, Trash2, Calendar, IndianRupee } from 'lucide-react';
 import LoadingButton from '../components/ui/LoadingButton';
