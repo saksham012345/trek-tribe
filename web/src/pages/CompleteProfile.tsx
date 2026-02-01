@@ -29,7 +29,10 @@ const CompleteProfile: React.FC = () => {
   // Determine initial step
   useEffect(() => {
     if (user) {
-      if (!user.username) {
+      // Check if user has a username OR a uniqueUrl (which acts as a username)
+      const hasUniqueName = user.username || user.uniqueUrl || user.organizerProfile?.uniqueUrl;
+
+      if (!hasUniqueName) {
         setStep('username');
       } else if (!user.phone || !user.phoneVerified) {
         setStep('phone');

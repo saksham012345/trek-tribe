@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
+import { Link, useParams } from 'react-router-dom';
 import { Sliders, Filter, Calendar, MapPin, DollarSign, ArrowUpDown } from 'lucide-react';
 import api from '../config/api';
 import JoinTripModal from '../components/JoinTripModal';
@@ -35,8 +36,9 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [filteredTrips, setFilteredTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
+  const { category, destination: destinationParam } = useParams<{ category: string; destination: string }>();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState(category || '');
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [copySuccess, setCopySuccess] = useState<{ [key: string]: boolean }>({});
@@ -46,7 +48,7 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 100000]);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [destination, setDestination] = useState('');
+  const [destination, setDestination] = useState(destinationParam || '');
   const [sortBy, setSortBy] = useState<'price' | 'date' | 'popularity' | 'newest'>('newest');
   const [difficulty, setDifficulty] = useState<string>('');
 
@@ -211,6 +213,12 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
           <p className="text-xl text-forest-600 max-w-2xl mx-auto">
             Find your next wilderness adventure and connect with fellow nature lovers
           </p>
+
+          {/* SEO Helmet */}
+          <Helmet>
+            <title>{selectedCategory ? `${selectedCategory} Trips` : destination ? `Trips to ${destination}` : 'Explore Adventure Trips'} | TrekTribe</title>
+            <meta name="description" content={`Discover the best ${selectedCategory || 'adventure'} trips${destination ? ` in ${destination}` : ''}. Join our community of eco-conscious travelers.`} />
+          </Helmet>
 
           {/* AI Smart Search */}
           <div className="mb-8">

@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /my-profile
+Disallow: /my-bookings
+Disallow: /wishlist
+Disallow: /create-trip
+Disallow: /edit-trip
+
+Sitemap: https://trektribe.com/sitemap.xml

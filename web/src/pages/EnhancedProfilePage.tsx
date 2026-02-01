@@ -457,7 +457,7 @@ const EnhancedProfilePage: React.FC = () => {
               </button>
             )}
             <button
-              onClick={() => navigate('/trips/request')}
+              onClick={() => navigate('/request-trip')}
               className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-200 flex items-center gap-2 shadow-lg shadow-blue-600/20"
             >
               <span className="text-xl">✨</span>

@@ -72,6 +72,7 @@ const MyRequestsPage = React.lazy(() => retryLazyLoad(() => import('./pages/cust
 const ProposalViewPage = React.lazy(() => retryLazyLoad(() => import('./pages/custom-trips/ProposalViewPage')));
 const CompleteProfile = React.lazy(() => retryLazyLoad(() => import('./pages/CompleteProfile')));
 const VerifyEmail = React.lazy(() => retryLazyLoad(() => import('./pages/VerifyEmail')));
+const TripFinancePage = React.lazy(() => retryLazyLoad(() => import('./pages/TripFinancePage')));
 
 // Error Boundary for lazy loading failures
 class ChunkErrorBoundary extends React.Component<
@@ -188,9 +189,11 @@ function AppContent() {
                 path="/reset-password"
                 element={user ? <Navigate to="/" /> : <ResetPassword />}
               />
-              <Route path="/trips" element={user ? <Trips user={user} /> : <Navigate to="/login" />} />
-              <Route path="/trips/:slug" element={user ? <TripDetails user={user} /> : <Navigate to="/login" />} />
-              <Route path="/trip/:id" element={user ? <TripDetails user={user} /> : <Navigate to="/login" />} />
+              <Route path="/trips" element={<Trips user={user || null} />} />
+              <Route path="/trips/category/:category" element={<Trips user={user || null} />} />
+              <Route path="/trips/destination/:destination" element={<Trips user={user || null} />} />
+              <Route path="/trips/:slug" element={<TripDetails user={user || null} />} />
+              <Route path="/trip/:id" element={<TripDetails user={user || null} />} />
               <Route
                 path="/create-trip"
                 element={
@@ -239,7 +242,7 @@ function AppContent() {
                 path="/wishlist"
                 element={user ? <Wishlist /> : <Navigate to="/login" />}
               />
-              <Route path="/search" element={user ? <SearchPage /> : <Navigate to="/login" />} />
+              <Route path="/search" element={<SearchPage />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               <Route path="/terms-conditions" element={<TermsConditions />} />
               <Route path="/cookie-settings" element={<CookieSettings />} />
@@ -282,6 +285,14 @@ function AppContent() {
                 element={
                   !user ? <Navigate to="/login" /> :
                     user.role === 'organizer' || user.role === 'admin' ? <OrganizerSettlements /> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+              <Route
+                path="/organizer/trips/:tripId/finance"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <TripFinancePage /> :
                       <Navigate to="/home?error=organizer-required" />
                 }
               />

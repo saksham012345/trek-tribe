@@ -56,6 +56,7 @@ import seedRoutes from './routes/seed';
 import groupsRoutes from './routes/groups';
 import eventsRoutes from './routes/events';
 import bankDetailsRoutes from './routes/bankDetails';
+import financeRoutes from './routes/finance';
 import { apiLimiter, authLimiter, otpLimiter } from './middleware/rateLimiter';
 import { cronScheduler } from './services/cronScheduler';
 import { chargeRetryWorker } from './services/chargeRetryWorker';
@@ -468,6 +469,11 @@ export async function start() {
     app.use('/api/bank-details', bankDetailsRoutes);
     console.log('✅ Bank details routes mounted at /api/bank-details');
     logMessage('INFO', 'Bank details routes registered');
+
+    // Finance & Expense Routes (Organizer Profit/Loss)
+    app.use('/api/finance', financeRoutes);
+    console.log('✅ Finance routes mounted at /api/finance');
+    logMessage('INFO', 'Finance routes registered');
 
     // Seed Routes under internal namespace
     app.use('/api/internal/seed', seedRoutes);

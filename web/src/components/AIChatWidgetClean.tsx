@@ -268,13 +268,19 @@ const AIChatWidgetClean: React.FC = () => {
         }
       });
 
-      const msgText = formatAvailability(upcoming);
+      const msgText = upcoming.length > 0
+        ? formatAvailability(upcoming)
+        : `📅 **Availability Check**\n\nNo trips available at **${p.destination || 'your selected destination'}** matching your criteria.\n\nTry adjusting your dates or budget to see more options.`;
+
       const msg: ChatMessage = { id: `avail_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: msgText, timestamp: new Date() };
       setMessages((s) => [...s, msg]);
       setShowPreferenceModal(false);
     } catch (e: any) {
-      const err: ChatMessage = { id: `availerr_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: 'Unable to fetch availability right now. Please try again later or specify your destination and dates.', timestamp: new Date() };
+      console.error('Search error:', e);
+      // Fallback for actual errors
+      const err: ChatMessage = { id: `availerr_${Date.now()}`, senderId: 'system', senderName: 'System', senderRole: 'ai', message: 'Unable to fetch availability right now. Please try again later.', timestamp: new Date() };
       setMessages((s) => [...s, err]);
+      setShowPreferenceModal(false); // Close modal even on error
     }
     setActionLoading(null);
   };

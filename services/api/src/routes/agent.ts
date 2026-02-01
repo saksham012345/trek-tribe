@@ -982,4 +982,133 @@ router.post('/trips/:id/complete', async (req, res) => {
   }
 });
 
+// Trip Verification Routes (Agent)
+// -----------------------------------------------------------------------------
+
+// Get trips for agent review (pending, active, etc.)
+router.get('/trips', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const status = req.query.status as string;
+    const search = req.query.search as string;
+
+    const query: any = {};
+
+    if (status && status !== 'all') {
+      if (status === 'pending') {
+        query.verificationStatus = 'pending';
+      } else {
+        query.status = status;
+      }
+    }
+
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { destination: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const total = await Trip.countDocuments(query);
+    const trips = await Trip.find(query)
+      .populate({
+        path: 'organizerId',
+        select: 'name email phone organizerProfile'
+      })
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    res.json({
+      trips,
+      pagination: {
+        current: page,
+        pages: Math.ceil(total / limit),
+        total
+      }
+    });
+  } catch (error: any) {
+    logger.error('Error fetching trips for agent', { error: error.message });
+    res.status(500).json({ error: 'Failed to fetch trips' });
+  }
+});
+
+// Verify (Approve) a trip
+router.post('/trips/:id/verify', async (req, res) => {
+  try {
+    const tripId = req.params.id;
+    const agentId = (req as any).auth.userId;
+    const { notes } = req.body;
+
+    const trip = await Trip.findById(tripId);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+
+    trip.verificationStatus = 'approved';
+    trip.status = 'active'; // Make it live immediately
+    trip.verifiedBy = agentId;
+    trip.verifiedAt = new Date();
+
+    // Add internal note if provided (requires schema update or use existing field)
+    // For now we just log it
+    logger.info(`Trip verified by agent ${agentId}: ${notes}`);
+
+    await trip.save();
+
+    // Notify organizer (TODO: Add NotificationService call here)
+
+    res.json({ message: 'Trip verified successfully', trip });
+  } catch (error: any) {
+    logger.error('Error verifying trip', { error: error.message });
+    res.status(500).json({ error: 'Failed to verify trip' });
+  }
+});
+
+// Reject a trip
+router.post('/trips/:id/reject', async (req, res) => {
+  try {
+    const tripId = req.params.id;
+    const agentId = (req as any).auth.userId;
+    const { reason } = req.body;
+
+    if (!reason) return res.status(400).json({ error: 'Rejection reason is required' });
+
+    const trip = await Trip.findById(tripId);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+
+    trip.verificationStatus = 'rejected';
+    trip.status = 'cancelled'; // Or keep as pending with 'rejected' flag? Usually cancelled.
+    trip.rejectionReason = reason;
+    trip.verifiedBy = agentId;
+    trip.verifiedAt = new Date();
+
+    await trip.save();
+
+    // Notify organizer with reason
+
+    res.json({ message: 'Trip rejected successfully', trip });
+  } catch (error: any) {
+    logger.error('Error rejecting trip', { error: error.message });
+    res.status(500).json({ error: 'Failed to reject trip' });
+  }
+});
+
+// Mark trip as completed
+router.post('/trips/:id/complete', async (req, res) => {
+  try {
+    const tripId = req.params.id;
+
+    const trip = await Trip.findById(tripId);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+
+    trip.status = 'completed';
+    await trip.save();
+
+    res.json({ message: 'Trip marked as completed', trip });
+  } catch (error: any) {
+    logger.error('Error completing trip', { error: error.message });
+    res.status(500).json({ error: 'Failed to complete trip' });
+  }
+});
+
 export default router;
