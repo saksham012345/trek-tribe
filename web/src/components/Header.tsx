@@ -95,6 +95,10 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
               {user?.role === 'admin' && (
                 <NavLink to="/admin" icon="🛠️" className="text-purple-600">Admin</NavLink>
               )}
+
+              {user?.role === 'agent' && (
+                <NavLink to="/agent" icon="🕵️" className="text-blue-600">Agent</NavLink>
+              )}
             </nav>
 
             {/* User Actions */}
@@ -248,6 +252,16 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
                 </Link>
                 <Link to="/crm" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50">
                   <span className="text-xl">📊</span> CRM
+                </Link>
+              </>
+            )}
+
+            {user?.role === 'agent' && (
+              <>
+                <div className="my-4 border-t border-forest-100"></div>
+                <h4 className="text-xs font-bold text-forest-400 uppercase tracking-wider mb-2 px-4">Agent</h4>
+                <Link to="/agent" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50">
+                  <span className="text-xl">🕵️</span> Dashboard
                 </Link>
               </>
             )}
