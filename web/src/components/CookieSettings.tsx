@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Shield, Settings, Check, X, Info } from 'lucide-react';
 
 interface CookiePreferences {
@@ -9,6 +10,7 @@ interface CookiePreferences {
 }
 
 const CookieSettings: React.FC = () => {
+  const navigate = useNavigate();
   const [preferences, setPreferences] = useState<CookiePreferences>({
     necessary: true,
     functional: false,
@@ -23,7 +25,7 @@ const CookieSettings: React.FC = () => {
     // Load saved preferences
     const savedPreferences = localStorage.getItem('trek-tribe-cookie-consent');
     const savedDate = localStorage.getItem('trek-tribe-cookie-consent-date');
-    
+
     if (savedPreferences) {
       try {
         setPreferences(JSON.parse(savedPreferences));
@@ -31,7 +33,7 @@ const CookieSettings: React.FC = () => {
         console.error('Error parsing saved cookie preferences:', error);
       }
     }
-    
+
     if (savedDate) {
       setConsentDate(new Date(savedDate).toLocaleDateString());
     }
@@ -53,19 +55,28 @@ const CookieSettings: React.FC = () => {
     }
 
     // Trigger custom event for other parts of the app
-    window.dispatchEvent(new CustomEvent('cookiePreferencesUpdated', { 
-      detail: prefs 
+    window.dispatchEvent(new CustomEvent('cookiePreferencesUpdated', {
+      detail: prefs
     }));
   };
 
-  const savePreferences = () => {
-    localStorage.setItem('trek-tribe-cookie-consent', JSON.stringify(preferences));
+  const handleSave = (prefsToSave: CookiePreferences) => {
+    localStorage.setItem('trek-tribe-cookie-consent', JSON.stringify(prefsToSave));
     localStorage.setItem('trek-tribe-cookie-consent-date', new Date().toISOString());
-    applyCookieSettings(preferences);
-    
+    applyCookieSettings(prefsToSave);
+
     setConsentDate(new Date().toLocaleDateString());
     setShowSaved(true);
-    setTimeout(() => setShowSaved(false), 3000);
+
+    // Navigate back after showing success message
+    setTimeout(() => {
+      setShowSaved(false);
+      navigate(-1); // Go back to previous page
+    }, 1500);
+  };
+
+  const savePreferences = () => {
+    handleSave(preferences);
   };
 
   const updatePreference = (key: keyof CookiePreferences, value: boolean) => {
@@ -83,12 +94,14 @@ const CookieSettings: React.FC = () => {
   };
 
   const acceptAll = () => {
-    setPreferences({
+    const allAccepted = {
       necessary: true,
       functional: true,
       analytics: true,
       marketing: true
-    });
+    };
+    setPreferences(allAccepted);
+    handleSave(allAccepted);
   };
 
   const cookieTypes = [
@@ -129,7 +142,7 @@ const CookieSettings: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto p-6">
       <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-        
+
         {/* Header */}
         <div className="bg-gradient-to-r from-forest-600 to-nature-600 px-8 py-6">
           <div className="flex items-center gap-3 mb-2">
@@ -159,7 +172,7 @@ const CookieSettings: React.FC = () => {
         )}
 
         <div className="p-8">
-          
+
           {/* Information Box */}
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-8">
             <div className="flex items-start gap-3">
@@ -167,7 +180,7 @@ const CookieSettings: React.FC = () => {
               <div>
                 <h3 className="text-blue-900 font-semibold mb-2">About Cookies</h3>
                 <p className="text-blue-800 text-sm leading-relaxed">
-                  Cookies are small text files stored on your device that help websites remember your preferences 
+                  Cookies are small text files stored on your device that help websites remember your preferences
                   and provide better user experiences. You can control which types of cookies you're comfortable with below.
                 </p>
               </div>
@@ -193,18 +206,18 @@ const CookieSettings: React.FC = () => {
                         </h3>
                       </div>
                     </div>
-                    
+
                     <p className="text-gray-600 leading-relaxed mb-3">
                       {type.description}
                     </p>
-                    
+
                     <div className="bg-gray-50 p-3 rounded-lg">
                       <p className="text-gray-500 text-sm">
                         <strong>Examples:</strong> {type.examples}
                       </p>
                     </div>
                   </div>
-                  
+
                   <div className="flex-shrink-0">
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
@@ -214,14 +227,12 @@ const CookieSettings: React.FC = () => {
                         disabled={type.required}
                         className="sr-only"
                       />
-                      <div className={`w-14 h-8 rounded-full transition-colors duration-200 ${
-                        preferences[type.key] 
-                          ? 'bg-forest-600' 
+                      <div className={`w-14 h-8 rounded-full transition-colors duration-200 ${preferences[type.key]
+                          ? 'bg-forest-600'
                           : 'bg-gray-300'
-                      } ${type.required ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
-                        <div className={`w-6 h-6 bg-white rounded-full shadow-md transform transition-transform duration-200 ${
-                          preferences[type.key] ? 'translate-x-7' : 'translate-x-1'
-                        } mt-1`} />
+                        } ${type.required ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+                        <div className={`w-6 h-6 bg-white rounded-full shadow-md transform transition-transform duration-200 ${preferences[type.key] ? 'translate-x-7' : 'translate-x-1'
+                          } mt-1`} />
                       </div>
                     </label>
                   </div>
@@ -239,14 +250,14 @@ const CookieSettings: React.FC = () => {
               <Check className="w-5 h-5" />
               Save Preferences
             </button>
-            
+
             <button
               onClick={acceptAll}
               className="flex-1 bg-nature-600 hover:bg-nature-700 text-white px-8 py-3 rounded-xl font-semibold transition-colors"
             >
               Accept All Cookies
             </button>
-            
+
             <button
               onClick={resetToDefaults}
               className="flex-1 border-2 border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-900 px-8 py-3 rounded-xl font-semibold transition-colors flex items-center justify-center gap-2"
