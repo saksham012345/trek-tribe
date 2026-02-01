@@ -3,11 +3,11 @@ import mongoose, { Schema, Document, Model, Types } from 'mongoose';
 export type RequestStatus = 'open' | 'assigned_to_organizers' | 'proposal_selected' | 'needs_review' | 'converted' | 'cancelled';
 
 export interface QualitySnapshot {
-    stayType: string;
-    comfortLevel: string;
-    transportType: string;
-    maxGroupSize: string;
-    safetyPlanPresent: boolean;
+    stayType?: string;
+    comfortLevel?: string;
+    transportType?: string;
+    maxGroupSize?: string;
+    safetyPlanPresent?: boolean;
 }
 
 export interface Proposal {

@@ -13,6 +13,7 @@ import { razorpayRouteService as razorpaySubmerchantService } from '../services/
 import { socketService } from '../services/socketService';
 import { trackTripView } from '../middleware/tripViewTracker';
 import { logger } from '../utils/logger';
+import { slugify } from '../utils/slugify';
 
 const router = Router();
 
@@ -261,11 +262,24 @@ router.post('/', authenticateJwt, requireRole(['organizer', 'admin']), requireEm
       destination: body.destination
     });
 
+    // Generate unique slug
+    let baseSlug = slugify(body.title);
+    if (!baseSlug) baseSlug = `trip-${Date.now()}`;
+    let dbSlug = baseSlug;
+    let counter = 1;
+    while (true) {
+      const existing = await Trip.findOne({ slug: dbSlug });
+      if (!existing) break;
+      dbSlug = `${baseSlug}-${counter}`;
+      counter++;
+    }
+
     // Create trip with timeout
     // Create trip. Leave `status` unset so the model default ('pending') is used.
     const createPromise = Trip.create({
       ...body,
       organizerId,
+      slug: dbSlug,
       location: body.location ? { type: 'Point', coordinates: body.location.coordinates } : undefined,
       participants: [],
       createdAt: new Date(),
@@ -521,6 +535,22 @@ router.get('/:id', trackTripView, async (req, res) => {
   const trip = await Trip.findById(id).populate('organizerId', 'name organizerProfile').lean();
   if (!trip) return res.status(404).json({ error: 'Not found' });
   res.json(trip);
+});
+
+// GET /trips/by-slug/:slug - SEO friendly endpoint
+router.get('/by-slug/:slug', trackTripView, async (req, res) => {
+  try {
+    const { slug } = req.params;
+    if (!slug) return res.status(400).json({ error: 'Slug required' });
+
+    const trip = await Trip.findOne({ slug }).populate('organizerId', 'name organizerProfile').lean();
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+
+    res.json(trip);
+  } catch (error: any) {
+    console.error('Error fetching trip by slug:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 router.post('/:id/join', authenticateJwt, async (req, res) => {

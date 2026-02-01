@@ -12,6 +12,7 @@ import FloatingJoinCTA from './components/FloatingJoinCTA';
 import { Trip } from './types';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { preloadRazorpay } from './utils/razorpay';
+import PhoneRequirementGuard from './components/auth/PhoneRequirementGuard';
 
 // Retry logic for lazy loading chunks
 const retryLazyLoad = (
@@ -130,6 +131,7 @@ function AppContent() {
 
   return (
     <Router>
+      <PhoneRequirementGuard />
       <div className="min-h-screen bg-forest-50 flex flex-col font-sans text-forest-900 selection:bg-earth-200 selection:text-forest-900">
         <Header user={user} onLogout={handleLogout} />
         <main className="pt-16 flex-grow relative z-0">
@@ -187,6 +189,7 @@ function AppContent() {
                 element={user ? <Navigate to="/" /> : <ResetPassword />}
               />
               <Route path="/trips" element={user ? <Trips user={user} /> : <Navigate to="/login" />} />
+              <Route path="/trips/:slug" element={user ? <TripDetails user={user} /> : <Navigate to="/login" />} />
               <Route path="/trip/:id" element={user ? <TripDetails user={user} /> : <Navigate to="/login" />} />
               <Route
                 path="/create-trip"
@@ -317,7 +320,7 @@ function AppContent() {
         {/* API Debugger - Remove in production */}
         {process.env.NODE_ENV === 'development' && <APIDebugger />}
       </div>
-    </Router>
+    </Router >
   );
 }
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, Eye, Database, Cookie, Mail, Phone } from 'lucide-react';
+import { Shield, Eye, Database, Cookie, Mail, Phone, Globe, Lock, UserCheck } from 'lucide-react';
 
 const PrivacyPolicy: React.FC = () => {
   const lastUpdated = "January 9, 2025";
@@ -14,10 +14,10 @@ const PrivacyPolicy: React.FC = () => {
             <h1 className="text-4xl font-bold text-forest-800">Privacy Policy</h1>
           </div>
           <p className="text-xl text-gray-600 mb-2">
-            Your privacy is important to us at Trek Tribe
+            Your privacy matters to us at Trek Tribe
           </p>
           <p className="text-sm text-gray-500">
-            Last updated: {lastUpdated}
+            Last Updated: {lastUpdated}
           </p>
         </div>
 
@@ -32,13 +32,10 @@ const PrivacyPolicy: React.FC = () => {
             </h2>
             <div className="prose prose-gray max-w-none">
               <p className="text-gray-700 leading-relaxed">
-                Welcome to Trek Tribe ("we," "our," or "us"). We are committed to protecting your personal information
-                and your right to privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard
-                your information when you use our website and services.
+                Trek Tribe (“we,” “our,” or “us”) is a community-driven platform that connects travelers and organizers to create, discover, and participate in adventure trips and outdoor experiences.
               </p>
               <p className="text-gray-700 leading-relaxed mt-3">
-                Trek Tribe is a community platform that connects adventure enthusiasts, organizes trips, and facilitates
-                outdoor experiences. We believe in transparency and want you to understand how we handle your data.
+                By using Trek Tribe, you agree to the practices described in this Privacy Policy. We are committed to handling your personal data responsibly, transparently, and securely.
               </p>
             </div>
           </section>
@@ -52,7 +49,7 @@ const PrivacyPolicy: React.FC = () => {
 
             <div className="space-y-6">
               <div className="bg-forest-50 p-6 rounded-xl">
-                <h3 className="text-lg font-semibold text-forest-800 mb-3">Information You Provide</h3>
+                <h3 className="text-lg font-semibold text-forest-800 mb-3">2.1 Information You Provide to Us</h3>
                 <ul className="space-y-2 text-gray-700">
                   <li className="flex items-start gap-2">
                     <span className="text-forest-600 mt-1">•</span>
@@ -60,25 +57,29 @@ const PrivacyPolicy: React.FC = () => {
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-forest-600 mt-1">•</span>
-                    <span><strong>Profile Information:</strong> Bio, location, profile photo, social media links</span>
+                    <span><strong>Profile Information:</strong> Bio, profile photo, location, preferences, social links</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-forest-600 mt-1">•</span>
-                    <span><strong>Trip Information:</strong> Trip details, reviews, photos, participant data</span>
+                    <span><strong>Trip Information:</strong> Trip details, bookings, reviews, uploaded images, participant data</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-forest-600 mt-1">•</span>
-                    <span><strong>Communication Data:</strong> Messages, chat conversations, support requests</span>
+                    <span><strong>Communications:</strong> Messages, chats, emails, and support requests</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-forest-600 mt-1">•</span>
+                    <span><strong>Payment Information:</strong> Payment status and transaction identifiers (payment details are processed by third-party payment providers)</span>
                   </li>
                 </ul>
               </div>
 
               <div className="bg-nature-50 p-6 rounded-xl">
-                <h3 className="text-lg font-semibold text-forest-800 mb-3">Information Automatically Collected</h3>
+                <h3 className="text-lg font-semibold text-forest-800 mb-3">2.2 Information Collected Automatically</h3>
                 <ul className="space-y-2 text-gray-700">
                   <li className="flex items-start gap-2">
                     <span className="text-nature-600 mt-1">•</span>
-                    <span><strong>Usage Data:</strong> Pages visited, time spent, clicks, interactions</span>
+                    <span><strong>Usage Data:</strong> Pages visited, interactions, clicks, time spent</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-nature-600 mt-1">•</span>
@@ -86,252 +87,206 @@ const PrivacyPolicy: React.FC = () => {
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-nature-600 mt-1">•</span>
-                    <span><strong>Location Data:</strong> General location (city/country) for trip recommendations</span>
+                    <span><strong>Location Data:</strong> Approximate location (city/country level only)</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-nature-600 mt-1">•</span>
-                    <span><strong>Cookies:</strong> Login status, preferences, analytics data</span>
+                    <span><strong>Cookies & Tracking Data:</strong> Login state, preferences, analytics data</span>
                   </li>
                 </ul>
               </div>
             </div>
           </section>
 
-          {/* How We Use Information */}
+          {/* Legal Basis */}
           <section>
-            <h2 className="text-2xl font-semibold text-forest-800 mb-4">3. How We Use Your Information</h2>
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div className="border-l-4 border-forest-600 pl-4">
-                  <h4 className="font-semibold text-gray-800">Service Delivery</h4>
-                  <p className="text-gray-600 text-sm">Provide trip booking, user accounts, and platform functionality</p>
-                </div>
-                <div className="border-l-4 border-forest-600 pl-4">
-                  <h4 className="font-semibold text-gray-800">Communication</h4>
-                  <p className="text-gray-600 text-sm">Send trip updates, confirmations, and important notifications</p>
-                </div>
-                <div className="border-l-4 border-forest-600 pl-4">
-                  <h4 className="font-semibold text-gray-800">Safety & Security</h4>
-                  <p className="text-gray-600 text-sm">Verify identities, prevent fraud, and ensure user safety</p>
-                </div>
+            <h2 className="text-2xl font-semibold text-forest-800 mb-4 flex items-center gap-2">
+              <Shield className="w-6 h-6" />
+              3. Legal Basis for Processing Personal Data
+            </h2>
+            <div className="bg-gray-50 p-6 rounded-xl border-l-4 border-forest-500">
+              <p className="text-gray-700 mb-4">We process your personal information based on one or more of the following legal grounds:</p>
+              <ul className="grid md:grid-cols-2 gap-3 text-gray-700">
+                <li className="flex items-center gap-2">
+                  <span className="text-forest-600">✓</span>
+                  <span><strong>Consent:</strong> When you voluntarily provide information</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-forest-600">✓</span>
+                  <span><strong>Contractual Necessity:</strong> To provide bookings and features</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-forest-600">✓</span>
+                  <span><strong>Legal Obligations:</strong> Compliance with laws</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-forest-600">✓</span>
+                  <span><strong>Legitimate Interests:</strong> Improving services, security</span>
+                </li>
+              </ul>
+            </div>
+          </section>
+
+          {/* How We Use Your Information */}
+          <section>
+            <h2 className="text-2xl font-semibold text-forest-800 mb-4">4. How We Use Your Information</h2>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="bg-white border border-gray-200 p-4 rounded-lg hover:shadow-md transition-shadow">
+                <h4 className="font-semibold text-forest-700 mb-1">Account Management</h4>
+                <p className="text-sm text-gray-600">Create and manage user accounts</p>
               </div>
-              <div className="space-y-4">
-                <div className="border-l-4 border-nature-600 pl-4">
-                  <h4 className="font-semibold text-gray-800">Personalization</h4>
-                  <p className="text-gray-600 text-sm">Recommend trips, customize experience based on preferences</p>
-                </div>
-                <div className="border-l-4 border-nature-600 pl-4">
-                  <h4 className="font-semibold text-gray-800">Analytics</h4>
-                  <p className="text-gray-600 text-sm">Understand usage patterns and improve our services</p>
-                </div>
-                <div className="border-l-4 border-nature-600 pl-4">
-                  <h4 className="font-semibold text-gray-800">Legal Compliance</h4>
-                  <p className="text-gray-600 text-sm">Meet legal obligations and respond to legal requests</p>
-                </div>
+              <div className="bg-white border border-gray-200 p-4 rounded-lg hover:shadow-md transition-shadow">
+                <h4 className="font-semibold text-forest-700 mb-1">Trip Services</h4>
+                <p className="text-sm text-gray-600">Enable trip discovery, bookings, and participation</p>
+              </div>
+              <div className="bg-white border border-gray-200 p-4 rounded-lg hover:shadow-md transition-shadow">
+                <h4 className="font-semibold text-forest-700 mb-1">Communication</h4>
+                <p className="text-sm text-gray-600">Communicate important updates and notifications</p>
+              </div>
+              <div className="bg-white border border-gray-200 p-4 rounded-lg hover:shadow-md transition-shadow">
+                <h4 className="font-semibold text-forest-700 mb-1">Security</h4>
+                <p className="text-sm text-gray-600">Prevent fraud, abuse, and security threats</p>
               </div>
             </div>
+            <p className="text-gray-600 mt-4 text-sm italic">
+              We also use data to personalize recommendations, strictly improve functionality, and comply with legal requirements.
+            </p>
           </section>
 
           {/* Cookies */}
           <section>
             <h2 className="text-2xl font-semibold text-forest-800 mb-4 flex items-center gap-2">
               <Cookie className="w-6 h-6" />
-              4. Cookies and Tracking Technologies
+              5. Cookies and Tracking Technologies
             </h2>
             <div className="bg-blue-50 p-6 rounded-xl">
               <p className="text-gray-700 leading-relaxed mb-4">
-                We use cookies and similar tracking technologies to enhance your experience on Trek Tribe.
-                You can control cookie preferences through our cookie consent banner.
+                We use cookies and similar technologies to enhance your experience.
               </p>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <h4 className="font-semibold text-blue-800 mb-2">Types of Cookies:</h4>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    <li>• Essential cookies (always active)</li>
-                    <li>• Functional cookies (enhance features)</li>
-                    <li>• Analytics cookies (Google Analytics)</li>
-                    <li>• Marketing cookies (advertising)</li>
-                  </ul>
-                </div>
-                <div>
-                  <h4 className="font-semibold text-blue-800 mb-2">Your Controls:</h4>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    <li>• Customize preferences anytime</li>
-                    <li>• Block specific cookie types</li>
-                    <li>• Clear cookies from browser</li>
-                    <li>• Opt-out of analytics tracking</li>
-                  </ul>
-                </div>
+              <div className="grid md:grid-cols-2 gap-4 mb-4">
+                <ul className="text-sm text-gray-700 space-y-2">
+                  <li><strong>Essential Cookies:</strong> Required for core functionality</li>
+                  <li><strong>Functional Cookies:</strong> Remember preferences and settings</li>
+                </ul>
+                <ul className="text-sm text-gray-700 space-y-2">
+                  <li><strong>Analytics Cookies:</strong> Understand usage trends (e.g., Google Analytics)</li>
+                  <li><strong>Marketing Cookies:</strong> Used only if explicitly enabled by you</li>
+                </ul>
               </div>
+              <p className="text-sm text-blue-800">
+                You can manage or withdraw cookie consent at any time through browser settings or our cookie preferences tool.
+              </p>
             </div>
           </section>
 
           {/* Information Sharing */}
           <section>
-            <h2 className="text-2xl font-semibold text-forest-800 mb-4">5. Information Sharing and Disclosure</h2>
+            <h2 className="text-2xl font-semibold text-forest-800 mb-4">6. Information Sharing and Disclosure</h2>
             <div className="space-y-4">
               <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
-                <h4 className="font-semibold text-yellow-800 mb-2">We DO NOT sell your personal information.</h4>
-                <p className="text-yellow-700 text-sm">
-                  Your data is never sold to third parties for marketing purposes.
-                </p>
+                <h4 className="font-semibold text-yellow-800 mb-1">We do not sell your personal data.</h4>
+                <p className="text-yellow-700 text-sm">We may share your information only in specific situations like legal compliance or with trusted service providers.</p>
               </div>
-
-              <div className="space-y-3">
-                <h4 className="font-semibold text-gray-800">We may share information in these situations:</h4>
-                <ul className="space-y-2 text-gray-700">
-                  <li className="flex items-start gap-2">
-                    <span className="text-forest-600 mt-1">•</span>
-                    <span><strong>Trip Participants:</strong> Share contact info with other trip participants for coordination</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-forest-600 mt-1">•</span>
-                    <span><strong>Service Providers:</strong> Payment processors, email services, hosting providers</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-forest-600 mt-1">•</span>
-                    <span><strong>Legal Requirements:</strong> When required by law, court orders, or legal process</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-forest-600 mt-1">•</span>
-                    <span><strong>Safety Concerns:</strong> To protect users from harm or illegal activities</span>
-                  </li>
-                </ul>
-              </div>
+              <ul className="space-y-2 text-gray-700 pl-4">
+                <li className="flex items-start gap-2">
+                  <span className="text-forest-600 mt-1">•</span>
+                  <span><strong>With Other Users:</strong> Limited contact details may be shared with trip participants for coordination</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-forest-600 mt-1">•</span>
+                  <span><strong>Service Providers:</strong> Trusted third parties (payment processors, hosting, email services)</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-forest-600 mt-1">•</span>
+                  <span><strong>Legal Compliance:</strong> When required by law, court order, or legal process</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-forest-600 mt-1">•</span>
+                  <span><strong>Business Transfers:</strong> In case of merger, acquisition, or asset sale</span>
+                </li>
+              </ul>
             </div>
+          </section>
+
+          {/* Data Retention */}
+          <section>
+            <h2 className="text-2xl font-semibold text-forest-800 mb-4">7. Data Retention</h2>
+            <p className="text-gray-700 mb-2">We retain personal data only for as long as necessary to:</p>
+            <ul className="list-disc pl-6 text-gray-700 space-y-1 mb-2">
+              <li>Provide our Services</li>
+              <li>Fulfill legal and contractual obligations</li>
+              <li>Resolve disputes and enforce agreements</li>
+            </ul>
+            <p className="text-gray-700">When data is no longer required, it is securely deleted or anonymized.</p>
           </section>
 
           {/* Data Security */}
           <section>
-            <h2 className="text-2xl font-semibold text-forest-800 mb-4">6. Data Security</h2>
-            <div className="bg-green-50 p-6 rounded-xl">
-              <p className="text-gray-700 leading-relaxed mb-4">
-                We implement appropriate security measures to protect your personal information against
-                unauthorized access, alteration, disclosure, or destruction.
-              </p>
-              <div className="grid md:grid-cols-3 gap-4">
-                <div className="text-center">
-                  <div className="w-12 h-12 bg-forest-600 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <Shield className="w-6 h-6 text-white" />
-                  </div>
-                  <h4 className="font-semibold text-forest-800 text-sm">Encryption</h4>
-                  <p className="text-xs text-gray-600">SSL/TLS encryption for data transmission</p>
-                </div>
-                <div className="text-center">
-                  <div className="w-12 h-12 bg-forest-600 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <Database className="w-6 h-6 text-white" />
-                  </div>
-                  <h4 className="font-semibold text-forest-800 text-sm">Secure Storage</h4>
-                  <p className="text-xs text-gray-600">Protected servers and databases</p>
-                </div>
-                <div className="text-center">
-                  <div className="w-12 h-12 bg-forest-600 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <Eye className="w-6 h-6 text-white" />
-                  </div>
-                  <h4 className="font-semibold text-forest-800 text-sm">Access Controls</h4>
-                  <p className="text-xs text-gray-600">Limited access on need-to-know basis</p>
-                </div>
+            <h2 className="text-2xl font-semibold text-forest-800 mb-4 flex items-center gap-2">
+              <Lock className="w-6 h-6" />
+              8. Data Security
+            </h2>
+            <div className="bg-gray-50 p-6 rounded-xl">
+              <p className="text-gray-700 mb-4">We implement appropriate technical and organizational safeguards:</p>
+              <div className="flex flex-wrap gap-3 mb-4">
+                <span className="px-3 py-1 bg-white border border-gray-200 rounded-full text-sm font-medium text-gray-700">SSL/TLS encryption</span>
+                <span className="px-3 py-1 bg-white border border-gray-200 rounded-full text-sm font-medium text-gray-700">Secure data storage</span>
+                <span className="px-3 py-1 bg-white border border-gray-200 rounded-full text-sm font-medium text-gray-700">Access controls</span>
+                <span className="px-3 py-1 bg-white border border-gray-200 rounded-full text-sm font-medium text-gray-700">Regular monitoring</span>
               </div>
+              <p className="text-gray-600 text-sm">However, no system is 100% secure, and we cannot guarantee absolute security.</p>
             </div>
           </section>
+
 
           {/* Your Rights */}
           <section>
-            <h2 className="text-2xl font-semibold text-forest-800 mb-4">7. Your Privacy Rights</h2>
+            <h2 className="text-2xl font-semibold text-forest-800 mb-4 flex items-center gap-2">
+              <UserCheck className="w-6 h-6" />
+              9. Your Privacy Rights
+            </h2>
             <div className="bg-purple-50 p-6 rounded-xl">
-              <p className="text-gray-700 leading-relaxed mb-4">
-                You have several rights regarding your personal information:
-              </p>
+              <p className="text-gray-700 mb-4">Depending on your jurisdiction, you may have the right to:</p>
               <div className="grid md:grid-cols-2 gap-4">
                 <ul className="space-y-2 text-gray-700">
-                  <li className="flex items-start gap-2">
-                    <span className="text-purple-600 mt-1">✓</span>
-                    <span><strong>Access:</strong> Request copies of your personal data</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-purple-600 mt-1">✓</span>
-                    <span><strong>Correction:</strong> Request to correct inaccurate information</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-purple-600 mt-1">✓</span>
-                    <span><strong>Deletion:</strong> Request deletion of your data</span>
-                  </li>
+                  <li className="flex items-center gap-2"><span className="text-purple-600">✓</span> Access your personal data</li>
+                  <li className="flex items-center gap-2"><span className="text-purple-600">✓</span> Correct inaccurate data</li>
+                  <li className="flex items-center gap-2"><span className="text-purple-600">✓</span> Request deletion</li>
                 </ul>
                 <ul className="space-y-2 text-gray-700">
-                  <li className="flex items-start gap-2">
-                    <span className="text-purple-600 mt-1">✓</span>
-                    <span><strong>Portability:</strong> Request data in a portable format</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-purple-600 mt-1">✓</span>
-                    <span><strong>Object:</strong> Object to certain data processing</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-purple-600 mt-1">✓</span>
-                    <span><strong>Withdraw Consent:</strong> Withdraw consent anytime</span>
-                  </li>
+                  <li className="flex items-center gap-2"><span className="text-purple-600">✓</span> Object to processing</li>
+                  <li className="flex items-center gap-2"><span className="text-purple-600">✓</span> Withdraw consent</li>
+                  <li className="flex items-center gap-2"><span className="text-purple-600">✓</span> Request data portability</li>
                 </ul>
               </div>
-              <div className="mt-4 p-4 bg-purple-100 rounded-lg">
-                <p className="text-purple-800 text-sm">
-                  <strong>How to exercise your rights:</strong> Contact us at privacy@trektribe.com or
-                  use the settings in your account dashboard.
-                </p>
-              </div>
+              <p className="mt-4 text-purple-800 text-sm font-medium">You can exercise these rights via your account settings or by contacting us.</p>
             </div>
           </section>
 
-          {/* Children's Privacy */}
-          <section>
-            <h2 className="text-2xl font-semibold text-forest-800 mb-4">8. Children's Privacy</h2>
-            <div className="bg-red-50 border border-red-200 p-6 rounded-xl">
-              <p className="text-gray-700 leading-relaxed">
-                Trek Tribe is not intended for children under 13 years of age. We do not knowingly collect
-                personal information from children under 13. If you are a parent or guardian and believe your
-                child has provided us with personal information, please contact us immediately.
+          {/* Children / International / Changes */}
+          <section className="space-y-6">
+            <div>
+              <h2 className="text-xl font-semibold text-forest-800 mb-2">10. Children’s Privacy</h2>
+              <p className="text-gray-700">
+                Trek Tribe is not intended for children under the applicable legal age. We do not knowingly collect personal data from minors. If you believe a minor has provided us with data, please contact us immediately.
+              </p>
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-forest-800 mb-2 flex items-center gap-2">
+                <Globe className="w-5 h-5" />
+                11. International Data Transfers
+              </h2>
+              <p className="text-gray-700">
+                Your information may be processed or stored outside your country of residence. When we transfer data internationally, we ensure appropriate safeguards are in place as required by applicable law.
+              </p>
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-forest-800 mb-2">12. Changes to This Privacy Policy</h2>
+              <p className="text-gray-700">
+                We may update this Privacy Policy from time to time. Any changes will be posted on this page with an updated “Last Updated” date. Continued use of our Services means you accept the updated policy.
               </p>
             </div>
           </section>
-
-          {/* Contact Information */}
-          <section>
-            <h2 className="text-2xl font-semibold text-forest-800 mb-4">9. Contact Us</h2>
-            <div className="bg-gradient-to-r from-forest-600 to-nature-600 text-white p-6 rounded-xl">
-              <p className="mb-4">
-                If you have questions about this Privacy Policy or our data practices, please contact us:
-              </p>
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <Mail className="w-5 h-5" />
-                  <span>privacy@trektribe.com</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Phone className="w-5 h-5" />
-                  <span>+1 (555) 123-4567</span>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-5 h-5 mt-0.5">📍</div>
-                  <div>
-                    <p>Trek Tribe Privacy Team</p>
-                    <p>123 Adventure Lane, Mountain View, CA 94041</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Changes to Policy */}
-          <section>
-            <div className="border-t border-gray-200 pt-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-3">Changes to This Privacy Policy</h3>
-              <p className="text-gray-600 text-sm leading-relaxed">
-                We may update this Privacy Policy from time to time. We will notify you of any changes by
-                posting the new Privacy Policy on this page and updating the "Last updated" date.
-                We encourage you to review this Privacy Policy periodically for any changes.
-              </p>
-            </div>
-          </section>
-
         </div>
       </div>
     </div>

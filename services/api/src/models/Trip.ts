@@ -131,6 +131,9 @@ export interface TripDocument extends Document {
   isPrivate: boolean;
   allowedUserIds: Types.ObjectId[]; // Only these users can see/book if private
 
+  // SEO Slug
+  slug?: string;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -296,11 +299,16 @@ const tripSchema = new Schema(
     // Custom Trip / Private Trip support
     isPrivate: { type: Boolean, default: false, index: true },
     allowedUserIds: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+
+    // SEO Slug (Optional, Sparse, Unique)
+    slug: { type: String, unique: true, sparse: true, index: true },
   },
   { timestamps: true }
 );
 
 tripSchema.index({ title: 'text', description: 'text', destination: 'text' });
+// Index for slug lookup
+tripSchema.index({ slug: 1 });
 
 // Export with proper typing to avoid complex union types
 export const Trip = (mongoose.models.Trip || mongoose.model<TripDocument>('Trip', tripSchema)) as Model<TripDocument>;

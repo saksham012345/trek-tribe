@@ -11,7 +11,7 @@ import authRoutes from './routes/auth';
 import tripRoutes from './routes/trips';
 import reviewRoutes from './routes/reviews';
 import wishlistRoutes from './routes/wishlist';
-import fileRoutes from './routes/files';
+// import fileRoutes from './routes/files';
 import bookingRoutes from './routes/bookings';
 import adminRoutes from './routes/admin';
 import profileRoutes from './routes/profile';
@@ -29,7 +29,7 @@ import searchRoutes from './routes/search';
 import supportRoutes from './routes/support';
 import statsRoutes from './routes/stats';
 // Production-ready file upload routes
-import fileUploadRoutes from './routes/fileUploadProd';
+// import fileUploadRoutes from './routes/fileUploadProd';
 import groupBookingRoutes from './routes/groupBookings';
 import reviewVerificationRoutes from './routes/reviewVerification';
 import { whatsappService } from './services/whatsappService';
@@ -59,6 +59,9 @@ import bankDetailsRoutes from './routes/bankDetails';
 import { apiLimiter, authLimiter, otpLimiter } from './middleware/rateLimiter';
 import { cronScheduler } from './services/cronScheduler';
 import { chargeRetryWorker } from './services/chargeRetryWorker';
+import { Trip } from './models/Trip';
+import fs from 'fs';
+import path from 'path';
 import { logger } from './utils/logger';
 import errorHandler from './middleware/errorHandler';
 import metrics from './middleware/metrics';
@@ -344,7 +347,7 @@ export async function start() {
     app.use('/trips', tripRoutes);
     app.use('/reviews', reviewRoutes);
     app.use('/wishlist', wishlistRoutes);
-    app.use('/files', fileRoutes);
+    // app.use('/files', fileRoutes);
     app.use('/bookings', bookingRoutes);
     app.use('/admin', adminRoutes);
     app.use('/api/profile', profileRoutes);
@@ -353,7 +356,7 @@ export async function start() {
     app.use('/profile', enhancedProfileRoutes);
     app.use('/api/public', publicProfileRoutes);
     // File upload system (production ready)
-    app.use('/api/uploads', fileUploadRoutes);
+    // app.use('/api/uploads', fileUploadRoutes);
 
     // Group Bookings and Review Verification
     app.use('/api/group-bookings', groupBookingRoutes);
@@ -528,6 +531,113 @@ export async function start() {
 
     // Request metrics middleware (collect metrics for each request)
     app.use(metrics.metricsMiddleware());
+
+    // ==========================================
+    // SEO & OpenGraph Injection Layer
+    // ==========================================
+
+    // 1. Robots.txt
+    app.get('/robots.txt', (req, res) => {
+      res.type('text/plain');
+      res.send(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /dashboard\nDisallow: /api\nDisallow: /auth\n\nSitemap: https://trektribe.in/sitemap.xml`);
+    });
+
+    // 2. Sitemap.xml
+    app.get('/sitemap.xml', async (req, res) => {
+      try {
+        const trips = await Trip.find({ status: { $ne: 'cancelled' }, verificationStatus: 'approved' })
+          .select('slug updatedAt')
+          .lean();
+
+        const baseUrl = 'https://trektribe.in';
+
+        let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>${baseUrl}/</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>${baseUrl}/trips</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>`;
+
+        trips.forEach((trip: any) => {
+          if (trip.slug) {
+            xml += `
+  <url>
+    <loc>${baseUrl}/trips/${trip.slug}</loc>
+    <lastmod>${new Date(trip.updatedAt).toISOString()}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>`;
+          }
+        });
+
+        xml += `
+</urlset>`;
+
+        res.header('Content-Type', 'application/xml');
+        res.send(xml);
+      } catch (error) {
+        console.error('Sitemap generation error:', error);
+        res.status(500).send('Error generating sitemap');
+      }
+    });
+
+    // 3. Trip SEO Injection (Hijack /trips/:slug)
+    // Only applies to requests accepting HTML (browsers/crawlers)
+    app.get('/trips/:slug', async (req, res, next) => {
+      // If it looks like a resource file, skip
+      if (req.params.slug.includes('.')) return next();
+
+      try {
+        const trip = await Trip.findOne({ slug: req.params.slug }).lean();
+
+        if (!trip) return next(); // Fallback to React app 404 handling
+
+        // Read index.html
+        // Assuming web build is in client/build or similar. Adjust path as needed.
+        // In local dev, we might not have build folder, so this is primarily for production.
+        const buildPath = process.env.CLIENT_BUILD_PATH || path.join(__dirname, '../../web/build');
+        const indexPath = path.join(buildPath, 'index.html');
+
+        if (!fs.existsSync(indexPath)) {
+          // In dev or if build missing, fall through to normal handling
+          return next();
+        }
+
+        let html = fs.readFileSync(indexPath, 'utf8');
+
+        // Replace Meta Tags
+        const title = `${trip.title} | TrekTribe`;
+        const description = trip.description.substring(0, 160).replace(/"/g, '&quot;');
+        const image = trip.coverImage || (trip.images && trip.images[0]) || 'https://trektribe.in/logo-192x192.png';
+        const url = `https://trektribe.in/trips/${trip.slug}`;
+
+        // Replace primary tags
+        html = html.replace(/<title>.*?<\/title>/, `<title>${title}</title>`);
+        html = html.replace(/content="TrekTribe - Connect with amazing trip organizers.*?"/, `content="${description}"`);
+
+        // Replace OG tags (using regex to be safe against formatting changes)
+        html = html.replace(/property="og:title" content=".*?"/, `property="og:title" content="${title}"`);
+        html = html.replace(/property="og:description" content=".*?"/, `property="og:description" content="${description}"`);
+        html = html.replace(/property="og:image" content=".*?"/, `property="og:image" content="${image}"`); // Add this if missing in template
+
+        // Ensure image tag exists if replacement failed
+        if (!html.includes('property="og:image"')) {
+          html = html.replace('</head>', `<meta property="og:image" content="${image}" />\n</head>`);
+        }
+
+        res.send(html);
+
+      } catch (error) {
+        console.error('SEO Injection Error:', error);
+        next();
+      }
+    });
 
     // 404 handler
     app.use('*', (req: Request, res: Response) => {

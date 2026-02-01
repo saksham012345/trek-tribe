@@ -112,7 +112,7 @@ const proposalSchema = z.object({
     inclusions: z.array(z.string()),
     exclusions: z.array(z.string()),
     qualitySnapshot: z.object({
-        stayType: z.string(),
+        stayType: z.string().optional(), // Updated to optional to match loose input, or fix interface
         comfortLevel: z.string(),
         transportType: z.string(),
         maxGroupSize: z.string(),

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import api from '../config/api';
 import JoinTripModal from '../components/JoinTripModal';
 import ReviewModal from '../components/ReviewModal';
@@ -43,7 +44,7 @@ interface TripDetailsProps {
 }
 
 const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
-  const { id } = useParams<{ id: string }>();
+  const { id, slug } = useParams<{ id: string; slug: string }>();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -54,10 +55,13 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
 
   useEffect(() => {
     const fetchTrip = async () => {
-      if (!id) return;
-      
+      // Prioritize slug if available, otherwise use id
+      const identifier = slug || id;
+      if (!identifier) return;
+
       try {
-        const response = await api.get(`/trips/${id}`);
+        const endpoint = slug ? `/trips/by-slug/${slug}` : `/trips/${id}`;
+        const response = await api.get(endpoint);
         const tripData = response.data as Trip;
         setTrip(tripData);
       } catch (error: any) {
@@ -69,7 +73,7 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
     };
 
     fetchTrip();
-  }, [id]);
+  }, [id, slug]);
 
   const handleJoinSuccess = async () => {
     // Refresh trip data
@@ -94,7 +98,7 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
 
   const handleShareTrip = async () => {
     const shareUrl = getTripShareUrl(trip!._id);
-    
+
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopySuccess(true);
@@ -191,6 +195,41 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-forest-50 to-nature-50">
+      <Helmet>
+        <title>{trip.title} | TrekTribe</title>
+        <meta name="description" content={trip.description.substring(0, 160)} />
+        <meta property="og:title" content={`${trip.title} | TrekTribe`} />
+        <meta property="og:description" content={trip.description.substring(0, 160)} />
+        {trip.coverImage && <meta property="og:image" content={trip.coverImage} />}
+        <link rel="canonical" href={window.location.href} />
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "TouristTrip",
+            "name": trip.title,
+            "description": trip.description,
+            "touristType": [trip.difficultyLevel || "moderate"],
+            "itinerary": trip.schedule?.map(day => ({
+              "@type": "ItemList",
+              "name": day.title,
+              "itemListElement": day.activities?.map(act => ({
+                "@type": "ListItem",
+                "name": act
+              }))
+            })),
+            "offers": {
+              "@type": "Offer",
+              "price": trip.price,
+              "priceCurrency": "INR",
+              "availability": (trip.capacity - (trip.participants?.length || 0)) > 0 ? "https://schema.org/InStock" : "https://schema.org/SoldOut"
+            },
+            "provider": {
+              "@type": "Organization",
+              "name": "TrekTribe" // Could be dynamic if organizer name available in simple format
+            }
+          })}
+        </script>
+      </Helmet>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Image Gallery */}
         <div className="mb-8">
@@ -236,16 +275,15 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
                   </button>
                 </div>
               </div>
-              
+
               {tripImages.length > 1 && (
                 <div className="flex space-x-2 overflow-x-auto pb-2">
                   {tripImages.map((image, index) => (
                     <button
                       key={index}
                       onClick={() => setSelectedImageIndex(index)}
-                      className={`flex-shrink-0 w-24 h-16 rounded-lg overflow-hidden border-2 transition-all ${
-                        selectedImageIndex === index ? 'border-nature-500 ring-2 ring-nature-200' : 'border-gray-200'
-                      }`}
+                      className={`flex-shrink-0 w-24 h-16 rounded-lg overflow-hidden border-2 transition-all ${selectedImageIndex === index ? 'border-nature-500 ring-2 ring-nature-200' : 'border-gray-200'
+                        }`}
                     >
                       <img
                         src={image}
@@ -349,7 +387,7 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
                       </ul>
                     </div>
                   )}
-                  
+
                   {trip.requirements && trip.requirements.length > 0 && (
                     <div>
                       <h3 className="text-lg font-semibold text-forest-800 mb-4 flex items-center">
@@ -392,7 +430,7 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
                     </a>
                   )}
                 </div>
-                
+
                 {trip.schedule && trip.schedule.length > 0 ? (
                   <div className="space-y-6">
                     {trip.schedule?.map((day, index) => (

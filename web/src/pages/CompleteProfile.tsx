@@ -31,9 +31,9 @@ const CompleteProfile: React.FC = () => {
     if (user) {
       if (!user.username) {
         setStep('username');
-      } else if (!user.phoneVerified) {
+      } else if (!user.phone || !user.phoneVerified) {
         setStep('phone');
-        // Pre-fill phone if available but unverified
+        // Pre-fill phone if available (e.g. from Google but unverified, though rare if we just redirect for missing)
         if (user.phone) setPhone(user.phone);
       } else {
         // All good

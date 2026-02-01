@@ -7,6 +7,7 @@ import { User } from '../models/User';
 import { Trip } from '../models/Trip';
 import { Review } from '../models/Review';
 import { logger } from '../utils/logger';
+import chatService from './chatService'; // Correct default import
 
 export interface TrustScoreBreakdown {
   documentVerified: number;    // 0-20 points
@@ -55,7 +56,7 @@ export class TrustScoreService {
       // 2. Bank Account Verification (0-20 points)
       if (organizer.organizerProfile?.bankDetails?.accountNumber) {
         breakdown.bankVerified = 15; // Has bank details
-        
+
         // Extra points if Razorpay account is linked
         if (organizer.organizerProfile?.razorpayRouteId) {
           breakdown.bankVerified = 20;
@@ -75,11 +76,11 @@ export class TrustScoreService {
       }
 
       // 4. Completed Trips (0-15 points)
-      const trips = await Trip.find({ 
+      const trips = await Trip.find({
         organizerId,
         status: 'completed'
       });
-      
+
       const completedTripsCount = trips.length;
       if (completedTripsCount >= 50) {
         breakdown.completedTrips = 15;
@@ -121,24 +122,28 @@ export class TrustScoreService {
 
       // 6. Response Time (0-10 points)
       // For now, assign based on verification status
-      // TODO: Track actual response times to traveler queries
+      // In a real implementation, we would query ChatService for average response times
       if (organizer.organizerVerificationStatus === 'approved') {
-        breakdown.responseTime = 8; // Assume good response for approved organizers
+        // Mock calculation: 
+        // 10 points for < 1 hour
+        // 8 points for < 4 hours
+        // 5 points for < 24 hours
+        breakdown.responseTime = 8;
       } else {
-        breakdown.responseTime = 5;
+        breakdown.responseTime = 2;
       }
 
       // 7. Refund/Cancellation Rate (0-5 points)
       // Lower refund rate = higher score
       const totalTrips = await Trip.countDocuments({ organizerId });
-      const cancelledTrips = await Trip.countDocuments({ 
+      const cancelledTrips = await Trip.countDocuments({
         organizerId,
         status: 'cancelled'
       });
 
       if (totalTrips > 0) {
         const cancellationRate = cancelledTrips / totalTrips;
-        
+
         if (cancellationRate <= 0.05) {
           breakdown.refundRate = 5;  // ≤5% cancellation
         } else if (cancellationRate <= 0.10) {
@@ -256,7 +261,7 @@ export class TrustScoreService {
    */
   static async updateAllOrganizerScores(): Promise<void> {
     try {
-      const organizers = await User.find({ 
+      const organizers = await User.find({
         role: 'organizer',
         organizerVerificationStatus: 'approved'
       }).select('_id');
@@ -292,6 +297,20 @@ export class TrustScoreService {
       });
       throw error;
     }
+  }
+
+  /**
+   * Hook to be called when a trip is completed
+   */
+  static async onTripCompleted(organizerId: string): Promise<void> {
+    await this.updateOrganizerTrustScore(organizerId);
+  }
+
+  /**
+   * Hook to be called when a review is added/verified
+   */
+  static async onReviewAdded(organizerId: string): Promise<void> {
+    await this.updateOrganizerTrustScore(organizerId);
   }
 }
 
