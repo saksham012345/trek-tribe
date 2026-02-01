@@ -2,7 +2,7 @@ import express from 'express';
 import { Trip } from '../models/Trip';
 import { Expense } from '../models/Expense';
 import { GroupBooking } from '../models/GroupBooking'; // Used for Revenue calculation
-import { authenticate } from '../middleware/auth';
+import { authenticateJwt } from '../middleware/auth';
 import { logger } from '../utils/logger';
 import mongoose from 'mongoose';
 
@@ -16,7 +16,7 @@ const requireOrganizer = (req: any, res: any, next: any) => {
     next();
 };
 
-router.use(authenticate);
+router.use(authenticateJwt);
 router.use(requireOrganizer);
 
 // -----------------------------------------------------------------------------
