@@ -1203,6 +1203,7 @@ const AgentDashboard: React.FC = () => {
           <nav className="-mb-px flex space-x-8">
             {[
               { key: 'dashboard', label: 'Dashboard', icon: BarChart3 },
+              { key: 'trips', label: 'Trips Review', icon: CheckCircle },
               { key: 'tickets', label: 'Tickets', icon: MessageSquare },
               { key: 'ticket-details', label: 'Ticket Details', icon: User },
               { key: 'communication', label: 'Communication', icon: Phone }
