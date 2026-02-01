@@ -7,7 +7,6 @@ import authRoutes from './routes/auth';
 import tripRoutes from './routes/trips';
 import reviewRoutes from './routes/reviews';
 import wishlistRoutes from './routes/wishlist';
-import fileRoutes from './routes/files';
 import webhookRoutes from './routes/webhooks';
 
 const app = express();
@@ -24,13 +23,13 @@ app.use(logger.requestLogger());
 app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
-app.use(cors({ 
+app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin
     if (!origin) {
       return callback(null, true);
     }
-    
+
     const allowedOrigins = [
       'https://www.trektribe.in',
       'https://trektribe.in',
@@ -38,13 +37,13 @@ app.use(cors({
       process.env.CORS_ORIGIN,
       'https://trek-tribe.vercel.app',
     ].filter(Boolean) as string[];
-    
+
     // In development, be more permissive
     if (process.env.NODE_ENV === 'development') {
       allowedOrigins.push('http://localhost:3000', 'http://localhost:3001');
       return callback(null, true);
     }
-    
+
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -89,7 +88,7 @@ const connectToDatabase = async (): Promise<typeof mongoose> => {
       maxPoolSize: 10,
       minPoolSize: 2,
     });
-    
+
     cachedConnection = connection;
     console.log('✅ Connected to MongoDB successfully');
     logMessage('INFO', 'Connected to MongoDB successfully');
@@ -111,7 +110,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/trips', tripRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/wishlist', wishlistRoutes);
-app.use('/api/files', fileRoutes);
+// app.use('/api/files', fileRoutes);
 app.use('/api/webhooks', webhookRoutes);
 
 // Legacy routes (without /api prefix for backward compatibility)
@@ -119,7 +118,7 @@ app.use('/auth', authRoutes);
 app.use('/trips', tripRoutes);
 app.use('/reviews', reviewRoutes);
 app.use('/wishlist', wishlistRoutes);
-app.use('/files', fileRoutes);
+// app.use('/files', fileRoutes);
 app.use('/webhooks', webhookRoutes);
 
 // Health check endpoint with detailed info
@@ -131,10 +130,10 @@ app.get('/health', asyncErrorHandler(async (_req: Request, res: Response) => {
     2: 'connecting',
     3: 'disconnecting'
   };
-  
+
   // Test database operation
   const dbTest = mongoose.connection.db ? await mongoose.connection.db.admin().ping() : false;
-  
+
   const health = {
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -147,7 +146,7 @@ app.get('/health', asyncErrorHandler(async (_req: Request, res: Response) => {
     version: process.version,
     environment: process.env.NODE_ENV
   };
-  
+
   res.json(health);
 }));
 
@@ -159,7 +158,7 @@ app.get('/api/health', asyncErrorHandler(async (_req: Request, res: Response) =>
     2: 'connecting',
     3: 'disconnecting'
   };
-  
+
   const health = {
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -168,13 +167,13 @@ app.get('/api/health', asyncErrorHandler(async (_req: Request, res: Response) =>
     },
     environment: process.env.NODE_ENV
   };
-  
+
   res.json(health);
 }));
 
 // 404 handler
 app.use('*', (req: Request, res: Response) => {
-  res.status(404).json({ 
+  res.status(404).json({
     error: 'Route not found',
     path: req.originalUrl,
     method: req.method
