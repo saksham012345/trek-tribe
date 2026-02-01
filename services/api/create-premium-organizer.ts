@@ -16,7 +16,7 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/trek-t
 const PREMIUM_ORGANIZER = {
   name: 'Rajesh Adventure Tours',
   email: 'rajesh.tours@trektribe.in',
-  password: 'Premium@2025!',
+  password: 'Organizer@1234',
   phone: '+919123456789',
 };
 
