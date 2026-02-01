@@ -2,12 +2,21 @@ import express from 'express';
 import mongoose from 'mongoose';
 import { z } from 'zod';
 import { authenticateJwt } from '../middleware/auth';
-import { CustomTripRequest, Proposal } from '../models/CustomTripRequest';
+import { CustomTripRequest, Proposal, CustomTripRequestDocument } from '../models/CustomTripRequest';
 import { Trip } from '../models/Trip';
 import { User } from '../models/User';
+import { RoutingService } from '../services/routingService';
+import { AIQualityService } from '../services/aiQualityService';
 import { logger } from '../utils/logger';
 
 const router = express.Router();
+
+// Helper: Regex to detect contact info (Phone, Email, URLs)
+const CONTACT_INFO_REGEX = /((?:\+|00)[1-9]\d{0,3}[\s-.]?)?\d{3}[\s-.]?\d{3}[\s-.]?\d{4}|[\w.-]+@[\w.-]+\.[a-zA-Z]{2,}|(?:https?:\/\/)?(?:www\.)?[\w-]+\.[a-z]{2,}/gi;
+
+function hasContactInfo(text: string): boolean {
+    return CONTACT_INFO_REGEX.test(text);
+}
 
 // -------------------------------------------------------------------------
 // 1. Submit Custom Trip Request (Traveler)
@@ -19,6 +28,11 @@ const createRequestSchema = z.object({
     flexibleDates: z.boolean().default(false),
     budget: z.number().optional(),
     numberOfTravelers: z.number().min(1).default(1),
+    tripType: z.enum(['relaxed', 'adventure', 'cultural', 'religious', 'wildlife', 'mixed']).default('mixed'),
+    experienceLevel: z.enum(['beginner', 'intermediate', 'advanced']).default('beginner'),
+    ageGroup: z.enum(['18-25', '25-40', '40-60', 'family', 'seniors', 'mixed']).default('mixed'),
+    specialNeeds: z.string().optional(),
+    privacyLevel: z.enum(['private', 'invite-only']).default('private'),
     preferences: z.string().optional()
 });
 
@@ -27,13 +41,26 @@ router.post('/', authenticateJwt, async (req, res) => {
         const userId = (req as any).auth.userId;
         const body = createRequestSchema.parse(req.body);
 
+        // 1. Create Request
         const request = await CustomTripRequest.create({
             travelerId: userId,
             ...body,
             startDate: body.startDate ? new Date(body.startDate) : undefined,
             endDate: body.endDate ? new Date(body.endDate) : undefined,
-            status: 'open'
-        });
+            status: 'open',
+            assignedOrganizers: [] // Populated by matching logic
+        }) as CustomTripRequestDocument;
+
+        // 2. Trigger Routing Logic
+        const matchedOrganizers = await RoutingService.findMatchingOrganizers(request);
+
+        request.assignedOrganizers = matchedOrganizers;
+        if (matchedOrganizers.length > 0) {
+            request.status = 'assigned_to_organizers';
+        }
+        await request.save();
+
+        // TODO: Notification Service -> Notify matched organizers
 
         res.status(201).json(request);
     } catch (error: any) {
@@ -56,8 +83,7 @@ router.get('/', authenticateJwt, async (req, res) => {
         if (role === 'traveler') {
             query.travelerId = userId;
         } else if (role === 'organizer') {
-            // Organizer sees requests assigned to them OR open requests (if we allow open marketplace later)
-            // For now, only assigned
+            // Organizer sees requests assigned to them
             query.assignedOrganizers = userId;
         } else if (role === 'admin' || role === 'agent') {
             // Admin sees all
@@ -66,7 +92,8 @@ router.get('/', authenticateJwt, async (req, res) => {
         const requests = await CustomTripRequest.find(query)
             .populate('travelerId', 'name email phone')
             .populate('assignedOrganizers', 'name businessInfo')
-            .populate('proposals.organizerId', 'name businessInfo')
+            // Don't leak other proposals info generally, but for traveler own requests, they need them
+            // We'll handle "sealed" logic in the response mapping if strictly needed
             .sort({ createdAt: -1 });
 
         res.json(requests);
@@ -76,35 +103,7 @@ router.get('/', authenticateJwt, async (req, res) => {
 });
 
 // -------------------------------------------------------------------------
-// 3. Assign Organizers (Admin Only)
-// -------------------------------------------------------------------------
-router.post('/:id/assign', authenticateJwt, async (req, res) => {
-    try {
-        const { organizerIds } = z.object({ organizerIds: z.array(z.string()) }).parse(req.body);
-        const requestId = req.params.id;
-
-        // Verify Admin
-        const user = await User.findById((req as any).auth.userId);
-        if (user?.role !== 'admin' && user?.role !== 'agent') {
-            return res.status(403).json({ error: 'Admin access required' });
-        }
-
-        const request = await CustomTripRequest.findById(requestId);
-        if (!request) return res.status(404).json({ error: 'Request not found' });
-
-        request.assignedOrganizers = organizerIds.map(id => new mongoose.Types.ObjectId(id));
-        request.status = 'assigned_to_organizers';
-        await request.save();
-
-        res.json(request);
-        // TODO: Notify organizers
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// -------------------------------------------------------------------------
-// 4. Submit Proposal (Organizer)
+// 3. Submit Proposal (Organizer)
 // -------------------------------------------------------------------------
 const proposalSchema = z.object({
     price: z.number(),
@@ -112,6 +111,16 @@ const proposalSchema = z.object({
     itinerarySummary: z.string(),
     inclusions: z.array(z.string()),
     exclusions: z.array(z.string()),
+    qualitySnapshot: z.object({
+        stayType: z.string(),
+        comfortLevel: z.string(),
+        transportType: z.string(),
+        maxGroupSize: z.string(),
+        safetyPlanPresent: z.boolean()
+    }),
+    valueStatement: z.string().max(500),
+    priceBreakdown: z.string().optional(),
+    cancellationPolicy: z.string(),
     validUntil: z.string().optional()
 });
 
@@ -121,6 +130,13 @@ router.post('/:id/proposal', authenticateJwt, async (req, res) => {
         const requestId = req.params.id;
         const body = proposalSchema.parse(req.body);
 
+        // 1. Validation: Contact Info Blocking
+        if (hasContactInfo(body.valueStatement) || hasContactInfo(body.itinerarySummary)) {
+            return res.status(400).json({
+                error: 'Off-platform contact information is not allowed. Please keep all communication within the platform.'
+            });
+        }
+
         const request = await CustomTripRequest.findOne({
             _id: requestId,
             assignedOrganizers: userId
@@ -128,6 +144,11 @@ router.post('/:id/proposal', authenticateJwt, async (req, res) => {
 
         if (!request) return res.status(404).json({ error: 'Request not found or access denied' });
 
+        if (request.status !== 'open' && request.status !== 'assigned_to_organizers') {
+            return res.status(400).json({ error: 'This request is no longer accepting proposals' });
+        }
+
+        // 2. Create Proposal
         const proposal: Proposal = {
             organizerId: new mongoose.Types.ObjectId(userId),
             price: body.price,
@@ -135,8 +156,13 @@ router.post('/:id/proposal', authenticateJwt, async (req, res) => {
             itinerarySummary: body.itinerarySummary,
             inclusions: body.inclusions,
             exclusions: body.exclusions,
-            validUntil: body.validUntil ? new Date(body.validUntil) : undefined,
+            qualitySnapshot: body.qualitySnapshot,
+            valueStatement: body.valueStatement,
+            priceBreakdown: body.priceBreakdown,
+            cancellationPolicy: body.cancellationPolicy,
+            validUntil: body.validUntil ? new Date(body.validUntil) : new Date(Date.now() + 48 * 60 * 60 * 1000), // Default 48h
             status: 'pending',
+            sealed: true,
             createdAt: new Date()
         };
 
@@ -150,22 +176,22 @@ router.post('/:id/proposal', authenticateJwt, async (req, res) => {
 });
 
 // -------------------------------------------------------------------------
-// 5. Accept Proposal & Convert to Private Trip (Admin Only)
+// 4. Select Proposal & Convert (Traveler)
 // -------------------------------------------------------------------------
-router.post('/:id/proposals/:proposalId/accept', authenticateJwt, async (req, res) => {
+router.post('/:id/select-proposal', authenticateJwt, async (req, res) => {
     const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
-        // Verify Admin
-        const user = await User.findById((req as any).auth.userId);
-        if (user?.role !== 'admin' && user?.role !== 'agent') {
-            await session.abortTransaction();
-            return res.status(403).json({ error: 'Admin access required' });
-        }
+        const userId = (req as any).auth.userId;
+        const { proposalId } = req.body;
+        const requestId = req.params.id;
 
-        const { id, proposalId } = req.params;
-        const request = await CustomTripRequest.findById(id).session(session);
+        const request = await CustomTripRequest.findOne({
+            _id: requestId,
+            travelerId: userId // Ensure owner
+        }).session(session);
+
         if (!request) {
             await session.abortTransaction();
             return res.status(404).json({ error: 'Request not found' });
@@ -177,61 +203,89 @@ router.post('/:id/proposals/:proposalId/accept', authenticateJwt, async (req, re
             return res.status(404).json({ error: 'Proposal not found' });
         }
 
-        // 1. Create Private Trip
-        const newTrip = new Trip({
-            organizerId: proposal.organizerId,
-            title: `Private Trip to ${request.destination} for ${(request as any).travelerId.name || 'Traveler'}`, // Ideally fetch traveler name
-            description: proposal.itinerarySummary,
-            destination: request.destination,
-            startDate: request.startDate || new Date(), // Fallback if flexible
-            endDate: request.endDate || new Date(),
-            price: proposal.price,
-            capacity: request.numberOfTravelers,
-            status: 'active', // ready to book
-            isPrivate: true,
-            allowedUserIds: [request.travelerId],
-            paymentConfig: {
-                paymentType: 'full',
-                paymentMethods: ['upi', 'card'],
-                collectionMode: 'razorpay'
-            },
-            schedule: [], // Populate properly if itinerary available
-            livePhotos: [], // Initially empty
-            safetyDisclaimer: 'Standard safety disclaimer',
-            images: [] // Placeholder
-        });
+        // 1. AI Quality Analysis
+        const aiResult = await AIQualityService.analyzeTripProposal(proposal, request);
 
-        // Quick validation fix: Trip requires some fields like schedule/images. 
-        // We might need to make them optional or fill dummy data.
-        newTrip.schedule = [{ day: 1, title: 'Arrival', activities: ['Arrival'] }];
+        // 2. Check Auto-Conversion Eligibility
+        const isTrustEligible = await RoutingService.isEligibleForAutoConversion(proposal.organizerId);
 
-        await newTrip.save({ session });
+        // Conditions for Auto-Convert:
+        // - Organizer Trust Score >= 80
+        // - AI Analysis Approved (Risk != High, Score >= 70)
+        const canAutoConvert = isTrustEligible && aiResult.isApproved;
 
-        // 2. Update Request Status
-        request.status = 'converted';
-        request.convertedTripId = newTrip._id as any;
+        // Update Proposal Status
         proposal.status = 'accepted';
+        proposal.sealed = false; // Reveal details if hidden
 
-        // Reject others
+        // Expire others
         request.proposals.forEach(p => {
             if ((p as any)._id.toString() !== proposalId) {
                 p.status = 'rejected';
             }
         });
 
-        await request.save({ session });
-        await session.commitTransaction();
+        if (canAutoConvert) {
+            // --- Auto Conversion Path ---
 
-        res.json({
-            message: 'Proposal accepted and private trip created',
-            tripId: newTrip._id
-        });
+            // Create Trip Entity
+            const newTrip = new Trip({
+                organizerId: proposal.organizerId,
+                title: `Private: ${request.destination} - ${request.tripType}`,
+                description: proposal.itinerarySummary,
+                destination: request.destination,
+                startDate: request.startDate || new Date(),
+                endDate: request.endDate || new Date(),
+                price: proposal.price,
+                capacity: request.numberOfTravelers,
+                status: 'active', // Ready
+                isPrivate: true,
+                allowedUserIds: [request.travelerId],
+                paymentConfig: {
+                    paymentType: 'full',
+                    paymentMethods: ['upi', 'card'], // Default
+                    collectionMode: 'razorpay'
+                },
+                schedule: [{ day: 1, title: 'Day 1', activities: ['Details in Itinerary'] }], // Placeholder
+                images: [],
+                safetyDisclaimer: 'Standard safety disclaimer applies.',
+                // Link back
+                customRequestId: request._id
+            });
+
+            await newTrip.save({ session });
+
+            request.status = 'converted';
+            request.convertedTripId = newTrip._id as any;
+            request.adminNotes = `Auto-converted based on TrustScore & AI. AI Score: ${aiResult.score}`;
+
+            await request.save({ session });
+            await session.commitTransaction();
+
+            res.json({
+                message: 'Proposal accepted and trip created successfully.',
+                tripId: newTrip._id,
+                conversionStatus: 'auto'
+            });
+
+        } else {
+            // --- Manual Review Path ---
+            request.status = 'needs_review';
+            request.adminNotes = `Flagged for review. TrustEligible: ${isTrustEligible}, AI Score: ${aiResult.score}, Risks: ${aiResult.reasons.join(', ')}`;
+
+            await request.save({ session });
+            await session.commitTransaction();
+
+            res.json({
+                message: 'Proposal selected. Waiting for Admin verification before trip creation.',
+                conversionStatus: 'manual_review',
+                reasons: aiResult.reasons
+            });
+        }
 
     } catch (error: any) {
-        if (session.inTransaction()) {
-            await session.abortTransaction();
-        }
-        logger.error('Failed to convert trip', { error: error.message });
+        if (session.inTransaction()) await session.abortTransaction();
+        logger.error('Failed to select proposal', { error: error.message });
         res.status(500).json({ error: error.message });
     } finally {
         session.endSession();
