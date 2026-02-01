@@ -31,15 +31,19 @@ router.get('/stats', async (req, res) => {
     const agentId = (req as any).auth.userId;
 
     // Get ticket statistics
-    const [totalTickets, openTickets, inProgressTickets, resolvedTickets] = await Promise.all([
+    // Get ticket statistics
+    const [myTotalTickets, openTickets, inProgressTickets, resolvedTickets, unassignedTickets] = await Promise.all([
       SupportTicket.countDocuments({ assignedAgentId: agentId }),
       SupportTicket.countDocuments({ assignedAgentId: agentId, status: 'open' }),
       SupportTicket.countDocuments({ assignedAgentId: agentId, status: 'in-progress' }),
-      SupportTicket.countDocuments({ assignedAgentId: agentId, status: 'resolved' })
+      SupportTicket.countDocuments({ assignedAgentId: agentId, status: 'resolved' }),
+      SupportTicket.countDocuments({ assignedAgentId: null, status: { $ne: 'closed' } })
     ]);
 
-    // Get unassigned tickets (for all agents to see)
-    const unassignedTickets = await SupportTicket.countDocuments({ assignedAgentId: null, status: { $ne: 'closed' } });
+    // Total should reflect "My Workload" + "Potential Workload" (Unassigned) to avoid "0 Total, 3 Unassigned" confusion
+    const totalTickets = myTotalTickets + unassignedTickets;
+
+
 
     // Get recent activity
     const recentTickets = await SupportTicket.find({ assignedAgentId: agentId })

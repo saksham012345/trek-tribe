@@ -164,6 +164,7 @@ const AgentDashboard: React.FC = () => {
       const response = await api.get(`/agent/tickets/${ticketId}`);
       const ticketData = response.data as { ticket: Ticket };
       setSelectedTicket(ticketData.ticket);
+      setActiveTab('ticket-details'); // Switch to details view automatically
     } catch (error: any) {
       setError(error.response?.data?.error || 'Failed to fetch ticket details');
     }
@@ -172,10 +173,9 @@ const AgentDashboard: React.FC = () => {
   const assignTicket = async (ticketId: string) => {
     try {
       await api.post(`/agent/tickets/${ticketId}/assign`);
-      fetchTickets(currentPage);
-      if (selectedTicket?.ticketId === ticketId) {
-        fetchTicketDetails(ticketId);
-      }
+      await fetchTickets(currentPage); // Refresh list to remove from 'unassigned'
+      // Auto-select the ticket to enter resolution flow immediately
+      fetchTicketDetails(ticketId);
     } catch (error: any) {
       setError(error.response?.data?.error || 'Failed to assign ticket');
     }
