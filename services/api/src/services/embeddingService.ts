@@ -16,7 +16,7 @@ export class EmbeddingService {
   private ready: boolean = false;
   private model: string = 'text-embedding-3-small';
   private dimensions: number = 1536;
-  
+
   // TF-IDF fallback cache
   private tfidfVocabulary: Map<string, number> = new Map();
   private documentFrequency: Map<string, number> = new Map();
@@ -29,16 +29,21 @@ export class EmbeddingService {
   private async initialize() {
     try {
       const apiKey = process.env.OPENAI_API_KEY;
-      
-      if (apiKey) {
+      const isOffline = process.env.AI_OFFLINE_MODE === 'true';
+
+      if (apiKey && !isOffline) {
         this.openai = new OpenAI({ apiKey });
-        
+
         // Test the connection
         await this.testConnection();
         this.ready = true;
         console.log('✅ OpenAI Embedding Service initialized successfully');
       } else {
-        console.warn('⚠️ OpenAI API key not found. Using local TF-IDF fallback.');
+        if (isOffline) {
+          console.log('ℹ️ AI Offline Mode enabled. Using local TF-IDF fallback.');
+        } else {
+          console.warn('⚠️ OpenAI API key not found. Using local TF-IDF fallback.');
+        }
         this.initializeTFIDFFallback();
       }
     } catch (error: any) {
@@ -50,7 +55,7 @@ export class EmbeddingService {
 
   private async testConnection() {
     if (!this.openai) throw new Error('OpenAI not initialized');
-    
+
     await this.openai.embeddings.create({
       model: this.model,
       input: "test",
@@ -92,7 +97,7 @@ export class EmbeddingService {
       const embeddings = await Promise.all(
         texts.map(text => this.generateTFIDFEmbedding(text))
       );
-      
+
       return {
         embeddings: embeddings.map(result => result.embedding),
         totalTokens: embeddings.reduce((sum, result) => sum + (result.tokens || 0), 0)
@@ -114,7 +119,7 @@ export class EmbeddingService {
       });
 
       const embedding = response.data[0];
-      
+
       return {
         embedding: embedding.embedding,
         dimensions: embedding.embedding.length,
@@ -134,13 +139,13 @@ export class EmbeddingService {
     // OpenAI has a limit of ~8000 inputs per request, chunk if needed
     const chunkSize = 1000;
     const chunks = [];
-    
+
     for (let i = 0; i < texts.length; i += chunkSize) {
       chunks.push(texts.slice(i, i + chunkSize));
     }
 
     const results: EmbeddingBatch[] = [];
-    
+
     for (const chunk of chunks) {
       try {
         const response = await this.openai.embeddings.create({
@@ -171,7 +176,7 @@ export class EmbeddingService {
   private generateTFIDFEmbedding(text: string): EmbeddingResult {
     const words = this.tokenize(text);
     const wordCount = new Map<string, number>();
-    
+
     // Count word frequencies
     words.forEach(word => {
       wordCount.set(word, (wordCount.get(word) || 0) + 1);
@@ -182,7 +187,7 @@ export class EmbeddingService {
 
     // Generate TF-IDF vector
     const embedding = this.computeTFIDF(wordCount, words.length);
-    
+
     return {
       embedding,
       dimensions: embedding.length,
@@ -206,12 +211,12 @@ export class EmbeddingService {
    */
   private updateVocabulary(wordCount: Map<string, number>) {
     this.totalDocuments++;
-    
+
     wordCount.forEach((count, word) => {
       if (!this.tfidfVocabulary.has(word)) {
         this.tfidfVocabulary.set(word, this.tfidfVocabulary.size);
       }
-      
+
       this.documentFrequency.set(word, (this.documentFrequency.get(word) || 0) + 1);
     });
 
@@ -246,14 +251,14 @@ export class EmbeddingService {
    */
   private computeTFIDF(wordCount: Map<string, number>, totalWords: number): number[] {
     const vector = new Array(Math.min(this.tfidfVocabulary.size, 1536)).fill(0);
-    
+
     wordCount.forEach((count, word) => {
       const vocabIndex = this.tfidfVocabulary.get(word);
       if (vocabIndex !== undefined && vocabIndex < vector.length) {
         const tf = count / totalWords;
         const df = this.documentFrequency.get(word) || 1;
         const idf = Math.log(this.totalDocuments / df);
-        
+
         vector[vocabIndex] = tf * idf;
       }
     });
@@ -286,9 +291,9 @@ export class EmbeddingService {
     }
 
     const magnitude = Math.sqrt(magnitude1) * Math.sqrt(magnitude2);
-    
+
     if (magnitude === 0) return 0;
-    
+
     return Math.max(0, Math.min(1, dotProduct / magnitude));
   }
 

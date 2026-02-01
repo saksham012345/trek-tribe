@@ -31,7 +31,7 @@ router.get('/:ticketId/chats', async (req, res) => {
     }
 
     // Check if user has permission to view this ticket
-    const canView = 
+    const canView =
       ticket.userId.toString() === userId || // User owns the ticket
       userRole === 'agent' || // Agent can view any ticket
       userRole === 'admin'; // Admin can view any ticket
@@ -73,9 +73,9 @@ router.get('/:ticketId/chats', async (req, res) => {
     });
 
   } catch (error: any) {
-    logger.error('Error fetching ticket chat history', { 
-      error: error.message, 
-      ticketId: req.params.ticketId 
+    logger.error('Error fetching ticket chat history', {
+      error: error.message,
+      ticketId: req.params.ticketId
     });
     res.status(500).json({ error: 'Failed to fetch chat history' });
   }
@@ -131,10 +131,10 @@ router.post('/tickets', ticketCreateValidators, handleValidationErrors, async (r
       createdAt: ticket.createdAt
     });
 
-    logger.info('Support ticket created', { 
-      ticketId: ticket.ticketId, 
-      userId, 
-      subject: safeSubject 
+    logger.info('Support ticket created', {
+      ticketId: ticket.ticketId,
+      userId,
+      subject: safeSubject
     });
 
     res.status(201).json({
@@ -148,14 +148,14 @@ router.post('/tickets', ticketCreateValidators, handleValidationErrors, async (r
       }
     });
   } catch (error: any) {
-    logger.error('Error creating support ticket', { 
-      error: error.message, 
+    logger.error('Error creating support ticket', {
+      error: error.message,
       stack: error.stack,
       userId: (req as any).auth?.userId,
-      ticketData: { 
-        subject: req.body.subject, 
-        category: req.body.category, 
-        priority: req.body.priority 
+      ticketData: {
+        subject: req.body.subject,
+        category: req.body.category,
+        priority: req.body.priority
       }
     });
     return next(error);
@@ -197,8 +197,8 @@ router.get('/tickets/my-tickets', async (req, res) => {
         title: ticket.relatedTripId.title,
         destination: ticket.relatedTripId.destination
       } : null,
-      lastMessage: ticket.messages && ticket.messages.length > 0 
-        ? ticket.messages[ticket.messages.length - 1].message 
+      lastMessage: ticket.messages && ticket.messages.length > 0
+        ? ticket.messages[ticket.messages.length - 1].message
         : ticket.description,
       lastActivity: ticket.updatedAt,
       createdAt: ticket.createdAt,
@@ -276,15 +276,15 @@ router.post('/:ticketId/messages', messageValidators, handleValidationErrors, as
       });
     }
 
-    logger.info('Message added to ticket by user', { 
-      ticketId, 
-      userId, 
-      messageLength: safeMessage.length 
+    logger.info('Message added to ticket by user', {
+      ticketId,
+      userId,
+      messageLength: safeMessage.length
     });
 
-    res.json({ 
+    res.json({
       message: 'Message sent successfully',
-      ticketStatus: ticket.status 
+      ticketStatus: ticket.status
     });
 
   } catch (error: any) {
@@ -347,35 +347,36 @@ router.post('/tickets/:ticketId/resolve', async (req, res, next) => {
 
     const safeNote = typeof resolutionNote === 'string' && resolutionNote.trim().length > 0 ? resolutionNote.trim() : 'Resolved via assistant';
 
-    const updated = await SupportTicket.findOneAndUpdate(
-      { ticketId },
-      {
-        $set: { status: 'resolved', updatedAt: new Date() },
-        $push: {
-          messages: {
-            sender,
-            senderName: user.name,
-            senderId: userId,
-            message: safeNote,
-            timestamp: new Date()
-          },
-          internalNotes: safeNote
-        }
-      },
-      { new: true }
-    );
+    // NOTIFY first, then DELETE to save space
+    const resolutionMessage = {
+      sender,
+      senderName: user.name,
+      senderId: userId,
+      message: safeNote,
+      timestamp: new Date()
+    };
 
-    if (!updated) return res.status(500).json({ error: 'Failed to update ticket' });
-
-    // Notify sockets/agents
-    socketService.updateTicketStatus(updated, 'resolved');
-    if (updated.assignedAgentId) {
-      socketService.sendAgentReply(updated.assignedAgentId.toString(), {
-        ticketId: updated.ticketId,
-        message: `Ticket ${updated.ticketId} has been resolved`,
+    // Notify user via socket so they see the resolution
+    if (ticket.userId) {
+      socketService.sendAgentReply(userId.toString(), { // Use generic ID or specific logic if needed
+        ticketId: ticket.ticketId,
+        customerName: ticket.customerName,
+        message: safeNote, // The resolution note
         timestamp: new Date()
       });
     }
+
+    // Broadcast status change
+    socketService.updateTicketStatus({
+      ...ticket.toObject(),
+      status: 'resolved',
+      updatedAt: new Date()
+    }, 'resolved');
+
+    // Delete the ticket from database
+    await SupportTicket.findOneAndDelete({ ticketId });
+
+    logger.info('Ticket deleted after resolution', { ticketId: ticket.ticketId, resolvedBy: userId });
 
     logger.info('Ticket resolved via AI/chat', { ticketId: updated.ticketId, resolvedBy: userId });
 
@@ -430,11 +431,11 @@ router.post('/human-agent/request', messageValidators, handleValidationErrors, a
 
     await ticket.save();
 
-    logger.info('Human agent ticket created', { 
-      ticketId: ticket.ticketId, 
-      userId, 
+    logger.info('Human agent ticket created', {
+      ticketId: ticket.ticketId,
+      userId,
       category: ticket.category,
-      priority: ticket.priority 
+      priority: ticket.priority
     });
 
     // Notify agents that a new ticket is waiting via Socket.IO
@@ -479,7 +480,7 @@ router.post('/human-agent/request', messageValidators, handleValidationErrors, a
     });
 
   } catch (error: any) {
-    logger.error('Error creating human agent ticket', { 
+    logger.error('Error creating human agent ticket', {
       error: error.message,
       stack: error.stack,
       body: req.body
@@ -499,8 +500,8 @@ router.get('/agents/available', async (req, res) => {
       role: 'agent',
       isActive: true
     })
-    .select('name email profilePhoto status')
-    .limit(10);
+      .select('name email profilePhoto status')
+      .limit(10);
 
     const availableAgents = agents.map((agent: any) => ({
       id: agent._id,

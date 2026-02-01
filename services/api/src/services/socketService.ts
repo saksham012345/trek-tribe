@@ -905,7 +905,18 @@ class SocketService {
       timestamp: message.timestamp
     });
 
-    logger.info('Agent reply sent to user', { userId, ticketId: message.ticketId });
+    // CRITICAL FIX: Also emit as 'chat_message' so the widget picks it up immediately
+    this.io.to(`user_${userId}`).emit('chat_message', {
+      id: `msg_${Date.now()}`,
+      senderId: 'agent', // Generic ID for UI
+      senderName: message.agentName,
+      senderRole: 'agent',
+      message: message.message,
+      timestamp: message.timestamp,
+      ticketId: message.ticketId
+    });
+
+    logger.info('Agent reply sent to user (dual emit)', { userId, ticketId: message.ticketId });
   }
 
   // Update ticket status for all stakeholders
