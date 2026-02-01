@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import api from '../config/api';
 import {
-  MessageSquare, 
-  User, 
-  Clock, 
-  CheckCircle, 
-  AlertTriangle, 
+  MessageSquare,
+  User,
+  Clock,
+  CheckCircle,
+  AlertTriangle,
   Phone,
   Mail,
   Search,
@@ -32,6 +32,26 @@ interface AgentStats {
     resolvedLast30Days: number;
   };
   recentActivity: any[];
+}
+
+interface Trip {
+  _id: string;
+  title: string;
+  destination: string;
+  startDate: string;
+  endDate: string;
+  price: number;
+  participants: any[];
+  status: string;           // active, cancelled, completed
+  verificationStatus: string; // pending, approved, rejected
+  organizerId: {
+    _id: string;
+    name: string;
+    email: string;
+    phone?: string;
+    organizerProfile?: any;
+  };
+  createdAt: string;
 }
 
 interface Ticket {
@@ -68,7 +88,18 @@ const AgentDashboard: React.FC = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  
+
+  // Trip management
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [tripFilters, setTripFilters] = useState({
+    status: 'pending', // default to pending verification
+    search: ''
+  });
+  const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [showRejectModal, setShowRejectModal] = useState(false);
+
+
   // Filters and search
   const [filters, setFilters] = useState({
     status: 'all',
@@ -77,11 +108,11 @@ const AgentDashboard: React.FC = () => {
     assigned: 'all',
     search: ''
   });
-  
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  
+
   // Message form
   const [newMessage, setNewMessage] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
@@ -115,7 +146,7 @@ const AgentDashboard: React.FC = () => {
         limit: '20',
         ...filters
       });
-      
+
       const response = await api.get(`/agent/tickets?${params}`);
       const ticketData = response.data as { tickets: Ticket[]; pagination: { current: number; pages: number } };
       setTickets(ticketData.tickets);
@@ -162,34 +193,34 @@ const AgentDashboard: React.FC = () => {
     }
   };
 
-    const suggestResolution = async (ticketId: string) => {
-      try {
-        setAiLoading(true);
-        setAiSuggestion('');
-        const resp = await api.post(`/agent/tickets/${ticketId}/ai-resolve`);
-        setAiSuggestion(resp.data?.suggestion || 'No suggestion received');
-      } catch (err: any) {
-        setError(err.response?.data?.message || 'Failed to get AI suggestion');
-      } finally {
-        setAiLoading(false);
-      }
-    };
+  const suggestResolution = async (ticketId: string) => {
+    try {
+      setAiLoading(true);
+      setAiSuggestion('');
+      const resp = await api.post(`/agent/tickets/${ticketId}/ai-resolve`);
+      setAiSuggestion(resp.data?.suggestion || 'No suggestion received');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to get AI suggestion');
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
-    const resolveWithSuggestion = async (ticketId: string, suggestion?: string) => {
-      try {
-        const body = { resolutionNote: suggestion || aiSuggestion || 'Resolved by agent' };
-        await api.post(`/agent/tickets/${ticketId}/resolve`, body);
-        fetchTickets(currentPage);
-        if (selectedTicket?.ticketId === ticketId) fetchTicketDetails(ticketId);
-        setAiSuggestion('');
-      } catch (err: any) {
-        setError(err.response?.data?.error || 'Failed to resolve ticket');
-      }
-    };
+  const resolveWithSuggestion = async (ticketId: string, suggestion?: string) => {
+    try {
+      const body = { resolutionNote: suggestion || aiSuggestion || 'Resolved by agent' };
+      await api.post(`/agent/tickets/${ticketId}/resolve`, body);
+      fetchTickets(currentPage);
+      if (selectedTicket?.ticketId === ticketId) fetchTicketDetails(ticketId);
+      setAiSuggestion('');
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to resolve ticket');
+    }
+  };
 
   const sendMessage = async () => {
     if (!selectedTicket || !newMessage.trim()) return;
-    
+
     try {
       setSendingMessage(true);
       await api.post(`/agent/tickets/${selectedTicket.ticketId}/messages`, {
@@ -209,7 +240,7 @@ const AgentDashboard: React.FC = () => {
       setCustomerSearchResults([]);
       return;
     }
-    
+
     try {
       const response = await api.get(`/agent/customers/search?q=${encodeURIComponent(query)}`);
       const customerData = response.data as { customers: Customer[] };
@@ -221,7 +252,7 @@ const AgentDashboard: React.FC = () => {
 
   const sendWhatsAppMessage = async () => {
     if (!whatsappMessage.phone || !whatsappMessage.message) return;
-    
+
     try {
       await api.post('/agent/whatsapp/send', whatsappMessage);
       setWhatsappMessage({ phone: '', message: '' });
@@ -241,6 +272,67 @@ const AgentDashboard: React.FC = () => {
     }
   };
 
+  const fetchTrips = async (page = 1) => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '10',
+        ...tripFilters
+      });
+
+      const response = await api.get(`/agent/trips?${params}`);
+      const tripData = response.data as { trips: Trip[]; pagination: { current: number; pages: number } };
+      setTrips(tripData.trips);
+      setCurrentPage(tripData.pagination.current);
+      setTotalPages(tripData.pagination.pages);
+    } catch (error: any) {
+      setError(error.response?.data?.error || 'Failed to fetch trips');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyTrip = async (tripId: string) => {
+    try {
+      if (!window.confirm('Are you sure you want to approve this trip? It will become live immediately.')) return;
+
+      await api.post(`/agent/trips/${tripId}/verify`, { notes: 'Verified by agent' });
+      alert('Trip approved successfully!');
+      fetchTrips(currentPage);
+      setSelectedTrip(null);
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Failed to approve trip');
+    }
+  };
+
+  const rejectTrip = async () => {
+    if (!selectedTrip || !rejectionReason.trim()) return;
+
+    try {
+      await api.post(`/agent/trips/${selectedTrip._id}/reject`, { reason: rejectionReason });
+      alert('Trip rejected.');
+      setShowRejectModal(false);
+      setRejectionReason('');
+      setSelectedTrip(null);
+      fetchTrips(currentPage);
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Failed to reject trip');
+    }
+  };
+
+  const completeTrip = async (tripId: string) => {
+    try {
+      if (!window.confirm('Mark this trip as completed?')) return;
+
+      await api.post(`/agent/trips/${tripId}/complete`);
+      alert('Trip marked as completed.');
+      fetchTrips(currentPage);
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Failed to complete trip');
+    }
+  };
+
   useEffect(() => {
     const initializeDashboard = async () => {
       try {
@@ -253,13 +345,14 @@ const AgentDashboard: React.FC = () => {
         setLoading(false);
       }
     };
-    
+
     initializeDashboard();
   }, []);
 
   useEffect(() => {
-    fetchTickets(1);
-  }, [filters]);
+    if (activeTab === 'tickets') fetchTickets(1);
+    if (activeTab === 'trips') fetchTrips(1);
+  }, [filters, tripFilters, activeTab]);
 
   useEffect(() => {
     if (searchCustomers) {
@@ -328,6 +421,192 @@ const AgentDashboard: React.FC = () => {
     );
   }
 
+
+  const renderTrips = () => (
+    <div className="space-y-6">
+      {/* Trip Filters */}
+      <div className="bg-white p-6 rounded-lg shadow">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+            <input
+              type="text"
+              placeholder="Search trips..."
+              value={tripFilters.search}
+              onChange={(e) => setTripFilters({ ...tripFilters, search: e.target.value })}
+              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+            />
+          </div>
+
+          <select
+            value={tripFilters.status}
+            onChange={(e) => setTripFilters({ ...tripFilters, status: e.target.value })}
+            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+          >
+            <option value="pending">Pending Verification</option>
+            <option value="active">Active</option>
+            <option value="cancelled">Cancelled/Rejected</option>
+            <option value="completed">Completed</option>
+            <option value="all">All Trips</option>
+          </select>
+
+          <button
+            onClick={() => fetchTrips(currentPage)}
+            className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+          >
+            <RefreshCw size={16} className="mr-2" />
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      {/* Trips List */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trip</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Organizer</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dates</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Verif. Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {trips.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                    No trips found matching the filters.
+                  </td>
+                </tr>
+              ) : (
+                trips.map((trip) => (
+                  <tr key={trip._id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <div className="font-medium text-gray-900">{trip.title}</div>
+                      <div className="text-xs text-gray-500">{trip.destination} • ${trip.price}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{trip.organizerId?.name || 'Unknown'}</div>
+                      <div className="text-xs text-gray-500">{trip.organizerId?.email}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(trip.startDate).toLocaleDateString()} - {new Date(trip.endDate).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs rounded-full ${trip.status === 'active' ? 'bg-green-100 text-green-800' :
+                        trip.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                        {trip.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs rounded-full ${trip.verificationStatus === 'approved' ? 'bg-green-100 text-green-800' :
+                        trip.verificationStatus === 'rejected' ? 'bg-red-100 text-red-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}>
+                        {trip.verificationStatus}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                      {trip.verificationStatus === 'pending' && (
+                        <>
+                          <button
+                            onClick={() => verifyTrip(trip._id)}
+                            className="text-green-600 hover:text-green-900"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedTrip(trip);
+                              setShowRejectModal(true);
+                            }}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            Reject
+                          </button>
+                        </>
+                      )}
+                      {trip.status === 'active' && (
+                        <button
+                          onClick={() => completeTrip(trip._id)}
+                          className="text-blue-600 hover:text-blue-900"
+                        >
+                          Mark Complete
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="px-6 py-3 border-t border-gray-200 flex justify-between items-center">
+            <span className="text-sm text-gray-500">Page {currentPage} of {totalPages}</span>
+            <div className="space-x-2">
+              <button
+                onClick={() => fetchTrips(currentPage - 1)}
+                disabled={currentPage <= 1}
+                className="px-3 py-1 border rounded disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => fetchTrips(currentPage + 1)}
+                disabled={currentPage >= totalPages}
+                className="px-3 py-1 border rounded disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Reject Modal */}
+      {showRejectModal && selectedTrip && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h3 className="text-lg font-bold mb-4">Reject Trip: {selectedTrip.title}</h3>
+            <textarea
+              className="w-full border rounded p-2 mb-4"
+              rows={4}
+              placeholder="Reason for rejection..."
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+            />
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => {
+                  setShowRejectModal(false);
+                  setRejectionReason('');
+                  setSelectedTrip(null);
+                }}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={rejectTrip}
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+              >
+                Reject Trip
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   const renderDashboard = () => (
     <div className="space-y-6">
       {/* Statistics Cards */}
@@ -341,7 +620,7 @@ const AgentDashboard: React.FC = () => {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white p-6 rounded-lg shadow border-l-4 border-yellow-500">
           <div className="flex items-center">
             <Clock className="text-yellow-500" size={24} />
@@ -351,7 +630,7 @@ const AgentDashboard: React.FC = () => {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white p-6 rounded-lg shadow border-l-4 border-green-500">
           <div className="flex items-center">
             <CheckCircle className="text-green-500" size={24} />
@@ -361,7 +640,7 @@ const AgentDashboard: React.FC = () => {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white p-6 rounded-lg shadow border-l-4 border-red-500">
           <div className="flex items-center">
             <AlertTriangle className="text-red-500" size={24} />
@@ -386,7 +665,7 @@ const AgentDashboard: React.FC = () => {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center">
             <Star className="text-yellow-500" size={24} />
@@ -398,7 +677,7 @@ const AgentDashboard: React.FC = () => {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center">
             <TrendingUp className="text-green-500" size={24} />
@@ -442,17 +721,15 @@ const AgentDashboard: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="flex items-center justify-between">
               <span className="text-gray-600">Email Service</span>
-              <span className={`px-2 py-1 text-xs rounded ${
-                serviceStatus.email?.isReady ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-              }`}>
+              <span className={`px-2 py-1 text-xs rounded ${serviceStatus.email?.isReady ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                }`}>
                 {serviceStatus.email?.isReady ? 'Online' : 'Offline'}
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-gray-600">WhatsApp Service</span>
-              <span className={`px-2 py-1 text-xs rounded ${
-                serviceStatus.whatsapp?.isReady ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-              }`}>
+              <span className={`px-2 py-1 text-xs rounded ${serviceStatus.whatsapp?.isReady ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                }`}>
                 {serviceStatus.whatsapp?.isReady ? 'Online' : 'Offline'}
               </span>
             </div>
@@ -479,7 +756,7 @@ const AgentDashboard: React.FC = () => {
               />
             </div>
           </div>
-          
+
           <select
             value={filters.status}
             onChange={(e) => setFilters({ ...filters, status: e.target.value })}
@@ -492,7 +769,7 @@ const AgentDashboard: React.FC = () => {
             <option value="resolved">Resolved</option>
             <option value="closed">Closed</option>
           </select>
-          
+
           <select
             value={filters.priority}
             onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
@@ -504,7 +781,7 @@ const AgentDashboard: React.FC = () => {
             <option value="medium">Medium</option>
             <option value="low">Low</option>
           </select>
-          
+
           <select
             value={filters.assigned}
             onChange={(e) => setFilters({ ...filters, assigned: e.target.value })}
@@ -514,7 +791,7 @@ const AgentDashboard: React.FC = () => {
             <option value="me">My Tickets</option>
             <option value="unassigned">Unassigned</option>
           </select>
-          
+
           <button
             onClick={() => fetchTickets(currentPage)}
             className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
@@ -690,7 +967,7 @@ const AgentDashboard: React.FC = () => {
                 <p><strong>Category:</strong> {selectedTicket.category}</p>
               </div>
             </div>
-            
+
             <div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">Ticket Information</h3>
               <div className="space-y-2">
@@ -746,43 +1023,43 @@ const AgentDashboard: React.FC = () => {
           </div>
         </div>
 
-          {/* AI Suggestion Preview */}
-          {aiSuggestion && (
-            <div className="bg-gray-50 p-4 rounded-lg mb-4 border">
-              <h4 className="font-medium text-gray-800 mb-2">AI Suggested Resolution</h4>
-              <textarea
-                value={aiSuggestion}
-                onChange={(e) => setAiSuggestion(e.target.value)}
-                rows={4}
-                className="w-full p-2 border rounded"
-              />
-              <div className="mt-2 flex space-x-2">
-                <button
-                  onClick={() => resolveWithSuggestion(selectedTicket.ticketId, aiSuggestion)}
-                  className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                >
-                  Resolve with This
-                </button>
-                <button
-                  onClick={() => { navigator.clipboard?.writeText(aiSuggestion); }}
-                  className="px-3 py-2 bg-gray-200 rounded"
-                >
-                  Copy
-                </button>
-                <button
-                  onClick={() => setAiSuggestion('')}
-                  className="px-3 py-2 bg-red-100 text-red-700 rounded"
-                >
-                  Dismiss
-                </button>
-              </div>
+        {/* AI Suggestion Preview */}
+        {aiSuggestion && (
+          <div className="bg-gray-50 p-4 rounded-lg mb-4 border">
+            <h4 className="font-medium text-gray-800 mb-2">AI Suggested Resolution</h4>
+            <textarea
+              value={aiSuggestion}
+              onChange={(e) => setAiSuggestion(e.target.value)}
+              rows={4}
+              className="w-full p-2 border rounded"
+            />
+            <div className="mt-2 flex space-x-2">
+              <button
+                onClick={() => resolveWithSuggestion(selectedTicket.ticketId, aiSuggestion)}
+                className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+              >
+                Resolve with This
+              </button>
+              <button
+                onClick={() => { navigator.clipboard?.writeText(aiSuggestion); }}
+                className="px-3 py-2 bg-gray-200 rounded"
+              >
+                Copy
+              </button>
+              <button
+                onClick={() => setAiSuggestion('')}
+                className="px-3 py-2 bg-red-100 text-red-700 rounded"
+              >
+                Dismiss
+              </button>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Messages */}
+        {/* Messages */}
         <div className="bg-white p-6 rounded-lg shadow">
           <h3 className="text-lg font-medium text-gray-900 mb-4">Conversation</h3>
-          
+
           <div className="space-y-4 max-h-96 overflow-y-auto mb-4">
             {selectedTicket.messages?.map((message, index) => (
               <div
@@ -790,11 +1067,10 @@ const AgentDashboard: React.FC = () => {
                 className={`flex ${message.sender === 'agent' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                    message.sender === 'agent'
-                      ? 'bg-green-600 text-white'
-                      : 'bg-gray-200 text-gray-900'
-                  }`}
+                  className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${message.sender === 'agent'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-200 text-gray-900'
+                    }`}
                 >
                   <p className="text-sm font-medium mb-1">{message.senderName}</p>
                   <p className="text-sm">{message.message}</p>
@@ -844,7 +1120,7 @@ const AgentDashboard: React.FC = () => {
             className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
           />
         </div>
-        
+
         {customerSearchResults.length > 0 && (
           <div className="mt-4 space-y-2">
             {customerSearchResults?.map((customer) => (
@@ -936,11 +1212,10 @@ const AgentDashboard: React.FC = () => {
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
-                  className={`${
-                    activeTab === tab.key
-                      ? 'border-green-500 text-green-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center`}
+                  className={`${activeTab === tab.key
+                    ? 'border-green-500 text-green-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center`}
                 >
                   <Icon className="mr-2" size={16} />
                   {tab.label}
@@ -967,6 +1242,7 @@ const AgentDashboard: React.FC = () => {
 
         {activeTab === 'dashboard' && renderDashboard()}
         {activeTab === 'tickets' && renderTickets()}
+        {activeTab === 'trips' && renderTrips()}
         {activeTab === 'ticket-details' && renderTicketDetails()}
         {activeTab === 'communication' && renderCommunication()}
       </div>

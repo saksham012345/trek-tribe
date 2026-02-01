@@ -26,6 +26,12 @@ interface UserContact {
   };
   createdAt: string;
   lastActive?: string;
+  trustScore?: {
+    overall: number;
+    badge: string;
+    breakdown: any;
+  };
+  organizerVerificationStatus?: 'pending' | 'approved' | 'rejected';
 }
 
 interface Trip {
@@ -309,6 +315,71 @@ const AdminDashboard: React.FC = () => {
     return `${hours}h ${minutes}m`;
   };
 
+
+  const verifyTrip = async (tripId: string) => {
+    if (!window.confirm('Are you sure you want to approve this trip? It will become visible to users.')) return;
+    try {
+      await api.post(`/admin/trips/${tripId}/verify`, { adminNotes: 'Verified from dashboard' });
+      addNotification('Trip verified successfully', 'success');
+      fetchTrips();
+    } catch (err: any) {
+      addNotification(err.response?.data?.error || 'Failed to verify trip', 'error');
+    }
+  };
+
+  const rejectTrip = async (tripId: string) => {
+    const reason = window.prompt('Please enter a reason for rejection:');
+    if (!reason) return;
+    try {
+      await api.post(`/admin/trips/${tripId}/reject`, { rejectionReason: reason });
+      addNotification('Trip rejected successfully', 'success');
+      fetchTrips();
+    } catch (err: any) {
+      addNotification(err.response?.data?.error || 'Failed to reject trip', 'error');
+    }
+  };
+
+  const deleteTrip = async (tripId: string) => {
+    if (!window.confirm('Are you sure you want to PERMANENTLY delete this trip? This cannot be undone.')) return;
+    try {
+      await api.delete(`/admin/trips/${tripId}`);
+      addNotification('Trip deleted successfully', 'success');
+      fetchTrips();
+    } catch (err: any) {
+      addNotification(err.response?.data?.error || 'Failed to delete trip', 'error');
+    }
+  };
+
+  const recalculateTrustScore = async (userId: string) => {
+    try {
+      addNotification('Recalculating trust score...', 'info');
+      await api.post(`/admin/users/${userId}/trust-score`);
+      addNotification('Trust score updated successfully', 'success');
+      fetchUserContacts();
+    } catch (err: any) {
+      addNotification(err.response?.data?.error || 'Failed to update trust score', 'error');
+    }
+  };
+
+  const verifyOrganizer = async (userId: string, status: 'approved' | 'rejected') => {
+    const action = status === 'approved' ? 'approve' : 'reject';
+    if (!window.confirm(`Are you sure you want to ${action} this organizer?`)) return;
+
+    let notes = '';
+    if (status === 'rejected') {
+      notes = window.prompt('Reason for rejection:') || '';
+      if (!notes) return;
+    }
+
+    try {
+      await api.post(`/admin/users/${userId}/verify-organizer`, { status, notes });
+      addNotification(`Organizer ${status} successfully`, 'success');
+      fetchUserContacts();
+    } catch (err: any) {
+      addNotification(err.response?.data?.error || `Failed to ${action} organizer`, 'error');
+    }
+  };
+
   const TripsManagement = () => (
     <div className="space-y-6">
       {/* Trips Header */}
@@ -339,6 +410,7 @@ const AdminDashboard: React.FC = () => {
             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest-500 focus:border-forest-500"
           >
             <option value="all">All Status</option>
+            <option value="pending">Pending Review</option>
             <option value="active">Active</option>
             <option value="cancelled">Cancelled</option>
             <option value="completed">Completed</option>
@@ -380,7 +452,7 @@ const AdminDashboard: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {trips?.map((trip) => (
+                {trips?.map((trip: any) => (
                   <tr key={trip._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div className="flex items-start">
@@ -392,7 +464,7 @@ const AdminDashboard: React.FC = () => {
                           </div>
                           {trip.categories && trip.categories.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-1">
-                              {trip.categories?.slice(0, 3).map((category, idx) => (
+                              {trip.categories?.slice(0, 3).map((category: string, idx: number) => (
                                 <span key={idx} className="inline-flex px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full">
                                   {category}
                                 </span>
@@ -422,12 +494,18 @@ const AdminDashboard: React.FC = () => {
                       <div className="space-y-2">
                         <div className={`inline-flex px-2 py-1 text-xs rounded-full ${trip.status === 'active' ? 'bg-green-100 text-green-800' :
                           trip.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                            'bg-blue-100 text-blue-800'
+                            trip.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-blue-100 text-blue-800'
                           }`}>
-                          {trip.status.toUpperCase()}
+                          {(trip.status || 'unknown').toUpperCase()}
                         </div>
+                        {trip.verificationStatus === 'pending' && trip.status === 'pending' && (
+                          <div className="inline-flex px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800 ml-2">
+                            NEEDS REVIEW
+                          </div>
+                        )}
                         <div className="text-sm font-medium text-gray-900">
-                          ₹{trip.price.toLocaleString()}
+                          ₹{trip.price?.toLocaleString()}
                         </div>
                       </div>
                     </td>
@@ -436,39 +514,58 @@ const AdminDashboard: React.FC = () => {
                         <span className="font-medium">{trip.participants?.length || 0}</span> participants
                       </div>
                       <div className="text-xs text-gray-500">
-                        Revenue: ₹{((trip.participants?.length || 0) * trip.price).toLocaleString()}
+                        Revenue: ₹{((trip.participants?.length || 0) * (trip.price || 0)).toLocaleString()}
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-2 flex-wrap gap-y-2">
+                        {/* PENDING ACTIONS (Verify/Reject) - MOVED TO AGENT DASHBOARD */}
+                        {/* {trip.status === 'pending' && (...)} */}
+                        {trip.status === 'pending' && (
+                          <span className="text-xs text-gray-400 italic">
+                            Agent Verification Pending
+                          </span>
+                        )}
+
+                        {/* ACTIVE ACTIONS */}
                         {trip.status === 'active' && (
                           <>
                             <button
                               onClick={() => updateTripStatus(trip._id, 'completed')}
-                              className="text-blue-600 hover:text-blue-900 text-sm font-medium"
+                              className="text-blue-600 hover:text-blue-900 text-xs font-medium"
                             >
                               Complete
                             </button>
                             <span className="text-gray-300">|</span>
                             <button
                               onClick={() => updateTripStatus(trip._id, 'cancelled')}
-                              className="text-red-600 hover:text-red-900 text-sm font-medium"
+                              className="text-orange-600 hover:text-orange-900 text-xs font-medium"
                             >
                               Cancel
                             </button>
                           </>
                         )}
+
+                        {/* CANCELLED ACTIONS */}
                         {trip.status === 'cancelled' && (
                           <button
                             onClick={() => updateTripStatus(trip._id, 'active')}
-                            className="text-green-600 hover:text-green-900 text-sm font-medium"
+                            className="text-green-600 hover:text-green-900 text-xs font-medium"
                           >
                             Reactivate
                           </button>
                         )}
-                        {trip.status === 'completed' && (
-                          <span className="text-sm text-gray-400">No actions</span>
-                        )}
+
+                        {/* DELETE (Always visible) */}
+                        <div className="border-l border-gray-300 pl-2 ml-2">
+                          <button
+                            onClick={() => deleteTrip(trip._id)}
+                            className="text-red-500 hover:text-red-700 text-xs font-medium"
+                            title="Delete Trip Permanently"
+                          >
+                            🗑️
+                          </button>
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -818,7 +915,13 @@ const AdminDashboard: React.FC = () => {
                           User Details
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Contact Information
+                          Role & Status
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Trust Score
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Contact Info
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Emergency Contact
@@ -856,20 +959,62 @@ const AdminDashboard: React.FC = () => {
                             </div>
                           </td>
                           <td className="px-6 py-4">
+                            <div className="flex flex-col gap-1">
+                              <span className={`inline-flex px-2 py-1 text-xs rounded-full w-fit ${contact.role === 'admin' ? 'bg-red-100 text-red-800' :
+                                contact.role === 'organizer' ? 'bg-blue-100 text-blue-800' :
+                                  contact.role === 'agent' ? 'bg-purple-100 text-purple-800' :
+                                    'bg-gray-100 text-gray-800'
+                                }`}>
+                                {contact.role}
+                              </span>
+                              <div className={`inline-flex px-2 py-1 text-xs rounded-full w-fit ${contact.isVerified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                                }`}>
+                                {contact.isVerified ? 'Verified' : 'Unverified'}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            {contact.role === 'organizer' ? (
+                              <div className="space-y-1">
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-sm font-bold text-gray-900">
+                                    {contact.trustScore?.overall || 0}
+                                  </span>
+                                  {contact.trustScore?.badge && (
+                                    <span className="text-xs px-1.5 py-0.5 bg-yellow-100 text-yellow-800 rounded border border-yellow-200">
+                                      {contact.trustScore.badge}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {contact.organizerVerificationStatus === 'pending' && (
+                                    <span className="text-orange-600 font-medium">Pending Review</span>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-gray-400">-</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4">
                             <div className="space-y-1">
                               <div className="text-sm text-gray-900">
                                 📧 {contact.email}
                               </div>
-                              {contact.phone && (
-                                <div className="text-sm text-gray-900">
-                                  📱 {contact.phone}
-                                </div>
-                              )}
-                              {contact.location && (
-                                <div className="text-sm text-gray-500">
-                                  📍 {contact.location}
-                                </div>
-                              )}
+                              {
+                                contact.phone && (
+                                  <div className="text-sm text-gray-900">
+                                    📱 {contact.phone}
+                                  </div>
+                                )
+                              }
+                              {
+                                contact.location && (
+                                  <div className="text-sm text-gray-500">
+                                    📍 {contact.location}
+                                  </div>
+                                )
+                              }
                             </div>
                           </td>
                           <td className="px-6 py-4">
@@ -917,6 +1062,32 @@ const AdminDashboard: React.FC = () => {
                             >
                               Edit
                             </button>
+                            {contact.role === 'organizer' && (
+                              <div className="flex flex-col space-y-1 mt-2 pt-2 border-t border-gray-100">
+                                <button
+                                  onClick={() => recalculateTrustScore(contact._id)}
+                                  className="text-xs text-blue-600 hover:text-blue-900 text-left"
+                                >
+                                  ↻ Recalculate Score
+                                </button>
+                                {contact.organizerVerificationStatus === 'pending' && (
+                                  <>
+                                    <button
+                                      onClick={() => verifyOrganizer(contact._id, 'approved')}
+                                      className="text-xs text-green-600 hover:text-green-900 text-left"
+                                    >
+                                      ✓ Approve Organizer
+                                    </button>
+                                    <button
+                                      onClick={() => verifyOrganizer(contact._id, 'rejected')}
+                                      className="text-xs text-red-600 hover:text-red-900 text-left"
+                                    >
+                                      ✕ Reject Organizer
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -959,90 +1130,94 @@ const AdminDashboard: React.FC = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </div >
         )}
 
-        {activeTab === 'trips' && (
-          <TripsManagement />
-        )}
+        {
+          activeTab === 'trips' && (
+            <TripsManagement />
+          )
+        }
 
-        {activeTab === 'system' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* System Status */}
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">⚙️ System Status</h3>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Uptime</span>
-                  <span className="text-sm font-medium text-gray-900">
-                    {formatUptime(stats?.system.uptime || 0)}
-                  </span>
+        {
+          activeTab === 'system' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* System Status */}
+              <div className="bg-white p-6 rounded-lg shadow-sm border">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">⚙️ System Status</h3>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Uptime</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {formatUptime(stats?.system.uptime || 0)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Database Status</span>
+                    <span className={`text-sm font-medium ${stats?.system.dbStatus === 'connected' ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                      {stats?.system.dbStatus || 'unknown'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">WhatsApp Service</span>
+                    <span className={`text-sm font-medium ${stats?.system.whatsappStatus ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                      {stats?.system.whatsappStatus ? 'Connected' : 'Disconnected'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Memory Usage</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {formatBytes(stats?.system.memoryUsage?.used || 0)} / {formatBytes(stats?.system.memoryUsage?.total || 0)}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Database Status</span>
-                  <span className={`text-sm font-medium ${stats?.system.dbStatus === 'connected' ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                    {stats?.system.dbStatus || 'unknown'}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">WhatsApp Service</span>
-                  <span className={`text-sm font-medium ${stats?.system.whatsappStatus ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                    {stats?.system.whatsappStatus ? 'Connected' : 'Disconnected'}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Memory Usage</span>
-                  <span className="text-sm font-medium text-gray-900">
-                    {formatBytes(stats?.system.memoryUsage?.used || 0)} / {formatBytes(stats?.system.memoryUsage?.total || 0)}
-                  </span>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="bg-white p-6 rounded-lg shadow-sm border">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">🚀 Quick Actions</h3>
+                <div className="space-y-3">
+                  <button
+                    onClick={fetchDashboardStats}
+                    className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">🔄</span>
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">Refresh Statistics</div>
+                        <div className="text-xs text-gray-500">Update all dashboard data</div>
+                      </div>
+                    </div>
+                  </button>
+
+                  <button className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">📊</span>
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">Export Data</div>
+                        <div className="text-xs text-gray-500">Download system reports</div>
+                      </div>
+                    </div>
+                  </button>
+
+                  <button className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">🧹</span>
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">System Cleanup</div>
+                        <div className="text-xs text-gray-500">Clean temporary files and logs</div>
+                      </div>
+                    </div>
+                  </button>
                 </div>
               </div>
             </div>
-
-            {/* Quick Actions */}
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">🚀 Quick Actions</h3>
-              <div className="space-y-3">
-                <button
-                  onClick={fetchDashboardStats}
-                  className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-xl">🔄</span>
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">Refresh Statistics</div>
-                      <div className="text-xs text-gray-500">Update all dashboard data</div>
-                    </div>
-                  </div>
-                </button>
-
-                <button className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xl">📊</span>
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">Export Data</div>
-                      <div className="text-xs text-gray-500">Download system reports</div>
-                    </div>
-                  </div>
-                </button>
-
-                <button className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xl">🧹</span>
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">System Cleanup</div>
-                      <div className="text-xs text-gray-500">Clean temporary files and logs</div>
-                    </div>
-                  </div>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+          )
+        }
+      </div >
+    </div >
   );
 };
 
