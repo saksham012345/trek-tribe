@@ -354,7 +354,7 @@ const AIChatWidgetClean: React.FC = () => {
 
       if (typeof aiText === 'object') {
         // Fallback: if backend sends JSON, format it simply
-        aiText = JSON.stringify(aiText, null, 2).replace(/[\{\}\"]/g, '');
+        aiText = JSON.stringify(aiText, null, 2).replace(/[{}""]/g, '');
       } else {
         aiText = String(aiText || '');
       }

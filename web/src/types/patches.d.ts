@@ -3,7 +3,7 @@
 // axios: relax response.data typing so code that assumes shapes won't fail TS strict checks
 import 'axios';
 declare module 'axios' {
-  export interface AxiosResponse<T = any> {
+  export interface AxiosResponse<_T = any> {
     data: any;
   }
 }

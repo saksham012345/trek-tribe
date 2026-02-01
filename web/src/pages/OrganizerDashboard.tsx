@@ -9,6 +9,8 @@ import CRMPreviewSection from '../components/organizer/dashboard/CRMPreviewSecti
 import TripsListSection from '../components/organizer/dashboard/TripsListSection';
 import PaymentVerificationSection from '../components/organizer/dashboard/PaymentVerificationSection';
 
+import { FinanceSummary } from '../types/finance';
+
 // Types (should eventually be moved to shared types)
 interface TripSummary {
   _id: string;
@@ -46,8 +48,6 @@ interface BookingVerification {
   }>;
 }
 
-import { FinanceSummary } from '../types/finance';
-
 interface OrganizerDashboardProps {
   user: User;
 }
@@ -78,6 +78,7 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
         socket.disconnect();
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const initializeSocket = () => {
@@ -168,7 +169,7 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
     }
   };
 
-  const fetchFinanceData = async () => {
+  const fetchFinanceData = React.useCallback(async () => {
     setFinanceLoading(true);
     try {
       const res = await api.get('/finance/overview');
@@ -181,13 +182,13 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
     } finally {
       setFinanceLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (activeTab === 'finance' && !financeSummary) {
       fetchFinanceData();
     }
-  }, [activeTab]);
+  }, [activeTab, financeSummary, fetchFinanceData]);
 
   const addNotification = (message: string, type: 'success' | 'info' | 'error') => {
     const notification = {

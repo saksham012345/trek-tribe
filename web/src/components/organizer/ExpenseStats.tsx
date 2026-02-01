@@ -12,7 +12,7 @@ import {
     ArcElement,
 } from 'chart.js';
 import { Bar, Line } from 'react-chartjs-2';
-import { TrendingUp, TrendingDown, DollarSign, PieChart, CreditCard } from 'lucide-react';
+import { TrendingUp, DollarSign, PieChart, CreditCard } from 'lucide-react';
 import { FinanceSummary } from '../../types/finance';
 
 // Register ChartJS components

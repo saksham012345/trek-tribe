@@ -1,3 +1,3 @@
-﻿import AIChatWidgetClean from './AIChatWidgetClean';
+import AIChatWidgetClean from './AIChatWidgetClean';
 
 export default AIChatWidgetClean;

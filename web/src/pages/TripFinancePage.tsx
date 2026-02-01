@@ -41,11 +41,7 @@ const TripFinancePage: React.FC = () => {
         date: new Date().toISOString().split('T')[0]
     });
 
-    useEffect(() => {
-        fetchData();
-    }, [tripId]);
-
-    const fetchData = async () => {
+    const fetchData = React.useCallback(async () => {
         try {
             setLoading(true);
             const res = await api.get(`/finance/trips/${tripId}`);
@@ -56,7 +52,11 @@ const TripFinancePage: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [tripId]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
     const handleAddExpense = async (e: React.FormEvent) => {
         e.preventDefault();
