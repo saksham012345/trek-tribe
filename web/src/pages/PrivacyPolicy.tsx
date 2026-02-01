@@ -286,6 +286,22 @@ const PrivacyPolicy: React.FC = () => {
                 We may update this Privacy Policy from time to time. Any changes will be posted on this page with an updated “Last Updated” date. Continued use of our Services means you accept the updated policy.
               </p>
             </div>
+            <div>
+              <h2 className="text-xl font-semibold text-forest-800 mb-2">13. Contact Us</h2>
+              <p className="text-gray-700 mb-2">
+                If you have questions or concerns about this Privacy Policy or your data, please contact us at:
+              </p>
+              <div className="bg-forest-50 p-4 rounded-lg inline-block">
+                <div className="flex items-center gap-2 mb-1">
+                  <Mail className="w-4 h-4 text-forest-600" />
+                  <span className="text-sm font-medium text-gray-800">trektribe.root@gmail.com</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-forest-600" />
+                  <span className="text-sm font-medium text-gray-800">9876177839</span>
+                </div>
+              </div>
+            </div>
           </section>
         </div>
       </div>

@@ -32,11 +32,11 @@ const TermsConditions: React.FC = () => {
             </h2>
             <div className="bg-blue-50 border-l-4 border-blue-400 p-6">
               <p className="text-gray-700 leading-relaxed mb-3">
-                By accessing and using Trek Tribe ("the Service"), you accept and agree to be bound by the terms 
+                By accessing and using Trek Tribe ("the Service"), you accept and agree to be bound by the terms
                 and provision of this agreement. If you do not agree to abide by the above, please do not use this service.
               </p>
               <p className="text-gray-700 leading-relaxed">
-                These terms apply to all visitors, users, and others who access or use the service, including 
+                These terms apply to all visitors, users, and others who access or use the service, including
                 trip organizers, participants, and general users.
               </p>
             </div>
@@ -50,10 +50,10 @@ const TermsConditions: React.FC = () => {
             </h2>
             <div className="space-y-4">
               <p className="text-gray-700 leading-relaxed">
-                Trek Tribe is an online platform that connects adventure enthusiasts and facilitates outdoor experiences. 
+                Trek Tribe is an online platform that connects adventure enthusiasts and facilitates outdoor experiences.
                 Our services include:
               </p>
-              
+
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="bg-forest-50 p-4 rounded-xl">
                   <h4 className="font-semibold text-forest-800 mb-2">For Travelers:</h4>
@@ -83,7 +83,7 @@ const TermsConditions: React.FC = () => {
               <Users className="w-6 h-6" />
               3. User Responsibilities
             </h2>
-            
+
             <div className="space-y-6">
               <div className="bg-yellow-50 border border-yellow-200 p-6 rounded-xl">
                 <h3 className="text-lg font-semibold text-forest-800 mb-3">Account Requirements</h3>
@@ -157,7 +157,7 @@ const TermsConditions: React.FC = () => {
               <CreditCard className="w-6 h-6" />
               4. Trip Booking & Payments
             </h2>
-            
+
             <div className="space-y-6">
               <div className="bg-green-50 p-6 rounded-xl">
                 <h3 className="text-lg font-semibold text-forest-800 mb-3">Booking Process</h3>
@@ -185,7 +185,7 @@ const TermsConditions: React.FC = () => {
                 <h3 className="text-lg font-semibold text-forest-800 mb-3">Cancellation & Refunds</h3>
                 <div className="space-y-3">
                   <p className="text-gray-700 text-sm">
-                    Cancellation policies vary by trip and are set by individual organizers. 
+                    Cancellation policies vary by trip and are set by individual organizers.
                     Common policies include:
                   </p>
                   <div className="grid md:grid-cols-3 gap-4">
@@ -213,12 +213,12 @@ const TermsConditions: React.FC = () => {
               <AlertTriangle className="w-6 h-6" />
               5. Safety & Liability
             </h2>
-            
+
             <div className="space-y-4">
               <div className="bg-orange-50 border-l-4 border-orange-400 p-6">
                 <h3 className="text-lg font-semibold text-orange-800 mb-3">⚠️ Important Safety Notice</h3>
                 <p className="text-gray-700 leading-relaxed mb-3">
-                  Adventure activities involve inherent risks. By participating in trips organized through Trek Tribe, 
+                  Adventure activities involve inherent risks. By participating in trips organized through Trek Tribe,
                   you acknowledge and assume these risks. We strongly recommend:
                 </p>
                 <ul className="space-y-1 text-gray-700 text-sm">
@@ -232,8 +232,8 @@ const TermsConditions: React.FC = () => {
               <div className="bg-gray-50 p-6 rounded-xl">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3">Limitation of Liability</h3>
                 <p className="text-gray-700 leading-relaxed text-sm">
-                  Trek Tribe acts as a platform connecting users and is not responsible for the actual provision of 
-                  trip services. Trip organizers are independent operators responsible for their own activities. 
+                  Trek Tribe acts as a platform connecting users and is not responsible for the actual provision of
+                  trip services. Trip organizers are independent operators responsible for their own activities.
                   Trek Tribe's liability is limited to the maximum extent permitted by law.
                 </p>
               </div>
@@ -243,7 +243,7 @@ const TermsConditions: React.FC = () => {
           {/* Organizer Responsibilities */}
           <section>
             <h2 className="text-2xl font-semibold text-forest-800 mb-4">6. Organizer Responsibilities</h2>
-            
+
             <div className="bg-purple-50 p-6 rounded-xl">
               <h3 className="text-lg font-semibold text-forest-800 mb-4">If you organize trips, you must:</h3>
               <div className="grid md:grid-cols-2 gap-6">
@@ -276,7 +276,7 @@ const TermsConditions: React.FC = () => {
               <div className="bg-indigo-50 p-6 rounded-xl">
                 <h3 className="text-lg font-semibold text-forest-800 mb-3">Platform Content</h3>
                 <p className="text-gray-700 leading-relaxed text-sm mb-3">
-                  All content on Trek Tribe, including but not limited to text, graphics, logos, images, and software, 
+                  All content on Trek Tribe, including but not limited to text, graphics, logos, images, and software,
                   is the property of Trek Tribe or its licensors and is protected by copyright and other intellectual property laws.
                 </p>
               </div>
@@ -284,7 +284,7 @@ const TermsConditions: React.FC = () => {
               <div className="bg-indigo-50 p-6 rounded-xl">
                 <h3 className="text-lg font-semibold text-forest-800 mb-3">User Content</h3>
                 <p className="text-gray-700 leading-relaxed text-sm">
-                  By uploading content (photos, reviews, trip descriptions), you grant Trek Tribe a worldwide, 
+                  By uploading content (photos, reviews, trip descriptions), you grant Trek Tribe a worldwide,
                   non-exclusive, royalty-free license to use, display, and distribute your content in connection with the service.
                 </p>
               </div>
@@ -299,7 +299,7 @@ const TermsConditions: React.FC = () => {
                 Your privacy is important to us. Please review our{' '}
                 <a href="/privacy-policy" className="text-forest-600 hover:underline font-semibold">
                   Privacy Policy
-                </a>, which also governs your use of the service, to understand our practices regarding 
+                </a>, which also governs your use of the service, to understand our practices regarding
                 the collection and use of your personal information.
               </p>
             </div>
@@ -310,11 +310,11 @@ const TermsConditions: React.FC = () => {
             <h2 className="text-2xl font-semibold text-forest-800 mb-4">9. Termination</h2>
             <div className="space-y-4">
               <p className="text-gray-700 leading-relaxed">
-                We reserve the right to terminate or suspend your account and access to the service immediately, 
-                without prior notice, for conduct that we believe violates these terms or is harmful to other users, 
+                We reserve the right to terminate or suspend your account and access to the service immediately,
+                without prior notice, for conduct that we believe violates these terms or is harmful to other users,
                 us, or third parties.
               </p>
-              
+
               <div className="bg-red-50 border border-red-200 p-4 rounded-xl">
                 <h4 className="font-semibold text-red-800 mb-2">Reasons for termination may include:</h4>
                 <ul className="text-red-700 text-sm space-y-1">
@@ -332,8 +332,8 @@ const TermsConditions: React.FC = () => {
             <h2 className="text-2xl font-semibold text-forest-800 mb-4">10. Changes to Terms</h2>
             <div className="bg-blue-50 p-6 rounded-xl">
               <p className="text-gray-700 leading-relaxed mb-3">
-                We reserve the right to modify these terms at any time. We will notify users of significant changes 
-                via email or by posting a notice on our website. Your continued use of the service after such 
+                We reserve the right to modify these terms at any time. We will notify users of significant changes
+                via email or by posting a notice on our website. Your continued use of the service after such
                 modifications constitutes acceptance of the updated terms.
               </p>
               <p className="text-blue-700 text-sm font-semibold">
@@ -347,8 +347,8 @@ const TermsConditions: React.FC = () => {
             <h2 className="text-2xl font-semibold text-forest-800 mb-4">11. Governing Law</h2>
             <div className="bg-gray-50 p-6 rounded-xl">
               <p className="text-gray-700 leading-relaxed">
-                These terms shall be interpreted and governed in accordance with the laws of California, United States, 
-                without regard to conflict of law provisions. Any disputes arising from these terms or your use of 
+                These terms shall be interpreted and governed in accordance with the laws of California, United States,
+                without regard to conflict of law provisions. Any disputes arising from these terms or your use of
                 the service shall be resolved in the courts of California.
               </p>
             </div>
@@ -362,8 +362,8 @@ const TermsConditions: React.FC = () => {
                 If you have any questions about these Terms and Conditions, please contact us:
               </p>
               <div className="space-y-2 text-sm">
-                <div>📧 Email: legal@trekktribe.com</div>
-                <div>📞 Phone: +1 (555) 123-4567</div>
+                <div>📧 Email: trektribe.root@gmail.com</div>
+                <div>📞 Phone: 9876177839</div>
                 <div>📍 Address: 123 Adventure Lane, Mountain View, CA 94041</div>
               </div>
             </div>

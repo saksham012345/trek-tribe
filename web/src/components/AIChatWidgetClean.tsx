@@ -725,6 +725,7 @@ const AIChatWidgetClean: React.FC = () => {
               <div className="chat-header-info">
                 <h3 className="font-bold text-gray-800 text-lg">TrekTribe AI</h3>
                 <p className="text-xs text-emerald-600 font-medium">{socketFailed ? 'Offline' : 'Online & Ready to Help'}</p>
+                <p className="text-[10px] text-orange-500 font-medium mt-1">⚠️ Feature in Beta: Not fully functional</p>
               </div>
             </div>
             <button className="chat-close-btn hover:rotate-90 transition-transform duration-300" onClick={() => setIsOpen(false)}>

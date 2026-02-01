@@ -99,10 +99,10 @@ const TripFinancePage: React.FC = () => {
 
     // Chart Data
     const pieData = {
-        labels: Object.keys(data.breakdown).map(k => k.charAt(0).toUpperCase() + k.slice(1)),
+        labels: data?.breakdown ? Object.keys(data.breakdown).map(k => k.charAt(0).toUpperCase() + k.slice(1)) : [],
         datasets: [
             {
-                data: Object.values(data.breakdown),
+                data: data?.breakdown ? Object.values(data.breakdown) : [],
                 backgroundColor: [
                     '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1', '#9CA3AF'
                 ],
@@ -110,6 +110,9 @@ const TripFinancePage: React.FC = () => {
             },
         ],
     };
+
+    // Check if we have data to display chart
+    const hasChartData = pieData.datasets[0].data.length > 0 && pieData.datasets[0].data.some(v => v > 0);
 
     return (
         <div className="min-h-screen bg-gray-50 p-6 font-sans">
@@ -163,7 +166,7 @@ const TripFinancePage: React.FC = () => {
                     {/* Expense Breakdown Chart */}
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 lg:col-span-1">
                         <h3 className="text-lg font-bold text-gray-800 mb-4">Expense Breakdown</h3>
-                        {data.financials.expenses > 0 ? (
+                        {hasChartData ? (
                             <div className="h-64 flex items-center justify-center">
                                 <Pie data={pieData} options={{ maintainAspectRatio: false }} />
                             </div>
