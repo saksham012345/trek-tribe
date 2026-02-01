@@ -380,6 +380,18 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const deleteUser = async (userId: string) => {
+    if (!window.confirm('Are you sure you want to PERMANENTLY delete this user? This action cannot be undone and will remove all their data.')) return;
+
+    try {
+      await api.delete(`/admin/users/${userId}`);
+      addNotification('User deleted successfully', 'success');
+      fetchUserContacts();
+    } catch (err: any) {
+      addNotification(err.response?.data?.error || 'Failed to delete user', 'error');
+    }
+  };
+
   const TripsManagement = () => (
     <div className="space-y-6">
       {/* Trips Header */}
@@ -1089,6 +1101,17 @@ const AdminDashboard: React.FC = () => {
                                 )}
                               </div>
                             )}
+
+                            {/* Delete User Button - Always visible for admins */}
+                            <div className="mt-2 pt-2 border-t border-gray-100">
+                              <button
+                                onClick={() => deleteUser(contact._id)}
+                                className="text-red-600 hover:text-red-800 text-xs font-medium flex items-center"
+                              >
+                                🗑️ Delete User
+                              </button>
+                            </div>
+
                           </td>
                         </tr>
                       ))}
