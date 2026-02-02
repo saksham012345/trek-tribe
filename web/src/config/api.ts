@@ -13,7 +13,7 @@ if (!API_BASE_URL && process.env.NODE_ENV !== 'production') {
 // Create axios instance with default configuration
 const api: any = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000, // Increased to 30 seconds for Render's slower response times
+  timeout: 30000, // 30 seconds
   withCredentials: true, // CRITICAL: Required to send httpOnly cookies with cross-origin requests
   headers: {
     'Content-Type': 'application/json',
@@ -23,22 +23,14 @@ const api: any = axios.create({
   xsrfHeaderName: 'X-XSRF-TOKEN',
 });
 
-// Request interceptor - cookies are sent automatically, no need to add token header
+// Request interceptor
 api.interceptors.request.use(
   (config: any) => {
-    // Tokens are now in httpOnly cookies, sent automatically by browser
-    // However, for Hybrid Auth (Admin routes fallback where cookies might fail cross-origin),
-    // we also attach the Bearer token if available in storage.
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
     // Check cache for GET requests (excluding sensitive endpoints)
     if (config.method === 'get' && !config.url?.includes('/auth') && !config.url?.includes('/payment')) {
       const cachedData = apiCache.get(config.url || '', config.params);
       if (cachedData) {
-        // Return cached data wrapped in a resolved promise to match axios response structure
+        // Return cached data wrapped in a resolved promise
         return Promise.reject({
           __cached: true,
           data: cachedData,
@@ -87,28 +79,16 @@ api.interceptors.response.use(
     }
 
     if (error.response?.status === 401) {
-      // NEVER automatically redirect in the interceptor - let route guards handle it
-      // This prevents redirect loops and allows proper auth checking in components
       const isAuthEndpoint = error.config?.url?.includes('/auth/');
 
       if (isAuthEndpoint && error.config?.url?.includes('/auth/me')) {
-        // Expected 401 on /auth/me when not logged in - just log it
-        console.log('Auth 401 on /auth/me - user not authenticated (this is expected if not logged in)');
+        // Expected 401 on /auth/me when not logged in - silent
       } else if (!isAuthEndpoint && !error.config?._skipLogout) {
-        // For non-auth endpoints, just clear localStorage
-        // Route guards will handle redirects
-        localStorage.removeItem('user');
         console.warn('401 Unauthorized on:', error.config?.url);
       }
     }
-    if (error.response?.status === 403 && error.response?.data?.code === 'PHONE_REQUIRED') {
-      // Redirect to profile completion if phone verification is required
-      if (!window.location.pathname.includes('/complete-profile')) {
-        window.location.href = '/complete-profile';
-        return Promise.reject(error); // Reject to stop current flow
-      }
-    }
 
+    // Pass errors through - do NOT redirect here to avoid circular deps with Router/Context
     return Promise.reject(error);
   }
 );

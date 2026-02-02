@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-import api from '../config/api';
 import { User } from '../types';
+import { authService } from '../services/authService';
 
 interface AuthContextType {
   user: User | null;
@@ -27,86 +27,52 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
+  // Initialize state immediately from localStorage to prevent flicker
   const [user, setUser] = useState<User | null>(() => {
-    // Try to restore user from localStorage on initial load
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      try {
-        return JSON.parse(savedUser);
-      } catch (e) {
-        return null;
-      }
+    try {
+      const savedUser = localStorage.getItem('user');
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch (e) {
+      console.error('Failed to parse user from localStorage', e);
+      return null;
     }
-    return null;
   });
+
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Try to restore user from localStorage first (for faster UI)
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      try {
-        const parsedUser = JSON.parse(savedUser);
-        setUser(parsedUser);
-      } catch (e) {
-        // Invalid data, clear it
-        localStorage.removeItem('user');
-      }
-    }
-
-    // Always verify session with backend (cookie-based auth)
-    // This is critical for session persistence
+    // Session verification logic
     const verifySession = async () => {
       try {
-        // withCredentials is already set globally in api config, but explicitly set it here too
-        const response = await api.get('/auth/me', {
-          withCredentials: true
-        });
+        const verifiedUser = await authService.verifySession();
 
-        // Handle both { user: User } and direct User object formats
-        const userData = response.data?.user || response.data;
-        if (userData && (userData._id || userData.id)) {
-          // User is authenticated - update state and localStorage
-          setUser(userData as User);
-          localStorage.setItem('user', JSON.stringify(userData));
-          console.log('✅ Session verified successfully - user:', userData.email || userData.name);
+        if (verifiedUser) {
+          // Session valid
+          setUser(verifiedUser);
+          localStorage.setItem('user', JSON.stringify(verifiedUser));
+          console.log('✅ Session verified successfully');
         } else {
-          // No user data in response - clear local storage
-          console.log('⚠️ No user data in response, clearing session');
-          localStorage.removeItem('user');
-          setUser(null);
-        }
-      } catch (error: any) {
-        // 401 is expected when user is not logged in
-        if (error?.response?.status === 401) {
-          // Check if we had a user in localStorage
-          if (savedUser) {
-            console.log('⚠️ Session expired or invalid - clearing local user data');
-            console.log('   Cookie may not be set or expired. Check browser DevTools > Application > Cookies');
+          // Session invalid/expired (401)
+          const localUser = localStorage.getItem('user');
+          if (localUser) {
+            console.log('⚠️ Session invalid but user found in storage - clearing.');
             localStorage.removeItem('user');
             setUser(null);
-          } else {
-            // No saved user, so user was never logged in - this is normal
-            setUser(null);
           }
-        } else {
-          // Network or server errors - keep user from localStorage for now
-          // User can still use the app if localStorage has valid user data
-          // Protected routes will verify again
-          console.warn('⚠️ Failed to verify session (non-401):', error?.response?.status || error?.message);
-          console.warn('   Keeping user from localStorage for now');
-          // Don't clear user on network errors - might be temporary
-          // Keep the user from localStorage to allow app to function
-          if (savedUser && !user) {
-            try {
-              const parsed = JSON.parse(savedUser);
-              setUser(parsed);
-              console.log('✅ Restored user from localStorage after network error');
-            } catch (e) {
-              // Invalid data, clear it
-              localStorage.removeItem('user');
-              setUser(null);
-            }
+        }
+      } catch (error: any) {
+        // Network error / Timeout
+        console.warn('⚠️ Session verification failed (network/timeout):', error.message);
+
+        // Strategy: TRUST LOCAL STORAGE on network failures (Offline support / Resilience)
+        // If we have a user in memory/storage, keep them logged in until explicit 401
+        const savedUser = localStorage.getItem('user');
+        if (savedUser && !user) {
+          try {
+            setUser(JSON.parse(savedUser));
+            console.log('ℹ️  Restored user from localStorage fallback');
+          } catch (e) {
+            localStorage.removeItem('user');
           }
         }
       } finally {
@@ -115,64 +81,40 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
 
     verifySession();
-  }, []);
+  }, []); // Run once on mount
 
   const login = async (emailOrCredential: string, passwordOrProvider?: string): Promise<{ success: boolean; error?: string }> => {
-    try {
-      let response;
+    const result = await authService.login(emailOrCredential, passwordOrProvider);
 
-      if (passwordOrProvider === 'google') {
-        // Google OAuth login
-        response = await api.post('/auth/google', {
-          credential: emailOrCredential
-        }, {
-          withCredentials: true
-        });
-      } else {
-        // Traditional email/password login
-        response = await api.post('/auth/login', {
-          email: emailOrCredential,
-          password: passwordOrProvider
-        }, {
-          withCredentials: true
-        });
+    if (result.success) {
+      // Refresh user data from server (or response could have returned it, but let's verify)
+      try {
+        const verifiedUser = await authService.verifySession();
+        if (verifiedUser) {
+          setUser(verifiedUser);
+          localStorage.setItem('user', JSON.stringify(verifiedUser));
+        }
+      } catch (e) {
+        // Fallback if verify fails immediately after login (rare)
+        console.warn('Login successful but immediate session check failed');
       }
-
-      const responseData = response.data as { token?: string; user: User };
-      const userData = responseData.user;
-
-      // Store token locally as a fallback for admin/cross-origin requests (Hybrid Auth)
-      if (responseData.token) {
-        localStorage.setItem('token', responseData.token);
-      }
-
-      localStorage.setItem('user', JSON.stringify(userData));
-      setUser(userData);
-
-      console.log('✅ Login successful - cookie should be set. Check browser DevTools > Application > Cookies');
-
-      return { success: true };
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Login failed';
-      console.error('Login error:', errorMessage);
-      return { success: false, error: errorMessage };
     }
+
+    return result;
   };
 
   const setSession = async (token: string, userData?: User) => {
-    // Token is now in httpOnly cookie (set by backend), no need to store it
     if (userData) {
       localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
       return;
     }
 
+    // Refresh from server
     try {
-      const resp = await api.get('/auth/me');
-      // Handle both { user: User } and direct User object formats
-      const fetchedUser = resp.data?.user || resp.data;
-      if (fetchedUser && fetchedUser._id) {
-        setUser(fetchedUser as User);
+      const fetchedUser = await authService.verifySession();
+      if (fetchedUser) {
+        setUser(fetchedUser);
         localStorage.setItem('user', JSON.stringify(fetchedUser));
       }
     } catch (e) {
@@ -182,10 +124,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const refreshUser = async () => {
     try {
-      const resp = await api.get('/auth/me');
-      const userData = resp.data?.user || resp.data;
-      if (userData && userData._id) {
-        setUser(userData as User);
+      const userData = await authService.verifySession();
+      if (userData) {
+        setUser(userData);
         localStorage.setItem('user', JSON.stringify(userData));
       }
     } catch (e) {
@@ -194,13 +135,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const logout = async () => {
-    try {
-      // Call backend logout endpoint to clear httpOnly cookie
-      await api.post('/auth/logout');
-    } catch (error) {
-      console.warn('Logout API call failed, clearing local data anyway:', error);
-    }
-    // Clear local user data
+    await authService.logout();
     localStorage.removeItem('user');
     setUser(null);
   };

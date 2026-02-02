@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Camera, Upload, X, User } from 'lucide-react';
 import api from '../config/api';
+import { getSafeUrl } from '../utils/url';
 
 interface ProfilePhotoUploadProps {
   currentPhoto?: string;
@@ -84,7 +85,7 @@ const ProfilePhotoUpload: React.FC<ProfilePhotoUploadProps> = ({
     if (!window.confirm('Are you sure you want to remove your profile photo?')) {
       return;
     }
-    
+
     try {
       const response = await api.post('/profile/photo', {
         photo: ''
@@ -104,7 +105,8 @@ const ProfilePhotoUpload: React.FC<ProfilePhotoUploadProps> = ({
     fileInputRef.current?.click();
   };
 
-  const displayPhoto = previewUrl || currentPhoto;
+  const safeDisplayPhoto = getSafeUrl(previewUrl || currentPhoto);
+  const displayPhoto = safeDisplayPhoto;
 
   return (
     <div className={`flex flex-col items-center space-y-4 ${className}`}>
@@ -112,9 +114,9 @@ const ProfilePhotoUpload: React.FC<ProfilePhotoUploadProps> = ({
       <div className="relative group">
         <div className="w-32 h-32 rounded-full overflow-hidden bg-gradient-to-br from-forest-400 to-nature-500 flex items-center justify-center shadow-lg">
           {displayPhoto ? (
-            <img 
-              src={displayPhoto} 
-              alt="Profile" 
+            <img
+              src={displayPhoto}
+              alt="Profile"
               className="w-full h-full object-cover"
             />
           ) : (
@@ -160,9 +162,10 @@ const ProfilePhotoUpload: React.FC<ProfilePhotoUploadProps> = ({
               <Upload className="w-4 h-4" />
               <span>{displayPhoto ? 'Change Photo' : 'Upload Photo'}</span>
             </>
-          )}
+          )
+          }
         </button>
-        
+
         <p className="text-xs text-gray-500 mt-2">
           JPG, PNG or GIF. Max 5MB.
         </p>
