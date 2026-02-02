@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
+import { getSafeUrl } from '../utils/url';
 
 interface ProfileUser {
   _id: string;
@@ -115,7 +116,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
       // Prefer username, then uniqueUrl, then fall back to _id
       const identifier = profile.username || profile.uniqueUrl || profile._id;
       const profileUrl = `${window.location.origin}/profile/${identifier}`;
-      
+
       if (navigator.share) {
         // Use native share API if available
         await navigator.share({
@@ -147,14 +148,14 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
       {/* Header with gradient background */}
       <div className={`bg-gradient-to-r ${getRoleColor(profile.role)} h-48 relative`}>
         <div className="absolute inset-0 bg-black bg-opacity-20"></div>
-        
+
         {/* Profile photo and basic info */}
         <div className="absolute bottom-6 left-6 flex items-end gap-6">
           <div className="bg-white p-2 rounded-2xl shadow-lg">
             <div className="w-32 h-32 rounded-xl overflow-hidden bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
               {profile.profilePhoto ? (
-                <img 
-                  src={profile.profilePhoto} 
+                <img
+                  src={getSafeUrl(profile.profilePhoto) || ''}
                   alt={profile.name}
                   className="w-full h-full object-cover"
                 />
@@ -163,7 +164,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
               )}
             </div>
           </div>
-          
+
           <div className="text-white pb-4">
             <h1 className="text-3xl font-bold mb-1 flex items-center gap-2">
               {profile.name}
@@ -194,11 +195,10 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
             <button
               onClick={handleFollow}
               disabled={loading}
-              className={`px-6 py-3 rounded-lg font-medium text-white transition-all duration-200 ${
-                followStatus?.isFollowing
-                  ? 'bg-gray-600 hover:bg-gray-700'
-                  : 'bg-green-600 hover:bg-green-700'
-              } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`px-6 py-3 rounded-lg font-medium text-white transition-all duration-200 ${followStatus?.isFollowing
+                ? 'bg-gray-600 hover:bg-gray-700'
+                : 'bg-green-600 hover:bg-green-700'
+                } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {loading ? (
                 <span className="flex items-center gap-2">
@@ -225,7 +225,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
       <div className="p-6">
         {profile.socialStats && (
           <div className="grid grid-cols-3 gap-4 mb-6">
-            <div 
+            <div
               className="text-center p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
               onClick={() => setShowFollowers(true)}
             >
@@ -234,8 +234,8 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
               </div>
               <div className="text-sm text-gray-600">Followers</div>
             </div>
-            
-            <div 
+
+            <div
               className="text-center p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
               onClick={() => setShowFollowing(true)}
             >
@@ -244,7 +244,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
               </div>
               <div className="text-sm text-gray-600">Following</div>
             </div>
-            
+
             <div className="text-center p-4 bg-gray-50 rounded-lg">
               <div className="text-2xl font-bold text-purple-600">
                 {profile.socialStats.postsCount}
@@ -368,7 +368,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
             <div>
               <span className="text-sm text-gray-600">Share Profile</span>
               <p className="text-xs text-gray-500 mt-1">
-                {profile.uniqueUrl 
+                {profile.uniqueUrl
                   ? `trektribe.com/profile/${profile.uniqueUrl}`
                   : `trektribe.com/profile/${profile._id}`
                 }
@@ -470,8 +470,8 @@ const FollowersList: React.FC<{ userId: string }> = ({ userId }) => {
         <div key={follower._id} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg">
           <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
             {follower.profilePhoto ? (
-              <img 
-                src={follower.profilePhoto} 
+              <img
+                src={getSafeUrl(follower.profilePhoto) || ''}
                 alt={follower.name}
                 className="w-full h-full rounded-full object-cover"
               />
@@ -529,8 +529,8 @@ const FollowingList: React.FC<{ userId: string }> = ({ userId }) => {
         <div key={user._id} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg">
           <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
             {user.profilePhoto ? (
-              <img 
-                src={user.profilePhoto} 
+              <img
+                src={getSafeUrl(user.profilePhoto) || ''}
                 alt={user.name}
                 className="w-full h-full rounded-full object-cover"
               />

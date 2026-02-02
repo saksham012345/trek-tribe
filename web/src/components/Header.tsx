@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { User } from '../types';
 import NotificationCenter from './NotificationCenter';
+import { getSafeUrl } from '../utils/url';
 
 interface HeaderProps {
   user: User | null;
@@ -127,7 +128,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
                     <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-forest-500 to-nature-400 p-[2px]">
                       <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden">
                         {user.profilePhoto ? (
-                          <img src={user.profilePhoto} alt={user.name} className="w-full h-full object-cover" />
+                          <img src={getSafeUrl(user.profilePhoto) || ''} alt={user.name} className="w-full h-full object-cover" />
                         ) : (
                           <span className="text-xs font-bold text-forest-600">
                             {user.name.charAt(0)}

@@ -4,6 +4,7 @@ import api from '../config/api';
 import { User } from '../types';
 import AIAnalyticsDashboard from '../components/AIAnalyticsDashboard';
 import { useAuth } from '../contexts/AuthContext';
+import { getSafeUrl } from '../utils/url';
 
 
 interface Trip {
@@ -52,14 +53,14 @@ const Profile: React.FC<ProfileProps> = ({ user: initialUser }) => {
 
         const response = await api.get('/trips');
         const allTrips = response.data;
-        
+
         if (!Array.isArray(allTrips)) {
           console.warn('Expected array of trips, got:', typeof allTrips);
           setUserTrips([]);
           setLoading(false);
           return;
         }
-        
+
         // Filter trips based on user role
         if (user?.role === 'organizer') {
           // Show trips created by the user
@@ -144,7 +145,7 @@ const Profile: React.FC<ProfileProps> = ({ user: initialUser }) => {
         };
         updateUser(updatedUser);
         setSuccess('Profile photo updated successfully!');
-        
+
         // Clear success message after 3 seconds
         setTimeout(() => setSuccess(''), 3000);
       }
@@ -172,7 +173,7 @@ const Profile: React.FC<ProfileProps> = ({ user: initialUser }) => {
       }
 
       const response = await api.patch('/auth/profile', formData);
-      
+
       if (updateUser) {
         const updatedUser = {
           ...user,
@@ -251,7 +252,7 @@ const Profile: React.FC<ProfileProps> = ({ user: initialUser }) => {
               </p>
             </div>
           )}
-          
+
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-red-800 flex items-center gap-2">
@@ -264,16 +265,16 @@ const Profile: React.FC<ProfileProps> = ({ user: initialUser }) => {
           {/* User Info */}
           <div className="bg-gray-50 rounded-lg p-6 mb-8">
             <h2 className="text-xl font-semibold mb-6">Account Information</h2>
-            
+
             <div className="flex flex-col md:flex-row gap-6">
               {/* Profile Photo Section */}
               <div className="flex flex-col items-center">
                 <div className="relative">
                   <div className="w-32 h-32 rounded-full overflow-hidden bg-gradient-to-br from-forest-400 to-nature-500 flex items-center justify-center">
                     {user?.profilePhoto ? (
-                      <img 
-                        src={user.profilePhoto} 
-                        alt="Profile" 
+                      <img
+                        src={getSafeUrl(user.profilePhoto) || ''}
+                        alt="Profile"
                         className="w-full h-full object-cover"
                       />
                     ) : (
@@ -404,7 +405,7 @@ const Profile: React.FC<ProfileProps> = ({ user: initialUser }) => {
             <h2 className="text-xl font-semibold mb-4">
               {user?.role === 'organizer' ? 'My Created Trips' : 'My Joined Trips'}
             </h2>
-            
+
             {loading ? (
               <div className="flex justify-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -415,8 +416,8 @@ const Profile: React.FC<ProfileProps> = ({ user: initialUser }) => {
                   {user?.role === 'organizer' ? 'No trips created yet' : 'No trips joined yet'}
                 </div>
                 <p className="text-gray-400">
-                  {user?.role === 'organizer' 
-                    ? 'Create your first trip to get started!' 
+                  {user?.role === 'organizer'
+                    ? 'Create your first trip to get started!'
                     : 'Join some trips to see them here'
                   }
                 </p>
@@ -427,7 +428,7 @@ const Profile: React.FC<ProfileProps> = ({ user: initialUser }) => {
                   <div key={trip._id} className="border border-gray-200 rounded-lg p-6">
                     <h3 className="text-lg font-semibold mb-2">{trip.title}</h3>
                     <p className="text-gray-600 mb-4 line-clamp-2">{trip.description}</p>
-                    
+
                     <div className="space-y-2 mb-4">
                       <div className="flex items-center text-sm text-gray-500">
                         <span className="mr-2">📍</span>
@@ -452,15 +453,14 @@ const Profile: React.FC<ProfileProps> = ({ user: initialUser }) => {
                     </div>
 
                     <div className="flex justify-between items-center">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        trip.status === 'active' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${trip.status === 'active'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-gray-100 text-gray-800'
+                        }`}>
                         {trip.status}
                       </span>
                       {user?.role === 'organizer' && (
-                        <button 
+                        <button
                           onClick={() => navigate(`/edit-trip/${trip._id}`)}
                           className="text-nature-600 hover:text-forest-700 text-sm font-medium flex items-center gap-1 transition-colors"
                         >
@@ -473,7 +473,7 @@ const Profile: React.FC<ProfileProps> = ({ user: initialUser }) => {
               </div>
             )}
           </div>
-          
+
           {/* AI Travel Analytics */}
           <div className="mt-12">
             <h2 className="text-xl font-semibold mb-6">🧠 AI Travel Insights</h2>
