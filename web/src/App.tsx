@@ -11,6 +11,7 @@ import APIDebugger from './components/APIDebugger';
 import FloatingJoinCTA from './components/FloatingJoinCTA';
 import { Trip } from './types';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import { preloadRazorpay } from './utils/razorpay';
 import PhoneRequirementGuard from './components/auth/PhoneRequirementGuard';
 
@@ -339,7 +340,9 @@ function App() {
   return (
     <ChunkErrorBoundary>
       <AuthProvider>
-        <AppContent />
+        <NotificationProvider>
+          <AppContent />
+        </NotificationProvider>
       </AuthProvider>
     </ChunkErrorBoundary>
   );

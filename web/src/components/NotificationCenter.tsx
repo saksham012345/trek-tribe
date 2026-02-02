@@ -1,142 +1,35 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Bell, X, Check, AlertCircle, Info, CheckCircle } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
-
-// Dynamically import socket.io-client to handle cases where it might not be available
-let io: any = null;
-let Socket: any = null;
-
-try {
-  const socketModule = require('socket.io-client');
-  io = socketModule.default || socketModule.io;
-  Socket = socketModule.Socket;
-} catch (error) {
-  console.warn('Socket.io-client not available:', error);
-}
-
-interface Notification {
-  id: string;
-  message: string;
-  type: 'success' | 'info' | 'error' | 'warning';
-  timestamp: Date;
-  read: boolean;
-  link?: string;
-}
+import React, { useRef, useEffect, useState } from 'react';
+import { Bell, X, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import { useNotification } from '../contexts/NotificationContext';
 
 const NotificationCenter: React.FC = () => {
-  const { user } = useAuth();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const {
+    notifications,
+    unreadCount,
+    markAsRead,
+    markAllAsRead,
+    removeNotification,
+    clearAll
+  } = useNotification();
+
   const [isOpen, setIsOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [socket, setSocket] = useState<any>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (user) {
-      initializeSocket();
-
-      // Close dropdown when clicking outside
-      const handleClickOutside = (event: MouseEvent) => {
-        if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-          setIsOpen(false);
-        }
-      };
-
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside);
-        if (socket && typeof socket.disconnect === 'function') {
-          socket.disconnect();
-        }
-      };
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (notifications.length > 0) {
-      const unread = notifications.filter(n => !n.read).length;
-      setUnreadCount(unread);
-    }
-  }, [notifications]);
-
-  const initializeSocket = () => {
-    if (!io) {
-      console.warn('Socket.io not available for notifications');
-      return;
-    }
-
-    if (!user) return; // Use user from AuthContext
-
-    try {
-      // Cookies are sent automatically, no need to pass token in auth
-      const newSocket = io(process.env.REACT_APP_API_URL || process.env.REACT_APP_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : ''), {
-        path: '/socket.io/',
-        transports: ['websocket', 'polling'],
-        withCredentials: true // Send cookies
-      } as any);
-
-      newSocket.on('connect', () => {
-        console.log('🔌 Notification center connected');
-      });
-
-      newSocket.on('connect_error', (error: any) => {
-        console.warn('🔌 Notification center connection error:', error);
-      });
-
-      newSocket.on('notification', (data: any) => {
-        addNotification(data.message || 'New notification', data.type || 'info', data.link);
-      });
-
-      newSocket.on('booking_update', (data: any) => {
-        addNotification(`Booking update: ${data.message}`, 'info', data.link);
-      });
-
-      newSocket.on('payment_verified', (data: any) => {
-        addNotification('Payment verified! Your booking is confirmed.', 'success', `/my-bookings`);
-      });
-
-      newSocket.on('trip_update', (data: any) => {
-        addNotification(`Trip update: ${data.message}`, 'info', data.link);
-      });
-
-      setSocket(newSocket);
-    } catch (error) {
-      console.error('Error initializing socket:', error);
-    }
-  };
-
-  const addNotification = (message: string, type: Notification['type'] = 'info', link?: string) => {
-    const notification: Notification = {
-      id: Date.now().toString(),
-      message,
-      type,
-      timestamp: new Date(),
-      read: false,
-      link
+    // Close dropdown when clicking outside
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
     };
 
-    setNotifications(prev => [notification, ...prev].slice(0, 50)); // Keep last 50
-  };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
-  const markAsRead = (id: string) => {
-    setNotifications(prev =>
-      prev.map(n => n.id === id ? { ...n, read: true } : n)
-    );
-  };
-
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  };
-
-  const removeNotification = (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
-  };
-
-  const clearAll = () => {
-    setNotifications([]);
-  };
-
-  const getNotificationIcon = (type: Notification['type']) => {
+  const getNotificationIcon = (type: any) => {
     switch (type) {
       case 'success':
         return <CheckCircle className="w-5 h-5 text-green-600" />;
@@ -149,7 +42,7 @@ const NotificationCenter: React.FC = () => {
     }
   };
 
-  const getNotificationColor = (type: Notification['type']) => {
+  const getNotificationColor = (type: any) => {
     switch (type) {
       case 'success':
         return 'bg-green-50 border-green-200 text-green-800';
@@ -161,8 +54,6 @@ const NotificationCenter: React.FC = () => {
         return 'bg-blue-50 border-blue-200 text-blue-800';
     }
   };
-
-  if (!user) return null;
 
   return (
     <div className="relative" ref={dropdownRef}>
