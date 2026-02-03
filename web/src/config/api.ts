@@ -26,6 +26,15 @@ const api: any = axios.create({
 // Request interceptor
 api.interceptors.request.use(
   (config: any) => {
+    // Attach token from localStorage if available (Hybrid Auth: Cookie + Header)
+    // This fixes issues where cookies might be blocked or not sent in some environments
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('token');
+      if (token && config.headers) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    }
+
     // Check cache for GET requests (excluding sensitive endpoints)
     if (config.method === 'get' && !config.url?.includes('/auth') && !config.url?.includes('/payment')) {
       const cachedData = apiCache.get(config.url || '', config.params);

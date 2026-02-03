@@ -14,7 +14,7 @@ interface Notification {
 interface NotificationContextType {
     notifications: Notification[];
     unreadCount: number;
-    socket: Socket | null;
+    socket: any | null;
     addNotification: (message: string, type?: Notification['type'], link?: string) => void;
     markAsRead: (id: string) => void;
     markAllAsRead: () => void;
@@ -36,14 +36,14 @@ export const useNotification = () => {
 export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const { user } = useAuth();
     const [notifications, setNotifications] = useState<Notification[]>([]);
-    const [socket, setSocket] = useState<Socket | null>(null);
+    const [socket, setSocket] = useState<any | null>(null);
     const [isConnected, setIsConnected] = useState(false);
 
     // Derive unread count
     const unreadCount = notifications.filter(n => !n.read).length;
 
     useEffect(() => {
-        let newSocket: Socket | null = null;
+        let newSocket: any | null = null;
 
         if (user) {
             try {
@@ -51,13 +51,21 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
 
                 console.log('🔌 Initializing socket connection for notifications to:', socketUrl);
 
+                const token = localStorage.getItem('token');
+
                 newSocket = io(socketUrl, {
                     path: '/socket.io/',
                     transports: ['websocket', 'polling'],
                     withCredentials: true,
+                    auth: {
+                        token: token
+                    },
+                    extraHeaders: {
+                        Authorization: token ? `Bearer ${token}` : ''
+                    },
                     reconnectionAttempts: 5,
                     reconnectionDelay: 1000,
-                });
+                } as any);
 
                 newSocket.on('connect', () => {
                     console.log('✅ Socket connected successfully');

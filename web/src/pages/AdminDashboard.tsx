@@ -137,10 +137,20 @@ const AdminDashboard: React.FC = () => {
   const initializeSocket = () => {
     if (!user) return; // Use user from AuthContext instead of token
 
-    // Cookies are sent automatically, no need to pass token in auth
+    // Cookies are sent automatically, but we add token for robustness (fix for 401s)
+    const token = localStorage.getItem('token');
+
+    // Explicitly pass token in auth object (Socket.IO standard) and query (fallback)
     const newSocket = io(process.env.REACT_APP_API_URL || process.env.REACT_APP_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : ''), {
       path: '/socket.io/',
-      withCredentials: true // Send cookies
+      withCredentials: true, // Send cookies
+      auth: {
+        token: token
+      },
+      // Some server setups might need it in query or extraHeaders if auth object isn't parsed correctly by proxies
+      extraHeaders: {
+        Authorization: token ? `Bearer ${token}` : ''
+      }
     } as any);
 
     newSocket.on('connect', () => {
