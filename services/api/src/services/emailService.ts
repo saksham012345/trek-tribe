@@ -66,10 +66,14 @@ class EmailService {
   private configSource: string | null = null;
 
   constructor() {
-    this.initialize();
+    // Initialization is now explicit via initialize() method
   }
 
-  private async initialize() {
+  public async initialize() {
+    if (this.isInitialized) {
+      logger.info('Email service already initialized');
+      return;
+    }
     try {
       // Allow disabling email initialization explicitly to avoid noisy logs
       if ((process.env.DISABLE_EMAIL || 'false').toLowerCase() === 'true') {

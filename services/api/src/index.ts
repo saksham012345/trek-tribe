@@ -34,6 +34,7 @@ import groupBookingRoutes from './routes/groupBookings';
 import reviewVerificationRoutes from './routes/reviewVerification';
 import { whatsappService } from './services/whatsappService';
 import { socketService } from './services/socketService';
+import { emailService } from './services/emailService';
 // CRM System Routes
 import crmRoutes from './routes/crm';
 import chatService from './services/chatService';
@@ -314,6 +315,14 @@ export async function start() {
     // Reason: WhatsApp credentials were exposed in git history
     // Alternative: Use WhatsApp Business API instead
     console.log('ℹ️  WhatsApp service disabled (credentials compromised - use WhatsApp Business API instead)');
+
+    // Initialize Email Service explicitly
+    try {
+      await emailService.initialize();
+      console.log('✅ Email service initialized');
+    } catch (error: any) {
+      console.warn('⚠️ Email service failed to initialize:', error.message);
+    }
 
     // Initialize Socket.IO service
     socketService.initialize(server);
