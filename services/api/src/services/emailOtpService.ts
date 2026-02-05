@@ -13,10 +13,12 @@ class EmailOTPService {
   private transporter: nodemailer.Transporter | null = null;
 
   constructor() {
-    this.initializeTransporter();
+    // Lazy initialization - don't initialize in constructor to avoid env var issues
   }
 
-  private initializeTransporter() {
+  private ensureInitialized() {
+    if (this.transporter) return;
+
     const gmailUser = process.env.GMAIL_USER;
     const gmailPassword = process.env.GMAIL_APP_PASSWORD;
 
@@ -45,6 +47,8 @@ class EmailOTPService {
    */
   async sendOTP(email: string, purpose: 'registration' | 'login' | 'reset' = 'registration'): Promise<SendOTPResult> {
     try {
+      this.ensureInitialized();
+
       if (!this.transporter) {
         return {
           success: false,
@@ -114,7 +118,7 @@ class EmailOTPService {
   async verifyOTP(email: string, otp: string): Promise<{ success: boolean; message: string; user?: any }> {
     try {
       const user = await User.findOne({ email });
-      
+
       if (!user) {
         return {
           success: false,
@@ -192,8 +196,10 @@ class EmailOTPService {
    */
   async resendOTP(email: string, purpose: 'registration' | 'login' | 'reset' = 'registration'): Promise<SendOTPResult> {
     try {
+      this.ensureInitialized();
+
       const user = await User.findOne({ email });
-      
+
       if (!user && purpose !== 'registration') {
         return {
           success: false,
@@ -245,11 +251,11 @@ class EmailOTPService {
   }
 
   private getEmailTemplate(otp: string, purpose: string): string {
-    const purposeText = purpose === 'registration' 
-      ? 'complete your registration' 
+    const purposeText = purpose === 'registration'
+      ? 'complete your registration'
       : purpose === 'login'
-      ? 'log in to your account'
-      : 'reset your password';
+        ? 'log in to your account'
+        : 'reset your password';
 
     return `
       <!DOCTYPE html>
