@@ -1,0 +1,54 @@
+﻿node.exe : FAIL src/__tests__
+/comprehensive.test.ts
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~
+    + CategoryInfo           
+   : NotSpecified: (FAIL sr  
+  c/__tests__/comprehensiv   
+ e.test.ts:String) [], Re    
+moteException
+    + FullyQualifiedErrorId  
+   : NativeCommandError
+ 
+  ΓùÅ Test suite failed to 
+run
+
+    [96msrc/__tests__/compre
+hensive.test.ts[0m:[93m1003
+[0m:[93m1[0m - 
+[91merror[0m[90m TS1005: 
+[0m'}' expected.
+
+    [7m1003[0m 
+    [7m    [0m [91m[0m
+
+      [96msrc/__tests__/comp
+rehensive.test.ts[0m:[93m26
+[0m:[93m60[0m
+        [7m26[0m 
+describe('├░┼╕┬º┬¬ 
+Trek-Tribe Comprehensive 
+Test Suite', () => {
+        [7m  [0m [96m     
+                             
+                         
+~[0m
+        The parser expected 
+to find a '}' to match the 
+'{' token here.
+
+Test Suites: 1 failed, 1 
+total
+Tests:       0 total
+Snapshots:   0 total
+Time:        5.952 s, 
+estimated 14 s
+Ran all test suites matching 
+/src\\__tests__\\comprehensiv
+e.test.ts/i.

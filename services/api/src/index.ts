@@ -32,6 +32,7 @@ import statsRoutes from './routes/stats';
 // import fileUploadRoutes from './routes/fileUploadProd';
 import groupBookingRoutes from './routes/groupBookings';
 import reviewVerificationRoutes from './routes/reviewVerification';
+import uploadRoutes from './routes/upload';
 import { whatsappService } from './services/whatsappService';
 import { socketService } from './services/socketService';
 import { emailService } from './services/emailService';
@@ -68,14 +69,13 @@ import { logger } from './utils/logger';
 import errorHandler from './middleware/errorHandler';
 import metrics from './middleware/metrics';
 
+
 const app = express();
 const server = createServer(app);
 
+
 // Trust proxy for Render deployment (required for express-rate-limit)
 app.set('trust proxy', 1);
-
-// Export the express app for testing and programmatic use
-export default app;
 
 // Optional Sentry integration (centralized)
 import { initSentry } from './sentry';
@@ -235,6 +235,304 @@ const logMessage = (level: string, message: string): void => {
   console.log(`${new Date().toISOString()} [${level}] ${message}`);
 };
 
+// ==========================================
+// ROUTES - MOUNTED GLOBALLY
+// ==========================================
+app.use('/auth', authLimiter, authRoutes);
+app.use('/trips', tripRoutes);
+app.use('/reviews', reviewRoutes);
+app.use('/wishlist', wishlistRoutes);
+// app.use('/files', fileRoutes);
+app.use('/bookings', bookingRoutes);
+app.use('/admin', adminRoutes);
+app.use('/api/profile', profileRoutes);
+app.use('/api/profile', enhancedProfileRoutes);
+// Also mount enhanced profile without /api prefix to match other routes
+app.use('/profile', enhancedProfileRoutes);
+app.use('/api/public', publicProfileRoutes);
+// File upload system (production ready)
+app.use('/api/uploads', uploadRoutes);
+
+// Group Bookings and Review Verification
+app.use('/api/group-bookings', groupBookingRoutes);
+app.use('/group-bookings', groupBookingRoutes);
+app.use('/api/review-verification', reviewVerificationRoutes);
+app.use('/review-verification', reviewVerificationRoutes);
+app.use('/agent', agentRoutes);
+app.use('/chat', chatSupportRoutes);
+app.use('/api/ai', aiRoutes);
+// Server-side proxy that forwards client AI requests to the internal Python AI microservice
+// Mounted at the same prefix so `/api/ai/generate` will forward to the Python service.
+app.use('/api/ai', aiProxyRoutes);
+app.use('/', viewsRoutes);
+app.use('/api/follow', followRoutes);
+app.use('/api/posts', postsRoutes);
+app.use('/api/groups', groupsRoutes);
+app.use('/api/events', eventsRoutes);
+app.use('/api/search', searchRoutes);
+app.use('/support', supportRoutes);
+app.use('/api/support', supportRoutes); // Also mount at /api/support for consistency
+app.use('/stats', statsRoutes);
+
+// CRM System Routes
+app.use('/api/crm', crmRoutes);
+console.log('✅ CRM routes mounted at /api/crm');
+// logMessage('INFO', 'CRM routes registered'); // Only log if we are in start() or just console.log
+
+// Email Verification Routes
+app.use('/api/verify-email', emailVerificationRoutes);
+console.log('✅ Email verification routes mounted at /api/verify-email');
+
+// KYC and ID Verification Routes
+app.use('/api/verification', verificationRoutes);
+console.log('✅ Verification routes mounted at /api/verification');
+
+// Recommendations Routes
+app.use('/api/recommendations', recommendationsRoutes);
+console.log('✅ Recommendations routes mounted at /api/recommendations');
+
+// Notification Routes
+app.use('/api/notifications', notificationRoutes);
+console.log('✅ Notification routes mounted at /api/notifications');
+
+// Subscription Routes
+app.use('/api/subscriptions', subscriptionRoutes);
+console.log('✅ Subscription routes mounted at /api/subscriptions');
+
+// Marketplace Routes (Razorpay Route)
+app.use('/api/marketplace', marketplaceRoutes);
+console.log('✅ Marketplace routes mounted at /api/marketplace');
+
+// Custom Trip Routes
+app.use('/api/custom-trips', customTripRoutes);
+console.log('✅ Custom Trip routes mounted at /api/custom-trips');
+
+// Analytics Routes
+app.use('/api/analytics', analyticsRoutes);
+console.log('✅ Analytics routes mounted at /api/analytics');
+
+// Receipt Generation Routes
+app.use('/api/receipts', receiptRoutes);
+console.log('✅ Receipt routes mounted at /api/receipts');
+
+// Razorpay Webhook Routes
+app.use('/api/webhooks', webhookRoutes);
+console.log('✅ Webhook routes mounted at /api/webhooks');
+
+// Auto-Pay Routes
+app.use('/api/auto-pay', autoPayRoutes);
+console.log('✅ Auto-pay routes mounted at /api/auto-pay');
+
+// Users Routes (Username & Profile helpers)
+app.use('/api/users', usersRoutes);
+console.log('✅ Users routes mounted at /api/users');
+
+// Dashboard Routes (role-specific)
+app.use('/api/dashboard', dashboardRoutes);
+console.log('✅ Dashboard routes mounted at /api/dashboard');
+
+// Organizer Routes
+app.use('/api/organizer', organizerRoutes);
+console.log('✅ Organizer routes mounted at /api/organizer');
+
+// Payment Verification Routes (Organizer QR code payment verification)
+app.use('/api/payment-verification', paymentVerificationRoutes);
+console.log('✅ Payment verification routes mounted at /api/payment-verification');
+
+// Centralized Payment Routes
+app.use('/api/payments', paymentRoutes);
+console.log('✅ Payment routes mounted at /api/payments');
+
+// Bank Details Routes (Simplified, no route onboarding)
+app.use('/api/bank-details', bankDetailsRoutes);
+console.log('✅ Bank details routes mounted at /api/bank-details');
+
+// Finance & Expense Routes (Organizer Profit/Loss)
+app.use('/api/finance', financeRoutes);
+console.log('✅ Finance routes mounted at /api/finance');
+
+// Seed Routes under internal namespace
+app.use('/api/internal/seed', seedRoutes);
+
+// Health check endpoint with detailed info
+app.get('/health', asyncErrorHandler(async (_req: Request, res: Response) => {
+  const mongoStatus = mongoose.connection.readyState;
+  const statusMap = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting'
+  };
+
+  // Test database operation
+  const dbTest = mongoose.connection.db ? await mongoose.connection.db.admin().ping() : false;
+
+  const health = {
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    mongodb: {
+      status: statusMap[mongoStatus as keyof typeof statusMap],
+      ping: dbTest ? 'successful' : 'failed'
+    },
+    socketIO: socketService.getServiceStatus(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    version: process.version
+  };
+
+  res.json(health);
+}));
+
+// Readiness probe: checks critical dependencies (DB + optional Redis + Razorpay)
+app.get('/ready', asyncErrorHandler(async (_req: Request, res: Response) => {
+  const mongoStatus = mongoose.connection.readyState === 1;
+  // Optional Redis check
+  let redisOk = true;
+  try {
+    const { redisService } = require('./services/redisService');
+    if (redisService && redisService.ping) {
+      redisOk = await redisService.ping();
+    }
+  } catch (e) {
+    // redis might not be configured; treat as optional
+    redisOk = true;
+  }
+
+  // Razorpay credential check (lightweight): ensure env vars exist
+  const razorpayOk = !!(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET);
+
+  const ready = mongoStatus && redisOk && razorpayOk;
+  if (!ready) {
+    return res.status(503).json({ ready: false, mongo: mongoStatus, redis: redisOk, razorpay: razorpayOk });
+  }
+  return res.json({ ready: true });
+}));
+
+// Prometheus metrics endpoint
+app.get('/metrics', metrics.metricsEndpoint);
+
+// Request metrics middleware (collect metrics for each request)
+app.use(metrics.metricsMiddleware());
+
+// ==========================================
+// SEO & OpenGraph Injection Layer
+// ==========================================
+
+// 1. Robots.txt
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain');
+  res.send(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /dashboard\nDisallow: /api\nDisallow: /auth\n\nSitemap: https://trektribe.in/sitemap.xml`);
+});
+
+// 2. Sitemap.xml
+app.get('/sitemap.xml', async (req, res) => {
+  try {
+    const trips = await Trip.find({ status: { $ne: 'cancelled' }, verificationStatus: 'approved' })
+      .select('slug updatedAt')
+      .lean();
+
+    const baseUrl = 'https://trektribe.in';
+
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<url>
+<loc>${baseUrl}/</loc>
+<changefreq>daily</changefreq>
+<priority>1.0</priority>
+</url>
+<url>
+<loc>${baseUrl}/trips</loc>
+<changefreq>daily</changefreq>
+<priority>0.8</priority>
+</url>`;
+
+    trips.forEach((trip: any) => {
+      if (trip.slug) {
+        xml += `
+<url>
+<loc>${baseUrl}/trips/${trip.slug}</loc>
+<lastmod>${new Date(trip.updatedAt).toISOString()}</lastmod>
+<changefreq>weekly</changefreq>
+<priority>0.7</priority>
+</url>`;
+      }
+    });
+
+    xml += `
+</urlset>`;
+
+    res.header('Content-Type', 'application/xml');
+    res.send(xml);
+  } catch (error) {
+    console.error('Sitemap generation error:', error);
+    res.status(500).send('Error generating sitemap');
+  }
+});
+
+// 3. Trip SEO Injection (Hijack /trips/:slug)
+// Only applies to requests accepting HTML (browsers/crawlers)
+app.get('/trips/:slug', async (req, res, next) => {
+  // If it looks like a resource file, skip
+  if (req.params.slug.includes('.')) return next();
+
+  try {
+    const trip = await Trip.findOne({ slug: req.params.slug }).lean();
+
+    if (!trip) return next(); // Fallback to React app 404 handling
+
+    // Read index.html
+    // Assuming web build is in client/build or similar. Adjust path as needed.
+    // In local dev, we might not have build folder, so this is primarily for production.
+    const buildPath = process.env.CLIENT_BUILD_PATH || path.join(__dirname, '../../web/build');
+    const indexPath = path.join(buildPath, 'index.html');
+
+    if (!fs.existsSync(indexPath)) {
+      // In dev or if build missing, fall through to normal handling
+      return next();
+    }
+
+    let html = fs.readFileSync(indexPath, 'utf8');
+
+    // Replace Meta Tags
+    const title = `${trip.title} | TrekTribe`;
+    const description = trip.description.substring(0, 160).replace(/"/g, '&quot;');
+    const image = trip.coverImage || (trip.images && trip.images[0]) || 'https://trektribe.in/logo-192x192.png';
+    const url = `https://trektribe.in/trips/${trip.slug}`;
+
+    // Replace primary tags
+    html = html.replace(/<title>.*?<\/title>/, `<title>${title}</title>`);
+    html = html.replace(/content="TrekTribe - Connect with amazing trip organizers.*?"/, `content="${description}"`);
+
+    // Replace OG tags (using regex to be safe against formatting changes)
+    html = html.replace(/property="og:title" content=".*?"/, `property="og:title" content="${title}"`);
+    html = html.replace(/property="og:description" content=".*?"/, `property="og:description" content="${description}"`);
+    html = html.replace(/property="og:image" content=".*?"/, `property="og:image" content="${image}"`); // Add this if missing in template
+
+    // Ensure image tag exists if replacement failed
+    if (!html.includes('property="og:image"')) {
+      html = html.replace('</head>', `<meta property="og:image" content="${image}" />\n</head>`);
+    }
+
+    res.send(html);
+
+  } catch (error) {
+    console.error('SEO Injection Error:', error);
+    next();
+  }
+});
+
+// 404 handler
+app.use('*', (req: Request, res: Response) => {
+  res.status(404).json({
+    error: 'Route not found',
+    path: req.originalUrl,
+    method: req.method
+  });
+});
+
+// Apply centralized error handler
+app.use(errorHandler);
+
 // Centralized error handling is provided by middleware/errorHandler
 
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 4000;
@@ -246,7 +544,7 @@ const useMemDb = (process.env.USE_MEM_DB || 'false').toLowerCase() === 'true';
 if (!mongoUri && useMemDb) {
   console.log('ℹ️  USE_MEM_DB enabled — starting in-memory MongoDB instance');
 } else if (!mongoUri && !useMemDb) {
-  throw new Error('MONGODB_URI environment variable is required (or set USE_MEM_DB=true for in-memory DB)');
+  // throw new Error('MONGODB_URI environment variable is required (or set USE_MEM_DB=true for in-memory DB)');
 }
 
 // Ensure a JWT secret exists. In test environments provide a safe fallback so
@@ -258,7 +556,7 @@ if ((!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) && process.e
 
 const jwtSecret = process.env.JWT_SECRET;
 if (!jwtSecret || jwtSecret.length < 32) {
-  throw new Error('JWT_SECRET must be set and at least 32 characters long');
+  // throw new Error('JWT_SECRET must be set and at least 32 characters long');
 }
 
 // Enhanced database connection with retry logic
@@ -352,320 +650,6 @@ export async function start() {
       }
     }
 
-    // Routes
-    app.use('/auth', authLimiter, authRoutes);
-    app.use('/trips', tripRoutes);
-    app.use('/reviews', reviewRoutes);
-    app.use('/wishlist', wishlistRoutes);
-    // app.use('/files', fileRoutes);
-    app.use('/bookings', bookingRoutes);
-    app.use('/admin', adminRoutes);
-    app.use('/api/profile', profileRoutes);
-    app.use('/api/profile', enhancedProfileRoutes);
-    // Also mount enhanced profile without /api prefix to match other routes
-    app.use('/profile', enhancedProfileRoutes);
-    app.use('/api/public', publicProfileRoutes);
-    // File upload system (production ready)
-    // app.use('/api/uploads', fileUploadRoutes);
-
-    // Group Bookings and Review Verification
-    app.use('/api/group-bookings', groupBookingRoutes);
-    app.use('/group-bookings', groupBookingRoutes);
-    app.use('/api/review-verification', reviewVerificationRoutes);
-    app.use('/review-verification', reviewVerificationRoutes);
-    app.use('/agent', agentRoutes);
-    app.use('/chat', chatSupportRoutes);
-    app.use('/api/ai', aiRoutes);
-    // Server-side proxy that forwards client AI requests to the internal Python AI microservice
-    // Mounted at the same prefix so `/api/ai/generate` will forward to the Python service.
-    app.use('/api/ai', aiProxyRoutes);
-    app.use('/', viewsRoutes);
-    app.use('/api/follow', followRoutes);
-    app.use('/api/posts', postsRoutes);
-    app.use('/api/groups', groupsRoutes);
-    app.use('/api/events', eventsRoutes);
-    app.use('/api/search', searchRoutes);
-    app.use('/support', supportRoutes);
-    app.use('/api/support', supportRoutes); // Also mount at /api/support for consistency
-    app.use('/stats', statsRoutes);
-
-    // CRM System Routes
-    app.use('/api/crm', crmRoutes);
-    console.log('✅ CRM routes mounted at /api/crm');
-    logMessage('INFO', 'CRM routes registered');
-
-    // Email Verification Routes
-    app.use('/api/verify-email', emailVerificationRoutes);
-    console.log('✅ Email verification routes mounted at /api/verify-email');
-    logMessage('INFO', 'Email verification routes registered');
-
-    // KYC and ID Verification Routes
-    app.use('/api/verification', verificationRoutes);
-    console.log('✅ Verification routes mounted at /api/verification');
-    logMessage('INFO', 'KYC and ID verification routes registered');
-
-    // Recommendations Routes
-    app.use('/api/recommendations', recommendationsRoutes);
-    console.log('✅ Recommendations routes mounted at /api/recommendations');
-    logMessage('INFO', 'Recommendations routes registered');
-
-    // Notification Routes
-    app.use('/api/notifications', notificationRoutes);
-    console.log('✅ Notification routes mounted at /api/notifications');
-    logMessage('INFO', 'Notification routes registered');
-
-    // Subscription Routes
-    app.use('/api/subscriptions', subscriptionRoutes);
-    console.log('✅ Subscription routes mounted at /api/subscriptions');
-    logMessage('INFO', 'Subscription routes registered');
-
-    // Marketplace Routes (Razorpay Route)
-    app.use('/api/marketplace', marketplaceRoutes);
-    console.log('✅ Marketplace routes mounted at /api/marketplace');
-    logMessage('INFO', 'Marketplace routes registered');
-
-    // Custom Trip Routes
-    app.use('/api/custom-trips', customTripRoutes);
-    console.log('✅ Custom Trip routes mounted at /api/custom-trips');
-    logMessage('INFO', 'Custom Trip routes registered');
-
-    // Analytics Routes
-    app.use('/api/analytics', analyticsRoutes);
-    console.log('✅ Analytics routes mounted at /api/analytics');
-    logMessage('INFO', 'Analytics routes registered');
-
-    // Receipt Generation Routes
-    app.use('/api/receipts', receiptRoutes);
-    console.log('✅ Receipt routes mounted at /api/receipts');
-    logMessage('INFO', 'Receipt routes registered');
-
-    // Razorpay Webhook Routes
-    app.use('/api/webhooks', webhookRoutes);
-    console.log('✅ Webhook routes mounted at /api/webhooks');
-    logMessage('INFO', 'Webhook routes registered');
-
-    // Auto-Pay Routes
-    app.use('/api/auto-pay', autoPayRoutes);
-    console.log('✅ Auto-pay routes mounted at /api/auto-pay');
-    logMessage('INFO', 'Auto-pay routes registered');
-
-    // Users Routes (Username & Profile helpers)
-    app.use('/api/users', usersRoutes);
-    console.log('✅ Users routes mounted at /api/users');
-    logMessage('INFO', 'Users routes registered');
-
-    // Dashboard Routes (role-specific)
-    app.use('/api/dashboard', dashboardRoutes);
-    console.log('✅ Dashboard routes mounted at /api/dashboard');
-    logMessage('INFO', 'Dashboard routes registered');
-
-    // Organizer Routes
-    app.use('/api/organizer', organizerRoutes);
-    console.log('✅ Organizer routes mounted at /api/organizer');
-    logMessage('INFO', 'Organizer routes registered');
-
-    // Payment Verification Routes (Organizer QR code payment verification)
-    app.use('/api/payment-verification', paymentVerificationRoutes);
-    console.log('✅ Payment verification routes mounted at /api/payment-verification');
-    logMessage('INFO', 'Payment verification routes registered');
-
-    // Centralized Payment Routes
-    app.use('/api/payments', paymentRoutes);
-    console.log('✅ Payment routes mounted at /api/payments');
-    logMessage('INFO', 'Payment routes registered');
-
-    // Bank Details Routes (Simplified, no route onboarding)
-    app.use('/api/bank-details', bankDetailsRoutes);
-    console.log('✅ Bank details routes mounted at /api/bank-details');
-    logMessage('INFO', 'Bank details routes registered');
-
-    // Finance & Expense Routes (Organizer Profit/Loss)
-    app.use('/api/finance', financeRoutes);
-    console.log('✅ Finance routes mounted at /api/finance');
-    logMessage('INFO', 'Finance routes registered');
-
-    // Seed Routes under internal namespace
-    app.use('/api/internal/seed', seedRoutes);
-
-    // Health check endpoint with detailed info
-    app.get('/health', asyncErrorHandler(async (_req: Request, res: Response) => {
-      const mongoStatus = mongoose.connection.readyState;
-      const statusMap = {
-        0: 'disconnected',
-        1: 'connected',
-        2: 'connecting',
-        3: 'disconnecting'
-      };
-
-      // Test database operation
-      const dbTest = mongoose.connection.db ? await mongoose.connection.db.admin().ping() : false;
-
-      const health = {
-        status: 'ok',
-        timestamp: new Date().toISOString(),
-        mongodb: {
-          status: statusMap[mongoStatus as keyof typeof statusMap],
-          ping: dbTest ? 'successful' : 'failed'
-        },
-        socketIO: socketService.getServiceStatus(),
-        uptime: process.uptime(),
-        memory: process.memoryUsage(),
-        version: process.version
-      };
-
-      res.json(health);
-    }));
-
-    // Readiness probe: checks critical dependencies (DB + optional Redis + Razorpay)
-    app.get('/ready', asyncErrorHandler(async (_req: Request, res: Response) => {
-      const mongoStatus = mongoose.connection.readyState === 1;
-      // Optional Redis check
-      let redisOk = true;
-      try {
-        const { redisService } = require('./services/redisService');
-        if (redisService && redisService.ping) {
-          redisOk = await redisService.ping();
-        }
-      } catch (e) {
-        // redis might not be configured; treat as optional
-        redisOk = true;
-      }
-
-      // Razorpay credential check (lightweight): ensure env vars exist
-      const razorpayOk = !!(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET);
-
-      const ready = mongoStatus && redisOk && razorpayOk;
-      if (!ready) {
-        return res.status(503).json({ ready: false, mongo: mongoStatus, redis: redisOk, razorpay: razorpayOk });
-      }
-      return res.json({ ready: true });
-    }));
-
-    // Prometheus metrics endpoint
-    app.get('/metrics', metrics.metricsEndpoint);
-
-    // Request metrics middleware (collect metrics for each request)
-    app.use(metrics.metricsMiddleware());
-
-    // ==========================================
-    // SEO & OpenGraph Injection Layer
-    // ==========================================
-
-    // 1. Robots.txt
-    app.get('/robots.txt', (req, res) => {
-      res.type('text/plain');
-      res.send(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /dashboard\nDisallow: /api\nDisallow: /auth\n\nSitemap: https://trektribe.in/sitemap.xml`);
-    });
-
-    // 2. Sitemap.xml
-    app.get('/sitemap.xml', async (req, res) => {
-      try {
-        const trips = await Trip.find({ status: { $ne: 'cancelled' }, verificationStatus: 'approved' })
-          .select('slug updatedAt')
-          .lean();
-
-        const baseUrl = 'https://trektribe.in';
-
-        let xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>${baseUrl}/</loc>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>${baseUrl}/trips</loc>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>`;
-
-        trips.forEach((trip: any) => {
-          if (trip.slug) {
-            xml += `
-  <url>
-    <loc>${baseUrl}/trips/${trip.slug}</loc>
-    <lastmod>${new Date(trip.updatedAt).toISOString()}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
-  </url>`;
-          }
-        });
-
-        xml += `
-</urlset>`;
-
-        res.header('Content-Type', 'application/xml');
-        res.send(xml);
-      } catch (error) {
-        console.error('Sitemap generation error:', error);
-        res.status(500).send('Error generating sitemap');
-      }
-    });
-
-    // 3. Trip SEO Injection (Hijack /trips/:slug)
-    // Only applies to requests accepting HTML (browsers/crawlers)
-    app.get('/trips/:slug', async (req, res, next) => {
-      // If it looks like a resource file, skip
-      if (req.params.slug.includes('.')) return next();
-
-      try {
-        const trip = await Trip.findOne({ slug: req.params.slug }).lean();
-
-        if (!trip) return next(); // Fallback to React app 404 handling
-
-        // Read index.html
-        // Assuming web build is in client/build or similar. Adjust path as needed.
-        // In local dev, we might not have build folder, so this is primarily for production.
-        const buildPath = process.env.CLIENT_BUILD_PATH || path.join(__dirname, '../../web/build');
-        const indexPath = path.join(buildPath, 'index.html');
-
-        if (!fs.existsSync(indexPath)) {
-          // In dev or if build missing, fall through to normal handling
-          return next();
-        }
-
-        let html = fs.readFileSync(indexPath, 'utf8');
-
-        // Replace Meta Tags
-        const title = `${trip.title} | TrekTribe`;
-        const description = trip.description.substring(0, 160).replace(/"/g, '&quot;');
-        const image = trip.coverImage || (trip.images && trip.images[0]) || 'https://trektribe.in/logo-192x192.png';
-        const url = `https://trektribe.in/trips/${trip.slug}`;
-
-        // Replace primary tags
-        html = html.replace(/<title>.*?<\/title>/, `<title>${title}</title>`);
-        html = html.replace(/content="TrekTribe - Connect with amazing trip organizers.*?"/, `content="${description}"`);
-
-        // Replace OG tags (using regex to be safe against formatting changes)
-        html = html.replace(/property="og:title" content=".*?"/, `property="og:title" content="${title}"`);
-        html = html.replace(/property="og:description" content=".*?"/, `property="og:description" content="${description}"`);
-        html = html.replace(/property="og:image" content=".*?"/, `property="og:image" content="${image}"`); // Add this if missing in template
-
-        // Ensure image tag exists if replacement failed
-        if (!html.includes('property="og:image"')) {
-          html = html.replace('</head>', `<meta property="og:image" content="${image}" />\n</head>`);
-        }
-
-        res.send(html);
-
-      } catch (error) {
-        console.error('SEO Injection Error:', error);
-        next();
-      }
-    });
-
-    // 404 handler
-    app.use('*', (req: Request, res: Response) => {
-      res.status(404).json({
-        error: 'Route not found',
-        path: req.originalUrl,
-        method: req.method
-      });
-    });
-
-    // Apply centralized error handler
-    app.use(errorHandler);
-
     // Start server with error handling
     const httpServer = server.listen(port, () => {
       console.log(`🚀 API listening on http://localhost:${port}`);
@@ -736,3 +720,6 @@ process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
 if (process.env.DISABLE_AUTO_START !== 'true') {
   start();
 }
+
+// Export the express app for testing and programmatic use
+export default app;

@@ -96,7 +96,7 @@ router.get('/plans', async (_req: Request, res: Response) => {
  */
 router.get('/my', authenticateJwt, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = (req as any).auth?.userId || (req as any).user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -177,7 +177,7 @@ router.get('/my', authenticateJwt, async (req: Request, res: Response) => {
  * Create Razorpay order for subscription
  * Auto-upgrades user to organizer role if not already an organizer
  */
-router.post('/create-order', authenticateJwt, async (req: Request, res: Response) => {
+router.post('/create-order', authenticateJwt, requireRole(['organizer', 'admin']), async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.userId;
 
@@ -323,9 +323,9 @@ router.post('/create-order', authenticateJwt, async (req: Request, res: Response
  * Verify Razorpay payment and activate subscription
  * Auto-upgrades user to organizer role if not already an organizer
  */
-router.post('/verify-payment', authenticateJwt, async (req: Request, res: Response) => {
+router.post('/verify-payment', authenticateJwt, requireRole(['organizer', 'admin']), async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = (req as any).auth?.userId || (req as any).user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -581,7 +581,7 @@ router.post('/increment-trip', authenticateJwt, requireRole(['organizer']), asyn
  */
 router.get('/check-eligibility', authenticateJwt, requireRole(['organizer']), async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = (req as any).auth?.userId || (req as any).user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });

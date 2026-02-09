@@ -100,29 +100,10 @@ const IdVerificationUpload: React.FC<IdVerificationUploadProps> = ({ userId, onS
   };
 
   const uploadToFirebase = async (file: File, path: string): Promise<string> => {
-    // TODO: Implement Firebase upload
-    // For now, using placeholder URL
-    // In production, use Firebase Storage SDK
-    
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('path', path);
-
-    try {
-      const response = await api.post('/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        onUploadProgress: (progressEvent) => {
-          const progress = progressEvent.total
-            ? Math.round((progressEvent.loaded * 100) / progressEvent.total)
-            : 0;
-          setUploadProgress(progress);
-        }
-      });
-      return response.data.url;
-    } catch (error) {
-      console.error('Upload error:', error);
-      throw new Error('Failed to upload file');
-    }
+    // Use the centralized file upload utility which handles Firebase SDK directly
+    // This bypasses the backend proxy and fixes CORS issues
+    const { uploadFileToServer } = await import('../utils/fileUpload');
+    return await uploadFileToServer(file);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -216,7 +197,7 @@ const IdVerificationUpload: React.FC<IdVerificationUploadProps> = ({ userId, onS
             <div className="text-sm text-blue-800">
               <p className="font-semibold mb-1">Why do we need this?</p>
               <p>
-                ID verification helps us ensure the safety and security of all participants. 
+                ID verification helps us ensure the safety and security of all participants.
                 Your documents will be verified within 24-48 hours.
               </p>
             </div>

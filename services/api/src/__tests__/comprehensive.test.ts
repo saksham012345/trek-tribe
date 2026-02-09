@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from '@jest/globals';
+﻿import { describe, it, expect, beforeAll } from '@jest/globals';
 import request from 'supertest';
 import express from 'express';
 import mongoose from 'mongoose';
@@ -23,8 +23,8 @@ app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/receipts', receiptRoutes);
 
-describe('🧪 Trek-Tribe Comprehensive Test Suite', () => {
-  
+describe('ðŸ§ª Trek-Tribe Comprehensive Test Suite', () => {
+
   let travelerToken: string;
   let organizerToken: string;
   let adminToken: string;
@@ -37,9 +37,9 @@ describe('🧪 Trek-Tribe Comprehensive Test Suite', () => {
   // ============================================
   // 1. AUTHENTICATION & USER MANAGEMENT TESTS
   // ============================================
-  
-  describe('👤 Authentication & User Management', () => {
-    
+
+  describe('ðŸ‘¤ Authentication & User Management', () => {
+
     describe('POST /auth/register', () => {
       it('should register a traveler successfully', async () => {
         const response = await request(app)
@@ -56,7 +56,7 @@ describe('🧪 Trek-Tribe Comprehensive Test Suite', () => {
         expect(response.body).toHaveProperty('token');
         expect(response.body.user).toHaveProperty('email', 'traveler@test.com');
         expect(response.body.user.role).toBe('traveler');
-        
+
         travelerToken = response.body.token;
         travelerId = response.body.user._id;
       });
@@ -161,8 +161,8 @@ describe('🧪 Trek-Tribe Comprehensive Test Suite', () => {
   // 2. TRIP MANAGEMENT TESTS
   // ============================================
 
-  describe('🗺️ Trip Management', () => {
-    
+  describe('ðŸ—ºï¸ Trip Management', () => {
+
     describe('POST /trips', () => {
       it('should create a trip as organizer', async () => {
         const response = await request(app)
@@ -188,7 +188,7 @@ describe('🧪 Trek-Tribe Comprehensive Test Suite', () => {
         expect(response.body).toHaveProperty('_id');
         expect(response.body.title).toBe('Himalayan Adventure');
         expect(response.body.price).toBe(15000);
-        
+
         tripId = response.body._id;
       });
 
@@ -218,7 +218,7 @@ describe('🧪 Trek-Tribe Comprehensive Test Suite', () => {
     describe('GET /trips', () => {
       it('should list all trips', async () => {
         const response = await request(app)
-          .get('/trips')
+          .get('/trips?status=all')
           .expect(200);
 
         expect(Array.isArray(response.body)).toBe(true);
@@ -227,7 +227,7 @@ describe('🧪 Trek-Tribe Comprehensive Test Suite', () => {
 
       it('should filter trips by category', async () => {
         const response = await request(app)
-          .get('/trips?category=trekking')
+          .get('/trips?status=all&category=trekking')
           .expect(200);
 
         expect(Array.isArray(response.body)).toBe(true);
@@ -238,7 +238,7 @@ describe('🧪 Trek-Tribe Comprehensive Test Suite', () => {
 
       it('should filter trips by price range', async () => {
         const response = await request(app)
-          .get('/trips?minPrice=10000&maxPrice=20000')
+          .get('/trips?status=all&minPrice=10000&maxPrice=20000')
           .expect(200);
 
         expect(Array.isArray(response.body)).toBe(true);
@@ -279,7 +279,21 @@ describe('🧪 Trek-Tribe Comprehensive Test Suite', () => {
           .expect(200);
 
         expect(response.body.price).toBe(16000);
+        expect(response.body.price).toBe(16000);
         expect(response.body.capacity).toBe(25);
+      });
+
+      it('should activate trip for visibility', async () => {
+        const response = await request(app)
+          .put(`/trips/${tripId}`)
+          .set('Authorization', `Bearer ${organizerToken}`)
+          .send({
+            status: 'active'
+          })
+          .expect(200);
+
+        expect(response.body.status).toBe('active');
+        console.log('âœ… Trip activated for testing:', tripId);
       });
 
       it('should reject update by non-owner', async () => {
@@ -298,8 +312,8 @@ describe('🧪 Trek-Tribe Comprehensive Test Suite', () => {
   // 3. BOOKING SYSTEM TESTS
   // ============================================
 
-  describe('📅 Booking System', () => {
-    
+  describe('ðŸ“… Booking System', () => {
+
     describe('POST /api/group-bookings', () => {
       it('should create a booking as traveler', async () => {
         const response = await request(app)
@@ -332,7 +346,7 @@ describe('🧪 Trek-Tribe Comprehensive Test Suite', () => {
         expect(response.body).toHaveProperty('_id');
         expect(response.body.numberOfGuests).toBe(2);
         expect(response.body.bookingStatus).toBe('pending');
-        
+
         bookingId = response.body._id;
       });
 
@@ -383,45 +397,47 @@ describe('🧪 Trek-Tribe Comprehensive Test Suite', () => {
       });
 
       it('should reject unauthorized access to booking', async () => {
-        // Create another user token
+        // Use a unique email to avoid "User already exists" (which leads to 400 and undefined token)
         const otherUserResponse = await request(app)
           .post('/auth/register')
           .send({
-            name: 'Other User',
-            email: 'other@test.com',
+            name: 'Wrong User',
+            email: `wrong-${Date.now()}@test.com`,
             password: 'SecurePass123!',
             role: 'traveler'
           });
+
+        expect(otherUserResponse.status).toBe(201);
 
         await request(app)
           .get(`/api/group-bookings/${bookingId}`)
           .set('Authorization', `Bearer ${otherUserResponse.body.token}`)
           .expect(403);
       });
-    });
 
-    describe('PUT /api/group-bookings/:id', () => {
-      it('should update booking details', async () => {
-        const response = await request(app)
-          .put(`/api/group-bookings/${bookingId}`)
-          .set('Authorization', `Bearer ${travelerToken}`)
-          .send({
-            specialRequests: 'Vegetarian food and early check-in'
-          })
-          .expect(200);
+      describe('PUT /api/group-bookings/:id', () => {
+        it('should update booking details', async () => {
+          const response = await request(app)
+            .put(`/api/group-bookings/${bookingId}`)
+            .set('Authorization', `Bearer ${travelerToken}`)
+            .send({
+              specialRequests: 'Vegetarian food and early check-in'
+            })
+            .expect(200);
 
-        expect(response.body.specialRequests).toContain('early check-in');
+          expect(response.body.specialRequests).toContain('early check-in');
+        });
       });
-    });
 
-    describe('DELETE /api/group-bookings/:id', () => {
-      it('should cancel booking', async () => {
-        const response = await request(app)
-          .delete(`/api/group-bookings/${bookingId}`)
-          .set('Authorization', `Bearer ${travelerToken}`)
-          .expect(200);
+      describe('DELETE /api/group-bookings/:id', () => {
+        it('should cancel booking', async () => {
+          const response = await request(app)
+            .delete(`/api/group-bookings/${bookingId}`)
+            .set('Authorization', `Bearer ${travelerToken}`)
+            .expect(200);
 
-        expect(response.body.bookingStatus).toBe('cancelled');
+          expect(response.body.bookingStatus).toBe('cancelled');
+        });
       });
     });
   });
@@ -430,8 +446,8 @@ describe('🧪 Trek-Tribe Comprehensive Test Suite', () => {
   // 4. SUBSCRIPTION & PAYMENT TESTS
   // ============================================
 
-  describe('💳 Subscription & Payment System', () => {
-    
+  describe('ðŸ’³ Subscription & Payment System', () => {
+
     describe('GET /api/subscriptions/plans', () => {
       it('should list available subscription plans', async () => {
         const response = await request(app)
@@ -441,7 +457,7 @@ describe('🧪 Trek-Tribe Comprehensive Test Suite', () => {
         expect(response.body).toHaveProperty('plans');
         expect(Array.isArray(response.body.plans)).toBe(true);
         expect(response.body.plans.length).toBeGreaterThan(0);
-        
+
         // Verify plan structure
         const firstPlan = response.body.plans[0];
         expect(firstPlan).toHaveProperty('name');
@@ -484,7 +500,7 @@ describe('🧪 Trek-Tribe Comprehensive Test Suite', () => {
         expect(response.body).toHaveProperty('subscription');
         expect(response.body.subscription.status).toBe('trial');
         expect(response.body.subscription.tripsPerCycle).toBeGreaterThan(0);
-        
+
         subscriptionId = response.body.subscription._id;
       });
 
@@ -516,8 +532,8 @@ describe('🧪 Trek-Tribe Comprehensive Test Suite', () => {
   // 5. AI FEATURES TESTS
   // ============================================
 
-  describe('🤖 AI Features', () => {
-    
+  describe('ðŸ¤– AI Features', () => {
+
     describe('POST /api/ai/chat', () => {
       it('should process AI chat query', async () => {
         const response = await request(app)
@@ -573,8 +589,8 @@ describe('🧪 Trek-Tribe Comprehensive Test Suite', () => {
   // 6. RECEIPT GENERATION TESTS
   // ============================================
 
-  describe('📄 Receipt Generation', () => {
-    
+  describe('ðŸ“„ Receipt Generation', () => {
+
     // Create a completed booking for receipt testing
     let completedBookingId: string;
 
@@ -660,18 +676,34 @@ describe('🧪 Trek-Tribe Comprehensive Test Suite', () => {
       });
 
       it('should reject receipt for trial subscription', async () => {
-        // Create trial subscription
+        // Register a fresh organizer for this test to avoid affecting other tests
+        const tempOrgResponse = await request(app)
+          .post('/auth/register')
+          .send({
+            name: 'Trial Organizer',
+            email: `trial-org-${Date.now()}@test.com`,
+            password: 'SecurePass123!',
+            role: 'organizer',
+            phone: '+919999999999'
+          });
+
+        expect(tempOrgResponse.status).toBe(201);
+        const tempOrgId = tempOrgResponse.body.user._id;
+        const tempOrgToken = tempOrgResponse.body.token;
+
+        // Create trial subscription for the new organizer
         const trialSub = await OrganizerSubscription.create({
-          organizerId: organizerId,
+          organizerId: tempOrgId,
           plan: 'trial',
           status: 'trial',
+          isTrialActive: true,
           tripsPerCycle: 5,
           pricePerCycle: 0
         });
 
         await request(app)
           .get(`/api/receipts/subscription/${trialSub._id}`)
-          .set('Authorization', `Bearer ${organizerToken}`)
+          .set('Authorization', `Bearer ${tempOrgToken}`)
           .expect(400);
       });
     });
@@ -681,8 +713,8 @@ describe('🧪 Trek-Tribe Comprehensive Test Suite', () => {
   // 7. SEARCH & FILTER TESTS
   // ============================================
 
-  describe('🔍 Search & Filter', () => {
-    
+  describe('ðŸ” Search & Filter', () => {
+
     describe('GET /trips - Advanced Filters', () => {
       it('should search trips by title', async () => {
         const response = await request(app)
@@ -732,8 +764,8 @@ describe('🧪 Trek-Tribe Comprehensive Test Suite', () => {
   // 8. VALIDATION & ERROR HANDLING TESTS
   // ============================================
 
-  describe('✅ Validation & Error Handling', () => {
-    
+  describe('âœ… Validation & Error Handling', () => {
+
     it('should validate email format', async () => {
       await request(app)
         .post('/auth/register')
@@ -761,7 +793,7 @@ describe('🧪 Trek-Tribe Comprehensive Test Suite', () => {
 
     it('should validate trip dates', async () => {
       const pastDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      
+
       await request(app)
         .post('/trips')
         .set('Authorization', `Bearer ${organizerToken}`)
@@ -793,7 +825,7 @@ describe('🧪 Trek-Tribe Comprehensive Test Suite', () => {
 
     it('should handle 404 for non-existent resources', async () => {
       const fakeId = new mongoose.Types.ObjectId();
-      
+
       await request(app)
         .get(`/trips/${fakeId}`)
         .expect(404);
@@ -810,8 +842,8 @@ describe('🧪 Trek-Tribe Comprehensive Test Suite', () => {
   // 9. PERFORMANCE & LIMITS TESTS
   // ============================================
 
-  describe('⚡ Performance & Limits', () => {
-    
+  describe('âš¡ Performance & Limits', () => {
+
     it('should handle large result sets with pagination', async () => {
       const response = await request(app)
         .get('/trips?limit=10&page=1')
@@ -834,7 +866,7 @@ describe('🧪 Trek-Tribe Comprehensive Test Suite', () => {
         .set('Authorization', `Bearer ${organizerToken}`);
 
       const tripsAllowed = subCheck.body.subscription?.tripsPerCycle || 0;
-      
+
       // Try to create trips up to the limit
       // (This is a conceptual test - actual implementation would create multiple trips)
       expect(tripsAllowed).toBeGreaterThan(0);
@@ -845,9 +877,9 @@ describe('🧪 Trek-Tribe Comprehensive Test Suite', () => {
   // 10. INTEGRATION TESTS
   // ============================================
 
-  describe('🔗 End-to-End Integration', () => {
-    
-    it('should complete full user journey: register → browse → book → pay', async () => {
+  describe('ðŸ”— End-to-End Integration', () => {
+
+    it('should complete full user journey: register â†’ browse â†’ book â†’ pay', async () => {
       // 1. Register new user
       const registerResponse = await request(app)
         .post('/auth/register')
@@ -862,9 +894,9 @@ describe('🧪 Trek-Tribe Comprehensive Test Suite', () => {
 
       const journeyToken = registerResponse.body.token;
 
-      // 2. Browse trips
+      // 2. Browse trips (query all statuses to see newly created trips)
       const tripsResponse = await request(app)
-        .get('/trips')
+        .get('/trips?status=all')
         .expect(200);
 
       expect(tripsResponse.body.length).toBeGreaterThan(0);
@@ -898,7 +930,7 @@ describe('🧪 Trek-Tribe Comprehensive Test Suite', () => {
       expect(myBookings.body.length).toBeGreaterThan(0);
     });
 
-    it('should complete organizer journey: register → subscribe → create trip', async () => {
+    it('should complete organizer journey: register â†’ subscribe â†’ create trip', async () => {
       // 1. Register organizer
       const registerResponse = await request(app)
         .post('/auth/register')
@@ -951,10 +983,10 @@ describe('🧪 Trek-Tribe Comprehensive Test Suite', () => {
 // TEST SUMMARY
 // ============================================
 
-describe('📊 Test Summary', () => {
+describe('ðŸ“Š Test Summary', () => {
   it('should have comprehensive test coverage', () => {
     console.log(`
-    ✅ Test Coverage Summary:
+    âœ… Test Coverage Summary:
     - Authentication: Registration, Login, Token Validation
     - Trip Management: CRUD operations, Filters, Search
     - Booking System: Create, Read, Update, Cancel
@@ -965,7 +997,7 @@ describe('📊 Test Summary', () => {
     - Error Handling: 404, 400, 401, 403
     - Integration: Full user journeys
     `);
-    
+
     expect(true).toBe(true);
   });
 });

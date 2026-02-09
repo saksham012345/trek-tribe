@@ -121,8 +121,7 @@ const organizerSubscriptionSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: true,
-      unique: true,
-      index: true
+      unique: true
     },
 
     // Subscription plan
@@ -204,7 +203,6 @@ const organizerSubscriptionSchema = new Schema(
 // Indexes for performance
 organizerSubscriptionSchema.index({ status: 1 });
 organizerSubscriptionSchema.index({ status: 1, nextPaymentDue: 1 });
-organizerSubscriptionSchema.index({ organizerId: 1, status: 1 });
 
 // Virtual for checking if subscription is valid
 organizerSubscriptionSchema.virtual('isValid').get(function () {

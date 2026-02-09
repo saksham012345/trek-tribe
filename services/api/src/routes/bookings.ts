@@ -175,8 +175,8 @@ router.post('/', authenticateJwt, requireEmailVerified, async (req, res) => {
       name: user.name,
       email: user.email,
       phone: user.phone || contactPhone,
-      emergencyContactName: emergencyContactName || user.name,
-      emergencyContactPhone: emergencyContactPhone || contactPhone,
+      emergencyContactName: emergencyContactName || travelerDetails?.[0]?.emergencyContact || user.name || 'Emergency Contact',
+      emergencyContactPhone: emergencyContactPhone || travelerDetails?.[0]?.emergencyContactPhone || contactPhone || user.phone || '0000000000',
       medicalConditions: travelerDetails?.[0]?.medicalConditions || '',
       dietaryRestrictions: travelerDetails?.[0]?.dietary || '',
       experienceLevel: experienceLevel || 'beginner',
@@ -192,8 +192,8 @@ router.post('/', authenticateJwt, requireEmailVerified, async (req, res) => {
           name: traveler.name,
           email: `guest${i}@${user.email}`, // Placeholder email
           phone: traveler.phone,
-          emergencyContactName: traveler.emergencyContact || emergencyContactName || user.name,
-          emergencyContactPhone: traveler.emergencyContact || emergencyContactPhone || contactPhone,
+          emergencyContactName: traveler.emergencyContactName || traveler.emergencyContact || emergencyContactName || user.name || 'Emergency Contact',
+          emergencyContactPhone: traveler.emergencyContactPhone || traveler.emergencyContact || emergencyContactPhone || contactPhone || user.phone || '0000000000',
           medicalConditions: traveler.medicalConditions || '',
           dietaryRestrictions: traveler.dietary || '',
           experienceLevel: experienceLevel || 'beginner',
@@ -411,8 +411,8 @@ router.get('/my-bookings', authenticateJwt, async (req, res) => {
   }
 });
 
-// Cancel booking
-router.delete('/:tripId', authenticateJwt, async (req, res) => {
+// Cancel booking by trip ID (Legacy/Convenience)
+router.delete('/by-trip/:tripId', authenticateJwt, async (req, res) => {
   try {
     const userId = (req as any).auth.userId;
     const { tripId } = req.params;
@@ -527,7 +527,7 @@ router.post('/:bookingId/payment-screenshot', authenticateJwt, upload.single('pa
     const userId = (req as any).auth.userId;
     const { bookingId } = req.params;
 
-    if (!req.file) {
+    if (!req.file && !req.body.paymentScreenshotUrl) {
       return res.status(400).json({ error: 'Payment screenshot file is required' });
     }
 
@@ -547,18 +547,37 @@ router.post('/:bookingId/payment-screenshot', authenticateJwt, upload.single('pa
       return res.status(400).json({ error: 'Payment screenshot can only be uploaded for pending bookings' });
     }
 
-    // Save the uploaded file
-    const savedFile = await fileHandler.saveBufferToFile(
-      req.file.buffer,
-      req.file.originalname,
-      req.file.mimetype
-    );
+    // Check if we have a direct URL (from Firebase SDK upload) or a file upload
+    let screenshotData;
+
+    if (req.body.paymentScreenshotUrl) {
+      // Handle direct URL
+      screenshotData = {
+        url: req.body.paymentScreenshotUrl,
+        filename: `payment-screenshot-${Date.now()}.jpg`, // Placeholder
+        originalName: 'payment-screenshot.jpg' // Placeholder
+      };
+    } else if (req.file) {
+      // Handle legacy file upload
+      const savedFile = await fileHandler.saveBufferToFile(
+        req.file.buffer,
+        req.file.originalname,
+        req.file.mimetype
+      );
+      screenshotData = {
+        url: savedFile.url,
+        filename: savedFile.filename,
+        originalName: req.file.originalname
+      };
+    } else {
+      return res.status(400).json({ error: 'Payment screenshot file or URL is required' });
+    }
 
     // Update booking with payment screenshot
     booking.paymentScreenshot = {
-      filename: savedFile.filename,
-      originalName: req.file.originalname,
-      url: savedFile.url,
+      filename: screenshotData.filename,
+      originalName: screenshotData.originalName,
+      url: screenshotData.url,
       uploadedAt: new Date()
     };
 
@@ -583,7 +602,7 @@ router.post('/:bookingId/payment-screenshot', authenticateJwt, upload.single('pa
           totalAmount: booking.totalAmount,
           organizerName: organizer.name,
           organizerEmail: organizer.email,
-          screenshotUrl: savedFile.url
+          screenshotUrl: booking.paymentScreenshot.url
         });
         logger.info('Payment screenshot notification email sent to organizer', {
           organizerEmail: organizer.email,
@@ -603,13 +622,13 @@ router.post('/:bookingId/payment-screenshot', authenticateJwt, upload.single('pa
     logger.info('Payment screenshot uploaded', {
       bookingId,
       userId,
-      filename: savedFile.filename
+      filename: booking.paymentScreenshot.filename
     });
 
     res.json({
       message: 'Payment screenshot uploaded successfully. Your booking is now awaiting payment verification.',
       paymentScreenshot: {
-        url: savedFile.url,
+        url: booking.paymentScreenshot.url,
         uploadedAt: booking.paymentScreenshot.uploadedAt
       },
       booking: {
@@ -934,7 +953,7 @@ router.get('/:bookingId', authenticateJwt, async (req, res) => {
     return res.status(404).json({ error: 'Booking not found' });
   }
 
-  const userId = (req as any).auth.userId;
+  const userId = (req as any).auth?.userId || (req as any).user?.userId;
   if (booking.mainBookerId.toString() !== userId) {
     return res.status(403).json({ error: 'You do not have permission to view this booking' });
   }
@@ -954,8 +973,8 @@ router.put('/:bookingId', authenticateJwt, async (req, res) => {
     return res.status(404).json({ error: 'Booking not found' });
   }
 
-  const userId = (req as any).auth.userId;
-  if (booking.mainBookerId.toString() !== userId) {
+  const userId = (req as any).auth?.userId || (req as any).user?.userId;
+  if (!booking.mainBookerId || booking.mainBookerId.toString() !== userId) {
     return res.status(403).json({ error: 'You do not have permission to update this booking' });
   }
 
@@ -979,8 +998,8 @@ router.delete('/:bookingId', authenticateJwt, async (req, res) => {
     return res.status(404).json({ error: 'Booking not found' });
   }
 
-  const userId = (req as any).auth.userId;
-  if (booking.mainBookerId.toString() !== userId) {
+  const userId = (req as any).auth?.userId || (req as any).user?.userId;
+  if (!booking.mainBookerId || booking.mainBookerId.toString() !== userId) {
     return res.status(403).json({ error: 'You do not have permission to cancel this booking' });
   }
 

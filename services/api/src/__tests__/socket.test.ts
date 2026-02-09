@@ -44,26 +44,62 @@ afterEach(async () => {
 
 describe('Socket.IO auth handshake', () => {
   it('rejects connection without token', (done) => {
-    const client = Client(url, { transports: ['websocket'], forceNew: true });
-    client.on('connect_error', (err: any) => {
-      expect(err).toBeDefined();
-      client.close();
-      done();
+    const client = Client(url, {
+      transports: ['websocket'],
+      forceNew: true,
+      reconnection: false,
+      timeout: 5000
     });
+    client.on('connect_error', (err: any) => {
+      try {
+        expect(err).toBeDefined();
+        client.close();
+        done();
+      } catch (e: any) {
+        client.close();
+        done(e);
+      }
+    });
+    // Add a fallback timeout for the test itself
+    setTimeout(() => {
+      if (!client.connected) {
+        client.close();
+        done(new Error('Test timed out waiting for connect_error'));
+      }
+    }, 6000);
   });
 
-  it('accepts connection with valid token', async (done) => {
-    const user = await User.create({ email: 'socket@example.com', passwordHash: 'hash', name: 'Socket User' });
-    const token = jwt.sign({ userId: user._id.toString(), id: user._id.toString(), role: 'traveler' }, process.env.JWT_SECRET as string);
+  it('accepts connection with valid token', async () => {
+    const user = await User.create({ email: 'socket@example.com', passwordHash: 'hash', name: 'Socket User' }) as any;
+    const token = jwt.sign(
+      { userId: user._id.toString(), id: user._id.toString(), role: 'traveler' },
+      process.env.JWT_SECRET as string
+    );
 
-    const client = Client(url, { transports: ['websocket'], forceNew: true, extraHeaders: { Authorization: `Bearer ${token}` } } as any);
-    client.on('connect', () => {
-      client.close();
-      done();
-    });
-    client.on('connect_error', (err: any) => {
-      client.close();
-      done(err);
+    const client = Client(url, {
+      transports: ['websocket'],
+      forceNew: true,
+      reconnection: false,
+      extraHeaders: { Authorization: `Bearer ${token}` }
+    } as any);
+
+    return new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        client.close();
+        reject(new Error('Socket connection timed out'));
+      }, 5000);
+
+      client.on('connect', () => {
+        clearTimeout(timeout);
+        client.close();
+        resolve();
+      });
+
+      client.on('connect_error', (err: any) => {
+        clearTimeout(timeout);
+        client.close();
+        reject(err);
+      });
     });
   });
 });

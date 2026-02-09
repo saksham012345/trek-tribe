@@ -1,30 +1,41 @@
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { storage } from "../config/firebase";
 
 /**
- * Uploads a file to Firebase Storage and returns the download URL.
+ * Uploads a file to Cloudinary and returns the secure URL.
+ * Uses Unsigned Uploads (Client-side).
+ * 
  * @param file The file to upload
  * @returns Promise resolving to the file URL
  */
 export const uploadFileToServer = async (file: File): Promise<string> => {
+    const cloudName = process.env.REACT_APP_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET;
+
+    if (!cloudName || !uploadPreset) {
+        console.error('Missing Cloudinary configuration');
+        throw new Error('Cloudinary configuration is missing. Check .env file.');
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', uploadPreset);
+    // Optional: Add folder, tags, etc.
+    // formData.append('folder', 'trektribe_uploads');
+
     try {
-        // Create a unique filename to prevent collisions
-        const timestamp = Date.now();
-        const sanitizedName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
-        const uniqueName = `${timestamp}_${sanitizedName}`;
+        const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
+            method: 'POST',
+            body: formData
+        });
 
-        // Create a storage reference
-        const storageRef = ref(storage, `uploads/${uniqueName}`);
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error?.message || 'Upload failed');
+        }
 
-        // Upload the file
-        const snapshot = await uploadBytes(storageRef, file);
-
-        // Get the download URL
-        const downloadURL = await getDownloadURL(snapshot.ref);
-
-        return downloadURL;
+        const data = await response.json();
+        return data.secure_url;
     } catch (error) {
-        console.error('Error uploading file to Firebase:', error);
+        console.error('Error uploading file to Cloudinary:', error);
         throw error;
     }
 };

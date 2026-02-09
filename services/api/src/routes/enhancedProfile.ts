@@ -295,21 +295,20 @@ router.post('/upload-photo', authenticateToken, async (req, res) => {
       const userId = req.user!.id;
       const { type } = req.body; // 'profile' or 'cover'
 
-      if (!req.file) {
+      // Check for direct URL or file upload
+      let photoUrl: string;
+
+      if (req.body.photoUrl) {
+        photoUrl = req.body.photoUrl;
+      } else if (req.file) {
+        photoUrl = `/uploads/profiles/${req.file.filename}`;
+      } else {
         return res.status(400).json({
           success: false,
-          message: 'No file uploaded'
+          message: 'No photo provided (file or URL)'
         });
       }
 
-      if (!['profile', 'cover'].includes(type)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Photo type must be either "profile" or "cover"'
-        });
-      }
-
-      const photoUrl = `/uploads/profiles/${req.file.filename}`;
       const updateField = type === 'profile' ? 'profilePhoto' : 'coverPhoto';
 
       const user = await User.findByIdAndUpdate(
@@ -361,14 +360,18 @@ router.post('/upload-verification', authenticateToken, async (req, res) => {
 
       const userId = req.user!.id;
 
-      if (!req.files || req.files.length === 0) {
+      let documentUrls: string[] = [];
+
+      if (req.body.documentUrls && Array.isArray(req.body.documentUrls)) {
+        documentUrls = req.body.documentUrls;
+      } else if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+        documentUrls = (req.files as Express.Multer.File[]).map(file => `/uploads/profiles/${file.filename}`);
+      } else {
         return res.status(400).json({
           success: false,
-          message: 'No files uploaded'
+          message: 'No files or URLs uploaded'
         });
       }
-
-      const documentUrls = (req.files as Express.Multer.File[]).map(file => `/uploads/profiles/${file.filename}`);
 
       const user = await User.findByIdAndUpdate(
         userId,

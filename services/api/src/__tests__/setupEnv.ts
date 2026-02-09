@@ -5,4 +5,7 @@ process.env.RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'test_razorpay_key'
 process.env.RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || 'test_razorpay_secret';
 process.env.RAZORPAY_WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET || 'test_webhook_secret';
 
+// Disable auto-start of server when importing index.ts
+process.env.DISABLE_AUTO_START = 'true';
+
 // Any other environment defaults required for tests can be added here

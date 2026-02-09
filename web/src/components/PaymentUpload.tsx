@@ -67,13 +67,13 @@ const PaymentUpload: React.FC<PaymentUploadProps> = ({
     setError('');
 
     try {
-      const formData = new FormData();
-      formData.append('paymentScreenshot', file);
+      // 1. Upload to Firebase Storage
+      const { uploadFileToServer } = await import('../utils/fileUpload');
+      const screenshotUrl = await uploadFileToServer(file);
 
-      const response = await api.post(`/bookings/${bookingId}/payment-screenshot`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+      // 2. Send URL to backend
+      const response = await api.post(`/bookings/${bookingId}/payment-screenshot`, {
+        paymentScreenshotUrl: screenshotUrl
       });
 
       onUploadSuccess();
@@ -147,7 +147,7 @@ const PaymentUpload: React.FC<PaymentUploadProps> = ({
               paymentType={paymentType}
               advanceAmount={advanceAmount}
               remainingAmount={remainingAmount}
-              onPaymentComplete={() => {}}
+              onPaymentComplete={() => { }}
             />
           </div>
 
@@ -185,9 +185,8 @@ const PaymentUpload: React.FC<PaymentUploadProps> = ({
 
             {/* File Upload Area */}
             <div
-              className={`border-2 border-dashed rounded-xl p-6 text-center transition-all duration-300 ${
-                file ? 'border-green-300 bg-green-50' : 'border-forest-300 bg-forest-50 hover:border-nature-400 hover:bg-nature-50'
-              }`}
+              className={`border-2 border-dashed rounded-xl p-6 text-center transition-all duration-300 ${file ? 'border-green-300 bg-green-50' : 'border-forest-300 bg-forest-50 hover:border-nature-400 hover:bg-nature-50'
+                }`}
               onDrop={handleDrop}
               onDragOver={handleDragOver}
             >

@@ -1,0 +1,1718 @@
+﻿  console.log
+    [33mΓÜá∩╕Å  [2026-02-08T15:30:46.710Z] WARN: SMS service running in development mode only - OTPs will be logged instead of sent.[0m
+
+      at Logger.log (src/utils/logger.ts:151:13)
+
+  console.log
+    [36mΓä╣∩╕Å  [2026-02-08T15:30:46.850Z] INFO: Razorpay Route service initialized[0m
+
+      at Logger.log (src/utils/logger.ts:151:13)
+
+  console.log
+    [36mΓä╣∩╕Å  [2026-02-08T15:30:47.089Z] INFO: Trek Tribe AI initialized with advanced capabilities[0m
+
+      at Logger.log (src/utils/logger.ts:151:13)
+
+  console.log
+    Γ£à Razorpay initialized for subscriptions
+
+      at Object.<anonymous> (src/routes/subscriptions.ts:20:13)
+
+  console.warn
+    ΓÜá∩╕Å OpenAI API key not found. Using local TF-IDF fallback.
+
+    [0m [90m 43 |[39m           console[33m.[39mlog([32m'Γä╣∩╕Å AI Offline Mode enabled. Using local TF-IDF fallback.'[39m)[33m;[39m
+     [90m 44 |[39m         } [36melse[39m {
+    [31m[1m>[22m[39m[90m 45 |[39m           console[33m.[39mwarn([32m'ΓÜá∩╕Å OpenAI API key not found. Using local TF-IDF fallback.'[39m)[33m;[39m
+     [90m    |[39m                   [31m[1m^[22m[39m
+     [90m 46 |[39m         }
+     [90m 47 |[39m         [36mthis[39m[33m.[39minitializeTFIDFFallback()[33m;[39m
+     [90m 48 |[39m       }[0m
+
+      at EmbeddingService.initialize (src/services/embeddingService.ts:45:19)
+      at new EmbeddingService (src/services/embeddingService.ts:26:10)
+      at Object.<anonymous> (src/services/embeddingService.ts:350:33)
+      at Object.<anonymous> (src/services/generalKnowledge.ts:1:1)
+      at Object.<anonymous> (src/routes/ai.ts:14:1)
+      at Object.<anonymous> (src/__tests__/comprehensive.test.ts:9:1)
+
+  console.log
+    ≡ƒôè TF-IDF fallback embedding service ready
+
+      at EmbeddingService.initializeTFIDFFallback (src/services/embeddingService.ts:68:13)
+
+  console.warn
+    ΓÜá∩╕Å OpenAI API key not found. Using local TF-IDF fallback.
+
+    [0m [90m 43 |[39m           console[33m.[39mlog([32m'Γä╣∩╕Å AI Offline Mode enabled. Using local TF-IDF fallback.'[39m)[33m;[39m
+     [90m 44 |[39m         } [36melse[39m {
+    [31m[1m>[22m[39m[90m 45 |[39m           console[33m.[39mwarn([32m'ΓÜá∩╕Å OpenAI API key not found. Using local TF-IDF fallback.'[39m)[33m;[39m
+     [90m    |[39m                   [31m[1m^[22m[39m
+     [90m 46 |[39m         }
+     [90m 47 |[39m         [36mthis[39m[33m.[39minitializeTFIDFFallback()[33m;[39m
+     [90m 48 |[39m       }[0m
+
+      at EmbeddingService.initialize (src/services/embeddingService.ts:45:19)
+      at new EmbeddingService (src/services/embeddingService.ts:26:10)
+      at Object.<anonymous> (src/services/generalKnowledge.ts:95:16)
+      at Object.<anonymous> (src/routes/ai.ts:14:1)
+      at Object.<anonymous> (src/__tests__/comprehensive.test.ts:9:1)
+
+  console.log
+    ≡ƒôè TF-IDF fallback embedding service ready
+
+      at EmbeddingService.initializeTFIDFFallback (src/services/embeddingService.ts:68:13)
+
+  console.log
+    Γ£à Using pure JavaScript embeddings (no native dependencies)
+
+      at new TransformerEmbeddingService (src/services/transformerEmbeddings.ts:31:13)
+
+  console.log
+    Γä╣∩╕Å  [2026-02-08T15:30:48.948Z] INFO: Trek Tribe AI initialized with advanced capabilities
+
+      at Object.<anonymous> (src/routes/ai.ts:1220:9)
+
+  console.log
+    ≡ƒÜÇ Initializing Knowledge Base...
+
+      at KnowledgeBaseService.initialize (src/services/knowledgeBase.ts:344:13)
+
+  console.log
+    ≡ƒñû JavaScript embeddings service ready
+
+      at TransformerEmbeddingService.initialize (src/services/transformerEmbeddings.ts:111:13)
+
+  console.log
+    Γ£à Transformer embeddings service initialized
+
+      at KnowledgeBaseService.initialize (src/services/knowledgeBase.ts:348:13)
+
+  console.log
+    ≡ƒöä Refreshing knowledge base...
+
+      at KnowledgeBaseService.refreshKnowledgeBase (src/services/knowledgeBase.ts:365:15)
+
+  console.log
+    ≡ƒöä Fetching trips from local DB...
+
+      at DataFetcherService.fetchAllTrips (src/services/dataFetcher.ts:66:15)
+
+node.exe : (node:5320) 
+[MONGOOSE] Warning: 
+Duplicate schema index 
+on {"status":1} found. 
+This is often due to 
+declaring an index 
+using both "index: 
+true" and 
+"schema.index()". 
+Please remove the 
+duplicate index 
+definition.
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo      
+        : NotSpecified  
+  : ((node:5320) [MO.   
+ ..dex definition.:S    
+tring) [], RemoteEx    
+ception
+    + FullyQualifiedErr 
+   orId : NativeComman  
+  dError
+ 
+(Use `node 
+--trace-warnings ...` 
+to show where the 
+warning was created)
+(node:5320) [MONGOOSE] 
+Warning: Duplicate 
+schema index on 
+{"slug":1} found. This 
+is often due to 
+declaring an index 
+using both "index: 
+true" and 
+"schema.index()". 
+Please remove the 
+duplicate index 
+definition.
+  console.log
+    ≡ƒôé Upload directory exists: C:\Users\hp\Desktop\trektribe\trek-tribe\services\api\uploads
+
+      at FileHandler.initializeUploadDirectory (src/utils/fileHandler.ts:75:15)
+
+  console.log
+    Γ£à Fetched 0 trips from database
+
+      at DataFetcherService.fetchAllTrips (src/services/dataFetcher.ts:118:15)
+
+  console.log
+    ≡ƒöä Fetching organizers from local DB...
+
+      at DataFetcherService.fetchAllOrganizers (src/services/dataFetcher.ts:130:15)
+
+  console.log
+    Γ£à Fetched 0 organizers from database
+
+      at DataFetcherService.fetchAllOrganizers (src/services/dataFetcher.ts:152:15)
+
+  console.log
+    ≡ƒöä Generating embeddings using transformer model...
+
+      at KnowledgeBaseService.generateEmbeddings (src/services/knowledgeBase.ts:448:13)
+
+  console.log
+    Γ£à Generated 41 transformer-based embeddings
+
+      at KnowledgeBaseService.generateEmbeddings (src/services/knowledgeBase.ts:460:15)
+
+  console.log
+    Γ£à Generated 41 embeddings
+
+      at KnowledgeBaseService.generateEmbeddings (src/services/knowledgeBase.ts:466:13)
+
+  console.log
+    Γ£à Knowledge base refreshed: 41 documents (0 trips, 0 organizers, 41 base docs)
+
+      at KnowledgeBaseService.refreshKnowledgeBase (src/services/knowledgeBase.ts:411:15)
+
+  console.log
+    Γ£à Knowledge Base initialized with 41 documents
+
+      at KnowledgeBaseService.initialize (src/services/knowledgeBase.ts:360:13)
+
+  console.log
+    [33mΓÜá∩╕Å  [2026-02-08T15:30:51.712Z] WARN: Email service not ready, skipping email verification OTP[0m
+
+      at Logger.log (src/utils/logger.ts:151:13)
+
+  console.log
+    [36mΓä╣∩╕Å  [2026-02-08T15:30:51.717Z] INFO: Registration email OTP sent[0m
+    {
+      "email": "traveler@test.com",
+      "userId": "6988ac2b2c707a1fc286b061",
+      "role": "traveler"
+    }
+
+      at Logger.log (src/utils/logger.ts:151:13)
+
+  console.log
+    [36mΓä╣∩╕Å  [2026-02-08T15:30:52.065Z] INFO: Verification request created for new organizer[0m
+    {
+      "userId": "6988ac2c2c707a1fc286b08e",
+      "email": "organizer@test.com"
+    }
+
+      at Logger.log (src/utils/logger.ts:151:13)
+
+  console.log
+    [33mΓÜá∩╕Å  [2026-02-08T15:30:52.390Z] WARN: Email service not ready, skipping email verification OTP[0m
+
+      at Logger.log (src/utils/logger.ts:151:13)
+
+  console.log
+    [36mΓä╣∩╕Å  [2026-02-08T15:30:52.390Z] INFO: Registration email OTP sent[0m
+    {
+      "email": "organizer@test.com",
+      "userId": "6988ac2c2c707a1fc286b08e",
+      "role": "organizer"
+    }
+
+      at Logger.log (src/utils/logger.ts:151:13)
+
+  console.log
+    ≡ƒôÑ Received trip creation request: {
+      title: 'Himalayan Adventure',
+      destination: 'Manali, Himachal Pradesh',
+      organizerId: '6988ac2c2c707a1fc286b08e',
+      role: 'organizer',
+      price: 15000,
+      capacity: 20,
+      startDate: '2026-03-10T15:30:53.087Z',
+      endDate: '2026-03-17T15:30:53.087Z',
+      categories: undefined,
+      hasImages: false,
+      hasSchedule: false,
+      hasPaymentConfig: false
+    }
+
+      at src/routes/trips.ts:60:13
+
+  console.log
+    Γ£à Validation successful with data transformation
+
+      at src/routes/trips.ts:171:15
+
+  console.log
+    Creating trip: {
+      title: 'Himalayan Adventure',
+      organizerId: '6988ac2c2c707a1fc286b08e',
+      destination: 'Manali, Himachal Pradesh'
+    }
+
+      at src/routes/trips.ts:266:13
+
+  console.log
+    Γ£à Trip created successfully: new ObjectId('6988ac2d2c707a1fc286b09f')
+
+      at src/routes/trips.ts:303:13
+
+  console.log
+    ≡ƒôÑ Received trip creation request: {
+      title: 'Incomplete Trip',
+      destination: undefined,
+      organizerId: '6988ac2c2c707a1fc286b08e',
+      role: 'organizer',
+      price: undefined,
+      capacity: undefined,
+      startDate: undefined,
+      endDate: undefined,
+      categories: undefined,
+      hasImages: false,
+      hasSchedule: false,
+      hasPaymentConfig: false
+    }
+
+      at src/routes/trips.ts:60:13
+
+  console.log
+    ≡ƒöì GET /trips - Query: { filter: { status: { '$in': [Array] } }, limit: 50 }
+
+      at src/routes/trips.ts:541:13
+
+  console.log
+    Γ£à Found 1 trips
+
+      at src/routes/trips.ts:549:13
+
+  console.log
+    ≡ƒöì GET /trips - Query: {
+      filter: { status: { '$in': [Array] }, categories: 'trekking' },
+      limit: 50
+    }
+
+      at src/routes/trips.ts:541:13
+
+  console.log
+    Γ£à Found 1 trips
+
+      at src/routes/trips.ts:549:13
+
+  console.log
+    ≡ƒöì GET /trips - Query: {
+      filter: {
+        status: { '$in': [Array] },
+        price: { '$gte': 10000, '$lte': 20000 }
+      },
+      limit: 50
+    }
+
+      at src/routes/trips.ts:541:13
+
+  console.log
+    Γ£à Found 1 trips
+
+      at src/routes/trips.ts:549:13
+
+  console.log
+    Γ£à Trip activated for testing: 6988ac2d2c707a1fc286b09f
+
+      at Object.<anonymous> (src/__tests__/comprehensive.test.ts:296:17)
+
+  console.log
+    ≡ƒôÑ Received booking request: {
+      tripId: '6988ac2d2c707a1fc286b09f',
+      numberOfTravelers: 2,
+      contactPhone: undefined,
+      hasSelectedPackage: false,
+      hasTravelerDetails: true,
+      travelerDetailsCount: 2,
+      fullBody: {
+        tripId: '6988ac2d2c707a1fc286b09f',
+        numberOfGuests: 2,
+        participants: [ [Object], [Object] ],
+        paymentMethod: 'online',
+        specialRequests: 'Vegetarian food please',
+        numberOfTravelers: 2,
+        travelerDetails: [ [Object], [Object] ]
+      }
+    }
+
+      at src/routes/bookings.ts:46:13
+
+  console.log
+    Γ£à Booking validation successful with data transformation
+
+      at src/routes/bookings.ts:60:15
+
+  console.log
+    [31m≡ƒÜ¿ [2026-02-08T15:30:53.435Z] ERROR: Error creating booking[0m
+    {
+      "error": "GroupBooking validation failed: participants.0.emergencyContactPhone: Path `emergencyContactPhone` is required., participants.1.emergencyContactPhone: Path `emergencyContactPhone` is required.",
+      "userId": "6988ac2b2c707a1fc286b061"
+    }
+
+      at Logger.log (src/utils/logger.ts:151:13)
+
+  console.log
+    ≡ƒôÑ Received booking request: {
+      tripId: '6988ac2d2c707a1fc286b0b6',
+      numberOfTravelers: 1,
+      contactPhone: undefined,
+      hasSelectedPackage: false,
+      hasTravelerDetails: false,
+      travelerDetailsCount: undefined,
+      fullBody: {
+        tripId: '6988ac2d2c707a1fc286b0b6',
+        numberOfGuests: 1,
+        numberOfTravelers: 1
+      }
+    }
+
+      at src/routes/bookings.ts:46:13
+
+  console.log
+    Γ£à Booking validation successful with data transformation
+
+      at src/routes/bookings.ts:60:15
+
+  console.log
+    ≡ƒöì My bookings request (root): {
+      userId: '6988ac2b2c707a1fc286b061',
+      auth: {
+        id: '6988ac2b2c707a1fc286b061',
+        userId: '6988ac2b2c707a1fc286b061',
+        role: 'traveler'
+      }
+    }
+
+      at src/routes/bookings.ts:313:13
+
+  console.error
+    Authentication error: jwt malformed
+
+    [0m [90m 118 |[39m     [36mreturn[39m next()[33m;[39m
+     [90m 119 |[39m   } [36mcatch[39m (err) {
+    [31m[1m>[22m[39m[90m 120 |[39m     console[33m.[39merror([32m'Authentication error:'[39m[33m,[39m err [36minstanceof[39m [33mError[39m [33m?[39m err[33m.[39mmessage [33m:[39m err)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 121 |[39m     [36mreturn[39m res[33m.[39mstatus([35m401[39m)[33m.[39mjson({ error[33m:[39m [32m'Invalid token'[39m })[33m;[39m
+     [90m 122 |[39m   }
+     [90m 123 |[39m }[0m
+
+      at authenticateToken (src/middleware/auth.ts:120:13)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/express/lib/router/index.js:284:15
+      at param (node_modules/express/lib/router/index.js:365:14)
+      at param (node_modules/express/lib/router/index.js:376:14)
+      at router.process_params (node_modules/express/lib/router/index.js:421:3)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at router.handle (node_modules/express/lib/router/index.js:175:3)
+      at router (node_modules/express/lib/router/index.js:47:12)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at jsonParser (node_modules/body-parser/lib/types/json.js:113:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at expressInit (node_modules/express/lib/middleware/init.js:40:5)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at query (node_modules/express/lib/middleware/query.js:45:5)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at router.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at router.handle (node_modules/express/lib/router/index.js:175:3)
+      at app.handle (node_modules/express/lib/application.js:181:10)
+      at Server.app (node_modules/express/lib/express.js:39:9)
+
+  console.log
+    ≡ƒô¥ Audit log: CREATE Subscription by user 6988ac2c2c707a1fc286b08e
+
+      at AuditLogService.log (src/services/auditLogService.ts:63:15)
+
+  console.log
+    ≡ƒôì Follow-up detected: clarification Enhanced message: Tell me about adventure trips
+
+      at src/routes/ai.ts:1412:15
+
+  console.log
+    ≡ƒôÑ Received booking request: {
+      tripId: '6988ac2d2c707a1fc286b09f',
+      numberOfTravelers: 1,
+      contactPhone: undefined,
+      hasSelectedPackage: false,
+      hasTravelerDetails: true,
+      travelerDetailsCount: 1,
+      fullBody: {
+        tripId: '6988ac2d2c707a1fc286b09f',
+        numberOfGuests: 1,
+        participants: [ [Object] ],
+        paymentMethod: 'online',
+        numberOfTravelers: 1,
+        travelerDetails: [ [Object] ]
+      }
+    }
+
+      at src/routes/bookings.ts:46:13
+
+  console.log
+    Γ£à Booking validation successful with data transformation
+
+      at src/routes/bookings.ts:60:15
+
+  console.log
+    [31m≡ƒÜ¿ [2026-02-08T15:30:53.703Z] ERROR: Error creating booking[0m
+    {
+      "error": "GroupBooking validation failed: participants.0.emergencyContactPhone: Path `emergencyContactPhone` is required.",
+      "userId": "6988ac2b2c707a1fc286b061"
+    }
+
+      at Logger.log (src/utils/logger.ts:151:13)
+
+  console.log
+    ≡ƒôÑ Received booking request: {
+      tripId: '6988ac2d2c707a1fc286b09f',
+      numberOfTravelers: 1,
+      contactPhone: undefined,
+      hasSelectedPackage: false,
+      hasTravelerDetails: true,
+      travelerDetailsCount: 1,
+      fullBody: {
+        tripId: '6988ac2d2c707a1fc286b09f',
+        numberOfGuests: 1,
+        participants: [ [Object] ],
+        numberOfTravelers: 1,
+        travelerDetails: [ [Object] ]
+      }
+    }
+
+      at src/routes/bookings.ts:46:13
+
+  console.log
+    Γ£à Booking validation successful with data transformation
+
+      at src/routes/bookings.ts:60:15
+
+  console.log
+    [31m≡ƒÜ¿ [2026-02-08T15:30:53.727Z] ERROR: Error creating booking[0m
+    {
+      "error": "GroupBooking validation failed: participants.0.emergencyContactPhone: Path `emergencyContactPhone` is required.",
+      "userId": "6988ac2b2c707a1fc286b061"
+    }
+
+      at Logger.log (src/utils/logger.ts:151:13)
+
+  console.log
+    [36mΓä╣∩╕Å  [2026-02-08T15:30:54.156Z] INFO: Subscription receipt generated[0m
+    {
+      "subscriptionId": "6988ac2d2c707a1fc286b0c0",
+      "userId": "6988ac2c2c707a1fc286b08e"
+    }
+
+      at Logger.log (src/utils/logger.ts:151:13)
+
+  console.log
+    ≡ƒöì GET /trips - Query: { filter: { status: 'active' }, limit: 50 }
+
+      at src/routes/trips.ts:541:13
+
+  console.log
+    Γ£à Found 1 trips
+
+      at src/routes/trips.ts:549:13
+
+  console.log
+    ≡ƒöì GET /trips - Query: { filter: { status: 'active', difficulty: 'moderate' }, limit: 50 }
+
+      at src/routes/trips.ts:541:13
+
+  console.log
+    Γ£à Found 1 trips
+
+      at src/routes/trips.ts:549:13
+
+  console.log
+    ≡ƒöì GET /trips - Query: { filter: { status: 'active' }, limit: 50 }
+
+      at src/routes/trips.ts:541:13
+
+  console.log
+    Γ£à Found 1 trips
+
+      at src/routes/trips.ts:549:13
+
+  console.log
+    ≡ƒöì GET /trips - Query: {
+      filter: {
+        status: 'active',
+        categories: 'trekking',
+        difficulty: 'moderate',
+        price: { '$gte': 10000 }
+      },
+      limit: 50
+    }
+
+      at src/routes/trips.ts:541:13
+
+  console.log
+    Γ£à Found 1 trips
+
+      at src/routes/trips.ts:549:13
+
+  console.log
+    ≡ƒôÑ Received trip creation request: {
+      title: 'Invalid Trip',
+      destination: 'Test',
+      organizerId: '6988ac2c2c707a1fc286b08e',
+      role: 'organizer',
+      price: 5000,
+      capacity: undefined,
+      startDate: '2026-02-07T15:30:54.224Z',
+      endDate: '2026-02-08T15:30:54.225Z',
+      categories: undefined,
+      hasImages: false,
+      hasSchedule: false,
+      hasPaymentConfig: false
+    }
+
+      at src/routes/trips.ts:60:13
+
+  console.error
+    Γ¥î Validation failed in test mode: {
+      formErrors: [],
+      fieldErrors: {
+        description: [ 'Required' ],
+        capacity: [ 'Required' ],
+        categories: [ 'Required' ]
+      }
+    }
+
+    [0m [90m 172 |[39m     } [36mcatch[39m (error[33m:[39m any) {
+     [90m 173 |[39m       [36mif[39m (process[33m.[39menv[33m.[39m[33mNODE_ENV[39m [33m===[39m [32m'test'[39m) {
+    [31m[1m>[22m[39m[90m 174 |[39m         console[33m.[39merror([32m'Γ¥î Validation failed in test mode:'[39m[33m,[39m error[33m.[39mflatten [33m?[39m error[33m.[39mflatten() [33m:[39m error[33m.[39mmessage)[33m;[39m
+     [90m     |[39m                 [31m[1m^[22m[39m
+     [90m 175 |[39m         [36mreturn[39m res[33m.[39mstatus([35m400[39m)[33m.[39mjson({
+     [90m 176 |[39m           error[33m:[39m [32m'Validation failed'[39m[33m,[39m
+     [90m 177 |[39m           details[33m:[39m error[33m.[39mflatten [33m?[39m error[33m.[39mflatten()[33m.[39mfieldErrors [33m:[39m error[33m.[39mmessage[0m
+
+      at src/routes/trips.ts:174:17
+      at src/routes/trips.ts:51:19
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at verifyOrganizerApproved (src/middleware/verifyOrganizer.ts:17:14)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at requireEmailVerified (src/middleware/auth.ts:168:5)
+
+  console.log
+    ≡ƒôÑ Received booking request: {
+      tripId: '6988ac2d2c707a1fc286b09f',
+      numberOfTravelers: 35,
+      contactPhone: undefined,
+      hasSelectedPackage: false,
+      hasTravelerDetails: true,
+      travelerDetailsCount: 0,
+      fullBody: {
+        tripId: '6988ac2d2c707a1fc286b09f',
+        numberOfGuests: 35,
+        participants: [],
+        numberOfTravelers: 35,
+        travelerDetails: []
+      }
+    }
+
+      at src/routes/bookings.ts:46:13
+
+  console.log
+    Γ£à Booking validation successful with data transformation
+
+      at src/routes/bookings.ts:60:15
+
+  console.log
+    Γ¥î Not enough spots available: {
+      availableSpots: 25,
+      numberOfTravelers: 35,
+      tripId: '6988ac2d2c707a1fc286b09f'
+    }
+
+      at src/routes/bookings.ts:126:15
+
+  console.log
+    ≡ƒöì GET /trips - Query: { filter: { status: 'active' }, limit: 10 }
+
+      at src/routes/trips.ts:541:13
+
+  console.log
+    Γ£à Found 1 trips
+
+      at src/routes/trips.ts:549:13
+
+  console.log
+    [33mΓÜá∩╕Å  [2026-02-08T15:30:54.814Z] WARN: Email service not ready, skipping email verification OTP[0m
+
+      at Logger.log (src/utils/logger.ts:151:13)
+
+  console.log
+    [36mΓä╣∩╕Å  [2026-02-08T15:30:54.815Z] INFO: Registration email OTP sent[0m
+    {
+      "email": "journey@test.com",
+      "userId": "6988ac2e2c707a1fc286b109",
+      "role": "traveler"
+    }
+
+      at Logger.log (src/utils/logger.ts:151:13)
+
+  console.log
+    ≡ƒöì GET /trips - Query: { filter: { status: { '$in': [Array] } }, limit: 50 }
+
+      at src/routes/trips.ts:541:13
+
+  console.log
+    Γ£à Found 1 trips
+
+      at src/routes/trips.ts:549:13
+
+  console.log
+    ≡ƒôÑ Received booking request: {
+      tripId: '6988ac2d2c707a1fc286b09f',
+      numberOfTravelers: 1,
+      contactPhone: undefined,
+      hasSelectedPackage: false,
+      hasTravelerDetails: true,
+      travelerDetailsCount: 1,
+      fullBody: {
+        tripId: '6988ac2d2c707a1fc286b09f',
+        numberOfGuests: 1,
+        participants: [ [Object] ],
+        paymentMethod: 'online',
+        numberOfTravelers: 1,
+        travelerDetails: [ [Object] ]
+      }
+    }
+
+      at src/routes/bookings.ts:46:13
+
+  console.log
+    Γ£à Booking validation successful with data transformation
+
+      at src/routes/bookings.ts:60:15
+
+  console.log
+    [31m≡ƒÜ¿ [2026-02-08T15:30:54.843Z] ERROR: Error creating booking[0m
+    {
+      "error": "GroupBooking validation failed: participants.0.emergencyContactPhone: Path `emergencyContactPhone` is required.",
+      "userId": "6988ac2e2c707a1fc286b109"
+    }
+
+      at Logger.log (src/utils/logger.ts:151:13)
+
+  console.log
+    [36mΓä╣∩╕Å  [2026-02-08T15:30:55.132Z] INFO: Verification request created for new organizer[0m
+    {
+      "userId": "6988ac2f2c707a1fc286b117",
+      "email": "neworg@test.com"
+    }
+
+      at Logger.log (src/utils/logger.ts:151:13)
+
+  console.log
+    [33mΓÜá∩╕Å  [2026-02-08T15:30:55.400Z] WARN: Email service not ready, skipping email verification OTP[0m
+
+      at Logger.log (src/utils/logger.ts:151:13)
+
+  console.log
+    [36mΓä╣∩╕Å  [2026-02-08T15:30:55.401Z] INFO: Registration email OTP sent[0m
+    {
+      "email": "neworg@test.com",
+      "userId": "6988ac2f2c707a1fc286b117",
+      "role": "organizer"
+    }
+
+      at Logger.log (src/utils/logger.ts:151:13)
+
+  console.log
+    ≡ƒô¥ Audit log: CREATE Subscription by user 6988ac2f2c707a1fc286b117
+
+      at AuditLogService.log (src/services/auditLogService.ts:63:15)
+
+  console.log
+    ≡ƒôÑ Received trip creation request: {
+      title: 'New Adventure',
+      destination: 'Goa',
+      organizerId: '6988ac2f2c707a1fc286b117',
+      role: 'organizer',
+      price: 8000,
+      capacity: 15,
+      startDate: '2026-03-10T15:30:55.419Z',
+      endDate: '2026-03-15T15:30:55.419Z',
+      categories: undefined,
+      hasImages: false,
+      hasSchedule: false,
+      hasPaymentConfig: false
+    }
+
+      at src/routes/trips.ts:60:13
+
+  console.log
+    Γ£à Validation successful with data transformation
+
+      at src/routes/trips.ts:171:15
+
+  console.log
+    Creating trip: {
+      title: 'New Adventure',
+      organizerId: '6988ac2f2c707a1fc286b117',
+      destination: 'Goa'
+    }
+
+      at src/routes/trips.ts:266:13
+
+  console.log
+    Γ£à Trip created successfully: new ObjectId('6988ac2f2c707a1fc286b12a')
+
+      at src/routes/trips.ts:303:13
+
+  console.log
+    Γ£à Trip count incremented. Used: 1/4. Remaining: 3
+
+      at src/routes/trips.ts:434:19
+
+  console.log
+    
+        Γ£à Test Coverage Summary:
+        - Authentication: Registration, Login, Token Validation
+        - Trip Management: CRUD operations, Filters, Search
+        - Booking System: Create, Read, Update, Cancel
+        - Subscriptions: Plans, Trial, Eligibility
+        - AI Features: Chat, Recommendations
+        - Receipts: PDF Generation, Preview
+        - Validation: Email, Phone, Dates, Capacity
+        - Error Handling: 404, 400, 401, 403
+        - Integration: Full user journeys
+
+      at Object.<anonymous> (src/__tests__/comprehensive.test.ts:970:13)
+
+FAIL src/__tests__/compr
+ehensive.test.ts 
+(35.782 s)
+  ≡ƒº¬ Trek-Tribe 
+Comprehensive Test Suite
+    ≡ƒæñ Authentication 
+& User Management
+      POST 
+/auth/register
+        ΓêÜ should 
+register a traveler 
+successfully (1772 ms)
+        ΓêÜ should 
+register an organizer 
+successfully (651 ms)
+        ΓêÜ should 
+reject registration 
+with weak password (5 
+ms)
+        ΓêÜ should 
+reject duplicate email 
+registration (4 ms)
+      POST /auth/login
+        ΓêÜ should 
+login successfully with 
+correct credentials 
+(319 ms)
+        ΓêÜ should 
+reject login with wrong 
+password (297 ms)
+        ΓêÜ should 
+reject login for 
+non-existent user (6 ms)
+      GET /auth/me
+        ΓêÜ should 
+return user profile 
+with valid token (51 ms)
+        ΓêÜ should 
+reject request without 
+token (7 ms)
+    ≡ƒù║∩╕Å Trip 
+Management
+      POST /trips
+        ΓêÜ should 
+create a trip as 
+organizer (158 ms)
+        ΓêÜ should 
+reject trip creation by 
+traveler (7 ms)
+        ΓêÜ should 
+reject trip with 
+missing required fields 
+(14 ms)
+      GET /trips
+        ΓêÜ should list 
+all trips (47 ms)
+        ├ù should 
+filter trips by 
+category (23 ms)
+        ΓêÜ should 
+filter trips by price 
+range (24 ms)
+      GET /trips/:id
+        ΓêÜ should get 
+trip details by ID (8 
+ms)
+        ΓêÜ should 
+return 404 for 
+non-existent trip (6 ms)
+      PUT /trips/:id
+        ΓêÜ should 
+update trip as 
+organizer (22 ms)
+        ΓêÜ should 
+activate trip for 
+visibility (10 ms)
+        ΓêÜ should 
+reject update by 
+non-owner (4 ms)
+    ≡ƒôà Booking System
+      POST 
+/api/group-bookings
+        ├ù should 
+create a booking as 
+traveler (26 ms)
+        ΓêÜ should 
+reject booking without 
+authentication (5 ms)
+        ΓêÜ should 
+reject booking with 
+invalid trip ID (10 ms)
+      GET 
+/api/group-bookings
+        ├ù should list 
+user bookings (8 ms)
+      GET 
+/api/group-bookings/:id
+        ├ù should get 
+booking details (6 ms)
+        ├ù should 
+reject unauthorized 
+access to booking (15 
+ms)
+      PUT 
+/api/group-bookings/:id
+        ├ù should 
+update booking details 
+(4 ms)
+      DELETE 
+/api/group-bookings/:id
+        ├ù should 
+cancel booking (3 ms)
+    ≡ƒÆ│ Subscription & 
+Payment System
+      GET 
+/api/subscriptions/plans
+        ΓêÜ should list 
+available subscription 
+plans (4 ms)
+      GET 
+/api/subscriptions/my
+        ΓêÜ should 
+check subscription 
+status for organizer 
+(19 ms)
+        ΓêÜ should 
+return 401 without 
+authentication (2 ms)
+      POST /api/subscrip
+tions/create-order
+        ΓêÜ should 
+create trial 
+subscription for new 
+organizer (27 ms)
+        ΓêÜ should 
+reject subscription 
+creation for 
+non-organizer (5 ms)
+      GET /api/subscript
+ions/check-eligibility
+        ΓêÜ should 
+check trip posting 
+eligibility (8 ms)
+    ≡ƒñû AI Features
+      POST /api/ai/chat
+        ΓêÜ should 
+process AI chat query 
+(83 ms)
+        ΓêÜ should 
+handle trip-specific 
+queries (35 ms)
+        ΓêÜ should 
+reject empty messages 
+(4 ms)
+      GET 
+/api/ai/recommendations
+        ΓêÜ should get 
+trip recommendations 
+(10 ms)
+    ≡ƒôä Receipt 
+Generation
+      GET /api/receipts/
+booking/:bookingId/previ
+ew
+        ├ù should 
+preview booking receipt 
+data (4 ms)
+        ΓêÜ should 
+reject preview for 
+unpaid booking (19 ms)
+      GET /api/receipts/
+subscription/:subscripti
+onId
+        ΓêÜ should 
+generate subscription 
+receipt for paid 
+subscription (427 ms)
+        ├ù should 
+reject receipt for 
+trial subscription (5 
+ms)
+    ≡ƒöì Search & Filter
+      GET /trips - 
+Advanced Filters
+        ΓêÜ should 
+search trips by title 
+(10 ms)
+        ΓêÜ should 
+filter by difficulty 
+level (10 ms)
+        ΓêÜ should 
+filter by date range (9 
+ms)
+        ├ù should 
+combine multiple 
+filters (12 ms)
+    Γ£à Validation & 
+Error Handling
+      ΓêÜ should 
+validate email format 
+(3 ms)
+      ΓêÜ should 
+validate phone number 
+format (3 ms)
+      ΓêÜ should 
+validate trip dates (11 
+ms)
+      ΓêÜ should 
+validate booking 
+capacity (17 ms)
+      ΓêÜ should handle 
+404 for non-existent 
+resources (4 ms)
+      ΓêÜ should handle 
+malformed MongoDB IDs 
+(2 ms)
+    ΓÜí Performance & 
+Limits
+      ΓêÜ should handle 
+large result sets with 
+pagination (9 ms)
+      ΓêÜ should reject 
+excessively large file 
+uploads
+      ΓêÜ should 
+enforce trip posting 
+limits for subscription 
+(4 ms)
+    ≡ƒöù End-to-End 
+Integration
+      ├ù should 
+complete full user 
+journey: register ΓåÆ 
+browse ΓåÆ book ΓåÆ pay 
+(571 ms)
+      ΓêÜ should 
+complete organizer 
+journey: register ΓåÆ 
+subscribe ΓåÆ create 
+trip (600 ms)
+  ≡ƒôè Test Summary
+    ΓêÜ should have 
+comprehensive test 
+coverage (2 ms)
+
+  ΓùÅ ≡ƒº¬ Trek-Tribe 
+Comprehensive Test 
+Suite ΓÇ║ ≡ƒù║∩╕Å Trip 
+Management ΓÇ║ GET 
+/trips ΓÇ║ should 
+filter trips by category
+
+    expect(received).toB
+e(expected) // 
+Object.is equality
+
+    Expected: "trekking"
+    Received: undefined
+
+    [0m [90m 233 
+|[39m         expect([
+33mArray[39m[33m.[39m
+isArray(response[33m.[
+39mbody))[33m.[39mtoBe
+([36mtrue[39m)[33m;[
+39m
+     [90m 234 |[39m   
+      response[33m.[39
+mbody[33m.[39mforEach(
+(trip[33m:[39m any) 
+[33m=>[39m {
+    [31m[1m>[22m[39m
+[90m 235 |[39m        
+   expect(trip[33m.[39
+mcategory)[33m.[39mtoB
+e([32m'trekking'[39m)
+[33m;[39m
+     [90m     |[39m   
+                        
+      
+[31m[1m^[22m[39m
+     [90m 236 |[39m   
+      })[33m;[39m
+     [90m 237 |[39m   
+    })[33m;[39m
+     [90m 238 
+|[39m[0m
+
+      at src/__tests__/c
+omprehensive.test.ts:235
+:33
+          at 
+Array.forEach 
+(<anonymous>)
+      at 
+Object.<anonymous> (src/
+__tests__/comprehensive.
+test.ts:234:23)
+
+  ΓùÅ ≡ƒº¬ Trek-Tribe 
+Comprehensive Test 
+Suite ΓÇ║ ≡ƒôà Booking 
+System ΓÇ║ POST 
+/api/group-bookings ΓÇ║ 
+should create a booking 
+as traveler
+
+    expected 201 
+"Created", got 500 
+"Internal Server Error"
+
+    [0m [90m 342 
+|[39m             speci
+alRequests[33m:[39m 
+[32m'Vegetarian food 
+please'[39m
+     [90m 343 |[39m   
+        })
+    [31m[1m>[22m[39m
+[90m 344 |[39m        
+   [33m.[39mexpect([3
+5m201[39m)[33m;[39m
+     [90m     |[39m   
+         
+[31m[1m^[22m[39m
+     [90m 345 |[39m
+     [90m 346 |[39m   
+      expect(response[3
+3m.[39mbody)[33m.[39m
+toHaveProperty([32m'_id
+'[39m)[33m;[39m
+     [90m 347 |[39m   
+      expect(response[3
+3m.[39mbody[33m.[39mn
+umberOfGuests)[33m.[39
+mtoBe([35m2[39m)[33m;
+[39m[0m
+
+      at 
+Object.<anonymous> (src/
+__tests__/comprehensive.
+test.ts:344:12)
+      ----
+      at 
+Test._assertStatus (node
+_modules/supertest/lib/t
+est.js:252:14)
+      at node_modules/su
+pertest/lib/test.js:308:
+13
+      at 
+Test._assertFunction (no
+de_modules/supertest/lib
+/test.js:285:13)
+      at Test.assert (no
+de_modules/supertest/lib
+/test.js:164:23)
+      at 
+Server.localAssert (node
+_modules/supertest/lib/t
+est.js:120:14)
+
+  ΓùÅ ≡ƒº¬ Trek-Tribe 
+Comprehensive Test 
+Suite ΓÇ║ ≡ƒôà Booking 
+System ΓÇ║ GET 
+/api/group-bookings ΓÇ║ 
+should list user 
+bookings
+
+    expect(received).toB
+eGreaterThan(expected)
+
+    Expected: > 0
+    Received:   0
+
+    [0m [90m 382 
+|[39m
+     [90m 383 |[39m   
+      expect([33mArray
+[39m[33m.[39misArray(r
+esponse[33m.[39mbody))
+[33m.[39mtoBe([36mtru
+e[39m)[33m;[39m
+    [31m[1m>[22m[39m
+[90m 384 |[39m        
+ expect(response[33m.[
+39mbody[33m.[39mlength
+)[33m.[39mtoBeGreaterT
+han([35m0[39m)[33m;[
+39m
+     [90m     |[39m   
+                        
+           
+[31m[1m^[22m[39m
+     [90m 385 |[39m   
+    })[33m;[39m
+     [90m 386 |[39m   
+  })[33m;[39m
+     [90m 387 
+|[39m[0m
+
+      at 
+Object.<anonymous> (src/
+__tests__/comprehensive.
+test.ts:384:38)
+
+  ΓùÅ ≡ƒº¬ Trek-Tribe 
+Comprehensive Test 
+Suite ΓÇ║ ≡ƒôà Booking 
+System ΓÇ║ GET 
+/api/group-bookings/:id 
+ΓÇ║ should get booking 
+details
+
+    expected 200 "OK", 
+got 400 "Bad Request"
+
+    [0m [90m 391 
+|[39m           [33m.
+[39m[36mget[39m([32m`
+/api/group-bookings/${bo
+okingId}`[39m)
+     [90m 392 |[39m   
+        [33m.[39m[36m
+set[39m([32m'Authoriza
+tion'[39m[33m,[39m 
+[32m`Bearer 
+${travelerToken}`[39m)
+    [31m[1m>[22m[39m
+[90m 393 |[39m        
+   [33m.[39mexpect([3
+5m200[39m)[33m;[39m
+     [90m     |[39m   
+         
+[31m[1m^[22m[39m
+     [90m 394 |[39m
+     [90m 395 |[39m   
+      expect(response[3
+3m.[39mbody[33m.[39m_
+id)[33m.[39mtoBe(booki
+ngId)[33m;[39m
+     [90m 396 |[39m   
+      expect(response[3
+3m.[39mbody[33m.[39mn
+umberOfGuests)[33m.[39
+mtoBe([35m2[39m)[33m;
+[39m[0m
+
+      at 
+Object.<anonymous> (src/
+__tests__/comprehensive.
+test.ts:393:12)
+      ----
+      at 
+Test._assertStatus (node
+_modules/supertest/lib/t
+est.js:252:14)
+      at node_modules/su
+pertest/lib/test.js:308:
+13
+      at 
+Test._assertFunction (no
+de_modules/supertest/lib
+/test.js:285:13)
+      at Test.assert (no
+de_modules/supertest/lib
+/test.js:164:23)
+      at 
+Server.localAssert (node
+_modules/supertest/lib/t
+est.js:120:14)
+
+  ΓùÅ ≡ƒº¬ Trek-Tribe 
+Comprehensive Test 
+Suite ΓÇ║ ≡ƒôà Booking 
+System ΓÇ║ GET 
+/api/group-bookings/:id 
+ΓÇ║ should reject 
+unauthorized access to 
+booking
+
+    expected 403 
+"Forbidden", got 401 
+"Unauthorized"
+
+    [0m [90m 411 
+|[39m           [33m.
+[39m[36mget[39m([32m`
+/api/group-bookings/${bo
+okingId}`[39m)
+     [90m 412 |[39m   
+        [33m.[39m[36m
+set[39m([32m'Authoriza
+tion'[39m[33m,[39m 
+[32m`Bearer ${otherUser
+Response.body.token}`[3
+9m)
+    [31m[1m>[22m[39m
+[90m 413 |[39m        
+   [33m.[39mexpect([3
+5m403[39m)[33m;[39m
+     [90m     |[39m   
+         
+[31m[1m^[22m[39m
+     [90m 414 |[39m   
+    })[33m;[39m
+     [90m 415 |[39m   
+  })[33m;[39m
+     [90m 416 
+|[39m[0m
+
+      at 
+Object.<anonymous> (src/
+__tests__/comprehensive.
+test.ts:413:12)
+      ----
+      at 
+Test._assertStatus (node
+_modules/supertest/lib/t
+est.js:252:14)
+      at node_modules/su
+pertest/lib/test.js:308:
+13
+      at 
+Test._assertFunction (no
+de_modules/supertest/lib
+/test.js:285:13)
+      at Test.assert (no
+de_modules/supertest/lib
+/test.js:164:23)
+      at 
+Server.localAssert (node
+_modules/supertest/lib/t
+est.js:120:14)
+
+  ΓùÅ ≡ƒº¬ Trek-Tribe 
+Comprehensive Test 
+Suite ΓÇ║ ≡ƒôà Booking 
+System ΓÇ║ PUT 
+/api/group-bookings/:id 
+ΓÇ║ should update 
+booking details
+
+    expected 200 "OK", 
+got 400 "Bad Request"
+
+    [0m [90m 423 
+|[39m             speci
+alRequests[33m:[39m 
+[32m'Vegetarian food 
+and early check-in'[39m
+     [90m 424 |[39m   
+        })
+    [31m[1m>[22m[39m
+[90m 425 |[39m        
+   [33m.[39mexpect([3
+5m200[39m)[33m;[39m
+     [90m     |[39m   
+         
+[31m[1m^[22m[39m
+     [90m 426 |[39m
+     [90m 427 |[39m   
+      expect(response[3
+3m.[39mbody[33m.[39ms
+pecialRequests)[33m.[3
+9mtoContain([32m'early 
+check-in'[39m)[33m;[3
+9m
+     [90m 428 |[39m   
+    })[33m;[39m[0m
+
+      at 
+Object.<anonymous> (src/
+__tests__/comprehensive.
+test.ts:425:12)
+      ----
+      at 
+Test._assertStatus (node
+_modules/supertest/lib/t
+est.js:252:14)
+      at node_modules/su
+pertest/lib/test.js:308:
+13
+      at 
+Test._assertFunction (no
+de_modules/supertest/lib
+/test.js:285:13)
+      at Test.assert (no
+de_modules/supertest/lib
+/test.js:164:23)
+      at 
+Server.localAssert (node
+_modules/supertest/lib/t
+est.js:120:14)
+
+  ΓùÅ ≡ƒº¬ Trek-Tribe 
+Comprehensive Test 
+Suite ΓÇ║ ≡ƒôà Booking 
+System ΓÇ║ DELETE 
+/api/group-bookings/:id 
+ΓÇ║ should cancel 
+booking
+
+    expected 200 "OK", 
+got 400 "Bad Request"
+
+    [0m [90m 434 
+|[39m           [33m.
+[39m[36mdelete[39m([3
+2m`/api/group-bookings/$
+{bookingId}`[39m)
+     [90m 435 |[39m   
+        [33m.[39m[36m
+set[39m([32m'Authoriza
+tion'[39m[33m,[39m 
+[32m`Bearer 
+${travelerToken}`[39m)
+    [31m[1m>[22m[39m
+[90m 436 |[39m        
+   [33m.[39mexpect([3
+5m200[39m)[33m;[39m
+     [90m     |[39m   
+         
+[31m[1m^[22m[39m
+     [90m 437 |[39m
+     [90m 438 |[39m   
+      expect(response[3
+3m.[39mbody[33m.[39mb
+ookingStatus)[33m.[39m
+toBe([32m'cancelled'[3
+9m)[33m;[39m
+     [90m 439 |[39m   
+    })[33m;[39m[0m
+
+      at 
+Object.<anonymous> (src/
+__tests__/comprehensive.
+test.ts:436:12)
+      ----
+      at 
+Test._assertStatus (node
+_modules/supertest/lib/t
+est.js:252:14)
+      at node_modules/su
+pertest/lib/test.js:308:
+13
+      at 
+Test._assertFunction (no
+de_modules/supertest/lib
+/test.js:285:13)
+      at Test.assert (no
+de_modules/supertest/lib
+/test.js:164:23)
+      at 
+Server.localAssert (node
+_modules/supertest/lib/t
+est.js:120:14)
+
+  ΓùÅ ≡ƒº¬ Trek-Tribe 
+Comprehensive Test 
+Suite ΓÇ║ ≡ƒôä Receipt 
+Generation ΓÇ║ GET /api/
+receipts/booking/:bookin
+gId/preview ΓÇ║ should 
+preview booking receipt 
+data
+
+    expected 200 "OK", 
+got 400 "Bad Request"
+
+    [0m [90m 626 
+|[39m           [33m.
+[39m[36mget[39m([32m`
+/api/receipts/booking/${
+completedBookingId}/prev
+iew`[39m)
+     [90m 627 |[39m   
+        [33m.[39m[36m
+set[39m([32m'Authoriza
+tion'[39m[33m,[39m 
+[32m`Bearer 
+${travelerToken}`[39m)
+    [31m[1m>[22m[39m
+[90m 628 |[39m        
+   [33m.[39mexpect([3
+5m200[39m)[33m;[39m
+     [90m     |[39m   
+         
+[31m[1m^[22m[39m
+     [90m 629 |[39m
+     [90m 630 |[39m   
+      expect(response[3
+3m.[39mbody)[33m.[39m
+toHaveProperty([32m'rec
+eiptId'[39m)[33m;[39m
+     [90m 631 |[39m   
+      expect(response[3
+3m.[39mbody)[33m.[39m
+toHaveProperty([32m'use
+rName'[39m)[33m;[39m
+[0m
+
+      at 
+Object.<anonymous> (src/
+__tests__/comprehensive.
+test.ts:628:12)
+      ----
+      at 
+Test._assertStatus (node
+_modules/supertest/lib/t
+est.js:252:14)
+      at node_modules/su
+pertest/lib/test.js:308:
+13
+      at 
+Test._assertFunction (no
+de_modules/supertest/lib
+/test.js:285:13)
+      at Test.assert (no
+de_modules/supertest/lib
+/test.js:164:23)
+      at 
+Server.localAssert (node
+_modules/supertest/lib/t
+est.js:120:14)
+
+  ΓùÅ ≡ƒº¬ Trek-Tribe 
+Comprehensive Test 
+Suite ΓÇ║ ≡ƒôä Receipt 
+Generation ΓÇ║ GET /api/
+receipts/subscription/:s
+ubscriptionId ΓÇ║ 
+should reject receipt 
+for trial subscription
+
+    MongoServerError: 
+E11000 duplicate key 
+error collection: test.o
+rganizersubscriptions 
+index: organizerId_1 
+dup key: { organizerId: 
+ObjectId('6988ac2c2c707a
+1fc286b08e') }
+
+      at InsertOneOperat
+ion.execute (node_module
+s/mongodb/src/operations
+/insert.ts:88:13)
+      at tryOperation (n
+ode_modules/mongodb/src/
+operations/execute_opera
+tion.ts:283:14)
+      at 
+executeOperation (node_m
+odules/mongodb/src/opera
+tions/execute_operation.
+ts:115:12)
+      at 
+Collection.insertOne (no
+de_modules/mongodb/src/c
+ollection.ts:286:12)
+
+  ΓùÅ ≡ƒº¬ Trek-Tribe 
+Comprehensive Test 
+Suite ΓÇ║ ≡ƒöì Search & 
+Filter ΓÇ║ GET /trips - 
+Advanced Filters ΓÇ║ 
+should combine multiple 
+filters
+
+    expect(received).toB
+e(expected) // 
+Object.is equality
+
+    Expected: "trekking"
+    Received: undefined
+
+    [0m [90m 735 
+|[39m
+     [90m 736 |[39m   
+      response[33m.[39
+mbody[33m.[39mforEach(
+(trip[33m:[39m any) 
+[33m=>[39m {
+    [31m[1m>[22m[39m
+[90m 737 |[39m        
+   expect(trip[33m.[39
+mcategory)[33m.[39mtoB
+e([32m'trekking'[39m)
+[33m;[39m
+     [90m     |[39m   
+                        
+      
+[31m[1m^[22m[39m
+     [90m 738 |[39m   
+        expect(trip[33m
+.[39mdifficulty)[33m.
+[39mtoBe([32m'moderate'
+[39m)[33m;[39m
+     [90m 739 |[39m   
+        expect(trip[33m
+.[39mprice)[33m.[39mt
+oBeGreaterThanOrEqual([
+35m10000[39m)[33m;[39
+m
+     [90m 740 |[39m   
+      })[33m;[39m[0m
+
+      at src/__tests__/c
+omprehensive.test.ts:737
+:33
+          at 
+Array.forEach 
+(<anonymous>)
+      at 
+Object.<anonymous> (src/
+__tests__/comprehensive.
+test.ts:736:23)
+
+  ΓùÅ ≡ƒº¬ Trek-Tribe 
+Comprehensive Test 
+Suite ΓÇ║ ≡ƒöù 
+End-to-End Integration 
+ΓÇ║ should complete 
+full user journey: 
+register ΓåÆ browse ΓåÆ 
+book ΓåÆ pay
+
+    expected 201 
+"Created", got 500 
+"Internal Server Error"
+
+    [0m [90m 900 
+|[39m           payment
+Method[33m:[39m 
+[32m'online'[39m
+     [90m 901 |[39m   
+      })
+    [31m[1m>[22m[39m
+[90m 902 |[39m        
+ [33m.[39mexpect([35m
+201[39m)[33m;[39m
+     [90m     |[39m   
+       
+[31m[1m^[22m[39m
+     [90m 903 |[39m
+     [90m 904 |[39m   
+    expect(bookingRespon
+se[33m.[39mbody[33m.
+[39mbookingStatus)[33m.
+[39mtoBe([32m'pending'
+[39m)[33m;[39m
+     [90m 905 
+|[39m[0m
+
+      at 
+Object.<anonymous> (src/
+__tests__/comprehensive.
+test.ts:902:10)
+      ----
+      at 
+Test._assertStatus (node
+_modules/supertest/lib/t
+est.js:252:14)
+      at node_modules/su
+pertest/lib/test.js:308:
+13
+      at 
+Test._assertFunction (no
+de_modules/supertest/lib
+/test.js:285:13)
+      at Test.assert (no
+de_modules/supertest/lib
+/test.js:164:23)
+      at 
+Server.localAssert (node
+_modules/supertest/lib/t
+est.js:120:14)
+
+Test Suites: 1 failed, 
+1 total
+Tests:       11 failed, 
+47 passed, 58 total
+Snapshots:   0 total
+Time:        36.448 s
+Ran all test suites 
+matching /src\\__tests__
+\\comprehensive.test.ts/
+i.
+Jest did not exit one 
+second after the test 
+run has completed.
+
+'This usually means 
+that there are 
+asynchronous operations 
+that weren't stopped in 
+your tests. Consider 
+running Jest with 
+`--detectOpenHandles` 
+to troubleshoot this 
+issue.

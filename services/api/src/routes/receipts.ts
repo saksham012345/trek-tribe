@@ -6,6 +6,7 @@ import { OrganizerSubscription } from '../models/OrganizerSubscription';
 import { User } from '../models/User';
 import { Trip } from '../models/Trip';
 import { logger } from '../utils/logger';
+import mongoose from 'mongoose';
 
 const router = Router();
 
@@ -18,6 +19,10 @@ router.get('/booking/:bookingId', authenticateJwt, async (req: Request, res: Res
     const userId = (req as any).auth.userId;
     const { bookingId } = req.params;
 
+    if (!mongoose.isValidObjectId(bookingId)) {
+      return res.status(400).json({ error: 'Invalid booking id' });
+    }
+
     // Find the booking
     const booking = await GroupBooking.findById(bookingId)
       .populate('mainBookerId', 'name email phone')
@@ -27,11 +32,25 @@ router.get('/booking/:bookingId', authenticateJwt, async (req: Request, res: Res
       return res.status(404).json({ error: 'Booking not found' });
     }
 
+    // Validate populated fields
+    if (!booking.mainBookerId || !booking.tripId) {
+      return res.status(404).json({ error: 'Booking data incomplete' });
+    }
+
     // Check authorization - user must be the booker, organizer, or admin
     const user = await User.findById(userId);
     const trip = booking.tripId as any;
-    const isBookingOwner = booking.mainBookerId._id.toString() === userId;
-    const isOrganizer = trip.organizerId.toString() === userId;
+    const mainBooker = booking.mainBookerId as any;
+
+    console.log('🔍 Previewing receipt for booking:', {
+      bookingId,
+      userId,
+      mainBookerId: mainBooker?._id,
+      tripOrganizerId: trip?.organizerId
+    });
+
+    const isBookingOwner = mainBooker._id?.toString() === userId;
+    const isOrganizer = trip.organizerId?.toString() === userId;
     const isAdmin = user?.role === 'admin';
 
     if (!isBookingOwner && !isOrganizer && !isAdmin) {
@@ -84,13 +103,13 @@ router.get('/booking/:bookingId', authenticateJwt, async (req: Request, res: Res
 
     res.send(pdfBuffer);
   } catch (error: any) {
-    logger.error('Error generating booking receipt', { 
-      error: error.message, 
-      bookingId: req.params.bookingId 
+    logger.error('Error generating booking receipt', {
+      error: error.message,
+      bookingId: req.params.bookingId
     });
-    res.status(500).json({ 
-      error: 'Failed to generate receipt', 
-      details: process.env.NODE_ENV !== 'production' ? error.message : undefined 
+    res.status(500).json({
+      error: 'Failed to generate receipt',
+      details: process.env.NODE_ENV !== 'production' ? error.message : undefined
     });
   }
 });
@@ -103,6 +122,10 @@ router.get('/subscription/:subscriptionId', authenticateJwt, async (req: Request
   try {
     const userId = (req as any).auth.userId;
     const { subscriptionId } = req.params;
+
+    if (!mongoose.isValidObjectId(subscriptionId)) {
+      return res.status(400).json({ error: 'Invalid subscription id' });
+    }
 
     // Find the subscription
     const subscription = await OrganizerSubscription.findById(subscriptionId)
@@ -149,13 +172,13 @@ router.get('/subscription/:subscriptionId', authenticateJwt, async (req: Request
 
     res.send(pdfBuffer);
   } catch (error: any) {
-    logger.error('Error generating subscription receipt', { 
-      error: error.message, 
-      subscriptionId: req.params.subscriptionId 
+    logger.error('Error generating subscription receipt', {
+      error: error.message,
+      subscriptionId: req.params.subscriptionId
     });
-    res.status(500).json({ 
-      error: 'Failed to generate receipt', 
-      details: process.env.NODE_ENV !== 'production' ? error.message : undefined 
+    res.status(500).json({
+      error: 'Failed to generate receipt',
+      details: process.env.NODE_ENV !== 'production' ? error.message : undefined
     });
   }
 });
@@ -169,6 +192,10 @@ router.get('/booking/:bookingId/preview', authenticateJwt, async (req: Request, 
     const userId = (req as any).auth.userId;
     const { bookingId } = req.params;
 
+    if (!mongoose.isValidObjectId(bookingId)) {
+      return res.status(400).json({ error: 'Invalid booking id' });
+    }
+
     const booking = await GroupBooking.findById(bookingId)
       .populate('mainBookerId', 'name email phone')
       .populate('tripId', 'title destination startDate endDate organizerId');
@@ -177,11 +204,25 @@ router.get('/booking/:bookingId/preview', authenticateJwt, async (req: Request, 
       return res.status(404).json({ error: 'Booking not found' });
     }
 
+    // Validate populated fields
+    if (!booking.mainBookerId || !booking.tripId) {
+      return res.status(404).json({ error: 'Booking data incomplete' });
+    }
+
     // Check authorization
     const user = await User.findById(userId);
     const trip = booking.tripId as any;
-    const isBookingOwner = (booking.mainBookerId as any)._id.toString() === userId;
-    const isOrganizer = trip.organizerId.toString() === userId;
+    const mainBooker = booking.mainBookerId as any;
+
+    console.log('🔍 Generating receipt for booking:', {
+      bookingId,
+      userId,
+      mainBookerId: mainBooker?._id,
+      tripOrganizerId: trip?.organizerId
+    });
+
+    const isBookingOwner = mainBooker._id?.toString() === userId;
+    const isOrganizer = trip.organizerId?.toString() === userId;
     const isAdmin = user?.role === 'admin';
 
     if (!isBookingOwner && !isOrganizer && !isAdmin) {
