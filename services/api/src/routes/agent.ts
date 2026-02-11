@@ -276,21 +276,19 @@ router.post('/tickets/:ticketId/resolve', async (req, res) => {
 
     await ticket.save();
 
-    // Optionally notify customer (async)
-    setTimeout(async () => {
-      try {
-        if (emailService.isServiceReady()) {
-          await emailService.sendTicketResolvedNotification({
-            userName: ticket.customerName,
-            userEmail: ticket.customerEmail,
-            ticketId: ticket.ticketId,
-            resolutionNote: resolutionNote || 'Resolved by agent'
-          });
-        }
-      } catch (err: any) {
-        logger.error('Failed to send ticket resolved email', { error: err?.message || err, ticketId });
+    // Notify customer immediately (properly awaited)
+    try {
+      if (emailService.isServiceReady()) {
+        await emailService.sendTicketResolvedNotification({
+          userName: ticket.customerName,
+          userEmail: ticket.customerEmail,
+          ticketId: ticket.ticketId,
+          resolutionNote: resolutionNote || 'Resolved by agent'
+        });
       }
-    }, 1000);
+    } catch (err: any) {
+      logger.error('Failed to send ticket resolved email', { error: err?.message || err, ticketId });
+    }
 
     res.json({ success: true, message: 'Ticket resolved successfully', ticket });
   } catch (error: any) {
@@ -375,37 +373,31 @@ router.post('/tickets/:ticketId/messages', async (req, res) => {
       return res.status(404).json({ error: 'Ticket not found' });
     }
 
-    // Send email notification to customer (async)
-    setTimeout(async () => {
-      try {
-        if (emailService.isServiceReady()) {
-          const frontendUrl = process.env.FRONTEND_URL || 'https://www.trektribe.in';
-          const replyUrl = `${frontendUrl}/support/tickets/${ticketId}`;
+    // Send email notification to customer (properly awaited)
+    try {
+      if (emailService.isServiceReady()) {
+        const frontendUrl = process.env.FRONTEND_URL || 'https://www.trektribe.in';
+        const replyUrl = `${frontendUrl}/support/tickets/${ticketId}`;
 
-          await emailService.sendAgentReplyNotification({
-            userName: ticket.customerName,
-            userEmail: ticket.customerEmail,
-            ticketId: ticket.ticketId,
-            ticketSubject: ticket.subject,
-            agentName: agent.name,
-            agentMessage: message,
-            replyUrl
-          });
+        await emailService.sendAgentReplyNotification({
+          userName: ticket.customerName,
+          userEmail: ticket.customerEmail,
+          ticketId: ticket.ticketId,
+          ticketSubject: ticket.subject,
+          agentName: agent.name,
+          agentMessage: message,
+          replyUrl
+        });
 
-          logger.info('Agent reply email notification sent', {
-            ticketId,
-            userEmail: ticket.customerEmail,
-            agentName: agent.name
-          });
-        }
-      } catch (error: any) {
-        logger.error('Failed to send agent reply email notification', {
-          error: error.message,
+        logger.info('Agent reply email notification sent', {
           ticketId,
-          userEmail: ticket.customerEmail
+          userEmail: ticket.customerEmail,
+          agentName: agent.name
         });
       }
-    }, 1000);
+    } catch (error: any) {
+      logger.error('Failed to send agent reply notification', { error: error.message, ticketId });
+    }
 
     logger.info('Message added to ticket', { ticketId, agentId, messageLength: message.length });
 

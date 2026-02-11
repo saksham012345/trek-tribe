@@ -234,33 +234,35 @@ router.post('/', authenticateJwt, requireEmailVerified, async (req, res) => {
       numberOfTravelers
     });
 
-    // Send email notification (non-blocking)
+    // Send email notification (properly awaited)
     if (emailService.isServiceReady()) {
-      emailService.sendBookingConfirmation({
-        userName: user.name,
-        userEmail: user.email,
-        tripTitle: trip.title,
-        tripDestination: trip.destination,
-        startDate: new Date(trip.startDate).toLocaleDateString('en-US', {
-          weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
-        }),
-        endDate: new Date(trip.endDate).toLocaleDateString('en-US', {
-          weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
-        }),
-        totalTravelers: numberOfTravelers,
-        totalAmount: groupBooking.finalAmount,
-        organizerName: (trip.organizerId as any).name,
-        organizerEmail: (trip.organizerId as any).email,
-        organizerPhone: (trip.organizerId as any).phone,
-        bookingId: groupBooking._id.toString()
-      }).catch(error => {
-        logger.error('Failed to send booking confirmation email', {
+      try {
+        await emailService.sendBookingConfirmation({
+          userName: user.name,
+          userEmail: user.email,
+          tripTitle: trip.title,
+          tripDestination: trip.destination,
+          startDate: new Date(trip.startDate).toLocaleDateString('en-US', {
+            weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+          }),
+          endDate: new Date(trip.endDate).toLocaleDateString('en-US', {
+            weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+          }),
+          totalTravelers: numberOfTravelers,
+          totalAmount: groupBooking.finalAmount,
+          organizerName: (trip.organizerId as any).name,
+          organizerEmail: (trip.organizerId as any).email,
+          organizerPhone: (trip.organizerId as any).phone,
+          bookingId: groupBooking._id.toString()
+        });
+        logger.info('✅ Booking confirmation email sent successfully', { bookingId: groupBooking._id });
+      } catch (error: any) {
+        logger.error('❌ Failed to send booking confirmation email', {
           error: error.message,
           bookingId: groupBooking._id
         });
-        // Don't fail the booking if email fails
-      });
-      logger.info('📧 Booking confirmation email sent', { bookingId: groupBooking._id });
+        // Don't fail the booking if email fails, but log it prominently
+      }
     } else {
       logger.warn('⚠️  Email service not configured - skipping booking confirmation email');
     }

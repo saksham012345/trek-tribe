@@ -485,6 +485,11 @@ const userSchema = new Schema(
 
 userSchema.index({ name: 'text', email: 'text' });
 
+// Note: `email` and `role` fields declare `index: true` at the field
+// definition earlier in this schema. Mongoose will create those indexes
+// from the field definitions; explicit schema.index() calls are omitted
+// here to avoid duplicate index creation.
+
 // Pre-save middleware to ensure socialStats are initialized
 userSchema.pre('save', function (next) {
   if (!this.socialStats) {

@@ -1,6 +1,7 @@
 import Lead from '../models/Lead';
 import { logger } from '../utils/logger';
 import notificationService from './notificationService';
+import { emailQueue } from './emailQueue';
 
 interface PartialBookingData {
   userId: string;
@@ -75,8 +76,8 @@ class BookingAbandonmentService {
         await this.notifyOrganizerOfAbandonedBooking(lead, tripId);
       }
 
-      // Schedule follow-up email after 24 hours
-      setTimeout(() => this.sendAbandonmentFollowUp(lead!._id.toString()), 24 * 60 * 60 * 1000);
+      // Schedule follow-up email after 24 hours using queue
+      this.scheduleAbandonmentFollowUp(lead._id.toString(), 24 * 60 * 60 * 1000);
       
     } catch (error: any) {
       logger.error('Error tracking partial booking', { error: error.message });
@@ -122,6 +123,42 @@ class BookingAbandonmentService {
       });
     } catch (error: any) {
       logger.error('Error notifying organizer', { error: error.message });
+    }
+  }
+
+  /**
+   * Schedule abandonment follow-up email using queue
+   */
+  private async scheduleAbandonmentFollowUp(leadId: string, delayMs: number): Promise<void> {
+    try {
+      const lead = await Lead.findById(leadId).populate('tripId');
+      if (!lead || lead.status === 'converted') return;
+
+      const trip = (lead.tripId as any);
+      if (!trip || !lead.email) return;
+
+      const { emailTemplates } = require('../templates/emailTemplates');
+      const emailHtml = emailTemplates.bookingAbandonment({
+        userName: lead.name || 'Traveler',
+        tripTitle: trip.title,
+        tripUrl: `${process.env.FRONTEND_URL}/trips/${trip._id}`,
+        bookingUrl: `${process.env.FRONTEND_URL}/book/${trip._id}`,
+        discount: '10% OFF',
+        expiryHours: 48,
+      });
+
+      await emailQueue.scheduleEmail({
+        type: 'booking_abandonment',
+        to: lead.email,
+        subject: `Complete Your Booking for ${trip.title} - Special Offer Inside! 🎁`,
+        html: emailHtml,
+        leadId: lead._id.toString(),
+        tripId: trip._id.toString(),
+      }, delayMs);
+
+      logger.info('Scheduled abandonment follow-up', { leadId, delayHours: delayMs / (1000 * 60 * 60) });
+    } catch (error: any) {
+      logger.error('Error scheduling abandonment follow-up', { error: error.message, leadId });
     }
   }
 

@@ -164,6 +164,13 @@ router.get('/:uniqueUrl', async (req, res) => {
       badges: user.travelStats?.badges || []
     };
 
+    // Include trust score for organizers
+    const trustScore = user.role === 'organizer' ? {
+      overall: user.organizerProfile?.trustScore?.overall || 0,
+      breakdown: user.organizerProfile?.trustScore?.breakdown || null,
+      badge: user.organizerProfile?.verificationBadge || 'none'
+    } : null;
+
     res.json({
       success: true,
       data: {
@@ -171,6 +178,7 @@ router.get('/:uniqueUrl', async (req, res) => {
         organizedTrips,
         participatedTrips,
         stats,
+        trustScore,
         isOrganizer: user.role === 'organizer',
         isOwner: !!isOwner,
         ownerOnly: isOwner ? {

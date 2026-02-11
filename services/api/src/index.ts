@@ -5,6 +5,8 @@ import helmet from 'helmet';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import cookieParser from 'cookie-parser';
+import swaggerUi from 'swagger-ui-express';
+import { specs } from './swagger';
 // Optional in-memory MongoDB for local dev/testing
 import { createServer } from 'http';
 import authRoutes from './routes/auth';
@@ -68,6 +70,7 @@ import path from 'path';
 import { logger } from './utils/logger';
 import errorHandler from './middleware/errorHandler';
 import metrics from './middleware/metrics';
+import { authenticateJwt, requireRole } from './middleware/auth';
 
 
 const app = express();
@@ -229,6 +232,25 @@ app.use(sanitizeInputs);
 
 // Serve static files for uploads
 app.use('/uploads', express.static('uploads'));
+
+// ==========================================
+// SWAGGER/API DOCUMENTATION (ADMIN ONLY)
+// ==========================================
+// Protected: Only admins can access API documentation
+app.use('/api-docs', authenticateJwt, requireRole(['admin']), swaggerUi.serve, swaggerUi.setup(specs, {
+  swaggerOptions: {
+    persistAuthorization: true,
+    displayOperationId: true,
+  },
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'Trek Tribe API Documentation'
+}));
+
+// Expose OpenAPI/Swagger JSON for external tools (Admin only)
+app.get('/api-spec.json', authenticateJwt, requireRole(['admin']), (req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(specs);
+});
 
 // Simple logging function
 const logMessage = (level: string, message: string): void => {
@@ -622,6 +644,15 @@ export async function start() {
       console.warn('⚠️ Email service failed to initialize:', error.message);
     }
 
+    // Initialize Email Queue Service
+    try {
+      const { emailQueue } = await import('./services/emailQueue');
+      await emailQueue.initialize();
+      console.log('✅ Email queue service initialized');
+    } catch (error: any) {
+      console.warn('⚠️ Email queue failed to initialize:', error.message);
+    }
+
     // Initialize Socket.IO service
     socketService.initialize(server);
     console.log('✅ Socket.IO service initialized');
@@ -635,7 +666,8 @@ export async function start() {
     }
 
     // Initialize Cron Scheduler for auto-pay and other scheduled tasks
-    if (process.env.NODE_ENV !== 'test') {
+    const enableCronJobs = process.env.ENABLE_CRON_JOBS !== 'false';
+    if (enableCronJobs && process.env.NODE_ENV !== 'test') {
       cronScheduler.init();
       console.log('✅ Cron scheduler initialized');
       logMessage('INFO', 'Cron scheduler initialized');

@@ -26,10 +26,11 @@ class RetryQueueService {
   // Get due jobs up to limit
   async getDueJobs(limit = 10): Promise<IRetryJob[]> {
     const now = new Date();
-    return RetryJob.find({ status: 'pending', nextRetryAt: { $lte: now } })
+    const results = await RetryJob.find({ status: 'pending', nextRetryAt: { $lte: now } })
       .sort({ nextRetryAt: 1 })
       .limit(limit)
       .lean();
+    return results as unknown as IRetryJob[];
   }
 
   async markInProgress(jobId: string): Promise<void> {

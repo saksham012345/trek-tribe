@@ -56,4 +56,14 @@ paymentSchema.index({ 'metadata.userId': 1 });
 paymentSchema.index({ 'metadata.tripId': 1 });
 paymentSchema.index({ 'metadata.subscriptionId': 1 });
 
+// ==================== CRITICAL INDEXES ====================
+// Index 1: User payment history (receipts, transaction history)
+paymentSchema.index({ 'metadata.userId': 1, createdAt: -1 });
+
+// Index 2: Webhook lookup by orderId (Razorpay callback verification)
+// Note: `razorpayOrderId` is defined with `unique: true, index: true` in
+// the field definition above; explicit schema.index() is omitted to avoid
+// duplicate index creation.
+// ===========================================================
+
 export const Payment = (mongoose.models.Payment || mongoose.model<PaymentDocument>('Payment', paymentSchema)) as Model<PaymentDocument>;

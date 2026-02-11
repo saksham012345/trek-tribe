@@ -3,6 +3,7 @@ import { User } from '../models/User';
 import { logger } from '../utils/logger';
 import { emailService } from './emailService';
 import { emailTemplates } from '../templates/emailTemplates';
+import { emailQueue } from './emailQueue';
 
 interface EmailCampaign {
   name: string;
@@ -122,61 +123,56 @@ class MarketingAutomationService {
         sequences: campaign.sequence.length 
       });
 
-      // Schedule each email in the sequence
+      // Schedule each email in the sequence using queue
       for (const step of campaign.sequence) {
-        setTimeout(async () => {
-          try {
-            const currentLead = await Lead.findById(leadId);
-            
-            // Skip if lead converted or lost
-            if (!currentLead || currentLead.status === 'converted' || currentLead.status === 'lost') {
-              logger.info('Skipping drip email - lead status changed', { 
-                leadId,
-                status: currentLead?.status 
-              });
-              return;
-            }
-
-            const trip = currentLead.tripId ? await this.getTripDetails(currentLead.tripId.toString()) : null;
-
-            const emailHtml = this.generateEmailContent(step.template, {
-              userName: currentLead.name || 'Traveler',
-              email: currentLead.email,
-              tripTitle: trip?.title,
-              leadScore: currentLead.leadScore,
-            });
-
-            await emailService.sendEmail({
-              to: currentLead.email!,
-              subject: step.subject,
-              html: emailHtml,
-            });
-
-            currentLead.interactions.push({
-              type: 'email',
-              description: `Drip Campaign: ${campaign.name} - Step ${campaign.sequence.indexOf(step) + 1}`,
-              timestamp: new Date(),
-              performedBy: undefined,
-            } as any);
-            await currentLead.save();
-
-            logger.info('Drip email sent', { 
-              leadId,
-              campaign: campaign.name,
-              step: campaign.sequence.indexOf(step) + 1 
-            });
-            
-          } catch (error: any) {
-            logger.error('Error sending drip email', { 
-              leadId,
-              error: error.message 
-            });
-          }
-        }, step.delay * 60 * 60 * 1000); // Convert hours to milliseconds
+        const delayMs = step.delay * 60 * 60 * 1000;
+        this.scheduleDripEmail(leadId, campaign.name, step, delayMs, campaign.sequence.indexOf(step) + 1);
       }
       
     } catch (error: any) {
       logger.error('Error starting drip campaign', { error: error.message });
+    }
+  }
+
+  /**
+   * Schedule drip email using queue
+   */
+  private async scheduleDripEmail(
+    leadId: string,
+    campaignName: string,
+    step: { subject: string; template: string },
+    delayMs: number,
+    stepNumber: number
+  ): Promise<void> {
+    try {
+      const lead = await Lead.findById(leadId).populate('tripId');
+      if (!lead || !lead.email) return;
+
+      const trip = lead.tripId ? await this.getTripDetails(lead.tripId.toString()) : null;
+      const emailHtml = this.generateEmailContent(step.template, {
+        userName: lead.name || 'Traveler',
+        email: lead.email,
+        tripTitle: trip?.title,
+        leadScore: lead.leadScore,
+      });
+
+      await emailQueue.scheduleEmail({
+        type: 'marketing_drip',
+        to: lead.email,
+        subject: step.subject,
+        html: emailHtml,
+        leadId: lead._id.toString(),
+        metadata: { campaignName, stepNumber },
+      }, delayMs);
+
+      logger.info('Scheduled drip email', {
+        leadId,
+        campaign: campaignName,
+        step: stepNumber,
+        delayHours: delayMs / (1000 * 60 * 60),
+      });
+    } catch (error: any) {
+      logger.error('Error scheduling drip email', { error: error.message, leadId });
     }
   }
 

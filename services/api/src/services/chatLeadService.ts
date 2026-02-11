@@ -1,6 +1,7 @@
 import Lead from '../models/Lead';
 import { logger } from '../utils/logger';
 import notificationService from './notificationService';
+import { emailQueue } from './emailQueue';
 
 interface ChatSession {
   userId: string;
@@ -122,9 +123,9 @@ class ChatLeadService {
         }
       }
 
-      // If high intent, trigger immediate follow-up
+      // If high intent, trigger immediate follow-up using queue
       if (intentScore >= 60) {
-        setTimeout(() => this.sendChatFollowUp(lead!._id.toString()), 2 * 60 * 60 * 1000); // 2 hours
+        this.scheduleChatFollowUp(lead._id.toString(), 2 * 60 * 60 * 1000); // 2 hours
       }
 
     } catch (error: any) {
@@ -207,6 +208,39 @@ class ChatLeadService {
       });
     } catch (error: any) {
       logger.error('Error notifying organizer', { error: error.message });
+    }
+  }
+
+  /**
+   * Schedule chat follow-up email using queue
+   */
+  private async scheduleChatFollowUp(leadId: string, delayMs: number): Promise<void> {
+    try {
+      const lead = await Lead.findById(leadId).populate('tripId');
+      if (!lead || lead.status === 'converted' || !lead.email) return;
+
+      const trip = (lead.tripId as any);
+      const { emailTemplates } = require('../templates/emailTemplates');
+      
+      const emailHtml = emailTemplates.chatFollowUp({
+        userName: lead.name || 'Traveler',
+        tripTitle: trip?.title || 'our adventure trips',
+        tripUrl: trip ? `${process.env.FRONTEND_URL}/trips/${trip._id}` : `${process.env.FRONTEND_URL}/trips`,
+        chatSummary: lead.metadata.inquiryMessage || 'You recently chatted with us',
+      });
+
+      await emailQueue.scheduleEmail({
+        type: 'chat_followup',
+        to: lead.email,
+        subject: `Following up on your interest in ${trip?.title || 'Trek-Tribe'}`,
+        html: emailHtml,
+        leadId: lead._id.toString(),
+        tripId: trip?._id?.toString(),
+      }, delayMs);
+
+      logger.info('Scheduled chat follow-up', { leadId, delayHours: delayMs / (1000 * 60 * 60) });
+    } catch (error: any) {
+      logger.error('Error scheduling chat follow-up', { error: error.message, leadId });
     }
   }
 

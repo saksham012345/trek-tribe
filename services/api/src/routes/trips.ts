@@ -19,6 +19,205 @@ const router = Router();
 
 // ... (other imports)
 
+/**
+ * @swagger
+ * tags:
+ *   - name: Trips
+ *     description: Trip creation, management, and discovery endpoints
+ *   - name: Trip Details
+ *     description: Detailed information about trips
+ */
+
+/**
+ * @swagger
+ * /trips:
+ *   post:
+ *     summary: Create a new trip
+ *     description: Create a new trip offering. Requires organizer or admin role, email verification, and active subscription.
+ *     tags:
+ *       - Trips
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - title
+ *               - destination
+ *               - startDate
+ *               - endDate
+ *               - price
+ *               - capacity
+ *               - categories
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 example: "Mountain Adventure in Himalayas"
+ *               description:
+ *                 type: string
+ *                 example: "A thrilling 7-day trek through the Himalayan ranges"
+ *               destination:
+ *                 type: string
+ *                 example: "Manali, Himachal Pradesh, India"
+ *               startDate:
+ *                 type: string
+ *                 format: date-time
+ *                 example: "2024-06-15T00:00:00Z"
+ *               endDate:
+ *                 type: string
+ *                 format: date-time
+ *                 example: "2024-06-22T00:00:00Z"
+ *               price:
+ *                 type: number
+ *                 minimum: 1
+ *                 example: 15000
+ *               capacity:
+ *                 type: integer
+ *                 minimum: 1
+ *                 example: 20
+ *               categories:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["Trekking", "Adventure"]
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: URLs of trip images
+ *               difficulty:
+ *                 type: string
+ *                 enum: ["easy", "moderate", "difficult"]
+ *                 example: "moderate"
+ *               minimumAge:
+ *                 type: integer
+ *                 example: 18
+ *               itinerary:
+ *                 type: string
+ *                 example: "Day 1: Arrival in Manali...\nDay 2: Trek to base camp..."
+ *               paymentConfig:
+ *                 type: object
+ *                 properties:
+ *                   paymentType:
+ *                     type: string
+ *                     enum: ["full", "partial"]
+ *                   advanceAmount:
+ *                     type: number
+ *                   paymentMethods:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                     example: ["upi", "card"]
+ *     responses:
+ *       201:
+ *         description: Trip created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Trip'
+ *       400:
+ *         description: Validation error - missing or invalid fields
+ *       401:
+ *         description: Unauthorized - authentication required
+ *       402:
+ *         description: Payment required - subscription or AutoPay needed
+ *       403:
+ *         description: Forbidden - trip limit reached or insufficient permissions
+ *       404:
+ *         description: Organizer not found
+ *   get:
+ *     summary: Get all trips with filtering and search
+ *     description: Retrieve a list of all available trips with optional filters, search, and pagination
+ *     tags:
+ *       - Trips
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search in title and description
+ *         example: "mountain"
+ *       - in: query
+ *         name: destination
+ *         schema:
+ *           type: string
+ *         description: Filter by destination
+ *         example: "Himalayas"
+ *       - in: query
+ *         name: minPrice
+ *         schema:
+ *           type: number
+ *         description: Minimum trip price
+ *         example: 5000
+ *       - in: query
+ *         name: maxPrice
+ *         schema:
+ *           type: number
+ *         description: Maximum trip price
+ *         example: 50000
+ *       - in: query
+ *         name: difficulty
+ *         schema:
+ *           type: string
+ *           enum: ["easy", "moderate", "difficult"]
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *         description: Filter by category
+ *         example: "Trekking"
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter trips starting from this date
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter trips ending before this date
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           enum: ["newest", "price-low", "price-high", "rating"]
+ *     responses:
+ *       200:
+ *         description: List of trips
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 trips:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Trip'
+ *                 total:
+ *                   type: integer
+ *                 page:
+ *                   type: integer
+ *                 pages:
+ *                   type: integer
+ *       400:
+ *         description: Invalid query parameters
+ */
+
 const createTripSchema = z.object({
   title: z.string().min(1),
   description: z.string().min(1),

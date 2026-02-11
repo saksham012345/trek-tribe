@@ -172,6 +172,10 @@ const EnhancedProfilePage: React.FC = () => {
       if (endpoint.startsWith('/public/')) {
         const publicData = (response.data as any).data;
         userData = publicData.user as ProfileUser;
+        // Add trust score from public endpoint
+        if (publicData.trustScore) {
+          userData.trustScore = publicData.trustScore;
+        }
         roleData = {
           portfolioVisible: true,
           postsVisible: true,

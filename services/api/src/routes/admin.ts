@@ -1677,6 +1677,7 @@ router.post('/users/:id/subscription-override', async (req, res) => {
 router.post('/users/:id/trust-score', async (req, res) => {
   try {
     const { id } = req.params;
+    const { manualScore } = req.body; // Optional: manual trust score assignment
     const adminId = (req as any).auth.userId;
 
     // Check if user exists and is an organizer
@@ -1689,18 +1690,57 @@ router.post('/users/:id/trust-score', async (req, res) => {
       return res.status(400).json({ error: 'Trust score is only applicable for organizers' });
     }
 
-    // Calculate score using service
-    const trustScore = await TrustScoreService.updateOrganizerTrustScore(id);
+    let trustScore;
 
-    logger.info('Trust score recalculated by admin', {
-      adminId,
-      organizerId: id,
-      newScore: trustScore.overall
-    });
+    // If manual score provided, use it (admin override)
+    if (typeof manualScore === 'number') {
+      if (manualScore < 0 || manualScore > 100) {
+        return res.status(400).json({ error: 'Trust score must be between 0 and 100' });
+      }
+
+      // Create a manual trust score breakdown
+      trustScore = {
+        overall: manualScore,
+        breakdown: {
+          documentVerified: Math.min(manualScore * 0.2, 20),
+          bankVerified: Math.min(manualScore * 0.2, 20),
+          experienceYears: Math.min(manualScore * 0.15, 15),
+          completedTrips: 0,
+          userReviews: 0,
+          responseTime: Math.min(manualScore * 0.1, 10),
+          refundRate: Math.min(manualScore * 0.05, 5)
+        },
+        lastCalculated: new Date()
+      };
+
+      // Update user with manual score
+      if (!user.organizerProfile) {
+        user.organizerProfile = {} as any;
+      }
+
+      user.organizerProfile.trustScore = trustScore;
+      user.organizerProfile.verificationBadge = TrustScoreService.getBadgeForScore(manualScore) as any;
+      await user.save();
+
+      logger.info('Admin manually assigned trust score', {
+        adminId,
+        organizerId: id,
+        score: manualScore
+      });
+    } else {
+      // Recalculate using service
+      trustScore = await TrustScoreService.updateOrganizerTrustScore(id);
+
+      logger.info('Trust score recalculated by admin', {
+        adminId,
+        organizerId: id,
+        newScore: trustScore.overall
+      });
+    }
 
     res.json({
       success: true,
-      message: 'Trust score recalculated successfully',
+      message: manualScore !== undefined ? 'Trust score assigned successfully' : 'Trust score recalculated successfully',
       trustScore,
       badge: TrustScoreService.getBadgeForScore(trustScore.overall)
     });
@@ -1762,6 +1802,27 @@ router.post('/users/:id/verify-organizer', async (req, res) => {
   } catch (error: any) {
     logger.error('Error verifying organizer', { error: error.message });
     res.status(500).json({ error: 'Failed to verify organizer' });
+  }
+});
+
+// Email Service Health Check
+router.get('/email/health', async (req, res) => {
+  try {
+    const emailStatus = await emailService.getServiceStatus();
+    const { emailQueue } = await import('../services/emailQueue');
+    const queueStats = await emailQueue.getQueueStats();
+
+    res.json({
+      email: emailStatus,
+      queue: {
+        ...queueStats,
+        healthy: queueStats.failed < 10,
+      },
+      timestamp: new Date(),
+    });
+  } catch (error: any) {
+    logger.error('Error checking email health', { error: error.message });
+    res.status(500).json({ error: 'Failed to check email health' });
   }
 });
 

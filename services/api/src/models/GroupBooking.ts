@@ -193,6 +193,20 @@ groupBookingSchema.index({ tripId: 1, mainBookerId: 1 });
 groupBookingSchema.index({ paymentStatus: 1, bookingStatus: 1 });
 groupBookingSchema.index({ createdAt: -1 });
 
+// ==================== CRITICAL INDEXES ====================
+// Index 1: User's bookings list (my bookings page - user dashboard)
+groupBookingSchema.index({ mainBookerId: 1, createdAt: -1 });
+
+// Index 2: Organizer viewing trip bookings (organizer dashboard)
+groupBookingSchema.index({ tripId: 1, createdAt: -1 });
+
+// Index 3: Prevent duplicate bookings (UNIQUE constraint)
+groupBookingSchema.index(
+  { mainBookerId: 1, tripId: 1 },
+  { unique: true }
+);
+// ===========================================================
+
 // Virtual for main booker participant
 groupBookingSchema.virtual('mainBooker').get(function () {
   return this.participants.find((p: any) => p.isMainBooker);

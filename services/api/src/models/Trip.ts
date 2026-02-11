@@ -307,8 +307,21 @@ const tripSchema = new Schema(
 );
 
 tripSchema.index({ title: 'text', description: 'text', destination: 'text' });
-// Index for slug lookup
-tripSchema.index({ slug: 1 });
+
+// ==================== CRITICAL INDEXES ====================
+// Index 1: Trip search by destination (public search - highest traffic)
+tripSchema.index({ destination: 1 });
+
+// Index 2: Filter published/active trips with date range filtering
+tripSchema.index({ status: 1, startDate: 1 });
+
+// Index 3: Organizer's trips dashboard (sorted by newest)
+tripSchema.index({ organizerId: 1, createdAt: -1 });
+
+// Index 4: Direct trip access via URL slug
+// Note: `slug` field declares `index: true` in its field definition above.
+// The explicit schema.index() call is omitted to avoid duplicate index creation.
+// ===========================================================
 
 // Export with proper typing to avoid complex union types
 export const Trip = (mongoose.models.Trip || mongoose.model<TripDocument>('Trip', tripSchema)) as Model<TripDocument>;

@@ -33,6 +33,11 @@ interface ProfileUser {
     followingCount: number;
     postsCount: number;
   };
+  trustScore?: {
+    overall: number;
+    breakdown?: any;
+    badge?: string;
+  };
   isVerified?: boolean;
   createdAt: string;
 }
@@ -250,6 +255,36 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
                 {profile.socialStats.postsCount}
               </div>
               <div className="text-sm text-gray-600">Posts</div>
+            </div>
+          </div>
+        )}
+
+        {/* Trust Score Section for Organizers */}
+        {profile.role === 'organizer' && profile.trustScore && (
+          <div className="mb-6 p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border border-yellow-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <span className="text-xl">⭐</span>
+              Trust Score
+            </h3>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="text-3xl font-bold text-orange-600">
+                    {profile.trustScore.overall.toFixed(0)}
+                  </div>
+                  <span className="text-sm text-gray-600">/100</span>
+                </div>
+                {profile.trustScore.badge && profile.trustScore.badge !== 'none' && (
+                  <div className="inline-block px-3 py-1 bg-yellow-200 text-yellow-800 rounded-full text-xs font-semibold capitalize">
+                    {profile.trustScore.badge} Badge
+                  </div>
+                )}
+              </div>
+              <div className="text-right">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400 to-yellow-400 flex items-center justify-center text-white font-bold text-xl">
+                  {Math.round((profile.trustScore.overall / 100) * 100)}%
+                </div>
+              </div>
             </div>
           </div>
         )}

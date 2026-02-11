@@ -361,9 +361,23 @@ const AdminDashboard: React.FC = () => {
   };
 
   const recalculateTrustScore = async (userId: string) => {
+    const scoreInput = window.prompt('Enter trust score (0-100) or leave blank to auto-calculate:', '');
+    if (scoreInput === null) return; // User cancelled
+
     try {
-      addNotification('Recalculating trust score...', 'info');
-      await api.post(`/admin/users/${userId}/trust-score`);
+      addNotification('Updating trust score...', 'info');
+      const body: any = {};
+      
+      if (scoreInput.trim()) {
+        const score = parseInt(scoreInput, 10);
+        if (isNaN(score) || score < 0 || score > 100) {
+          addNotification('Trust score must be a number between 0 and 100', 'error');
+          return;
+        }
+        body.manualScore = score;
+      }
+
+      await api.post(`/admin/users/${userId}/trust-score`, body);
       addNotification('Trust score updated successfully', 'success');
       fetchUserContacts();
     } catch (err: any) {
