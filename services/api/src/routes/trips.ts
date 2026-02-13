@@ -14,6 +14,7 @@ import { socketService } from '../services/socketService';
 import { trackTripView } from '../middleware/tripViewTracker';
 import { logger } from '../utils/logger';
 import { slugify } from '../utils/slugify';
+import { cacheMiddleware, invalidateCache } from '../utils/cache';
 
 const router = Router();
 
@@ -641,6 +642,9 @@ router.post('/', authenticateJwt, requireRole(['organizer', 'admin']), requireEm
     // Broadcast real-time update
     socketService.broadcastTripUpdate(trip, 'created');
 
+    // Invalidate trips cache
+    invalidateCache('/trips');
+
     // Return trip at top-level with `_id` to match test expectations
     const tripObj = (trip.toObject && typeof trip.toObject === 'function') ? trip.toObject() : trip;
     // Ensure a `category` shortcut field exists for tests expecting `trip.category`
@@ -700,30 +704,33 @@ router.post('/', authenticateJwt, requireRole(['organizer', 'admin']), requireEm
   }
 }));
 
-router.get('/', async (req, res) => {
+router.get('/', cacheMiddleware(300), async (req, res) => {
   try {
-    const { q, category, difficulty, minPrice, maxPrice, dest, from, to, limit = '50' } = req.query as Record<string, string>;
+    const { 
+      q, 
+      category, 
+      difficulty, 
+      minPrice, 
+      maxPrice, 
+      dest, 
+      from, 
+      to, 
+      limit = '20', 
+      page = '1' 
+    } = req.query as Record<string, string>;
 
     // Build filter
     const filter: any = {};
 
     // Status filter: Default to exclude completed and cancelled if not specified
-    // If user specifically asks for 'completed' or 'all', handle it.
-    // Assuming public only wants to see 'active' (or pending if organizer). 
-    // Usually public 'discover' should only show 'active'.
-    // User request: "completed trip shall not be visible ... untill the user filters for completed trips"
-
-    // Check if a specific status is requested
     const statusQuery = (req.query.status as string)?.toLowerCase();
 
     if (statusQuery === 'completed') {
       filter.status = 'completed';
     } else if (statusQuery === 'all') {
-      // Show all trips including pending (important for tests and admin views)
       filter.status = { $in: ['pending', 'active', 'completed', 'cancelled'] };
     } else {
-      // Default behavior: Show only ACTIVE trips (Ready to book)
-      // This hides 'completed', 'cancelled', and 'pending' by default.
+      // Default: Show only ACTIVE trips
       filter.status = 'active';
     }
 
@@ -734,18 +741,30 @@ router.get('/', async (req, res) => {
     if (minPrice || maxPrice) filter.price = { ...(minPrice ? { $gte: Number(minPrice) } : {}), ...(maxPrice ? { $lte: Number(maxPrice) } : {}) };
     if (from || to) filter.startDate = { ...(from ? { $gte: new Date(from) } : {}), ...(to ? { $lte: new Date(to) } : {}) };
 
-    // Parse limit with a reasonable max
-    const limitNum = Math.min(Number(limit) || 50, 100);
+    // Pagination
+    const pageNum = parseInt(page) || 1;
+    const limitNum = Math.min(parseInt(limit) || 20, 50);
+    const skip = (pageNum - 1) * limitNum;
 
-    console.log('🔍 GET /trips - Query:', { filter, limit: limitNum });
+    console.log('🔍 GET /trips - Query:', { filter, limit: limitNum, page: pageNum });
 
-    const trips = await Trip.find(filter)
-      .populate('organizerId', 'name email')
-      .lean()
-      .limit(limitNum)
-      .sort({ createdAt: -1 }); // Show newest trips first
+    // Parallel execution: fetch trips and total count
+    const [trips, total] = await Promise.all([
+      Trip.find(filter)
+        .select('title destination price startDate endDate coverImage difficulty categories capacity participants status averageRating reviewCount')
+        .populate({
+          path: 'organizerId',
+          select: 'name profilePhoto',
+          options: { lean: true }
+        })
+        .lean()
+        .skip(skip)
+        .limit(limitNum)
+        .sort({ createdAt: -1 }),
+      Trip.countDocuments(filter)
+    ]);
 
-    console.log(`✅ Found ${trips.length} trips`);
+    console.log(`✅ Found ${trips.length} trips (total: ${total})`);
 
     const tripsWithCategory = trips.map(t => {
       const tripObj = (t as any);
@@ -755,7 +774,15 @@ router.get('/', async (req, res) => {
       return tripObj;
     });
 
-    res.json(tripsWithCategory);
+    res.json({
+      data: tripsWithCategory,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        pages: Math.ceil(total / limitNum)
+      }
+    });
   } catch (error: any) {
     console.error('❌ Error fetching trips:', error);
     res.status(500).json({ error: 'Failed to fetch trips' });
@@ -768,7 +795,14 @@ router.get('/:id', trackTripView, async (req, res) => {
     return res.status(400).json({ error: 'Invalid trip id' });
   }
 
-  const trip = await Trip.findById(id).populate('organizerId', 'name organizerProfile').lean();
+  const trip = await Trip.findById(id)
+    .populate({
+      path: 'organizerId',
+      select: 'name profilePhoto organizerProfile.bio organizerProfile.yearsOfExperience organizerProfile.totalTripsOrganized',
+      options: { lean: true }
+    })
+    .lean();
+    
   if (!trip) return res.status(404).json({ error: 'Not found' });
 
   const tripObj = (trip as any);
@@ -899,6 +933,9 @@ router.put('/:id', authenticateJwt, requireRole(['organizer', 'admin']), async (
       { new: true, runValidators: true }
     );
 
+    // Invalidate trips cache
+    invalidateCache('/trips');
+
     res.json(updatedTrip);
   } catch (error: any) {
     console.error('Error updating trip:', error);
@@ -923,6 +960,9 @@ router.delete('/:id', authenticateJwt, requireRole(['organizer', 'admin']), asyn
     }
 
     await Trip.findByIdAndDelete(req.params.id);
+
+    // Invalidate trips cache
+    invalidateCache('/trips');
 
     res.json({ message: 'Trip deleted successfully' });
   } catch (error: any) {

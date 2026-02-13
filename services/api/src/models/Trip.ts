@@ -321,6 +321,19 @@ tripSchema.index({ organizerId: 1, createdAt: -1 });
 // Index 4: Direct trip access via URL slug
 // Note: `slug` field declares `index: true` in its field definition above.
 // The explicit schema.index() call is omitted to avoid duplicate index creation.
+
+// ==================== PERFORMANCE OPTIMIZATION INDEXES ====================
+// Compound index for active trips with destination and date filtering
+tripSchema.index({ status: 1, destination: 1, startDate: 1 });
+
+// Compound index for category and difficulty filtering
+tripSchema.index({ categories: 1, difficulty: 1 });
+
+// Index for price range queries
+tripSchema.index({ price: 1 });
+
+// Compound index for organizer's active trips
+tripSchema.index({ organizerId: 1, status: 1 });
 // ===========================================================
 
 // Export with proper typing to avoid complex union types

@@ -1,9 +1,83 @@
 import express from 'express';
 import { User } from '../models/User';
+import { Trip } from '../models/Trip';
 import { authenticateJwt } from '../middleware/auth';
 import { logger } from '../utils/logger';
+import { cacheMiddleware } from '../utils/cache';
 
 const router = express.Router();
+
+// Search trips
+router.get('/trips', cacheMiddleware(300), async (req, res) => {
+  try {
+    const { query, q, limit = 20, category, difficulty, minPrice, maxPrice } = req.query;
+    
+    const searchQuery = (query || q || '').toString().trim();
+    
+    if (!searchQuery || searchQuery.length < 2) {
+      return res.json({ trips: [], totalResults: 0, query: searchQuery });
+    }
+
+    const searchLimit = Math.min(parseInt(limit.toString()) || 20, 50);
+    
+    // Build search criteria
+    const searchCriteria: any = {
+      status: 'active', // Only show active trips
+      $or: [
+        { title: { $regex: searchQuery, $options: 'i' } },
+        { description: { $regex: searchQuery, $options: 'i' } },
+        { destination: { $regex: searchQuery, $options: 'i' } }
+      ]
+    };
+
+    // Add filters
+    if (category) {
+      searchCriteria.categories = category.toString();
+    }
+    
+    if (difficulty) {
+      searchCriteria.difficulty = difficulty.toString();
+    }
+    
+    if (minPrice || maxPrice) {
+      searchCriteria.price = {};
+      if (minPrice) searchCriteria.price.$gte = parseInt(minPrice.toString());
+      if (maxPrice) searchCriteria.price.$lte = parseInt(maxPrice.toString());
+    }
+
+    const trips = await Trip.find(searchCriteria)
+      .select('title description destination price startDate endDate coverImage difficulty categories capacity participants status')
+      .populate({
+        path: 'organizerId',
+        select: 'name profilePhoto',
+        options: { lean: true }
+      })
+      .limit(searchLimit)
+      .sort({ startDate: 1, createdAt: -1 })
+      .lean();
+
+    const formattedTrips = trips.map(trip => ({
+      ...trip,
+      availableSpots: trip.capacity - (trip.participants?.length || 0)
+    }));
+
+    logger.info('Trip search performed', { 
+      query: searchQuery, 
+      resultsCount: formattedTrips.length,
+      filters: { category, difficulty, minPrice, maxPrice }
+    });
+
+    res.json({ 
+      trips: formattedTrips,
+      query: searchQuery,
+      totalResults: formattedTrips.length
+    });
+
+  } catch (error: any) {
+    logger.error('Error searching trips', { error: error.message, query: req.query.q || req.query.query });
+    res.status(500).json({ error: 'Failed to search trips' });
+  }
+});
 
 // Search profiles
 router.get('/profiles', async (req, res) => {
@@ -40,7 +114,8 @@ router.get('/profiles', async (req, res) => {
     const profiles = await User.find(searchCriteria)
       .select('name email profilePhoto role location bio socialStats isVerified')
       .limit(searchLimit)
-      .sort({ 'socialStats.followersCount': -1, 'socialStats.postsCount': -1, name: 1 });
+      .sort({ 'socialStats.followersCount': -1, 'socialStats.postsCount': -1, name: 1 })
+      .lean();
 
     const formattedProfiles = profiles.map(user => ({
       _id: user._id,
@@ -89,7 +164,8 @@ router.get('/suggestions', async (req, res) => {
         'socialStats.postsCount': -1,
         'createdAt': -1 
       })
-      .limit(searchLimit);
+      .limit(searchLimit)
+      .lean();
 
     const formattedSuggestions = suggestions.map(user => ({
       _id: user._id,

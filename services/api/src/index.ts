@@ -3,6 +3,7 @@ import 'dotenv/config';
 import express, { Request, Response, NextFunction } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
+import compression from 'compression';
 import mongoose from 'mongoose';
 import cookieParser from 'cookie-parser';
 import swaggerUi from 'swagger-ui-express';
@@ -105,6 +106,18 @@ app.use(logger.requestLogger());
 // Metrics middleware collects request metrics for Prometheus
 app.use(metrics.metricsMiddleware());
 app.use(timeoutMiddleware);
+
+// Compression middleware - compress all responses
+app.use(compression({
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) {
+      return false;
+    }
+    return compression.filter(req, res);
+  },
+  level: 6 // Compression level (0-9, 6 is default)
+}));
+
 app.use(helmet({
   // Enable CSP in all environments for better security (can be more lenient in development)
   contentSecurityPolicy: {

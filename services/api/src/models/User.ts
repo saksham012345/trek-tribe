@@ -490,6 +490,17 @@ userSchema.index({ name: 'text', email: 'text' });
 // from the field definitions; explicit schema.index() calls are omitted
 // here to avoid duplicate index creation.
 
+// ==================== PERFORMANCE OPTIMIZATION INDEXES ====================
+// Compound index for role-based queries with follower sorting
+userSchema.index({ role: 1, 'socialStats.followersCount': -1 });
+
+// Index for location-based queries
+userSchema.index({ location: 1 });
+
+// Text index for name and bio search
+userSchema.index({ name: 'text', bio: 'text' });
+// ===========================================================
+
 // Pre-save middleware to ensure socialStats are initialized
 userSchema.pre('save', function (next) {
   if (!this.socialStats) {
