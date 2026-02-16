@@ -4,7 +4,12 @@ import { User } from '../models/User';
 
 async function checkUserRole() {
     try {
-        const mongoUri = 'mongodb+srv://tanejasaksham384_db_user:Saksham4700@trekk.wphfse5.mongodb.net/?appName=Trekk';
+        const mongoUri = process.env.MONGODB_URI;
+        
+        if (!mongoUri) {
+            console.error('❌ MONGODB_URI environment variable is required');
+            process.exit(1);
+        }
 
         console.log('🔌 Connecting to MongoDB...');
         await mongoose.connect(mongoUri);

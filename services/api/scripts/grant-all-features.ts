@@ -29,7 +29,7 @@ const subscriptionSchema = new mongoose.Schema({
 const OrganizerSubscription = mongoose.model('OrganizerSubscription', subscriptionSchema);
 
 async function main() {
-    const mongoUri = process.env.MONGODB_URI || "mongodb+srv://tanejasaksham384_db_user:Saksham4700@trekk.wphfse5.mongodb.net/?appName=Trekk";
+    const mongoUri = process.env.MONGODB_URI;
 
     if (!mongoUri) {
         console.error('❌ MONGODB_URI not found in environment');

@@ -62,6 +62,7 @@ import groupsRoutes from './routes/groups';
 import eventsRoutes from './routes/events';
 import bankDetailsRoutes from './routes/bankDetails';
 import financeRoutes from './routes/finance';
+import databaseImportRoutes from './routes/databaseImport';
 import { apiLimiter, authLimiter, otpLimiter } from './middleware/rateLimiter';
 import { cronScheduler } from './services/cronScheduler';
 import { chargeRetryWorker } from './services/chargeRetryWorker';
@@ -385,6 +386,10 @@ console.log('✅ Bank details routes mounted at /api/bank-details');
 // Finance & Expense Routes (Organizer Profit/Loss)
 app.use('/api/finance', financeRoutes);
 console.log('✅ Finance routes mounted at /api/finance');
+
+// Database Import Routes (CRM Feature)
+app.use('/api/database-import', databaseImportRoutes);
+console.log('✅ Database import routes mounted at /api/database-import');
 
 // Seed Routes under internal namespace
 app.use('/api/internal/seed', seedRoutes);

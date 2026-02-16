@@ -402,6 +402,86 @@ router.get('/analytics/lead-sources', requireOrganizerOrAdmin, async (req: AuthR
   }
 });
 
+// ============================================
+// LEAD EXPORT ROUTE (Organizer - Own Leads Only)
+// ============================================
+
+/**
+ * Export leads to CSV (Organizers can only export their own leads)
+ * GET /api/crm/leads/export
+ */
+router.get('/leads/export', requireOrganizerOrAdmin, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user?.id;
+    const isAdmin = req.user?.role === 'admin';
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
+
+    // Build query - organizers can only export their own leads
+    const query: any = {};
+    if (!isAdmin) {
+      query.assignedTo = userId;
+    }
+
+    // Optional filters
+    const { status, source, tripId } = req.query;
+    if (status) query.status = status;
+    if (source) query.source = source;
+    if (tripId) query.tripId = tripId;
+
+    // Fetch leads with populated references
+    const leads = await Lead.find(query)
+      .populate('tripId', 'title destination')
+      .populate('userId', 'name email phone')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Generate CSV content
+    const csvHeader = 'Name,Email,Phone,Trip,Status,Source,Lead Score,Created At,Last Updated\n';
+    const csvRows = leads.map((lead: any) => {
+      return [
+        `"${lead.name || lead.userId?.name || ''}",`,
+        `"${lead.email || ''}",`,
+        `"${lead.phone || lead.userId?.phone || ''}",`,
+        `"${lead.tripId?.title || 'N/A'}",`,
+        `"${lead.status || ''}",`,
+        `"${lead.source || ''}",`,
+        `"${lead.leadScore || 0}",`,
+        `"${lead.createdAt ? new Date(lead.createdAt).toISOString() : ''}",`,
+        `"${lead.updatedAt ? new Date(lead.updatedAt).toISOString() : ''}"`
+      ].join('');
+    }).join('\n');
+
+    const csv = csvHeader + csvRows;
+
+    // Audit log
+    console.log('Lead export', {
+      userId,
+      role: req.user?.role,
+      leadCount: leads.length,
+      filters: { status, source, tripId },
+      timestamp: new Date(),
+    });
+
+    // Set response headers for CSV download
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="leads-export-${new Date().toISOString().split('T')[0]}.csv"`);
+    res.send(csv);
+  } catch (error: any) {
+    console.error('Lead export error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to export leads',
+      error: error.message,
+    });
+  }
+});
+
 // Organizer analytics
 router.get('/analytics/organizer', requireOrganizerOrAdmin, async (req: AuthRequest, res) => {
   try {

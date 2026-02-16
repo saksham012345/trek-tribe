@@ -8,7 +8,12 @@ import { User } from '../src/models/User';
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
 async function verifyAdmin() {
-    const mongoUri = process.env.MONGODB_URI || "mongodb+srv://tanejasaksham384_db_user:Saksham4700@trekk.wphfse5.mongodb.net/?appName=Trekk";
+    const mongoUri = process.env.MONGODB_URI;
+    
+    if (!mongoUri) {
+        console.error('❌ MONGODB_URI environment variable is required');
+        process.exit(1);
+    }
 
     console.log('🔌 Connecting to MongoDB...');
     await mongoose.connect(mongoUri);
