@@ -6,8 +6,8 @@ import cors from 'cors';
 import compression from 'compression';
 import mongoose from 'mongoose';
 import cookieParser from 'cookie-parser';
-import swaggerUi from 'swagger-ui-express';
-import { specs } from './swagger';
+// import swaggerUi from 'swagger-ui-express';
+// import { specs } from './swagger';
 // Optional in-memory MongoDB for local dev/testing
 import { createServer } from 'http';
 import authRoutes from './routes/auth';
@@ -39,7 +39,7 @@ import uploadRoutes from './routes/upload';
 import { whatsappService } from './services/whatsappService';
 import { socketService } from './services/socketService';
 import { emailService } from './services/emailService';
-import { emailQueue } from './services/emailQueueService';
+// import { emailQueue } from './services/emailQueueService'; // DISABLED: Redis not configured
 // CRM System Routes
 import crmRoutes from './routes/crm';
 import chatService from './services/chatService';
@@ -249,23 +249,24 @@ app.use(sanitizeInputs);
 app.use('/uploads', express.static('uploads'));
 
 // ==========================================
-// SWAGGER/API DOCUMENTATION (ADMIN ONLY)
+// SWAGGER/API DOCUMENTATION (DISABLED)
 // ==========================================
-// Protected: Only admins can access API documentation
-app.use('/api-docs', authenticateJwt, requireRole(['admin']), swaggerUi.serve, swaggerUi.setup(specs, {
-  swaggerOptions: {
-    persistAuthorization: true,
-    displayOperationId: true,
-  },
-  customCss: '.swagger-ui .topbar { display: none }',
-  customSiteTitle: 'Trek Tribe API Documentation'
-}));
+// Swagger documentation disabled due to build issues on Render
+// To re-enable: uncomment swagger imports and these routes
+// app.use('/api-docs', authenticateJwt, requireRole(['admin']), swaggerUi.serve, swaggerUi.setup(specs, {
+//   swaggerOptions: {
+//     persistAuthorization: true,
+//     displayOperationId: true,
+//   },
+//   customCss: '.swagger-ui .topbar { display: none }',
+//   customSiteTitle: 'Trek Tribe API Documentation'
+// }));
 
 // Expose OpenAPI/Swagger JSON for external tools (Admin only)
-app.get('/api-spec.json', authenticateJwt, requireRole(['admin']), (req: Request, res: Response) => {
-  res.setHeader('Content-Type', 'application/json');
-  res.send(specs);
-});
+// app.get('/api-spec.json', authenticateJwt, requireRole(['admin']), (req: Request, res: Response) => {
+//   res.setHeader('Content-Type', 'application/json');
+//   res.send(specs);
+// });
 
 // Simple logging function
 const logMessage = (level: string, message: string): void => {
