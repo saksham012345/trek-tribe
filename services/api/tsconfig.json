@@ -24,8 +24,7 @@
     },
     "types": [
       "node",
-      "whatwg-url",
-      "multer"
+      "whatwg-url"
     ],
     "typeRoots": [
       "./node_modules/@types",
