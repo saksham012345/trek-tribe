@@ -79,7 +79,7 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
     setUsernameStatus('checking');
 
     try {
-      await api.get(`/public/${candidate.value}`);
+      await api.get(`/api/public/${candidate.value}`);
       // If we got 200, username already exists
       setUsernameStatus('taken');
       setError('This username is already taken. Try another one.');
@@ -221,7 +221,7 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
           const baseName = validateUsername(formData.username).valid ? slugifyUsername(formData.username) : slugifyUsername(formData.name);
           const targetUserId = userId || (await api.get('/auth/me')).data?.user?._id;
           if (targetUserId) {
-            const claimResponse = await api.post(`/public/generate-url/${targetUserId}`, { baseName });
+            const claimResponse = await api.post(`/api/public/generate-url/${targetUserId}`, { baseName });
             const claimedSlug = claimResponse?.data?.data?.suggestion || baseName;
             if (formData.role === 'organizer') {
               await api.put('/profile/enhanced', {

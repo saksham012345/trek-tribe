@@ -159,7 +159,7 @@ const EnhancedProfilePage: React.FC = () => {
           endpoint = '/profile/enhanced';
         }
       } else if (isHandle) {
-        endpoint = `/public/${identifier}`;
+        endpoint = `/api/public/${identifier}`;
       } else {
         endpoint = `/profile/enhanced/${identifier}`;
       }
@@ -169,7 +169,7 @@ const EnhancedProfilePage: React.FC = () => {
       let userData: ProfileUser;
       let roleData: RoleBasedData | null = null;
 
-      if (endpoint.startsWith('/public/')) {
+      if (endpoint.startsWith('/api/public/')) {
         const publicData = (response.data as any).data;
         userData = publicData.user as ProfileUser;
         // Add trust score from public endpoint
