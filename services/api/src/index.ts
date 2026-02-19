@@ -6,8 +6,6 @@ import cors from 'cors';
 import compression from 'compression';
 import mongoose from 'mongoose';
 import cookieParser from 'cookie-parser';
-// import swaggerUi from 'swagger-ui-express';
-// import { specs } from './swagger';
 // Optional in-memory MongoDB for local dev/testing
 import { createServer } from 'http';
 import authRoutes from './routes/auth';
@@ -664,13 +662,13 @@ export async function start() {
       console.warn('⚠️ Email service failed to initialize:', error.message);
     }
 
-    // Initialize Email Queue Service
-    try {
-      await emailQueue.initialize();
-      console.log('✅ Email queue service initialized');
-    } catch (error: any) {
-      console.warn('⚠️ Email queue failed to initialize:', error.message);
-    }
+    // Initialize Email Queue Service - DISABLED: Redis not configured
+    // try {
+    //   await emailQueue.initialize();
+    //   console.log('✅ Email queue service initialized');
+    // } catch (error: any) {
+    //   console.warn('⚠️ Email queue failed to initialize:', error.message);
+    // }
 
     // Initialize Socket.IO service
     socketService.initialize(server);
