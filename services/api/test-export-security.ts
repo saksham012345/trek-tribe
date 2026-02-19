@@ -24,15 +24,15 @@ interface TestResult {
 
 const results: TestResult[] = [];
 
-// Test credentials
+// Test credentials - should be provided via environment variables
 const adminCredentials = {
-  email: 'admin@trektribe.in',
-  password: 'Admin@2025!'
+  email: process.env.TEST_ADMIN_EMAIL || 'admin@example.com',
+  password: process.env.TEST_ADMIN_PASSWORD || 'AdminPassword123!'
 };
 
 const organizerCredentials = {
-  email: 'crm.test@trektribe.in',
-  password: 'CRMTest@2025!'
+  email: process.env.TEST_ORGANIZER_EMAIL || 'organizer@example.com',
+  password: process.env.TEST_ORGANIZER_PASSWORD || 'OrganizerPassword123!'
 };
 
 let adminToken: string = '';

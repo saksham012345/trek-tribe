@@ -15,8 +15,9 @@ import path from 'path';
 
 dotenv.config();
 
-const TEST_ORGANIZER_EMAIL = 'crm.test@trektribe.in';
-const TEST_ORGANIZER_PASSWORD = 'CRMTest@2025!';
+// Test credentials should be provided via environment variables
+const TEST_ORGANIZER_EMAIL = process.env.TEST_ORGANIZER_EMAIL || 'test@example.com';
+const TEST_ORGANIZER_PASSWORD = process.env.TEST_ORGANIZER_PASSWORD || 'TestPassword123!';
 
 interface TestResults {
   passed: number;
