@@ -13,6 +13,7 @@ import { emailService } from '../services/emailService';
 import { retryQueueService } from '../services/retryQueueService';
 import RetryJob from '../models/RetryJob';
 import TrustScoreService from '../services/trustScoreService';
+import { emailQueue } from '../services/emailQueueService';
 
 const router = express.Router();
 
@@ -1809,7 +1810,6 @@ router.post('/users/:id/verify-organizer', async (req, res) => {
 router.get('/email/health', async (req, res) => {
   try {
     const emailStatus = await emailService.getServiceStatus();
-    const { emailQueue } = await import('../services/emailQueue');
     const queueStats = await emailQueue.getQueueStats();
 
     res.json({

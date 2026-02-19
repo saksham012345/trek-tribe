@@ -39,6 +39,7 @@ import uploadRoutes from './routes/upload';
 import { whatsappService } from './services/whatsappService';
 import { socketService } from './services/socketService';
 import { emailService } from './services/emailService';
+import { emailQueue } from './services/emailQueueService';
 // CRM System Routes
 import crmRoutes from './routes/crm';
 import chatService from './services/chatService';
@@ -664,7 +665,6 @@ export async function start() {
 
     // Initialize Email Queue Service
     try {
-      const { emailQueue } = await import('./services/emailQueue');
       await emailQueue.initialize();
       console.log('✅ Email queue service initialized');
     } catch (error: any) {

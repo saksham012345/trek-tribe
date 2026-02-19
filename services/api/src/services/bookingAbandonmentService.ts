@@ -1,7 +1,7 @@
 import Lead from '../models/Lead';
 import { logger } from '../utils/logger';
 import notificationService from './notificationService';
-import { emailQueue } from './emailQueue';
+import { emailQueue } from './emailQueueService';
 
 interface PartialBookingData {
   userId: string;

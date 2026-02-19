@@ -1,9 +1,8 @@
 import Lead from '../models/Lead';
-import { User } from '../models/User';
 import { logger } from '../utils/logger';
 import { emailService } from './emailService';
 import { emailTemplates } from '../templates/emailTemplates';
-import { emailQueue } from './emailQueue';
+import { emailQueue } from './emailQueueService';
 
 interface EmailCampaign {
   name: string;
