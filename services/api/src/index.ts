@@ -37,7 +37,7 @@ import uploadRoutes from './routes/upload';
 import { whatsappService } from './services/whatsappService';
 import { socketService } from './services/socketService';
 import { emailService } from './services/emailService';
-// import { emailQueue } from './services/emailQueueService'; // DISABLED: Redis not configured
+import { emailQueue } from './services/emailQueueService';
 // CRM System Routes
 import crmRoutes from './routes/crm';
 import chatService from './services/chatService';
@@ -662,13 +662,13 @@ export async function start() {
       console.warn('⚠️ Email service failed to initialize:', error.message);
     }
 
-    // Initialize Email Queue Service - DISABLED: Redis not configured
-    // try {
-    //   await emailQueue.initialize();
-    //   console.log('✅ Email queue service initialized');
-    // } catch (error: any) {
-    //   console.warn('⚠️ Email queue failed to initialize:', error.message);
-    // }
+    // Initialize Email Queue Service
+    try {
+      await emailQueue.initialize();
+      console.log('✅ Email queue service initialized');
+    } catch (error: any) {
+      console.warn('⚠️ Email queue failed to initialize:', error.message);
+    }
 
     // Initialize Socket.IO service
     socketService.initialize(server);
