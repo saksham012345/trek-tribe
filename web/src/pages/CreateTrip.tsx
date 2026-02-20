@@ -152,7 +152,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
   // ... (helper functions remain same) ...
 
   const handleMultipleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
+    const files = Array.from(e.target.files || []) as File[];
     const validImages = files.filter(file => file.type.startsWith('image/'));
 
     if (validImages.length !== files.length) {

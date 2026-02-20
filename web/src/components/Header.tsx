@@ -28,7 +28,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
 
   const isActive = (path: string) => location.pathname === path;
 
-  const NavLink = ({ to, icon, children, className = '' }: { to: string; icon?: string; children: React.ReactNode; className?: string }) => (
+  const NavLink = ({ to, icon, children, className = '' }: { to: string; icon?: string; children?: React.ReactNode; className?: string }) => (
     <Link
       to={to}
       className={`

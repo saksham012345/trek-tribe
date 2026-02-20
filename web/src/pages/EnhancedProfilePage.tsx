@@ -27,6 +27,7 @@ interface ProfileUser {
   bio?: string;
   profilePhoto?: string;
   location?: string;
+  trustScore?: number;
   socialLinks?: {
     instagram?: string;
     facebook?: string;

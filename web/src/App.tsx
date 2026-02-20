@@ -76,16 +76,16 @@ const VerifyEmail = React.lazy(() => retryLazyLoad(() => import('./pages/VerifyE
 const TripFinancePage = React.lazy(() => retryLazyLoad(() => import('./pages/TripFinancePage')));
 
 // Error Boundary for lazy loading failures
-class ChunkErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  { hasError: boolean }
-> {
-  constructor(props: { children: React.ReactNode }) {
+type ChunkErrorBoundaryProps = { children: React.ReactNode };
+type ChunkErrorBoundaryState = { hasError: boolean };
+
+class ChunkErrorBoundary extends React.Component<ChunkErrorBoundaryProps, ChunkErrorBoundaryState> {
+  constructor(props: ChunkErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError() {
+  static getDerivedStateFromError(): ChunkErrorBoundaryState {
     return { hasError: true };
   }
 
