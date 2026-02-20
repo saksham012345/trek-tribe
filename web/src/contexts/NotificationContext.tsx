@@ -33,7 +33,7 @@ export const useNotification = () => {
     return context;
 };
 
-export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const NotificationProvider: React.FC<{ children?: ReactNode }> = ({ children }) => {
     const { user } = useAuth();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [socket, setSocket] = useState<any | null>(null);
