@@ -41,6 +41,7 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
 
     setLoading(true);
     setError('');
+    console.log('📨 Submitting OTP for verification:', { userId, email, otpLength: otp.length });
 
     try {
       await api.post('/auth/verify-registration-email', {
@@ -50,8 +51,10 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
       });
 
       // Email verified successfully
+      console.log('✅ OTP verified successfully');
       onVerified();
     } catch (error: any) {
+      console.error('❌ OTP verification failed:', error.response?.data || error.message);
       setError(error.response?.data?.error || 'Invalid verification code');
       setLoading(false);
     }
@@ -62,6 +65,7 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
 
     setLoading(true);
     setError('');
+    console.log('🔄 Requesting OTP resend for:', email);
 
     try {
       const response = await api.post('/auth/resend-registration-otp', {
@@ -71,7 +75,7 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
 
       setCountdown(60);
       setError('');
-      
+
       // Show dev OTP if available
       if (response.data.otp) {
         setDevOtp(response.data.otp);
@@ -135,11 +139,10 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
           <button
             onClick={handleVerify}
             disabled={loading || otp.length !== 6}
-            className={`w-full py-3 rounded-xl text-white font-semibold transition-all ${
-              !loading && otp.length === 6
+            className={`w-full py-3 rounded-xl text-white font-semibold transition-all ${!loading && otp.length === 6
                 ? 'bg-gradient-to-r from-forest-600 to-nature-600 hover:from-forest-700 hover:to-nature-700'
                 : 'bg-gray-300 cursor-not-allowed'
-            }`}
+              }`}
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">
@@ -155,11 +158,10 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
             <button
               onClick={handleResend}
               disabled={countdown > 0 || loading}
-              className={`text-sm font-medium ${
-                countdown > 0 || loading
+              className={`text-sm font-medium ${countdown > 0 || loading
                   ? 'text-gray-400 cursor-not-allowed'
                   : 'text-forest-600 hover:text-forest-800'
-              }`}
+                }`}
             >
               {countdown > 0 ? `Resend code in ${countdown}s` : 'Resend Code'}
             </button>

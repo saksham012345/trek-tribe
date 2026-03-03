@@ -164,8 +164,10 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
       const responseData = response.data as any;
 
       // Registration successful, now verify email
+      console.log('✅ Registration successful, checking verification requirement:', responseData);
       if (responseData.requiresVerification && responseData.userId) {
         setUserId(responseData.userId);
+        console.log('🛡️ Verification required for userId:', responseData.userId);
 
         // Show dev OTP if available
         if (responseData.otp) {
@@ -321,17 +323,6 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
                 }}
               />
 
-              <EmailVerificationModal
-                open={showEmailVerification}
-                email={formData.email}
-                userId={userId}
-                onVerified={handleEmailVerified}
-                onClose={() => {
-                  setShowEmailVerification(false);
-                  setError('Registration cancelled. Please try again.');
-                }}
-                initialDevOtp={devOtp}
-              />
               <form className="space-y-4 sm:space-y-6" onSubmit={handleSubmit}>
                 {error && (
                   <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2">
@@ -490,6 +481,17 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
           </div>
         </div>
       </div>
+      <EmailVerificationModal
+        open={showEmailVerification}
+        email={formData.email}
+        userId={userId}
+        onVerified={handleEmailVerified}
+        onClose={() => {
+          setShowEmailVerification(false);
+          setError('Registration cancelled. Please try again.');
+        }}
+        initialDevOtp={devOtp}
+      />
     </div>
   );
 };

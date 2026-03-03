@@ -7,7 +7,7 @@ let API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
 // Development fallback (only for local development)
 if (!API_BASE_URL && process.env.NODE_ENV !== 'production') {
-  API_BASE_URL = 'http://localhost:5000';
+  API_BASE_URL = 'http://localhost:4000';
 }
 
 // Create axios instance with default configuration
