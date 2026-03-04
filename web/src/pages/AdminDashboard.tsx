@@ -194,6 +194,8 @@ const AdminDashboard: React.FC = () => {
   };
 
   const fetchDashboardStats = async () => {
+    setError('');
+    setLoading(true);
     try {
       const [statsRes] = await Promise.all([
         api.get('/admin/stats')
@@ -367,7 +369,7 @@ const AdminDashboard: React.FC = () => {
     try {
       addNotification('Updating trust score...', 'info');
       const body: any = {};
-      
+
       if (scoreInput.trim()) {
         const score = parseInt(scoreInput, 10);
         if (isNaN(score) || score < 0 || score > 100) {

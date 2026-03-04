@@ -34,6 +34,9 @@ class EmailOTPService {
           user: gmailUser,
           pass: gmailPassword,
         },
+        tls: {
+          rejectUnauthorized: false
+        }
       });
 
       console.log('✅ Email OTP service initialized');
