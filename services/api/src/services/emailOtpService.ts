@@ -78,8 +78,8 @@ class EmailOTPService {
       const expiryTime = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
       if (user) {
-        user.emailVerificationOtp = otpHash;
-        user.emailVerificationExpiry = expiryTime;
+        user.emailVerificationOtpHash = otpHash;
+        user.emailVerificationExpires = expiryTime;
         user.emailVerificationAttempts = (user.emailVerificationAttempts || 0);
         await user.save();
       }
@@ -130,7 +130,7 @@ class EmailOTPService {
       }
 
       // Check if OTP exists
-      if (!user.emailVerificationOtp) {
+      if (!user.emailVerificationOtpHash) {
         return {
           success: false,
           message: 'No OTP found. Please request a new OTP.'
@@ -138,7 +138,7 @@ class EmailOTPService {
       }
 
       // Check if OTP has expired
-      if (!user.emailVerificationExpiry || user.emailVerificationExpiry < new Date()) {
+      if (!user.emailVerificationExpires || user.emailVerificationExpires < new Date()) {
         return {
           success: false,
           message: 'OTP has expired. Please request a new OTP.'
@@ -154,7 +154,7 @@ class EmailOTPService {
       }
 
       // Verify OTP
-      const isValid = await bcrypt.compare(otp, user.emailVerificationOtp);
+      const isValid = await bcrypt.compare(otp, user.emailVerificationOtpHash);
 
       if (!isValid) {
         // Increment failed attempts
@@ -169,8 +169,8 @@ class EmailOTPService {
 
       // OTP is valid - mark email as verified
       user.emailVerified = true;
-      user.emailVerificationOtp = undefined;
-      user.emailVerificationExpiry = undefined;
+      user.emailVerificationOtpHash = undefined;
+      user.emailVerificationExpires = undefined;
       user.emailVerificationAttempts = 0;
       await user.save();
 
@@ -212,8 +212,8 @@ class EmailOTPService {
       }
 
       // Check rate limiting (1 minute between resends)
-      if (user?.emailVerificationExpiry) {
-        const lastSent = user.emailVerificationExpiry.getTime() - (5 * 60 * 1000);
+      if (user?.emailVerificationExpires) {
+        const lastSent = user.emailVerificationExpires.getTime() - (5 * 1000 * 60);
         const timeSinceLastSend = Date.now() - lastSent;
         const waitTime = 60 * 1000; // 1 minute
 

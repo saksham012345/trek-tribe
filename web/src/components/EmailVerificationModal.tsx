@@ -21,6 +21,7 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [resending, setResending] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [devOtp, setDevOtp] = useState(initialDevOtp || '');
 
@@ -55,15 +56,16 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
       onVerified();
     } catch (error: any) {
       console.error('❌ OTP verification failed:', error.response?.data || error.message);
-      setError(error.response?.data?.error || 'Invalid verification code');
+      const backendError = error.response?.data?.error || error.response?.data?.message || 'Invalid verification code';
+      setError(backendError);
       setLoading(false);
     }
   };
 
   const handleResend = async () => {
-    if (countdown > 0) return;
+    if (countdown > 0 || resending) return;
 
-    setLoading(true);
+    setResending(true);
     setError('');
     console.log('🔄 Requesting OTP resend for:', email);
 
@@ -75,28 +77,31 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
 
       setCountdown(60);
       setError('');
+      console.log('✅ OTP Resend response:', response.data);
 
       // Show dev OTP if available
       if (response.data.otp) {
         setDevOtp(response.data.otp);
       }
     } catch (error: any) {
-      setError(error.response?.data?.error || 'Failed to resend code');
+      console.error('❌ OTP resend failed:', error.response?.data || error.message);
+      const backendError = error.response?.data?.error || error.response?.data?.message || 'Failed to resend code';
+      setError(backendError);
     } finally {
-      setLoading(false);
+      setResending(false);
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl">
+      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-forest-600 to-nature-600 text-white rounded-t-2xl px-6 py-4">
+        <div className="bg-gradient-to-r from-forest-600 to-nature-600 text-white px-6 py-4">
           <div className="flex items-center gap-3">
             <span className="text-2xl">📧</span>
             <div>
-              <h3 className="text-xl font-bold">Verify Your Email</h3>
+              <h3 className="text-xl font-bold text-white">Verify Your Email</h3>
               <p className="text-white/80 text-sm">Enter the code sent to {email}</p>
             </div>
           </div>
@@ -105,7 +110,8 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
         {/* Content */}
         <div className="p-6 space-y-6">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-start gap-2">
+              <span>⚠️</span>
               {error}
             </div>
           )}
@@ -140,8 +146,8 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
             onClick={handleVerify}
             disabled={loading || otp.length !== 6}
             className={`w-full py-3 rounded-xl text-white font-semibold transition-all ${!loading && otp.length === 6
-                ? 'bg-gradient-to-r from-forest-600 to-nature-600 hover:from-forest-700 hover:to-nature-700'
-                : 'bg-gray-300 cursor-not-allowed'
+              ? 'bg-gradient-to-r from-forest-600 to-nature-600 hover:from-forest-700 hover:to-nature-700'
+              : 'bg-gray-300 cursor-not-allowed'
               }`}
           >
             {loading ? (
@@ -157,13 +163,20 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
           <div className="text-center">
             <button
               onClick={handleResend}
-              disabled={countdown > 0 || loading}
-              className={`text-sm font-medium ${countdown > 0 || loading
-                  ? 'text-gray-400 cursor-not-allowed'
-                  : 'text-forest-600 hover:text-forest-800'
+              disabled={countdown > 0 || resending}
+              className={`text-sm font-medium ${countdown > 0 || resending
+                ? 'text-gray-400 cursor-not-allowed'
+                : 'text-forest-600 hover:text-forest-800'
                 }`}
             >
-              {countdown > 0 ? `Resend code in ${countdown}s` : 'Resend Code'}
+              {resending ? (
+                <span className="flex items-center justify-center gap-2">
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-forest-600"></div>
+                  Resending...
+                </span>
+              ) : (
+                countdown > 0 ? `Resend code in ${countdown}s` : 'Resend Code'
+              )}
             </button>
           </div>
 

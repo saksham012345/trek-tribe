@@ -11,36 +11,36 @@ dotenv.config();
 async function testEmailDirect() {
   console.log('\n🔍 Email Configuration Check\n');
   console.log('================================');
-  
+
   // Check environment variables
   const gmailUser = process.env.GMAIL_USER;
   const gmailPassword = process.env.GMAIL_APP_PASSWORD;
   const emailUser = process.env.EMAIL_USER;
   const emailPassword = process.env.EMAIL_PASSWORD;
   const disableEmail = process.env.DISABLE_EMAIL;
-  
+
   console.log('GMAIL_USER:', gmailUser ? '✅ Set' : '❌ Not set');
   console.log('GMAIL_APP_PASSWORD:', gmailPassword ? '✅ Set' : '❌ Not set');
   console.log('EMAIL_USER:', emailUser ? '✅ Set' : '❌ Not set');
   console.log('EMAIL_PASSWORD:', emailPassword ? '✅ Set' : '❌ Not set');
   console.log('DISABLE_EMAIL:', disableEmail || 'false');
   console.log('');
-  
+
   // Determine which credentials to use
   const finalUser = gmailUser || emailUser;
   const finalPassword = gmailPassword || emailPassword;
-  
+
   if (!finalUser || !finalPassword) {
     console.log('❌ Error: Email credentials not configured!');
     console.log('Please set GMAIL_USER and GMAIL_APP_PASSWORD in .env file');
     process.exit(1);
   }
-  
+
   console.log('Using credentials:');
   console.log('  Email:', finalUser);
   console.log('  Password:', finalPassword ? '***' + finalPassword.slice(-4) : 'Not set');
   console.log('');
-  
+
   // Create transporter
   console.log('📧 Creating email transporter...');
   const transporter = nodemailer.createTransport({
@@ -53,7 +53,7 @@ async function testEmailDirect() {
       rejectUnauthorized: false
     }
   });
-  
+
   // Test connection
   console.log('🔌 Testing SMTP connection...');
   try {
@@ -76,14 +76,14 @@ async function testEmailDirect() {
     console.log('  4. Update GMAIL_APP_PASSWORD in .env file');
     process.exit(1);
   }
-  
+
   // Send test email
   console.log('');
   console.log('📤 Sending test email...');
-  
-  const testEmail = 'tanejs404@gmail.com';
+
+  const testEmail = 'tanejas404@gmail.com';
   const testOtp = '123456';
-  
+
   const mailOptions = {
     from: `Trek Tribe <${finalUser}>`,
     to: testEmail,
@@ -135,7 +135,7 @@ async function testEmailDirect() {
       </html>
     `
   };
-  
+
   try {
     const info = await transporter.sendMail(mailOptions);
     console.log('✅ Test email sent successfully!');
