@@ -71,8 +71,11 @@ function clearAuthCookie(res: Response, req?: any): void {
   const secure = isProduction;
   const sameSite = isProduction ? 'none' : 'lax';
 
-  const cookieDomain = process.env.COOKIE_DOMAIN && process.env.COOKIE_DOMAIN.trim() !== ''
-    ? process.env.COOKIE_DOMAIN.trim()
+  // SAFETY: If COOKIE_DOMAIN is 'localhost' but we are in production/secure context, 
+  // clear it without a domain to match the host-only cookie set by setAuthCookie.
+  const envDomain = process.env.COOKIE_DOMAIN?.trim();
+  const cookieDomain = (envDomain && envDomain !== '' && envDomain !== 'localhost')
+    ? envDomain
     : undefined;
 
   res.clearCookie('token', {

@@ -39,6 +39,25 @@
       "react-app/jest"
     ]
   },
+  "jest": {
+    "moduleNameMapper": {
+      "^fast-check$": "<rootDir>/node_modules/fast-check/lib/cjs/fast-check.js",
+      "^pure-rand/generator/congruential32$": "<rootDir>/node_modules/pure-rand/lib/generator/congruential32.js",
+      "^pure-rand/generator/mersenne$": "<rootDir>/node_modules/pure-rand/lib/generator/mersenne.js",
+      "^pure-rand/generator/xorshift128plus$": "<rootDir>/node_modules/pure-rand/lib/generator/xorshift128plus.js",
+      "^pure-rand/generator/xoroshiro128plus$": "<rootDir>/node_modules/pure-rand/lib/generator/xoroshiro128plus.js",
+      "^pure-rand/distribution/uniformBigInt$": "<rootDir>/node_modules/pure-rand/lib/distribution/uniformBigInt.js",
+      "^pure-rand/distribution/uniformInt$": "<rootDir>/node_modules/pure-rand/lib/distribution/uniformInt.js",
+      "^pure-rand/types/JumpableRandomGenerator$": "<rootDir>/node_modules/pure-rand/lib/types/JumpableRandomGenerator.js",
+      "^pure-rand/types/RandomGenerator$": "<rootDir>/node_modules/pure-rand/lib/types/RandomGenerator.js",
+      "^pure-rand/utils/generateN$": "<rootDir>/node_modules/pure-rand/lib/utils/generateN.js",
+      "^pure-rand/utils/purify$": "<rootDir>/node_modules/pure-rand/lib/utils/purify.js",
+      "^pure-rand/utils/skipN$": "<rootDir>/node_modules/pure-rand/lib/utils/skipN.js"
+    },
+    "transformIgnorePatterns": [
+      "node_modules/(?!(fast-check|pure-rand)/)"
+    ]
+  },
   "browserslist": {
     "production": [
       ">0.2%",
@@ -52,6 +71,7 @@
     ]
   },
   "devDependencies": {
+    "@babel/runtime": "^7.28.6",
     "@testing-library/jest-dom": "^6.0.0",
     "@testing-library/react": "^14.0.0",
     "@testing-library/user-event": "^14.5.0",
@@ -76,6 +96,8 @@
     "@types/tmp": "^0.2.6",
     "@types/trusted-types": "^2.0.7",
     "cypress": "^15.8.1",
+    "fast-check": "^4.6.0",
+    "lodash.sortby": "^4.7.0",
     "serve": "^14.2.0",
     "webpack-bundle-analyzer": "^4.10.2"
   }

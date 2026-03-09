@@ -79,14 +79,14 @@ const SearchPage: React.FC = () => {
   };
 
   const handleProfileClick = (profile: ProfileSearchResult) => {
-    navigate(`/profile/${profile._id}`);
+    const identifier = profile.username || profile.uniqueUrl || profile._id;
+    navigate(`/u/${identifier}`);
   };
 
   const handleShareProfile = async (profile: ProfileSearchResult) => {
     try {
-      const profileUrl = profile.uniqueUrl 
-        ? `${window.location.origin}/profile/${profile.uniqueUrl}`
-        : `${window.location.origin}/profile/${profile._id}`;
+      const identifier = profile.username || profile.uniqueUrl || profile._id;
+      const profileUrl = `${window.location.origin}/u/${identifier}`;
       
       if (navigator.share) {
         // Use native share API if available
@@ -104,9 +104,8 @@ const SearchPage: React.FC = () => {
       console.error('Error sharing profile:', error);
       // Fallback to clipboard
       try {
-        const profileUrl = profile.uniqueUrl 
-          ? `${window.location.origin}/profile/${profile.uniqueUrl}`
-          : `${window.location.origin}/profile/${profile._id}`;
+        const identifier = profile.username || profile.uniqueUrl || profile._id;
+        const profileUrl = `${window.location.origin}/u/${identifier}`;
         await navigator.clipboard.writeText(profileUrl);
         alert('Profile link copied to clipboard!');
       } catch (clipboardError) {

@@ -136,12 +136,24 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
 
   useEffect(() => {
     const checkSubscription = async () => {
-      // Simulate subscription check delay
-      // In a real app, you would verify the user's subscription status here
-      setTimeout(() => {
-        setHasSubscription(true); // Assume valid for now or logic based on user
+      try {
+        // Check subscription eligibility via backend
+        const response = await api.get('/api/subscriptions/check-eligibility');
+        
+        if (response.data.eligible && response.data.canPost) {
+          setHasSubscription(true);
+          setSubscriptionChecked(true);
+        } else {
+          setHasSubscription(false);
+          setSubscriptionChecked(true);
+          setError(response.data.message || 'No active subscription. Please subscribe to create trips.');
+        }
+      } catch (error: any) {
+        console.error('Subscription check failed:', error);
+        setHasSubscription(false);
         setSubscriptionChecked(true);
-      }, 500);
+        setError(error.response?.data?.message || 'Failed to verify subscription. Please try again.');
+      }
     };
 
     if (user) {
@@ -457,6 +469,14 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
 
       setUploadProgress(100);
       console.log('Trip created successfully:', response?.data);
+
+      // Increment trip count in subscription
+      try {
+        await api.post('/api/subscriptions/increment-trip');
+      } catch (incrementError) {
+        console.error('Failed to increment trip count:', incrementError);
+        // Don't fail the whole operation if increment fails
+      }
 
       alert(`🎉 Trip "${formData.title}" created successfully! Redirecting...`);
 

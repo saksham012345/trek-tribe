@@ -142,9 +142,9 @@ const ProfileSearch: React.FC<ProfileSearchProps> = ({
       onClose();
     }
     
-    // Use username if available, otherwise use _id
-    const identifier = profile.username || profile._id;
-    navigate(`/profile/${identifier}`);
+    // Use username, uniqueUrl, or _id as fallback
+    const identifier = profile.username || profile.uniqueUrl || profile._id;
+    navigate(`/u/${identifier}`);
   };
 
   const getRoleIcon = (role: string) => {

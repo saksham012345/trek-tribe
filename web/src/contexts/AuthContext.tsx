@@ -135,8 +135,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const logout = async () => {
-    await authService.logout();
+    try {
+      await authService.logout();
+    } catch (e) {
+      console.warn('Logout API call failed', e);
+    }
     localStorage.removeItem('user');
+    localStorage.removeItem('token'); // CRITICAL: Clear token for hybrid auth
     setUser(null);
   };
 

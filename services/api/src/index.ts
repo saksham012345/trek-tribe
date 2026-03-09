@@ -602,25 +602,49 @@ if (!jwtSecret || jwtSecret.length < 32) {
 // Enhanced database connection with retry logic
 const connectToDatabase = async (retries = 5): Promise<void> => {
   // If using in-memory DB, start it here and set mongoUri
-  if ((!mongoUri || mongoUri.length === 0) && useMemDb) {
+  // Fix: Prioritize useMemDb if enabled, even if mongoUri is present (mostly for dev/testing)
+  if (useMemDb) {
     console.log('ℹ️  USE_MEM_DB enabled — starting in-memory MongoDB instance');
-    // Dynamically import mongodb-memory-server only when requested so that production
-    // / production-built images that don't include devDependencies don't crash.
-    // @ts-ignore
-    const { MongoMemoryServer } = await import('mongodb-memory-server');
-    const mongod = await MongoMemoryServer.create();
-    mongoUri = mongod.getUri();
-    console.log(`✅ In-memory MongoDB started at ${mongoUri}`);
+    try {
+      // Dynamically import mongodb-memory-server only when requested so that production
+      // / production-built images that don't include devDependencies don't crash.
+      // @ts-ignore
+      const { MongoMemoryServer } = await import('mongodb-memory-server');
+      const mongod = await MongoMemoryServer.create();
+      mongoUri = mongod.getUri();
+      console.log(`✅ In-memory MongoDB started at ${mongoUri}`);
+    } catch (err: any) {
+      console.error('❌ Failed to start in-memory MongoDB:', err.message);
+      if (!mongoUri) {
+        throw new Error('USE_MEM_DB failed and no MONGODB_URI provided');
+      }
+      console.log('⚠️ Falling back to MONGODB_URI');
+    }
   }
+
+  if (!mongoUri) {
+    throw new Error('MONGODB_URI environment variable is required (or set USE_MEM_DB=true)');
+  }
+
   for (let i = 1; i <= retries; i++) {
     try {
-      console.log(`🔄 Database connection attempt ${i}/${retries}`);
-      await mongoose.connect(mongoUri, {
-        serverSelectionTimeoutMS: 10000, // 10 seconds
-        socketTimeoutMS: 45000, // 45 seconds
-        maxPoolSize: 10,
-        minPoolSize: 2,
-      });
+      console.log(`🔄 Database connection attempt ${i}/${retries} to: ${mongoUri.split('@').pop()?.split('/')[0] || 'hidden-uri'}`);
+
+      // Safety timeout for the connection attempt itself
+      const connectionTimeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Mongoose connection hang timeout')), 15000)
+      );
+
+      await Promise.race([
+        mongoose.connect(mongoUri, {
+          serverSelectionTimeoutMS: 10000, // 10 seconds
+          socketTimeoutMS: 45000, // 45 seconds
+          maxPoolSize: 10,
+          minPoolSize: 2,
+        }),
+        connectionTimeout
+      ]);
+
       console.log('✅ Connected to MongoDB successfully');
       logMessage('INFO', 'Connected to MongoDB successfully');
       return;

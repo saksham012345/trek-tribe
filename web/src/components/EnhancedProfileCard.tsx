@@ -120,7 +120,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
     try {
       // Prefer username, then uniqueUrl, then fall back to _id
       const identifier = profile.username || profile.uniqueUrl || profile._id;
-      const profileUrl = `${window.location.origin}/profile/${identifier}`;
+      const profileUrl = `${window.location.origin}/u/${identifier}`;
 
       if (navigator.share) {
         // Use native share API if available
@@ -139,7 +139,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
       // Fallback to clipboard
       try {
         const identifier = profile.username || profile.uniqueUrl || profile._id;
-        const profileUrl = `${window.location.origin}/profile/${identifier}`;
+        const profileUrl = `${window.location.origin}/u/${identifier}`;
         await navigator.clipboard.writeText(profileUrl);
         alert('Profile link copied to clipboard!');
       } catch (clipboardError) {
@@ -403,10 +403,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
             <div>
               <span className="text-sm text-gray-600">Share Profile</span>
               <p className="text-xs text-gray-500 mt-1">
-                {profile.uniqueUrl
-                  ? `trektribe.com/profile/${profile.uniqueUrl}`
-                  : `trektribe.com/profile/${profile._id}`
-                }
+                trektribe.com/u/{profile.username || profile.uniqueUrl || profile._id}
               </p>
             </div>
             <button

@@ -1,5 +1,9 @@
 import express from 'express';
 import leadController from '../controllers/leadController';
+import multer from 'multer';
+import path from 'path';
+import { User } from '../models/User';
+import { databaseImportService } from '../services/databaseImportService';
 import ticketController from '../controllers/ticketController';
 import verificationController from '../controllers/verificationController';
 import subscriptionController from '../controllers/subscriptionController';
@@ -23,6 +27,17 @@ import {
 import { authenticateToken } from '../middleware/auth';
 
 const router = express.Router();
+
+// Multer config for CRM imports
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/crm_imports/');
+  },
+  filename: (req, file, cb) => {
+    cb(null, `import-${Date.now()}-${file.originalname}`);
+  }
+});
+const upload = multer({ storage });
 
 // Apply authentication to all CRM routes
 router.use(authenticateToken);
@@ -403,82 +418,88 @@ router.get('/analytics/lead-sources', requireOrganizerOrAdmin, async (req: AuthR
 });
 
 // ============================================
-// LEAD EXPORT ROUTE (Organizer - Own Leads Only)
+// LEAD IMPORT/EXPORT SYSTEM
 // ============================================
 
 /**
- * Export leads to CSV (Organizers can only export their own leads)
- * GET /api/crm/leads/export
+ * @route   POST /api/crm/import/leads
+ * @desc    Import leads from CSV
  */
-router.get('/leads/export', requireOrganizerOrAdmin, async (req: AuthRequest, res) => {
+router.post('/import/leads', requireOrganizerOrAdmin, upload.single('file'), async (req: AuthRequest, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No file uploaded' });
+    }
+
+    const organizerId = req.user?.id;
+    if (!organizerId) throw new Error('User not found');
+
+    // Use the existing databaseImportService
+    const result = await databaseImportService.importDatabase(
+      req.file as any, // Cast to any to bypass exact multer type match if needed
+      organizerId,
+      undefined, // auto-detect mapping
+      {
+        autoAssignToOrganizer: true,
+        defaultLeadSource: 'form',
+        defaultLeadStatus: 'new'
+      }
+    );
+
+    res.json({
+      success: true,
+      count: result.stats.successfulImports,
+      message: `Successfully imported ${result.stats.successfulImports} leads`
+    });
+  } catch (error: any) {
+    console.error('Lead import error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * @route   GET /api/crm/export/leads
+ * @desc    Export leads or all users to CSV
+ */
+router.get('/export/leads', requireOrganizerOrAdmin, async (req: AuthRequest, res) => {
   try {
     const userId = req.user?.id;
     const isAdmin = req.user?.role === 'admin';
+    const { exportAllUsers } = req.query;
 
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Authentication required',
-      });
+    let data: any[] = [];
+    let filename = `leads-export-${new Date().toISOString().split('T')[0]}.csv`;
+
+    if (exportAllUsers === 'true') {
+      // Export all travelers as potential leads
+      data = await User.find({ role: 'traveler' }).select('name email phone createdAt').lean();
+      filename = `all-users-export-${new Date().toISOString().split('T')[0]}.csv`;
+    } else {
+      // Standard lead export
+      const query: any = {};
+      if (!isAdmin) query.assignedTo = userId;
+      data = await Lead.find(query).populate('tripId', 'title').lean();
     }
 
-    // Build query - organizers can only export their own leads
-    const query: any = {};
-    if (!isAdmin) {
-      query.assignedTo = userId;
-    }
+    // Simple CSV generator
+    const headers = exportAllUsers === 'true'
+      ? 'Name,Email,Phone,Joined At\n'
+      : 'Name,Email,Phone,Trip,Status,Source,Created At\n';
 
-    // Optional filters
-    const { status, source, tripId } = req.query;
-    if (status) query.status = status;
-    if (source) query.source = source;
-    if (tripId) query.tripId = tripId;
-
-    // Fetch leads with populated references
-    const leads = await Lead.find(query)
-      .populate('tripId', 'title destination')
-      .populate('userId', 'name email phone')
-      .sort({ createdAt: -1 })
-      .lean();
-
-    // Generate CSV content
-    const csvHeader = 'Name,Email,Phone,Trip,Status,Source,Lead Score,Created At,Last Updated\n';
-    const csvRows = leads.map((lead: any) => {
-      return [
-        `"${lead.name || lead.userId?.name || ''}",`,
-        `"${lead.email || ''}",`,
-        `"${lead.phone || lead.userId?.phone || ''}",`,
-        `"${lead.tripId?.title || 'N/A'}",`,
-        `"${lead.status || ''}",`,
-        `"${lead.source || ''}",`,
-        `"${lead.leadScore || 0}",`,
-        `"${lead.createdAt ? new Date(lead.createdAt).toISOString() : ''}",`,
-        `"${lead.updatedAt ? new Date(lead.updatedAt).toISOString() : ''}"`
-      ].join('');
+    const rows = data.map((item: any) => {
+      if (exportAllUsers === 'true') {
+        return `"${item.name}","${item.email}","${item.phone || ''}","${item.createdAt}"`;
+      } else {
+        return `"${item.name || ''}","${item.email || ''}","${item.phone || ''}","${item.tripId?.title || 'N/A'}","${item.status}","${item.source}","${item.createdAt}"`;
+      }
     }).join('\n');
 
-    const csv = csvHeader + csvRows;
-
-    // Audit log
-    console.log('Lead export', {
-      userId,
-      role: req.user?.role,
-      leadCount: leads.length,
-      filters: { status, source, tripId },
-      timestamp: new Date(),
-    });
-
-    // Set response headers for CSV download
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="leads-export-${new Date().toISOString().split('T')[0]}.csv"`);
-    res.send(csv);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(headers + rows);
   } catch (error: any) {
-    console.error('Lead export error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to export leads',
-      error: error.message,
-    });
+    console.error('Export error:', error);
+    res.status(500).json({ success: false, error: 'Failed to export data' });
   }
 });
 

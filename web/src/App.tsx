@@ -14,6 +14,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { preloadRazorpay } from './utils/razorpay';
 import PhoneRequirementGuard from './components/auth/PhoneRequirementGuard';
+import EmailVerificationGuard from './components/auth/EmailVerificationGuard';
 
 // Retry logic for lazy loading chunks
 const retryLazyLoad = (
@@ -151,14 +152,19 @@ function AppContent() {
                 path="/"
                 element={user ? <Navigate to="/home" replace /> : <Navigate to="/login" replace />}
               />
-              {/* Home route - requires authentication */}
+              {/* Home route - requires authentication and email verification */}
               <Route
                 path="/home"
-                element={user ? <Home user={user} /> : <Navigate to="/login" replace />}
+                element={user ? <EmailVerificationGuard><Home user={user} /></EmailVerificationGuard> : <Navigate to="/login" replace />}
               />
               <Route
                 path="/u/:userId"
                 element={<EnhancedProfilePage />}
+              />
+              {/* Backward compatibility redirect */}
+              <Route
+                path="/profile/:userId"
+                element={<Navigate to={`/u/${window.location.pathname.split('/profile/')[1]}`} replace />}
               />
               <Route
                 path="/login"
@@ -199,60 +205,57 @@ function AppContent() {
                 path="/create-trip"
                 element={
                   !user ? <Navigate to="/login" /> :
-                    user.role === 'organizer' || user.role === 'admin' ? <CreateTrip user={user} /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><CreateTrip user={user} /></EmailVerificationGuard> :
                       <Navigate to="/home?error=organizer-required" />
                 }
               />
               <Route
                 path="/edit-trip/:id"
-                element={user?.role === 'organizer' ? <EnhancedEditTrip /> : <Navigate to="/home" />}
+                element={user?.role === 'organizer' ? <EmailVerificationGuard><EnhancedEditTrip /></EmailVerificationGuard> : <Navigate to="/home" />}
               />
               <Route
                 path="/profile"
-                element={user ? <Profile user={user} /> : <Navigate to="/login" />}
+                element={user ? <EmailVerificationGuard><Profile user={user} /></EmailVerificationGuard> : <Navigate to="/login" />}
               />
               <Route
                 path="/admin"
-                element={user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/home" />}
+                element={user?.role === 'admin' ? <EmailVerificationGuard><AdminDashboard /></EmailVerificationGuard> : <Navigate to="/home" />}
               />
               <Route
                 path="/admin/dashboard"
-                element={user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/home" />}
+                element={user?.role === 'admin' ? <EmailVerificationGuard><AdminDashboard /></EmailVerificationGuard> : <Navigate to="/home" />}
               />
               <Route
                 path="/admin/organizer-verification"
-                element={user?.role === 'admin' ? <AdminOrganizerVerification /> : <Navigate to="/home" />}
+                element={user?.role === 'admin' ? <EmailVerificationGuard><AdminOrganizerVerification /></EmailVerificationGuard> : <Navigate to="/home" />}
               />
               <Route
                 path="/agent"
-                element={user?.role === 'agent' || user?.role === 'admin' ? <AgentDashboard /> : <Navigate to="/home" />}
+                element={user?.role === 'agent' || user?.role === 'admin' ? <EmailVerificationGuard><AgentDashboard /></EmailVerificationGuard> : <Navigate to="/home" />}
               />
-              <Route
-                path="/profile/:userId"
-                element={<EnhancedProfilePage />}
-              />
+              {/* Old route removed - now using /u/:userId */}
               <Route
                 path="/my-profile"
-                element={user ? <EnhancedProfilePage /> : <Navigate to="/login" />}
+                element={user ? <EmailVerificationGuard><EnhancedProfilePage /></EmailVerificationGuard> : <Navigate to="/login" />}
               />
               <Route
                 path="/my-bookings"
-                element={user ? <MyBookings /> : <Navigate to="/login" />}
+                element={user ? <EmailVerificationGuard><MyBookings /></EmailVerificationGuard> : <Navigate to="/login" />}
               />
               <Route
                 path="/wishlist"
-                element={user ? <Wishlist /> : <Navigate to="/login" />}
+                element={user ? <EmailVerificationGuard><Wishlist /></EmailVerificationGuard> : <Navigate to="/login" />}
               />
               <Route path="/search" element={<SearchPage />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               <Route path="/terms-conditions" element={<TermsConditions />} />
               <Route path="/cookie-settings" element={<CookieSettings />} />
-              <Route path="/ai-showcase" element={user ? <AIShowcase /> : <Navigate to="/" />} />
+              <Route path="/ai-showcase" element={user ? <EmailVerificationGuard><AIShowcase /></EmailVerificationGuard> : <Navigate to="/" />} />
               <Route
                 path="/organizer/crm"
                 element={
                   !user ? <Navigate to="/login" /> :
-                    user.role === 'organizer' || user.role === 'admin' ? <ProfessionalCRMDashboard /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><ProfessionalCRMDashboard /></EmailVerificationGuard> :
                       <Navigate to="/home?error=organizer-required" />
                 }
               />
@@ -260,7 +263,7 @@ function AppContent() {
                 path="/crm"
                 element={
                   !user ? <Navigate to="/login" /> :
-                    user.role === 'organizer' || user.role === 'admin' ? <CRMDashboard /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><CRMDashboard /></EmailVerificationGuard> :
                       <Navigate to="/home?error=organizer-required" />
                 }
               />
@@ -268,7 +271,7 @@ function AppContent() {
                 path="/organizer/payment-verification"
                 element={
                   !user ? <Navigate to="/login" /> :
-                    user.role === 'organizer' || user.role === 'admin' ? <PaymentVerificationDashboard /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><PaymentVerificationDashboard /></EmailVerificationGuard> :
                       <Navigate to="/home?error=organizer-required" />
                 }
               />
@@ -285,7 +288,7 @@ function AppContent() {
                 path="/organizer/settlements"
                 element={
                   !user ? <Navigate to="/login" /> :
-                    user.role === 'organizer' || user.role === 'admin' ? <OrganizerSettlements /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><OrganizerSettlements /></EmailVerificationGuard> :
                       <Navigate to="/home?error=organizer-required" />
                 }
               />
@@ -293,29 +296,29 @@ function AppContent() {
                 path="/organizer/trips/:tripId/finance"
                 element={
                   !user ? <Navigate to="/login" /> :
-                    user.role === 'organizer' || user.role === 'admin' ? <TripFinancePage /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><TripFinancePage /></EmailVerificationGuard> :
                       <Navigate to="/home?error=organizer-required" />
                 }
               />
               <Route
                 path="/checkout/marketplace"
-                element={user ? <MarketplaceCheckout /> : <Navigate to="/login" />}
+                element={user ? <EmailVerificationGuard><MarketplaceCheckout /></EmailVerificationGuard> : <Navigate to="/login" />}
               />
               <Route
                 path="/request-trip"
-                element={user ? <RequestTripPage /> : <Navigate to="/login" />}
+                element={user ? <EmailVerificationGuard><RequestTripPage /></EmailVerificationGuard> : <Navigate to="/login" />}
               />
               <Route
                 path="/my-requests"
-                element={user ? <MyRequestsPage /> : <Navigate to="/login" />}
+                element={user ? <EmailVerificationGuard><MyRequestsPage /></EmailVerificationGuard> : <Navigate to="/login" />}
               />
               <Route
                 path="/custom-trips/:requestId/proposal/:proposalId"
-                element={user ? <ProposalViewPage /> : <Navigate to="/login" />}
+                element={user ? <EmailVerificationGuard><ProposalViewPage /></EmailVerificationGuard> : <Navigate to="/login" />}
               />
               <Route
                 path="/complete-profile"
-                element={user ? <CompleteProfile /> : <Navigate to="/login" />}
+                element={user ? <EmailVerificationGuard><CompleteProfile /></EmailVerificationGuard> : <Navigate to="/login" />}
               />
             </Routes>
           </React.Suspense>

@@ -5,6 +5,7 @@ import SubscriptionCard from '../components/crm/SubscriptionCard';
 import { useToast } from '../components/ui/Toast';
 import { Skeleton } from '../components/ui/Skeleton';
 import BankDetailsTab from '../components/crm/BankDetailsTab';
+import ImportLeadsModal from '../components/crm/ImportLeadsModal';
 
 // Payments Tab Component
 const PaymentsTab: React.FC<{ user: User }> = ({ user }) => {
@@ -60,8 +61,8 @@ const PaymentsTab: React.FC<{ user: User }> = ({ user }) => {
         <button
           onClick={() => setActiveView('subscription')}
           className={`px-6 py-3 font-semibold transition-colors ${activeView === 'subscription'
-              ? 'text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-600 hover:text-gray-900'
+            ? 'text-blue-600 border-b-2 border-blue-600'
+            : 'text-gray-600 hover:text-gray-900'
             }`}
         >
           💳 Subscription Payments
@@ -69,8 +70,8 @@ const PaymentsTab: React.FC<{ user: User }> = ({ user }) => {
         <button
           onClick={() => setActiveView('verification')}
           className={`px-6 py-3 font-semibold transition-colors ${activeView === 'verification'
-              ? 'text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-600 hover:text-gray-900'
+            ? 'text-blue-600 border-b-2 border-blue-600'
+            : 'text-gray-600 hover:text-gray-900'
             }`}
         >
           ✅ Verified Payments
@@ -108,9 +109,9 @@ const PaymentsTab: React.FC<{ user: User }> = ({ user }) => {
                       </td>
                       <td className="px-6 py-4">
                         <span className={`px-3 py-1 rounded-full text-sm font-medium ${payment.status === 'active' ? 'bg-green-100 text-green-800' :
-                            payment.status === 'trial' ? 'bg-blue-100 text-blue-800' :
-                              payment.status === 'expired' ? 'bg-red-100 text-red-800' :
-                                'bg-gray-100 text-gray-800'
+                          payment.status === 'trial' ? 'bg-blue-100 text-blue-800' :
+                            payment.status === 'expired' ? 'bg-red-100 text-red-800' :
+                              'bg-gray-100 text-gray-800'
                           }`}>
                           {payment.status || 'N/A'}
                         </span>
@@ -178,7 +179,7 @@ const PaymentsTab: React.FC<{ user: User }> = ({ user }) => {
                       </td>
                       <td className="px-6 py-4">
                         <span className={`px-3 py-1 rounded-full text-sm font-medium ${payment.status === 'verified' ? 'bg-green-100 text-green-800' :
-                            'bg-gray-100 text-gray-800'
+                          'bg-gray-100 text-gray-800'
                           }`}>
                           {payment.status || 'Verified'}
                         </span>
@@ -190,6 +191,17 @@ const PaymentsTab: React.FC<{ user: User }> = ({ user }) => {
             </div>
           )}
         </div>
+      )}
+
+      {showImportModal && (
+        <ImportLeadsModal
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          onSuccess={() => {
+            setShowImportModal(false);
+            fetchDashboardData();
+          }}
+        />
       )}
     </div>
   );
@@ -232,6 +244,27 @@ const OrganizerCRMDashboard: React.FC<OrganizerCRMProps> = ({ user }) => {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+
+  const handleExportAllData = async () => {
+    try {
+      const response = await api.get('/api/crm/export/leads?exportAllUsers=true', {
+        responseType: 'blob'
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `all_leads_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      add('Export successful', 'success');
+    } catch (error) {
+      console.error('Export failed:', error);
+      add('Export failed', 'error');
+    }
+  };
 
   useEffect(() => {
     fetchDashboardData();
@@ -303,8 +336,8 @@ const OrganizerCRMDashboard: React.FC<OrganizerCRMProps> = ({ user }) => {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 py-4 px-2 border-b-2 font-medium text-sm whitespace-nowrap transition-all ${activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
               >
                 <span>{tab.icon}</span>
@@ -524,12 +557,26 @@ const OrganizerCRMDashboard: React.FC<OrganizerCRMProps> = ({ user }) => {
           <div className="bg-white rounded-xl shadow-lg p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold text-gray-900">🎯 Lead Management</h3>
-              <select className="px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                <option>All Leads</option>
-                <option>New</option>
-                <option>Contacted</option>
-                <option>Converted</option>
-              </select>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowImportModal(true)}
+                  className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700 transition-all flex items-center gap-2"
+                >
+                  <span className="text-lg">📥</span> Import Leads
+                </button>
+                <button
+                  onClick={handleExportAllData}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-all flex items-center gap-2"
+                >
+                  <span className="text-lg">📊</span> Export All Data
+                </button>
+                <select className="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                  <option>All Leads</option>
+                  <option>New</option>
+                  <option>Contacted</option>
+                  <option>Converted</option>
+                </select>
+              </div>
             </div>
 
             {loading ? (
@@ -551,8 +598,8 @@ const OrganizerCRMDashboard: React.FC<OrganizerCRMProps> = ({ user }) => {
                         <p className="text-sm text-gray-600">{lead.tripId.title}</p>
                       </div>
                       <span className={`px-2 py-1 text-xs font-semibold rounded-full ${lead.status === 'new' ? 'bg-blue-100 text-blue-800' :
-                          lead.status === 'contacted' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-green-100 text-green-800'
+                        lead.status === 'contacted' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-green-100 text-green-800'
                         }`}>
                         {lead.status.toUpperCase()}
                       </span>
@@ -600,14 +647,14 @@ const OrganizerCRMDashboard: React.FC<OrganizerCRMProps> = ({ user }) => {
                       </div>
                       <div className="flex gap-2">
                         <span className={`px-2 py-1 text-xs font-semibold rounded-full ${ticket.priority === 'high' ? 'bg-red-100 text-red-800' :
-                            ticket.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-green-100 text-green-800'
+                          ticket.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-green-100 text-green-800'
                           }`}>
                           {ticket.priority}
                         </span>
                         <span className={`px-2 py-1 text-xs font-semibold rounded-full ${ticket.status === 'open' ? 'bg-blue-100 text-blue-800' :
-                            ticket.status === 'in_progress' ? 'bg-purple-100 text-purple-800' :
-                              'bg-gray-100 text-gray-800'
+                          ticket.status === 'in_progress' ? 'bg-purple-100 text-purple-800' :
+                            'bg-gray-100 text-gray-800'
                           }`}>
                           {ticket.status}
                         </span>
@@ -653,6 +700,17 @@ const OrganizerCRMDashboard: React.FC<OrganizerCRMProps> = ({ user }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {showImportModal && (
+        <ImportLeadsModal
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          onSuccess={() => {
+            setShowImportModal(false);
+            fetchDashboardData();
+          }}
+        />
       )}
     </div>
   );

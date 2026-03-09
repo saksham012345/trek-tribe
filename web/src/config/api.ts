@@ -13,7 +13,7 @@ if (!API_BASE_URL && process.env.NODE_ENV !== 'production') {
 // Create axios instance with default configuration
 const api: any = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000, // 30 seconds
+  timeout: 60000, // 60 seconds (increased for Render free tier sleep/cold starts)
   withCredentials: true, // CRITICAL: Required to send httpOnly cookies with cross-origin requests
   headers: {
     'Content-Type': 'application/json',

@@ -117,8 +117,21 @@ export function authenticateToken(req: Request, res: Response, next: NextFunctio
     req.auth = authPayload;
     return next();
   } catch (err) {
-    console.error('Authentication error:', err instanceof Error ? err.message : err);
-    return res.status(401).json({ error: 'Invalid token' });
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.warn(`🔐 Auth Failure [${req.method} ${req.originalUrl}]: ${errorMsg}`);
+
+    // In production, log a bit more detail about the request headers if it's a 401
+    // (but NEVER the secret or full token for privacy/security)
+    if (process.env.NODE_ENV === 'production' || process.env.LOG_LEVEL === 'debug') {
+      const authHeader = req.headers.authorization ? 'present' : 'missing';
+      const cookieCount = req.headers.cookie ? req.headers.cookie.split(';').length : 0;
+      console.log(`🔍 Auth Debug: AuthHeader: ${authHeader}, Cookies: ${cookieCount}, Origin: ${req.headers.origin || 'none'}`);
+    }
+
+    return res.status(401).json({
+      error: 'Invalid token',
+      details: process.env.NODE_ENV === 'development' ? errorMsg : undefined
+    });
   }
 }
 

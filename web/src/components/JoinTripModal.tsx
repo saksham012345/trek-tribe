@@ -2,8 +2,7 @@
 import api from '../config/api';
 import React, { useEffect, useState } from 'react';
 import { User } from '../types';
-import { useRazorpay } from './payment/RazorpayCheckout';
-// PaymentUpload removed as automated payment replaces it
+import PaymentUpload from './PaymentUpload';
 import IdVerificationUpload from './IdVerificationUpload';
 
 interface PackageOption {
@@ -84,7 +83,8 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
     dietary: ''
   }]);
 
-  const { isLoaded, openPayment } = useRazorpay();
+  const [step, setStep] = useState<'form' | 'payment' | 'success'>('form');
+  const [createdBookingId, setCreatedBookingId] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showIdVerification, setShowIdVerification] = useState(false);
@@ -265,84 +265,57 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
         amount: ((formData.selectedPackage ? formData.selectedPackage.price : (trip.price || 0)) * formData.numberOfGuests)
       });
 
-      // 1. Create Booking Order
-      const checkoutRes = await api.post('/api/payments/checkout/booking', {
+      // 1. Create Booking Order (Manual Flow)
+      const bookingRes = await api.post('/api/bookings', {
         tripId: trip._id,
-        packageId: formData.selectedPackage?.id,
+        selectedPackage: formData.selectedPackage,
         numberOfTravelers: formData.numberOfGuests,
         travelerDetails: travelerDetails.map(t => ({
           name: t.name,
           age: t.age,
           phone: t.phone,
-          gender: 'other' // Add gender if collected, defaulted for now
+          gender: 'other'
         })),
         contactPhone: formData.emergencyContactPhone,
-        specialRequests: formData.specialRequests
+        emergencyContactName: formData.emergencyContactName,
+        emergencyContactPhone: formData.emergencyContactPhone,
+        specialRequests: formData.specialRequests,
+        experienceLevel: formData.experienceLevel
       });
 
-      const orderData = checkoutRes.data;
-      if (!orderData.success) {
-        throw new Error(orderData.error || 'Failed to initialize booking');
+      if (bookingRes.data && bookingRes.data._id) {
+        setCreatedBookingId(bookingRes.data._id);
+        setStep('payment');
+        console.log('✅ Booking created pending payment:', bookingRes.data._id);
+      } else {
+        throw new Error('Failed to create booking');
       }
 
-      const { order, keyId } = orderData;
-
-      // 2. Open Razorpay
-      await openPayment({
-        keyId,
-        amount: order.amount,
-        currency: order.currency,
-        name: 'TrekTribe Adventure',
-        description: `Booking: ${trip.title} `,
-        orderId: order.id,
-        prefill: {
-          name: user.name,
-          email: user.email,
-          contact: user.phone || '',
-        },
-        themeColor: '#059669', // Emerald 600
-        onSuccess: async (response) => {
-          try {
-            // 3. Verify Payment & Confirm Booking
-            const verifyRes = await api.post('/api/payments/verify', {
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-              orderType: 'booking'
-            });
-
-            if (verifyRes.data.success) {
-              console.log('✅ Booking confirmed:', verifyRes.data);
-              onSuccess();
-              onClose();
-            } else {
-              setError(verifyRes.data.error || 'Payment verification failed');
-            }
-          } catch (verifyErr: any) {
-            console.error('Verification error:', verifyErr);
-            setError(verifyErr.response?.data?.error || 'Failed to verify payment');
-          }
-        },
-        onFailure: (err) => {
-          console.error('Payment failed:', err);
-          setError(err.message || 'Payment failed');
-        },
-        onDismiss: () => {
-          setLoading(false);
-        }
-      });
-
     } catch (error: any) {
-      console.error('❌ Booking initiation error:', error);
+      console.error('❌ Booking creation error:', error);
       setError(error.response?.data?.error || error.message || 'Failed to initiate booking');
     } finally {
-      // Loading state cleared in onDismiss or error
-      // If success, modal closes, so no need to clear loading strictly
-      if (!loading) setLoading(false);
+      setLoading(false);
     }
   };
 
   if (!isOpen) return null;
+
+  if (step === 'payment' && createdBookingId) {
+    return (
+      <PaymentUpload
+        bookingId={createdBookingId}
+        organizerId={trip.organizerId}
+        tripTitle={trip.title}
+        totalAmount={((formData.selectedPackage ? (formData.selectedPackage as any).price : (trip.price || 0)) * formData.numberOfGuests)}
+        onUploadSuccess={() => {
+          onSuccess();
+          onClose();
+        }}
+        onCancel={onClose}
+      />
+    );
+  }
 
   if (!isOpen || !trip) return null;
 

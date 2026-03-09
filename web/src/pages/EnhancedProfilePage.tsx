@@ -511,7 +511,7 @@ const EnhancedProfilePage: React.FC = () => {
                     placeholder="your-username"
                   />
                   <p className="text-xs text-gray-500 mt-2 font-mono">
-                    {window.location.origin}/profile/{editForm.username || 'username'}
+                    {window.location.origin}/u/{editForm.username || 'username'}
                   </p>
                 </div>
               </div>

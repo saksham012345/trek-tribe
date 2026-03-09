@@ -365,7 +365,7 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
                       required
                     />
                     <p className="text-xs text-forest-600 mt-1">
-                      This becomes your profile link: trektribe.com/profile/{formData.username || 'your-name'}
+                      This becomes your profile link: trektribe.com/u/{formData.username || 'your-name'}
                       {usernameStatus === 'checking' && ' • Checking availability...'}
                       {usernameStatus === 'available' && ' • Available!'}
                       {usernameStatus === 'taken' && ' • Already taken'}

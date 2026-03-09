@@ -43,25 +43,28 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({ user, onClose, onU
     const handleSave = async () => {
         setSaving(true);
         try {
+            // Calculate new trips remaining if adding trips
+            const newTripsRemaining = addTrips 
+                ? (subscription?.tripsRemaining || 0) + parseInt(addTrips) 
+                : subscription?.tripsRemaining;
+
             // 1. Update Subscription
-            await api.patch(`/api/subscriptions/${user._id}`, {
+            const response = await api.patch(`/api/subscriptions/${user._id}`, {
                 crmAccess,
-                tripsRemaining: addTrips ? (subscription?.tripsRemaining || 0) + parseInt(addTrips) : undefined,
-                plan: selectedPlan !== subscription?.plan ? selectedPlan : undefined
+                tripsRemaining: newTripsRemaining,
+                plan: selectedPlan
             });
 
-            // 2. Update Verification if changed (assuming there's an endpoint for this, typically handled by verify/reject endpoints but straightforward to add patch if needed, for now focusing on subscription as per request)
-            // The user manual request was about "allow trip creation and active crm". Trip creation is usually blocked by verification or trip limits.
-            // If we need to verify organizer manually:
-            if (verificationStatus !== user.organizerVerificationStatus) {
-                // Call verification endpoint if needed, but for now just subscription
+            // 2. Reload subscription data to verify persistence
+            if (response.data.success) {
+                await fetchSubscription();
             }
 
             onUpdate();
             onClose();
         } catch (error) {
             console.error('Failed to update user', error);
-            alert('Failed to update user settings');
+            alert('Failed to update user settings. Please try again.');
         } finally {
             setSaving(false);
         }
