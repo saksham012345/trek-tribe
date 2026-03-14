@@ -152,11 +152,17 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
     }
 
     try {
+      // Normalize phone number: ensure it starts with '+' if it doesn't already
+      let normalizedPhone = formData.phoneNumber.trim();
+      if (normalizedPhone && !normalizedPhone.startsWith('+')) {
+        normalizedPhone = `+${normalizedPhone}`;
+      }
+
       const response = await api.post('/auth/register', {
         name: formData.name,
         username: formData.username,
         email: formData.email,
-        phone: formData.phoneNumber,
+        phone: normalizedPhone,
         password: formData.password,
         role: formData.role || 'traveler'
       });

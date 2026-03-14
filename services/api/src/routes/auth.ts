@@ -133,6 +133,7 @@ const registerSchema = z.object({
 });
 
 router.post('/register', async (req, res) => {
+  console.log("Register request body:", req.body);
   try {
     // Validate request body
     const parsed = registerSchema.safeParse(req.body);
