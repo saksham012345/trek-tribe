@@ -21,8 +21,10 @@ import organizerRoutes from './routes/organizer';
 import chatSupportRoutes from './routes/chatSupportRoutes';
 import enhancedProfileRoutes from './routes/enhancedProfile';
 import publicProfileRoutes from './routes/publicProfile';
+const ENABLE_AI = process.env.ENABLE_AI !== 'false';
 import aiRoutes from './routes/ai';
 import aiProxyRoutes from './routes/aiProxy';
+import { knowledgeBaseService } from './services/knowledgeBase';
 import followRoutes from './routes/follow';
 import viewsRoutes from './routes/views';
 import postsRoutes from './routes/posts';
@@ -296,10 +298,14 @@ app.use('/api/review-verification', reviewVerificationRoutes);
 app.use('/review-verification', reviewVerificationRoutes);
 app.use('/agent', agentRoutes);
 app.use('/chat', chatSupportRoutes);
-app.use('/api/ai', aiRoutes);
-// Server-side proxy that forwards client AI requests to the internal Python AI microservice
-// Mounted at the same prefix so `/api/ai/generate` will forward to the Python service.
-app.use('/api/ai', aiProxyRoutes);
+if (ENABLE_AI) {
+  app.use('/api/ai', aiRoutes);
+  // Server-side proxy that forwards client AI requests to the internal Python AI microservice
+  // Mounted at the same prefix so `/api/ai/generate` will forward to the Python service.
+  app.use('/api/ai', aiProxyRoutes);
+} else {
+  console.log('ℹ️  AI features disabled via ENABLE_AI=false');
+}
 app.use('/', viewsRoutes);
 app.use('/api/follow', followRoutes);
 app.use('/api/posts', postsRoutes);
@@ -664,113 +670,105 @@ const connectToDatabase = async (retries = 5): Promise<void> => {
   }
 };
 
+/**
+ * Deferred initialization for heavy services that shouldn't block server startup
+ */
+async function deferredInitialization() {
+  console.log('⏳ Starting deferred initialization of background services...');
+
+  // 1. Initialize AI & Knowledge Base if enabled
+  if (ENABLE_AI) {
+    try {
+      await knowledgeBaseService.initialize();
+      console.log('✅ AI Knowledge Base initialized');
+    } catch (err: any) {
+      console.error('⚠️ AI Knowledge Base failed to initialize:', err.message);
+    }
+  }
+
+  // 2. Initialize Email Services
+  try {
+    await emailService.initialize();
+    await emailQueue.initialize();
+    console.log('✅ Email services initialized');
+  } catch (error: any) {
+    console.warn('⚠️ Some email services failed to initialize:', error.message);
+  }
+
+  // 3. Initialize Cron Scheduler
+  const enableCronJobs = process.env.ENABLE_CRON_JOBS !== 'false';
+  if (enableCronJobs && process.env.NODE_ENV !== 'test') {
+    try {
+      cronScheduler.init();
+      chargeRetryWorker.start();
+      console.log('✅ Cron scheduler and workers started');
+    } catch (err: any) {
+      console.warn('⚠️ Failed to initialize cron jobs:', err.message);
+    }
+  }
+
+  console.log('✨ All background services initialized');
+}
+
 export async function start() {
   try {
     console.log('🚀 Starting TrekkTribe API server...');
     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`📡 Port: ${port}`);
 
-    // Connect to database with retry logic
-    await connectToDatabase();
-
-    // Initialize WhatsApp service DISABLED
-    // Reason: WhatsApp credentials were exposed in git history
-    // Alternative: Use WhatsApp Business API instead
-    console.log('ℹ️  WhatsApp service disabled (credentials compromised - use WhatsApp Business API instead)');
-
-    // Initialize Email Service explicitly
+    // 1. Establish database connection
     try {
-      await emailService.initialize();
-      console.log('✅ Email service initialized');
-    } catch (error: any) {
-      console.warn('⚠️ Email service failed to initialize:', error.message);
+      await connectToDatabase();
+    } catch (dbError: any) {
+      console.error('❌ Critical failure: Could not connect to database at startup');
+      // We continue to allow the port to bind so health checks can report the state
     }
 
-    // Initialize Email Queue Service
-    try {
-      await emailQueue.initialize();
-      console.log('✅ Email queue service initialized');
-    } catch (error: any) {
-      console.warn('⚠️ Email queue failed to initialize:', error.message);
-    }
-
-    // Initialize Socket.IO service
+    // 2. Initialize Core Services (Socket.IO, CRM Chat)
     socketService.initialize(server);
-    console.log('✅ Socket.IO service initialized');
-    logMessage('INFO', 'Socket.IO service initialized');
-
-    // Initialize CRM Chat Service (integrates with existing Socket.IO)
     if (socketService.getIO()) {
       chatService.initializeSocketIO(socketService.getIO());
-      console.log('✅ CRM Chat service initialized');
-      logMessage('INFO', 'CRM Chat service initialized');
     }
 
-    // Initialize Cron Scheduler for auto-pay and other scheduled tasks
-    const enableCronJobs = process.env.ENABLE_CRON_JOBS !== 'false';
-    if (enableCronJobs && process.env.NODE_ENV !== 'test') {
-      cronScheduler.init();
-      console.log('✅ Cron scheduler initialized');
-      logMessage('INFO', 'Cron scheduler initialized');
-
-      // Start charge retry worker
-      try {
-        chargeRetryWorker.start();
-        console.log('✅ Charge retry worker started');
-        logMessage('INFO', 'Charge retry worker started');
-      } catch (err: any) {
-        console.warn('⚠️ Failed to start charge retry worker', err.message);
-      }
-    }
-
-    // Start server with error handling
+    // 3. Start listening on port IMMEDIATELY
     const httpServer = server.listen(port, () => {
-      console.log(`🚀 API listening on http://localhost:${port}`);
+      console.log(`🚀 API listening on port ${port}`);
       console.log(`📊 Health check: http://localhost:${port}/health`);
-      console.log(`💬 Socket.IO chat support: http://localhost:${port}/socket.io/`);
-      logMessage('INFO', `Server started on port ${port}`);
+
+      // 4. Trigger deferred initialization for non-critical/heavy services
+      deferredInitialization().catch(err => {
+        console.error('❌ Deferred initialization failed:', err.message);
+      });
     });
 
     // Graceful shutdown handling
     const gracefulShutdown = async (signal: string) => {
       console.log(`\n📴 Received ${signal}. Starting graceful shutdown...`);
-      logMessage('INFO', `Received ${signal}. Starting graceful shutdown`);
 
       httpServer.close(async (err) => {
         if (err) {
           console.error('❌ Error during server shutdown:', err);
-          logMessage('ERROR', `Error during server shutdown: ${err.message}`);
           process.exit(1);
         }
 
         try {
-          // Stop cron jobs
           cronScheduler.stopAll();
-          console.log('✅ Cron jobs stopped');
-
-          // Shutdown Socket.IO service
           socketService.shutdown();
-          console.log('✅ Socket.IO service shut down');
-
           await mongoose.connection.close();
-          console.log('✅ Database connection closed');
-          logMessage('INFO', 'Graceful shutdown completed');
+          console.log('✅ Graceful shutdown completed');
           process.exit(0);
         } catch (dbError: any) {
           console.error('❌ Error closing database:', dbError);
-          logMessage('ERROR', `Error closing database: ${dbError.message}`);
           process.exit(1);
         }
       });
     };
 
-    // Handle process signals
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
     process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
   } catch (err: any) {
     console.error('❌ Failed to start server:', err);
-    logMessage('ERROR', `Failed to start server: ${err.message}`);
     process.exit(1);
   }
 }
@@ -791,12 +789,16 @@ process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
 
 const numCPUs = os.cpus().length;
 
-// Start the application
-if (cluster.isPrimary && process.env.NODE_ENV === 'production' && process.env.DISABLE_CLUSTERING !== 'true') {
-  console.log(`👑 Primary ${process.pid} is running`);
+// Clustering logic (Production only, skip for Dev/Test)
+if (process.env.NODE_ENV === 'production' && cluster.isPrimary && process.env.DISABLE_CLUSTERING !== 'true') {
+  // Limit workers in memory-constrained environments (like Render Free/Starter)
+  // Default to 1 worker to stay within 512MB RAM
+  const maxWorkers = parseInt(process.env.WEB_CONCURRENCY || '1', 10);
+  const workers = Math.min(numCPUs, maxWorkers);
 
-  // Fork workers.
-  for (let i = 0; i < numCPUs; i++) {
+  console.log(`� Primary ${process.pid} is starting ${workers} workers...`);
+
+  for (let i = 0; i < workers; i++) {
     cluster.fork();
   }
 

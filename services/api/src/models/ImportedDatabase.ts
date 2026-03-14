@@ -6,10 +6,10 @@ export interface IImportedDatabase extends Document {
   fileSize: number;
   fileType: 'csv' | 'xlsx' | 'json';
   uploadedAt: Date;
-  
+
   // Import status
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'partially_completed';
-  
+
   // Statistics
   stats: {
     totalRecords: number;
@@ -18,14 +18,14 @@ export interface IImportedDatabase extends Document {
     duplicatesSkipped: number;
     processingTime?: number; // in milliseconds
   };
-  
+
   // Field mapping configuration
   fieldMapping: {
     sourceField: string;
     targetField: string;
     transform?: string; // Optional transformation function name
   }[];
-  
+
   // Import configuration
   config: {
     skipDuplicates: boolean;
@@ -36,7 +36,7 @@ export interface IImportedDatabase extends Document {
     defaultLeadStatus: string;
     defaultTags?: string[];
   };
-  
+
   // Error log - renamed to avoid conflict with Document.errors
   importErrors: {
     row: number;
@@ -45,42 +45,41 @@ export interface IImportedDatabase extends Document {
     error: string;
     timestamp: Date;
   }[];
-  
+
   // Imported lead IDs for tracking
   importedLeadIds: mongoose.Types.ObjectId[];
-  
+
   // Rollback capability
   canRollback: boolean;
   rolledBackAt?: Date;
-  
+
   createdAt: Date;
   updatedAt: Date;
 }
 
 const ImportedDatabaseSchema: Schema = new Schema(
   {
-    organizerId: { 
-      type: Schema.Types.ObjectId, 
-      ref: 'User', 
+    organizerId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
       required: true,
       index: true
     },
     fileName: { type: String, required: true },
     fileSize: { type: Number, required: true },
-    fileType: { 
-      type: String, 
-      enum: ['csv', 'xlsx', 'json'], 
-      required: true 
+    fileType: {
+      type: String,
+      enum: ['csv', 'xlsx', 'json'],
+      required: true
     },
     uploadedAt: { type: Date, default: Date.now },
-    
+
     status: {
       type: String,
       enum: ['pending', 'processing', 'completed', 'failed', 'partially_completed'],
-      default: 'pending',
-      index: true
+      default: 'pending'
     },
-    
+
     stats: {
       totalRecords: { type: Number, default: 0 },
       successfulImports: { type: Number, default: 0 },
@@ -88,13 +87,13 @@ const ImportedDatabaseSchema: Schema = new Schema(
       duplicatesSkipped: { type: Number, default: 0 },
       processingTime: { type: Number }
     },
-    
+
     fieldMapping: [{
       sourceField: { type: String, required: true },
       targetField: { type: String, required: true },
       transform: { type: String }
     }],
-    
+
     config: {
       skipDuplicates: { type: Boolean, default: true },
       updateExisting: { type: Boolean, default: false },
@@ -104,7 +103,7 @@ const ImportedDatabaseSchema: Schema = new Schema(
       defaultLeadStatus: { type: String, default: 'new' },
       defaultTags: [{ type: String }]
     },
-    
+
     importErrors: [{
       row: { type: Number, required: true },
       field: { type: String },
@@ -112,12 +111,12 @@ const ImportedDatabaseSchema: Schema = new Schema(
       error: { type: String, required: true },
       timestamp: { type: Date, default: Date.now }
     }],
-    
-    importedLeadIds: [{ 
-      type: Schema.Types.ObjectId, 
-      ref: 'Lead' 
+
+    importedLeadIds: [{
+      type: Schema.Types.ObjectId,
+      ref: 'Lead'
     }],
-    
+
     canRollback: { type: Boolean, default: true },
     rolledBackAt: { type: Date }
   },

@@ -134,8 +134,7 @@ const organizerSubscriptionSchema = new Schema(
     status: {
       type: String,
       enum: ['pending_payment', 'active', 'expired', 'cancelled', 'trial'],
-      default: 'pending_payment',
-      index: true
+      default: 'pending_payment'
     },
 
     // Trial status

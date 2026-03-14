@@ -23,7 +23,7 @@ export class EmbeddingService {
   private totalDocuments: number = 0;
 
   constructor() {
-    this.initialize();
+    // Initialization is now deferred or called explicitly via initialize()
   }
 
   private async initialize() {

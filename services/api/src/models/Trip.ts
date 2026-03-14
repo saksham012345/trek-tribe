@@ -221,7 +221,7 @@ const tripSchema = new Schema(
     description: { type: String, required: true },
     difficulty: { type: String, enum: ['easy', 'moderate', 'hard'], default: 'moderate', index: true },
     categories: [{ type: String, index: true }],
-    destination: { type: String, required: true, index: true },
+    destination: { type: String, required: true },
     location: {
       type: { type: String, enum: ['Point'] },
       coordinates: { type: [Number], index: '2dsphere' },
