@@ -14,17 +14,17 @@ class RedisService {
   private client: RedisClientType | null = null;
   private isConnected = false;
   private useMemoryFallback = false;
-  
+
   // In-memory fallback cache
   private memoryCache = new Map<string, CacheEntry>();
-  
+
   constructor() {
     this.initialize();
   }
 
   private async initialize() {
     const redisUrl = process.env.REDIS_URL;
-    
+
     if (!redisUrl) {
       logger.warn('⚠️ REDIS_URL not configured - using in-memory cache fallback');
       this.useMemoryFallback = true;
@@ -97,7 +97,7 @@ class RedisService {
 
     try {
       if (!this.client) return false;
-      
+
       if (ttlSeconds) {
         await this.client.setEx(key, ttlSeconds, value);
       } else {
@@ -185,7 +185,7 @@ class RedisService {
   async getJSON<T>(key: string): Promise<T | null> {
     const value = await this.get(key);
     if (!value) return null;
-    
+
     try {
       return JSON.parse(value) as T;
     } catch (error) {
@@ -421,12 +421,12 @@ class RedisService {
   private getFromMemory(key: string): string | null {
     const entry = this.memoryCache.get(key);
     if (!entry) return null;
-    
+
     if (this.isExpired(key)) {
       this.memoryCache.delete(key);
       return null;
     }
-    
+
     return entry.data;
   }
 
@@ -446,6 +446,10 @@ class RedisService {
 
   isRedisConnected(): boolean {
     return this.isConnected && !this.useMemoryFallback;
+  }
+
+  getClient(): RedisClientType | null {
+    return this.client;
   }
 
   getConnectionStatus(): string {

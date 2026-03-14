@@ -642,8 +642,8 @@ router.post('/', authenticateJwt, requireRole(['organizer', 'admin']), requireEm
     // Broadcast real-time update
     socketService.broadcastTripUpdate(trip, 'created');
 
-    // Invalidate trips cache
-    invalidateCache('/trips');
+    // Invalidate trips cache (distributed)
+    await invalidateCache('/trips');
 
     // Return trip at top-level with `_id` to match test expectations
     const tripObj = (trip.toObject && typeof trip.toObject === 'function') ? trip.toObject() : trip;
@@ -706,17 +706,17 @@ router.post('/', authenticateJwt, requireRole(['organizer', 'admin']), requireEm
 
 router.get('/', cacheMiddleware(300), async (req, res) => {
   try {
-    const { 
-      q, 
-      category, 
-      difficulty, 
-      minPrice, 
-      maxPrice, 
-      dest, 
-      from, 
-      to, 
-      limit = '20', 
-      page = '1' 
+    const {
+      q,
+      category,
+      difficulty,
+      minPrice,
+      maxPrice,
+      dest,
+      from,
+      to,
+      limit = '20',
+      page = '1'
     } = req.query as Record<string, string>;
 
     // Build filter
@@ -789,7 +789,7 @@ router.get('/', cacheMiddleware(300), async (req, res) => {
   }
 });
 
-router.get('/:id', trackTripView, async (req, res) => {
+router.get('/:id', cacheMiddleware(300), trackTripView, async (req, res) => {
   const id = req.params.id;
   if (!id || !mongoose.isValidObjectId(id)) {
     return res.status(400).json({ error: 'Invalid trip id' });
@@ -802,7 +802,7 @@ router.get('/:id', trackTripView, async (req, res) => {
       options: { lean: true }
     })
     .lean();
-    
+
   if (!trip) return res.status(404).json({ error: 'Not found' });
 
   const tripObj = (trip as any);
@@ -814,7 +814,7 @@ router.get('/:id', trackTripView, async (req, res) => {
 });
 
 // GET /trips/by-slug/:slug - SEO friendly endpoint
-router.get('/by-slug/:slug', trackTripView, async (req, res) => {
+router.get('/by-slug/:slug', cacheMiddleware(300), trackTripView, async (req, res) => {
   try {
     const { slug } = req.params;
     if (!slug) return res.status(400).json({ error: 'Slug required' });
@@ -853,6 +853,9 @@ router.post('/:id/join', authenticateJwt, async (req, res) => {
     trip.participants.push(userId);
     await trip.save();
 
+    // Invalidate trips cache
+    await invalidateCache('/trips');
+
     res.json({ message: 'Successfully joined trip', trip });
   } catch (error) {
     res.status(500).json({ error: 'Server error' });
@@ -874,6 +877,9 @@ router.delete('/:id/leave', authenticateJwt, async (req, res) => {
 
     trip.participants = trip.participants.filter((id: any) => id.toString() !== userId);
     await trip.save();
+
+    // Invalidate trips cache
+    await invalidateCache('/trips');
 
     res.json({ message: 'Successfully left trip', trip });
   } catch (error) {
@@ -934,7 +940,7 @@ router.put('/:id', authenticateJwt, requireRole(['organizer', 'admin']), async (
     );
 
     // Invalidate trips cache
-    invalidateCache('/trips');
+    await invalidateCache('/trips');
 
     res.json(updatedTrip);
   } catch (error: any) {
@@ -962,7 +968,7 @@ router.delete('/:id', authenticateJwt, requireRole(['organizer', 'admin']), asyn
     await Trip.findByIdAndDelete(req.params.id);
 
     // Invalidate trips cache
-    invalidateCache('/trips');
+    await invalidateCache('/trips');
 
     res.json({ message: 'Trip deleted successfully' });
   } catch (error: any) {

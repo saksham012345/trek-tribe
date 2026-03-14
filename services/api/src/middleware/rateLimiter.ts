@@ -1,4 +1,21 @@
 import rateLimit from 'express-rate-limit';
+import RedisStore from 'rate-limit-redis';
+import { redisService } from '../services/redisService';
+
+/**
+ * Shared Redis Store configuration
+ */
+const getRedisStore = (prefix: string) => {
+  const client = redisService.getClient();
+  if (!client || !redisService.isRedisConnected()) {
+    return undefined; // Fallback to MemoryStore
+  }
+
+  return new RedisStore({
+    sendCommand: (...args: string[]) => client.sendCommand(args),
+    prefix: `rl:${prefix}:`,
+  });
+};
 
 /**
  * General API rate limiter
@@ -10,6 +27,7 @@ export const apiLimiter = rateLimit({
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  store: getRedisStore('api'),
   skip: (req) => {
     // Skip rate limiting in test environment
     return process.env.NODE_ENV === 'test';
@@ -27,6 +45,7 @@ export const authLimiter = rateLimit({
   message: 'Too many login attempts, please try again after 15 minutes.',
   standardHeaders: true,
   legacyHeaders: false,
+  store: getRedisStore('auth'),
 });
 
 /**
@@ -39,6 +58,7 @@ export const otpLimiter = rateLimit({
   message: 'Too many OTP requests, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  store: getRedisStore('otp'),
 });
 
 /**

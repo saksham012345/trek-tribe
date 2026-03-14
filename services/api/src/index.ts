@@ -1,12 +1,12 @@
+import cluster from 'cluster';
+import os from 'os';
 import 'dotenv/config';
-// Force Render redeploy with MongoDB Atlas connection (December 20, 2025)
 import express, { Request, Response, NextFunction } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import compression from 'compression';
 import mongoose from 'mongoose';
 import cookieParser from 'cookie-parser';
-// Optional in-memory MongoDB for local dev/testing
 import { createServer } from 'http';
 import authRoutes from './routes/auth';
 import tripRoutes from './routes/trips';
@@ -639,8 +639,8 @@ const connectToDatabase = async (retries = 5): Promise<void> => {
         mongoose.connect(mongoUri, {
           serverSelectionTimeoutMS: 10000, // 10 seconds
           socketTimeoutMS: 45000, // 45 seconds
-          maxPoolSize: 10,
-          minPoolSize: 2,
+          maxPoolSize: 50,
+          minPoolSize: 5,
         }),
         connectionTimeout
       ]);
@@ -789,9 +789,25 @@ process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
   process.exit(1);
 });
 
-// Start the application unless auto-start was disabled (used by dev helpers)
-if (process.env.DISABLE_AUTO_START !== 'true') {
-  start();
+const numCPUs = os.cpus().length;
+
+// Start the application
+if (cluster.isPrimary && process.env.NODE_ENV === 'production' && process.env.DISABLE_CLUSTERING !== 'true') {
+  console.log(`👑 Primary ${process.pid} is running`);
+
+  // Fork workers.
+  for (let i = 0; i < numCPUs; i++) {
+    cluster.fork();
+  }
+
+  cluster.on('exit', (worker, code, signal) => {
+    console.log(`👷 Worker ${worker.process.pid} died. Forking a new one...`);
+    cluster.fork();
+  });
+} else {
+  if (process.env.DISABLE_AUTO_START !== 'true') {
+    start();
+  }
 }
 
 // Export the express app for testing and programmatic use
