@@ -90,11 +90,15 @@ interface Post {
 }
 
 const EnhancedProfilePage: React.FC = () => {
+  const { username } = useParams<{ username: string }>();
+  // We may also support legacy `userId` if it routes here, but standard is `username`
   const { userId } = useParams<{ userId: string }>();
+  const identifier = username || userId;
+
   const navigate = useNavigate();
   const { user: currentUser, logout } = useAuth();
-  const [resolvedUserId, setResolvedUserId] = useState<string | null>(userId || currentUser?.id || null);
-  const [isOwnProfile, setIsOwnProfile] = useState<boolean>(!userId || userId === currentUser?.id);
+  const [resolvedUserId, setResolvedUserId] = useState<string | null>(identifier || currentUser?.id || null);
+  const [isOwnProfile, setIsOwnProfile] = useState<boolean>(!identifier || identifier === currentUser?.username || identifier === currentUser?.id);
 
   const [profile, setProfile] = useState<ProfileUser | null>(null);
   const [roleBasedData, setRoleBasedData] = useState<RoleBasedData | null>(null);
@@ -131,7 +135,7 @@ const EnhancedProfilePage: React.FC = () => {
 
   useEffect(() => {
     fetchProfile();
-  }, [userId]);
+  }, [identifier]);
 
   useEffect(() => {
     if (!resolvedUserId) return;
@@ -145,7 +149,6 @@ const EnhancedProfilePage: React.FC = () => {
   const fetchProfile = async () => {
     setError(null);
     try {
-      const identifier = userId;
       const isHandle = identifier ? !/^[a-f0-9]{24}$/i.test(identifier) : false;
 
       // If no identifier and we have currentUser, use currentUser's ID

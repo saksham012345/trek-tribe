@@ -158,7 +158,7 @@ function AppContent() {
                 element={user ? <EmailVerificationGuard><Home user={user} /></EmailVerificationGuard> : <Navigate to="/login" replace />}
               />
               <Route
-                path="/u/:userId"
+                path="/u/:username"
                 element={<EnhancedProfilePage />}
               />
               {/* Backward compatibility redirect */}

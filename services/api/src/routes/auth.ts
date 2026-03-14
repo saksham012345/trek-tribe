@@ -213,12 +213,25 @@ router.post('/register', async (req, res) => {
       });
     }
 
+    let finalUsername = username?.toLowerCase();
+
+    // Auto-generate username if not provided
+    if (!finalUsername) {
+      const baseName = name.split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '') || 'user';
+      const randomSuffix = crypto.randomBytes(3).toString('hex');
+      finalUsername = `${baseName}_${randomSuffix}`;
+
+      // We assume this is unique enough for a fallback. 
+      // If it clashes, the catch block (11000 duplicate key) will handle it,
+      // but the chance is low.
+    }
+
     // Create base user object
     const userData: any = {
       email,
       passwordHash,
       name,
-      username: username?.toLowerCase(),
+      username: finalUsername,
       phone,
       role: userRole,
       bio,
@@ -575,9 +588,15 @@ router.post('/google', async (req, res) => {
       // Generate a random password hash (won't be used but required by schema)
       const dummyPasswordHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
 
+      // Auto-generate a username since Google doesn't provide one
+      const baseName = (name || email.split('@')[0]).toLowerCase().replace(/[^a-z0-9]/g, '');
+      const randomSuffix = crypto.randomBytes(3).toString('hex');
+      const generatedUsername = `${baseName}_${randomSuffix}`;
+
       user = await User.create({
         email,
         name: name || email.split('@')[0],
+        username: generatedUsername,
         passwordHash: dummyPasswordHash,
         role: 'traveler',
         profilePhoto: picture,
