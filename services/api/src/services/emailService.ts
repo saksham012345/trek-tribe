@@ -96,8 +96,9 @@ class EmailService {
         return;
       }
 
-      // Gmail app passwords are exactly 16 characters
-      if (emailPassword.length !== 16) {
+      // Gmail app passwords are exactly 16 characters (strip spaces in case copied with spaces)
+      const cleanPassword = emailPassword.replace(/\s/g, '');
+      if (cleanPassword.length !== 16) {
         logger.warn('Email service disabled: Invalid app password length. Gmail app passwords must be exactly 16 characters. Please generate a new app password at https://myaccount.google.com/apppasswords');
         return;
       }
@@ -108,7 +109,7 @@ class EmailService {
         secure: true, // Use implicit TLS
         auth: {
           user: emailUser,
-          pass: emailPassword
+          pass: cleanPassword
         },
         pool: true,
         maxConnections: 5,
