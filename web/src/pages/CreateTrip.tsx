@@ -492,12 +492,22 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
       // Enhanced error handling
       let errorMessage = 'Failed to create trip';
 
-      if (error.message) {
-        errorMessage = error.message;
-      } else if (error.response?.data?.message) {
+      if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
       } else if (error.response?.data?.error) {
         errorMessage = typeof error.response.data.error === 'string' ? error.response.data.error : JSON.stringify(error.response.data.error);
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      // Specific guidance for common 403 scenarios
+      if (error.response?.status === 403) {
+        const data = error.response.data;
+        if (data?.verificationStatus === 'pending') {
+          errorMessage = 'Your organizer account is awaiting admin verification. You will be notified once approved.';
+        } else if (data?.requiresUpgrade) {
+          errorMessage = `Trip limit reached (${data.tripsUsed}/${data.tripsPerCycle}). Please upgrade your subscription.`;
+        }
       }
 
       setError(errorMessage);

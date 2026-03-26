@@ -27,16 +27,32 @@ class EmailOTPService {
       return;
     }
 
+    // Validate credential format before attempting SMTP connection
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(gmailUser)) {
+      console.warn('Email OTP service disabled: Invalid email format for GMAIL_USER. Please provide a valid email address (e.g., user@gmail.com).');
+      return;
+    }
+
+    // Gmail app passwords are exactly 16 characters
+    if (gmailPassword.length !== 16) {
+      console.warn('Email OTP service disabled: Invalid app password length. Gmail app passwords must be exactly 16 characters. Please generate a new app password at https://myaccount.google.com/apppasswords');
+      return;
+    }
+
     try {
       this.transporter = nodemailer.createTransport({
-        service: 'gmail',
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true, // Use implicit TLS
         auth: {
           user: gmailUser,
           pass: gmailPassword,
         },
-        tls: {
-          rejectUnauthorized: false
-        }
+        pool: true,
+        maxConnections: 5,
+        connectionTimeout: 10000, // 10 seconds
+        greetingTimeout: 10000
       });
 
       console.log('✅ Email OTP service initialized');

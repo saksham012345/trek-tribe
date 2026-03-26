@@ -865,6 +865,13 @@ router.post('/organizer-verifications/:userId/approve', async (req, res) => {
     user.organizerVerificationReviewedBy = adminId;
     user.isVerified = true;
 
+    // Auto-enable AutoPay so organizer can create trips immediately
+    if (!user.organizerProfile) user.organizerProfile = {} as any;
+    if (!user.organizerProfile.autoPay) user.organizerProfile.autoPay = {} as any;
+    user.organizerProfile.autoPay.autoPayEnabled = true;
+    user.organizerProfile.autoPay.isSetupCompleted = true;
+    user.markModified('organizerProfile');
+
     // Award reputation points for becoming verified
     if (!user.reputation) {
       user.reputation = {
@@ -884,6 +891,30 @@ router.post('/organizer-verifications/:userId/approve', async (req, res) => {
     });
 
     await user.save();
+
+    // Auto-create a free trial subscription if none exists
+    const existingSubscription = await OrganizerSubscription.findOne({
+      organizerId: user._id,
+      status: { $in: ['active', 'trial'] }
+    });
+    if (!existingSubscription) {
+      const trialEndDate = new Date();
+      trialEndDate.setDate(trialEndDate.getDate() + 30);
+      await OrganizerSubscription.create({
+        organizerId: user._id,
+        plan: 'free-trial',
+        status: 'trial',
+        isTrialActive: true,
+        trialStartDate: new Date(),
+        trialEndDate,
+        tripsPerCycle: 5,
+        tripsUsed: 0,
+        tripsRemaining: 5,
+        pricePerCycle: 0,
+        totalPaid: 0
+      });
+      logger.info('Auto-created trial subscription for approved organizer', { organizerId: user._id });
+    }
 
     // Send email notification
     try {
@@ -1249,7 +1280,38 @@ router.post('/verification-requests/:id/approve', async (req, res) => {
     organizer.organizerVerificationApprovedAt = new Date();
     organizer.organizerVerificationApprovedBy = (req as any).auth.userId;
 
+    // Auto-enable AutoPay so organizer can create trips immediately
+    if (!organizer.organizerProfile) organizer.organizerProfile = {} as any;
+    if (!organizer.organizerProfile.autoPay) organizer.organizerProfile.autoPay = {} as any;
+    organizer.organizerProfile.autoPay.autoPayEnabled = true;
+    organizer.organizerProfile.autoPay.isSetupCompleted = true;
+    organizer.markModified('organizerProfile');
+
     await organizer.save();
+
+    // Auto-create a free trial subscription if none exists
+    const existingSubscription = await OrganizerSubscription.findOne({
+      organizerId: organizer._id,
+      status: { $in: ['active', 'trial'] }
+    });
+    if (!existingSubscription) {
+      const trialEndDate = new Date();
+      trialEndDate.setDate(trialEndDate.getDate() + 30); // 30-day trial
+      await OrganizerSubscription.create({
+        organizerId: organizer._id,
+        plan: 'free-trial',
+        status: 'trial',
+        isTrialActive: true,
+        trialStartDate: new Date(),
+        trialEndDate,
+        tripsPerCycle: 5,
+        tripsUsed: 0,
+        tripsRemaining: 5,
+        pricePerCycle: 0,
+        totalPaid: 0
+      });
+      logger.info('Auto-created trial subscription for approved organizer', { organizerId: organizer._id });
+    }
 
     // Update verification request
     request.status = 'approved';
@@ -1770,10 +1832,44 @@ router.post('/users/:id/verify-organizer', async (req, res) => {
     // We also update the generic isVerified flag for compatibility
     user.isVerified = status === 'approved';
 
-    // Store verification details in organizerProfile if needed, or we might need to add fields to User model
-    // For now, assuming isVerified is the main gate.
+    if (status === 'approved') {
+      user.organizerVerificationApprovedAt = new Date();
+      user.organizerVerificationApprovedBy = adminId;
+      // Auto-enable AutoPay so organizer can create trips immediately
+      if (!user.organizerProfile) user.organizerProfile = {} as any;
+      if (!user.organizerProfile.autoPay) user.organizerProfile.autoPay = {} as any;
+      user.organizerProfile.autoPay.autoPayEnabled = true;
+      user.organizerProfile.autoPay.isSetupCompleted = true;
+      user.markModified('organizerProfile');
+    }
 
     await user.save();
+
+    // Auto-create a free trial subscription on approval if none exists
+    if (status === 'approved') {
+      const existingSubscription = await OrganizerSubscription.findOne({
+        organizerId: user._id,
+        status: { $in: ['active', 'trial'] }
+      });
+      if (!existingSubscription) {
+        const trialEndDate = new Date();
+        trialEndDate.setDate(trialEndDate.getDate() + 30);
+        await OrganizerSubscription.create({
+          organizerId: user._id,
+          plan: 'free-trial',
+          status: 'trial',
+          isTrialActive: true,
+          trialStartDate: new Date(),
+          trialEndDate,
+          tripsPerCycle: 5,
+          tripsUsed: 0,
+          tripsRemaining: 5,
+          pricePerCycle: 0,
+          totalPaid: 0
+        });
+        logger.info('Auto-created trial subscription for approved organizer', { organizerId: user._id });
+      }
+    }
 
     // Notify organizer
     try {

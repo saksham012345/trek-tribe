@@ -79,13 +79,15 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
     setUsernameStatus('checking');
 
     try {
-      await api.get(`/api/public/${candidate.value}`);
+      await api.get(`/api/public/${candidate.value}`, { _skipLogout: true } as any);
       // If we got 200, username already exists
       setUsernameStatus('taken');
       setError('This username is already taken. Try another one.');
       return false;
     } catch (availabilityError: any) {
-      if (availabilityError?.response?.status === 404) {
+      const status = availabilityError?.response?.status;
+      if (status === 404 || status === 401) {
+        // 404 = username not found (available), 401 = unauthenticated but route exists (treat as available)
         setUsernameStatus('available');
         return true;
       }
@@ -189,13 +191,19 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
       console.log('Registration error details:', error);
       if (error.response?.data?.error) {
         let errorMessage = '';
-        if (typeof error.response.data.error === 'object') {
+        // Check for field-level validation errors first (from Zod)
+        if (error.response.data.details && typeof error.response.data.details === 'object') {
+          const fieldErrors = Object.entries(error.response.data.details)
+            .map(([field, msgs]) => `${field}: ${(msgs as string[]).join(', ')}`)
+            .join(' | ');
+          errorMessage = fieldErrors || error.response.data.message || error.response.data.error;
+        } else if (typeof error.response.data.error === 'object') {
           // Handle Zod validation errors
           const validationErrors = error.response.data.error.fieldErrors || error.response.data.error;
           const errorMessages = Object.values(validationErrors).flat();
           errorMessage = errorMessages.join(', ');
         } else {
-          errorMessage = error.response.data.error;
+          errorMessage = error.response.data.message || error.response.data.error;
         }
 
         // Provide better guidance for common errors

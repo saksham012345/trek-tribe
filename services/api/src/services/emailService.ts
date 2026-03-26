@@ -89,28 +89,108 @@ class EmailService {
         return;
       }
 
+      // Validate credential format before attempting SMTP connection
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(emailUser)) {
+        logger.warn('Email service disabled: Invalid email format for GMAIL_USER. Please provide a valid email address (e.g., user@gmail.com).');
+        return;
+      }
+
+      // Gmail app passwords are exactly 16 characters
+      if (emailPassword.length !== 16) {
+        logger.warn('Email service disabled: Invalid app password length. Gmail app passwords must be exactly 16 characters. Please generate a new app password at https://myaccount.google.com/apppasswords');
+        return;
+      }
+
       this.transporter = nodemailer.createTransport({
-        service: 'gmail',
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true, // Use implicit TLS
         auth: {
           user: emailUser,
           pass: emailPassword
         },
-        tls: {
-          rejectUnauthorized: false
-        }
+        pool: true,
+        maxConnections: 5,
+        connectionTimeout: 10000, // 10 seconds
+        greetingTimeout: 10000
       });
 
-      // Verify the connection
-      try {
-        await this.transporter.verify();
-        this.isInitialized = true;
-        logger.info('Email service initialized successfully with Gmail SMTP');
-      } catch (verifyError: any) {
-        // Treat verification failures as non-fatal: log a concise warning and
-        // disable the email service so application continues running.
-        logger.warn('Email service disabled: SMTP verification failed. Check GMAIL_USER/GMAIL_APP_PASSWORD or set DISABLE_EMAIL=true to skip email.', { error: verifyError?.message });
-        this.transporter = null;
-        this.isInitialized = false;
+      // Verify the connection with retry logic
+      const maxRetries = 3;
+      const backoffDelays = [1000, 2000, 4000]; // 1s, 2s, 4s
+      let lastError: any = null;
+
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          await this.transporter.verify();
+          this.isInitialized = true;
+          if (attempt > 0) {
+            logger.info(`Email service initialized successfully with Gmail SMTP after ${attempt} retry attempt(s)`);
+          } else {
+            logger.info('Email service initialized successfully with Gmail SMTP');
+          }
+          return; // Success, exit early
+        } catch (verifyError: any) {
+          lastError = verifyError;
+          
+          // Determine if this is a transient error that should be retried
+          const errorCode = verifyError?.code || '';
+          const errorMessage = verifyError?.message || '';
+          const isTransientError = 
+            errorCode === 'ECONNREFUSED' ||
+            errorCode === 'ETIMEDOUT' ||
+            errorCode === 'ENOTFOUND' ||
+            errorCode === 'ECONNRESET' ||
+            errorCode === 'ESOCKET' ||
+            errorMessage.includes('timeout') ||
+            errorMessage.includes('ETIMEDOUT') ||
+            errorMessage.includes('ECONNREFUSED');
+
+          // Check for permanent authentication errors
+          const isPermanentError = 
+            errorCode === 'EAUTH' ||
+            errorMessage.includes('Invalid login') ||
+            errorMessage.includes('Username and Password not accepted') ||
+            errorMessage.includes('535');
+
+          // If it's a permanent error or we've exhausted retries, stop
+          if (isPermanentError) {
+            logger.warn('Email service disabled: SMTP authentication failed with permanent error. Check GMAIL_USER/GMAIL_APP_PASSWORD or set DISABLE_EMAIL=true to skip email.', { 
+              error: errorMessage,
+              code: errorCode,
+              smtpCode: verifyError?.responseCode,
+              command: verifyError?.command
+            });
+            this.transporter = null;
+            this.isInitialized = false;
+            return;
+          }
+
+          // If this is a transient error and we have retries left, retry with backoff
+          if (isTransientError && attempt < maxRetries) {
+            const delay = backoffDelays[attempt];
+            logger.warn(`SMTP verification failed with transient error (attempt ${attempt + 1}/${maxRetries + 1}). Retrying in ${delay}ms...`, {
+              error: errorMessage,
+              code: errorCode,
+              nextRetryIn: `${delay}ms`
+            });
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue; // Retry
+          }
+
+          // If we've exhausted all retries or it's not a transient error
+          if (attempt === maxRetries) {
+            logger.warn(`Email service disabled: SMTP verification failed after ${maxRetries + 1} attempts. Check GMAIL_USER/GMAIL_APP_PASSWORD or set DISABLE_EMAIL=true to skip email.`, { 
+              error: errorMessage,
+              code: errorCode,
+              attempts: maxRetries + 1
+            });
+            this.transporter = null;
+            this.isInitialized = false;
+            return;
+          }
+        }
       }
 
     } catch (error: any) {
