@@ -105,16 +105,16 @@ class EmailService {
 
       this.transporter = nodemailer.createTransport({
         host: 'smtp.gmail.com',
-        port: 465,
-        secure: true, // Use implicit TLS
+        port: 587,
+        secure: false, // Use STARTTLS on port 587
         auth: {
           user: emailUser,
           pass: cleanPassword
         },
         pool: true,
         maxConnections: 5,
-        connectionTimeout: 10000, // 10 seconds
-        greetingTimeout: 10000
+        connectionTimeout: 15000,
+        greetingTimeout: 15000
       });
 
       // Verify the connection with retry logic
