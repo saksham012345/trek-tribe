@@ -1,4 +1,4 @@
-import nodemailer from 'nodemailer';
+import sgMail from '@sendgrid/mail';
 import { logger } from '../utils/logger';
 
 interface BookingEmailData {
@@ -60,10 +60,8 @@ interface EmailVerificationOTPData {
 }
 
 class EmailService {
-  private transporter: nodemailer.Transporter | null = null;
   private isInitialized: boolean = false;
-  private initializationError: string | null = null;
-  private configSource: string | null = null;
+  private fromEmail: string = '';
 
   constructor() {
     // Initialization is now explicit via initialize() method
@@ -75,139 +73,57 @@ class EmailService {
       return;
     }
     try {
-      // Allow disabling email initialization explicitly to avoid noisy logs
       if ((process.env.DISABLE_EMAIL || 'false').toLowerCase() === 'true') {
         logger.info('Email service explicitly disabled via DISABLE_EMAIL=true');
         return;
       }
-      // Require credentials from environment
-      const emailUser = process.env.GMAIL_USER || process.env.EMAIL_USER;
-      const emailPassword = process.env.GMAIL_APP_PASSWORD || process.env.EMAIL_PASSWORD;
 
-      if (!emailUser || !emailPassword) {
-        logger.warn('Gmail credentials not configured (GMAIL_USER / GMAIL_APP_PASSWORD). Email service will be disabled.');
+      const apiKey = process.env.SENDGRID_API_KEY;
+      const fromEmail = process.env.GMAIL_USER || process.env.EMAIL_USER || process.env.SENDGRID_FROM_EMAIL;
+
+      if (!apiKey) {
+        logger.warn('SendGrid API key not configured (SENDGRID_API_KEY). Email service will be disabled.');
         return;
       }
 
-      // Validate credential format before attempting SMTP connection
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(emailUser)) {
-        logger.warn('Email service disabled: Invalid email format for GMAIL_USER. Please provide a valid email address (e.g., user@gmail.com).');
+      if (!fromEmail) {
+        logger.warn('Sender email not configured. Set SENDGRID_FROM_EMAIL or GMAIL_USER. Email service will be disabled.');
         return;
       }
 
-      // Gmail app passwords are exactly 16 characters (strip spaces in case copied with spaces)
-      const cleanPassword = emailPassword.replace(/\s/g, '');
-      if (cleanPassword.length !== 16) {
-        logger.warn('Email service disabled: Invalid app password length. Gmail app passwords must be exactly 16 characters. Please generate a new app password at https://myaccount.google.com/apppasswords');
-        return;
-      }
-
-      this.transporter = nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 587,
-        secure: false, // Use STARTTLS on port 587
-        auth: {
-          user: emailUser,
-          pass: cleanPassword
-        },
-        pool: true,
-        maxConnections: 5,
-        connectionTimeout: 15000,
-        greetingTimeout: 15000
-      });
-
-      // Verify the connection with retry logic
-      const maxRetries = 3;
-      const backoffDelays = [1000, 2000, 4000]; // 1s, 2s, 4s
-      let lastError: any = null;
-
-      for (let attempt = 0; attempt <= maxRetries; attempt++) {
-        try {
-          await this.transporter.verify();
-          this.isInitialized = true;
-          if (attempt > 0) {
-            logger.info(`Email service initialized successfully with Gmail SMTP after ${attempt} retry attempt(s)`);
-          } else {
-            logger.info('Email service initialized successfully with Gmail SMTP');
-          }
-          return; // Success, exit early
-        } catch (verifyError: any) {
-          lastError = verifyError;
-          
-          // Determine if this is a transient error that should be retried
-          const errorCode = verifyError?.code || '';
-          const errorMessage = verifyError?.message || '';
-          const isTransientError = 
-            errorCode === 'ECONNREFUSED' ||
-            errorCode === 'ETIMEDOUT' ||
-            errorCode === 'ENOTFOUND' ||
-            errorCode === 'ECONNRESET' ||
-            errorCode === 'ESOCKET' ||
-            errorMessage.includes('timeout') ||
-            errorMessage.includes('ETIMEDOUT') ||
-            errorMessage.includes('ECONNREFUSED');
-
-          // Check for permanent authentication errors
-          const isPermanentError = 
-            errorCode === 'EAUTH' ||
-            errorMessage.includes('Invalid login') ||
-            errorMessage.includes('Username and Password not accepted') ||
-            errorMessage.includes('535');
-
-          // If it's a permanent error or we've exhausted retries, stop
-          if (isPermanentError) {
-            logger.warn('Email service disabled: SMTP authentication failed with permanent error. Check GMAIL_USER/GMAIL_APP_PASSWORD or set DISABLE_EMAIL=true to skip email.', { 
-              error: errorMessage,
-              code: errorCode,
-              smtpCode: verifyError?.responseCode,
-              command: verifyError?.command
-            });
-            this.transporter = null;
-            this.isInitialized = false;
-            return;
-          }
-
-          // If this is a transient error and we have retries left, retry with backoff
-          if (isTransientError && attempt < maxRetries) {
-            const delay = backoffDelays[attempt];
-            logger.warn(`SMTP verification failed with transient error (attempt ${attempt + 1}/${maxRetries + 1}). Retrying in ${delay}ms...`, {
-              error: errorMessage,
-              code: errorCode,
-              nextRetryIn: `${delay}ms`
-            });
-            await new Promise(resolve => setTimeout(resolve, delay));
-            continue; // Retry
-          }
-
-          // If we've exhausted all retries or it's not a transient error
-          if (attempt === maxRetries) {
-            logger.warn(`Email service disabled: SMTP verification failed after ${maxRetries + 1} attempts. Check GMAIL_USER/GMAIL_APP_PASSWORD or set DISABLE_EMAIL=true to skip email.`, { 
-              error: errorMessage,
-              code: errorCode,
-              attempts: maxRetries + 1
-            });
-            this.transporter = null;
-            this.isInitialized = false;
-            return;
-          }
-        }
-      }
-
+      sgMail.setApiKey(apiKey);
+      this.fromEmail = fromEmail;
+      this.isInitialized = true;
+      logger.info('Email service initialized successfully with SendGrid');
     } catch (error: any) {
-      // For unexpected errors during initialization, warn and disable the service
-      logger.error('❌ Email service initialization FATAL error', {
-        error: error?.message,
-        stack: error?.stack,
-        code: error?.code
-      });
-      this.transporter = null;
+      logger.error('Email service initialization error', { error: error?.message });
       this.isInitialized = false;
     }
   }
 
   isServiceReady(): boolean {
-    return this.isInitialized && this.transporter !== null;
+    return this.isInitialized;
+  }
+
+  private async send(to: string, subject: string, html: string, text?: string): Promise<boolean> {
+    if (!this.isServiceReady()) {
+      logger.warn('Email service not ready, skipping email send');
+      return false;
+    }
+    try {
+      await sgMail.send({
+        to,
+        from: { email: this.fromEmail, name: 'Trek Tribe' },
+        subject,
+        html,
+        text: text || html.replace(/<[^>]*>/g, '')
+      });
+      return true;
+    } catch (error: any) {
+      const detail = error?.response?.body?.errors?.[0]?.message || error.message;
+      logger.error('SendGrid send failed', { error: detail, to });
+      return false;
+    }
   }
 
   private generateBookingConfirmationHTML(data: BookingEmailData): string {
@@ -477,128 +393,41 @@ class EmailService {
   }
 
   async sendBookingConfirmation(data: BookingEmailData): Promise<boolean> {
-    if (!this.isServiceReady()) {
-      logger.warn('Email service not ready, skipping booking confirmation email');
-      return false;
-    }
-
-    try {
-      const mailOptions = {
-        from: `"Trek Tribe" <${process.env.GMAIL_USER}>`,
-        to: data.userEmail,
-        cc: data.organizerEmail,
-        subject: `🎯 Booking Confirmed - ${data.tripTitle}`,
-        html: this.generateBookingConfirmationHTML(data),
-        text: `Hello ${data.userName}!\n\nYour booking for ${data.tripTitle} has been confirmed!\n\nBooking Details:\n- Trip: ${data.tripTitle}\n- Destination: ${data.tripDestination}\n- Dates: ${data.startDate} to ${data.endDate}\n- Travelers: ${data.totalTravelers}\n- Total: ₹${data.totalAmount}\n- Booking ID: ${data.bookingId}\n\nOrganizer: ${data.organizerName}\nContact: ${data.organizerPhone}\n\nHave an amazing adventure!\nTrek Tribe Team`
-      };
-
-      await this.transporter!.sendMail(mailOptions);
-      logger.info('Booking confirmation email sent successfully', {
-        userEmail: data.userEmail,
-        bookingId: data.bookingId
-      });
-
-      return true;
-    } catch (error: any) {
-      logger.error('Failed to send booking confirmation email', {
-        error: error.message,
-        userEmail: data.userEmail
-      });
-      return false;
-    }
+    const html = this.generateBookingConfirmationHTML(data);
+    const result = await this.send(
+      data.userEmail,
+      `🎯 Booking Confirmed - ${data.tripTitle}`,
+      html,
+      `Hello ${data.userName}!\n\nYour booking for ${data.tripTitle} has been confirmed!\n\nBooking ID: ${data.bookingId}\n\nTrek Tribe Team`
+    );
+    if (result) logger.info('Booking confirmation email sent', { userEmail: data.userEmail, bookingId: data.bookingId });
+    return result;
   }
 
   async sendPasswordResetEmail(data: PasswordResetData): Promise<boolean> {
-    if (!this.isServiceReady()) {
-      logger.warn('Email service not ready, skipping password reset email');
-      return false;
-    }
-
-    try {
-      const mailOptions = {
-        from: `"Trek Tribe Security" <${process.env.GMAIL_USER}>`,
-        to: data.userEmail,
-        subject: '🔐 Reset Your Trek Tribe Password',
-        html: this.generatePasswordResetHTML(data),
-        text: `Hello ${data.userName}!\n\nYou requested to reset your password for Trek Tribe.\n\nClick this link to reset your password: ${data.resetUrl}\n\nThis link expires in 1 hour.\n\nIf you didn't request this, please ignore this email.\n\nTrek Tribe Security Team`
-      };
-
-      await this.transporter!.sendMail(mailOptions);
-      logger.info('Password reset email sent successfully', {
-        userEmail: data.userEmail
-      });
-
-      return true;
-    } catch (error: any) {
-      logger.error('Failed to send password reset email', {
-        error: error.message,
-        userEmail: data.userEmail
-      });
-      return false;
-    }
+    const html = this.generatePasswordResetHTML(data);
+    const result = await this.send(
+      data.userEmail,
+      '🔐 Reset Your Trek Tribe Password',
+      html,
+      `Hello ${data.userName}!\n\nReset your password: ${data.resetUrl}\n\nThis link expires in 1 hour.\n\nTrek Tribe Security Team`
+    );
+    if (result) logger.info('Password reset email sent', { userEmail: data.userEmail });
+    return result;
   }
 
   async sendTripUpdateEmail(data: TripUpdateData): Promise<boolean> {
-    if (!this.isServiceReady()) {
-      logger.warn('Email service not ready, skipping trip update email');
-      return false;
-    }
-
-    try {
-      const mailOptions = {
-        from: `"Trek Tribe Updates" <${process.env.GMAIL_USER}>`,
-        to: data.userEmail,
-        subject: `📢 Update: ${data.tripTitle}`,
-        html: this.generateTripUpdateHTML(data),
-        text: `Hello ${data.userName}!\n\nTrip Update for: ${data.tripTitle}\n\n${data.updateMessage}\n\nOrganizer: ${data.organizerName}\n\nTrek Tribe Team`
-      };
-
-      await this.transporter!.sendMail(mailOptions);
-      logger.info('Trip update email sent successfully', {
-        userEmail: data.userEmail,
-        tripTitle: data.tripTitle
-      });
-
-      return true;
-    } catch (error: any) {
-      logger.error('Failed to send trip update email', {
-        error: error.message,
-        userEmail: data.userEmail
-      });
-      return false;
-    }
+    const html = this.generateTripUpdateHTML(data);
+    const result = await this.send(data.userEmail, `📢 Update: ${data.tripTitle}`, html);
+    if (result) logger.info('Trip update email sent', { userEmail: data.userEmail });
+    return result;
   }
 
   async sendPaymentScreenshotNotification(data: PaymentScreenshotData): Promise<boolean> {
-    if (!this.isServiceReady()) {
-      logger.warn('Email service not ready, skipping payment screenshot notification');
-      return false;
-    }
-
-    try {
-      const mailOptions = {
-        from: `\"TrekTribe Payment Updates\" <${process.env.GMAIL_USER}>`,
-        to: data.organizerEmail,
-        subject: `💰 New Payment Screenshot - ${data.tripTitle}`,
-        html: this.generatePaymentScreenshotHTML(data),
-        text: `Hello ${data.organizerName}!\n\nA new payment screenshot has been uploaded for your trip: ${data.tripTitle}\n\nTraveler: ${data.travelerName} (${data.travelerEmail})\nBooking ID: ${data.bookingId}\nAmount: ₹${data.totalAmount.toLocaleString()}\n\nPlease verify the payment in your TrekTribe dashboard.\n\nTrekTribe Team`
-      };
-
-      await this.transporter!.sendMail(mailOptions);
-      logger.info('Payment screenshot notification sent successfully', {
-        organizerEmail: data.organizerEmail,
-        tripTitle: data.tripTitle,
-        bookingId: data.bookingId
-      });
-
-      return true;
-    } catch (error: any) {
-      logger.error('Failed to send payment screenshot notification', {
-        error: error.message,
-        organizerEmail: data.organizerEmail
-      });
-      return false;
-    }
+    const html = this.generatePaymentScreenshotHTML(data);
+    const result = await this.send(data.organizerEmail, `💰 New Payment Screenshot - ${data.tripTitle}`, html);
+    if (result) logger.info('Payment screenshot notification sent', { organizerEmail: data.organizerEmail });
+    return result;
   }
 
   private generateEmailVerificationOTPHTML(data: EmailVerificationOTPData): string {
@@ -640,68 +469,23 @@ class EmailService {
   }
 
   async sendEmailVerificationOTP(data: EmailVerificationOTPData): Promise<boolean> {
-    if (!this.isServiceReady()) {
-      logger.warn('Email service not ready, skipping email verification OTP');
-      return false;
-    }
-
-    try {
-      const mailOptions = {
-        from: `\"Trek Tribe Verification\" <${process.env.GMAIL_USER}>`,
-        to: data.userEmail,
-        subject: 'Your Trek Tribe verification code',
-        html: this.generateEmailVerificationOTPHTML(data),
-        text: `Your Trek Tribe verification code is ${data.otp}. It expires in ${data.expiresMinutes} minutes.`
-      };
-
-      await this.transporter!.sendMail(mailOptions);
-      logger.info('Email verification OTP sent', { userEmail: data.userEmail });
-      return true;
-    } catch (error: any) {
-      logger.error('Failed to send email verification OTP', { error: error.message, userEmail: data.userEmail });
-      return false;
-    }
+    const html = this.generateEmailVerificationOTPHTML(data);
+    const result = await this.send(
+      data.userEmail,
+      'Your Trek Tribe verification code',
+      html,
+      `Your Trek Tribe verification code is ${data.otp}. It expires in ${data.expiresMinutes} minutes.`
+    );
+    if (result) logger.info('Email verification OTP sent', { userEmail: data.userEmail });
+    return result;
   }
 
-  /**
-   * Generic email sending method
-   */
   async sendEmail(options: { to: string; subject: string; html: string; text?: string }): Promise<boolean> {
-    if (!this.isServiceReady()) {
-      logger.warn('Email service not ready, skipping email send');
-      return false;
-    }
-
-    try {
-      const mailOptions = {
-        from: `"Trek Tribe" <${process.env.GMAIL_USER}>`,
-        to: options.to,
-        subject: options.subject,
-        html: options.html,
-        text: options.text || options.html.replace(/<[^>]*>/g, '') // Strip HTML if no text provided
-      };
-
-      await this.transporter!.sendMail(mailOptions);
-      logger.info('Generic email sent successfully', { to: options.to, subject: options.subject });
-      return true;
-    } catch (error: any) {
-      logger.error('Failed to send generic email', { error: error.message, to: options.to });
-      return false;
-    }
+    return this.send(options.to, options.subject, options.html, options.text);
   }
 
   async testConnection(): Promise<boolean> {
-    if (!this.transporter) {
-      return false;
-    }
-
-    try {
-      await this.transporter.verify();
-      return true;
-    } catch (error: any) {
-      logger.error('Email service connection test failed', { error: error?.message || error });
-      return false;
-    }
+    return this.isInitialized;
   }
 
   private generateAgentReplyHTML(data: AgentReplyData): string {
@@ -778,63 +562,31 @@ class EmailService {
       return false;
     }
 
-    try {
-      const mailOptions = {
-        from: `"Trek Tribe Support" <${process.env.GMAIL_USER || 'trektribeagent@gmail.com'}>`,
-        to: data.userEmail,
-        subject: `🎧 Agent Reply - ${data.ticketSubject} [${data.ticketId}]`,
-        html: this.generateAgentReplyHTML(data),
-        text: `Hello ${data.userName}!\n\nOur support agent ${data.agentName} has replied to your ticket.\n\nTicket ID: ${data.ticketId}\nSubject: ${data.ticketSubject}\n\nAgent Reply:\n${data.agentMessage}\n\nReply here: ${data.replyUrl}\n\nTrek Tribe Support Team`
-      };
-
-      await this.transporter!.sendMail(mailOptions);
-      logger.info('Agent reply notification email sent successfully', {
-        userEmail: data.userEmail,
-        ticketId: data.ticketId,
-        agentName: data.agentName
-      });
-
-      return true;
-    } catch (error: any) {
-      logger.error('Failed to send agent reply notification email', {
-        error: error.message,
-        userEmail: data.userEmail,
-        ticketId: data.ticketId
-      });
-      return false;
-    }
+    const html = this.generateAgentReplyHTML(data);
+    const result = await this.send(
+      data.userEmail,
+      `🎧 Agent Reply - ${data.ticketSubject} [${data.ticketId}]`,
+      html,
+      `Hello ${data.userName}!\n\nOur support agent ${data.agentName} has replied to your ticket.\n\nTicket ID: ${data.ticketId}\nAgent Reply:\n${data.agentMessage}\n\nReply here: ${data.replyUrl}\n\nTrek Tribe Support Team`
+    );
+    if (result) logger.info('Agent reply notification email sent', { userEmail: data.userEmail, ticketId: data.ticketId });
+    return result;
   }
 
   async sendTicketResolvedNotification(data: { userName: string; userEmail: string; ticketId: string; resolutionNote?: string; }): Promise<boolean> {
-    if (!this.isServiceReady()) {
-      logger.warn('Email service not ready, skipping ticket resolved notification');
-      return false;
-    }
-
-    try {
-      const mailOptions = {
-        from: `"Trek Tribe Support" <${process.env.GMAIL_USER || 'no-reply@trektribe.com'}>`,
-        to: data.userEmail,
-        subject: `✅ Your support ticket ${data.ticketId} has been resolved`,
-        text: `Hello ${data.userName},\n\nYour support ticket ${data.ticketId} has been marked as resolved.\n\nResolution:\n${data.resolutionNote || 'Resolved by support agent.'}\n\nIf you feel the issue is not resolved, reply to this email or open the ticket in your account.\n\nThanks,\nTrek Tribe Support Team`
-      };
-
-      await this.transporter!.sendMail(mailOptions);
-      logger.info('Ticket resolved notification email sent', { userEmail: data.userEmail, ticketId: data.ticketId });
-      return true;
-    } catch (error: any) {
-      logger.error('Failed to send ticket resolved notification email', { error: error.message, userEmail: data.userEmail, ticketId: data.ticketId });
-      return false;
-    }
+    return this.send(
+      data.userEmail,
+      `✅ Your support ticket ${data.ticketId} has been resolved`,
+      `<p>Hello ${data.userName},</p><p>Your support ticket <strong>${data.ticketId}</strong> has been resolved.</p><p>${data.resolutionNote || 'Resolved by support agent.'}</p><p>Trek Tribe Support Team</p>`,
+      `Hello ${data.userName},\n\nYour support ticket ${data.ticketId} has been resolved.\n\n${data.resolutionNote || 'Resolved by support agent.'}\n\nTrek Tribe Support Team`
+    );
   }
+
   async getServiceStatus() {
-    const hasCreds = !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
     return {
       isReady: this.isServiceReady(),
-      hasCredentials: hasCreds,
-      lastTest: this.isServiceReady() ? await this.testConnection() : false,
-      initializationError: this.initializationError,
-      configSource: this.configSource
+      hasCredentials: !!process.env.SENDGRID_API_KEY,
+      provider: 'sendgrid'
     };
   }
 }

@@ -1,4 +1,4 @@
-import nodemailer from 'nodemailer';
+import sgMail from '@sendgrid/mail';
 import { User } from '../models/User';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
@@ -10,56 +10,26 @@ interface SendOTPResult {
 }
 
 class EmailOTPService {
-  private transporter: nodemailer.Transporter | null = null;
+  private isReady: boolean = false;
+  private fromEmail: string = '';
 
   constructor() {
-    // Lazy initialization - don't initialize in constructor to avoid env var issues
+    this.init();
   }
 
-  private ensureInitialized() {
-    if (this.transporter) return;
+  private init() {
+    const apiKey = process.env.SENDGRID_API_KEY;
+    const fromEmail = process.env.GMAIL_USER || process.env.EMAIL_USER || process.env.SENDGRID_FROM_EMAIL;
 
-    const gmailUser = process.env.GMAIL_USER;
-    const gmailPassword = process.env.GMAIL_APP_PASSWORD;
-
-    if (!gmailUser || !gmailPassword) {
-      console.warn('⚠️ Email OTP service not configured. Set GMAIL_USER and GMAIL_APP_PASSWORD');
+    if (!apiKey || !fromEmail) {
+      console.warn('⚠️ Email OTP service not configured. Set SENDGRID_API_KEY and GMAIL_USER (or SENDGRID_FROM_EMAIL)');
       return;
     }
 
-    // Validate credential format before attempting SMTP connection
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(gmailUser)) {
-      console.warn('Email OTP service disabled: Invalid email format for GMAIL_USER. Please provide a valid email address (e.g., user@gmail.com).');
-      return;
-    }
-
-    // Gmail app passwords are exactly 16 characters (spaces stripped)
-    const cleanPassword = gmailPassword.replace(/\s/g, '');
-    if (cleanPassword.length !== 16) {
-      console.warn('Email OTP service disabled: Invalid app password length. Gmail app passwords must be exactly 16 characters. Please generate a new app password at https://myaccount.google.com/apppasswords');
-      return;
-    }
-
-    try {
-      this.transporter = nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 587,
-        secure: false, // Use STARTTLS on port 587
-        auth: {
-          user: gmailUser,
-          pass: cleanPassword,
-        },
-        pool: true,
-        maxConnections: 5,
-        connectionTimeout: 15000,
-        greetingTimeout: 15000
-      });
-
-      console.log('✅ Email OTP service initialized');
-    } catch (error: any) {
-      console.error('❌ Failed to initialize email OTP service:', error.message);
-    }
+    sgMail.setApiKey(apiKey);
+    this.fromEmail = fromEmail;
+    this.isReady = true;
+    console.log('✅ Email OTP service initialized with SendGrid');
   }
 
   /**
@@ -67,32 +37,18 @@ class EmailOTPService {
    */
   async sendOTP(email: string, purpose: 'registration' | 'login' | 'reset' = 'registration'): Promise<SendOTPResult> {
     try {
-      this.ensureInitialized();
-
-      if (!this.transporter) {
-        return {
-          success: false,
-          message: 'Email service not configured',
-          error: 'SMTP transport not initialized'
-        };
+      if (!this.isReady) {
+        return { success: false, message: 'Email service not configured', error: 'SendGrid not initialized' };
       }
 
-      // Find user by email
       const user = await User.findOne({ email });
       if (!user && purpose !== 'registration') {
-        return {
-          success: false,
-          message: 'User not found',
-          error: 'USER_NOT_FOUND'
-        };
+        return { success: false, message: 'User not found', error: 'USER_NOT_FOUND' };
       }
 
-      // Generate 6-digit OTP
       const otp = String(crypto.randomInt(100000, 999999));
       const otpHash = await bcrypt.hash(otp, 10);
-
-      // Store OTP with 5-minute expiry
-      const expiryTime = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+      const expiryTime = new Date(Date.now() + 5 * 60 * 1000);
 
       if (user) {
         user.emailVerificationOtpHash = otpHash;
@@ -101,16 +57,12 @@ class EmailOTPService {
         await user.save();
       }
 
-      // Prepare email content based on purpose
-      const subject = this.getEmailSubject(purpose);
-      const htmlContent = this.getEmailTemplate(otp, purpose);
-
-      // Send email
-      await this.transporter.sendMail({
-        from: `Trek Tribe <${process.env.GMAIL_USER}>`,
+      await sgMail.send({
         to: email,
-        subject,
-        html: htmlContent,
+        from: { email: this.fromEmail, name: 'Trek Tribe' },
+        subject: this.getEmailSubject(purpose),
+        html: this.getEmailTemplate(otp, purpose),
+        text: `Your Trek Tribe OTP is: ${otp}. It expires in 5 minutes.`
       });
 
       console.log(`✅ OTP sent to ${email} for ${purpose}`);
@@ -118,17 +70,13 @@ class EmailOTPService {
       return {
         success: true,
         message: 'OTP sent successfully',
-        // Include OTP in development mode for testing
         ...(process.env.NODE_ENV === 'development' && { otp })
       } as any;
 
     } catch (error: any) {
-      console.error('❌ Failed to send OTP:', error.message);
-      return {
-        success: false,
-        message: 'Failed to send OTP',
-        error: error.message
-      };
+      const detail = error?.response?.body?.errors?.[0]?.message || error.message;
+      console.error('❌ Failed to send OTP:', detail);
+      return { success: false, message: 'Failed to send OTP', error: detail };
     }
   }
 
@@ -216,8 +164,6 @@ class EmailOTPService {
    */
   async resendOTP(email: string, purpose: 'registration' | 'login' | 'reset' = 'registration'): Promise<SendOTPResult> {
     try {
-      this.ensureInitialized();
-
       const user = await User.findOne({ email });
 
       if (!user && purpose !== 'registration') {

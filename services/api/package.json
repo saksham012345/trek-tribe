@@ -51,6 +51,7 @@
     "test:crm": "ts-node test-crm-features.ts"
   },
   "dependencies": {
+    "@sendgrid/mail": "^8.1.6",
     "@sentry/node": "^7.58.0",
     "@types/bull": "^3.15.9",
     "@types/compression": "^1.8.1",
