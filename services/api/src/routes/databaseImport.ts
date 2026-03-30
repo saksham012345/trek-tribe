@@ -1,11 +1,24 @@
 import { Router } from 'express';
 import multer from 'multer';
+import rateLimit from 'express-rate-limit';
 import { authenticateJwt, requireRole } from '../middleware/auth';
 import { databaseImportService } from '../services/databaseImportService';
+import { importQueue } from '../workers/importWorker';
+import ImportedDatabase from '../models/ImportedDatabase';
 import CRMSubscription from '../models/CRMSubscription';
 import { logger } from '../utils/logger';
 
 const router = Router();
+
+// 10 imports per hour per organizer
+const importRateLimit = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  keyGenerator: (req: any) => req.auth?.userId || req.ip,
+  message: { success: false, error: 'Import limit exceeded. Maximum 10 imports per hour.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // Configure multer for file upload
 const storage = multer.memoryStorage();
@@ -112,7 +125,7 @@ router.post(
 
 /**
  * @route   POST /api/database-import/import
- * @desc    Import database from uploaded file
+ * @desc    Queue import job (async)
  * @access  Private (Organizer with CRM access)
  */
 router.post(
@@ -120,19 +133,16 @@ router.post(
   authenticateJwt,
   requireRole(['organizer']),
   checkCRMAccess,
+  importRateLimit,
   upload.single('file'),
   async (req: any, res) => {
     try {
       if (!req.file) {
-        return res.status(400).json({
-          success: false,
-          error: 'No file uploaded'
-        });
+        return res.status(400).json({ success: false, error: 'No file uploaded' });
       }
 
       const organizerId = req.auth.userId;
-      
-      // Parse configuration from request body
+
       const config = {
         skipDuplicates: req.body.skipDuplicates !== 'false',
         updateExisting: req.body.updateExisting === 'true',
@@ -140,41 +150,96 @@ router.post(
         autoAssignToOrganizer: req.body.autoAssignToOrganizer !== 'false',
         defaultLeadSource: req.body.defaultLeadSource || 'form',
         defaultLeadStatus: req.body.defaultLeadStatus || 'new',
-        defaultTags: req.body.defaultTags ? JSON.parse(req.body.defaultTags) : []
+        defaultTags: req.body.defaultTags ? JSON.parse(req.body.defaultTags) : [],
       };
 
-      // Parse field mapping if provided
       let fieldMapping;
       if (req.body.fieldMapping) {
         fieldMapping = JSON.parse(req.body.fieldMapping);
       }
 
-      // Import database
-      const result = await databaseImportService.importDatabase(
-        req.file,
-        organizerId,
-        fieldMapping,
-        config
-      );
+      // Get row count estimate from preview
+      const sampleData = await databaseImportService.getSampleData(req.file, 1);
+      const fileType = req.file.mimetype.includes('csv') ? 'csv' :
+        req.file.mimetype.includes('sheet') || req.file.mimetype.includes('excel') ? 'xlsx' : 'json';
 
-      return res.json({
-        success: result.success,
-        data: {
-          importId: result.importId,
-          stats: result.stats,
-          errors: result.errors
-        },
-        message: result.success 
-          ? 'Database imported successfully' 
-          : 'Import completed with errors'
+      // Create Import_Record immediately
+      const importRecord = await ImportedDatabase.create({
+        organizerId,
+        fileName: req.file.originalname,
+        fileSize: req.file.size,
+        fileType,
+        status: 'processing',
+        fieldMapping: fieldMapping || (sampleData.length > 0 ? databaseImportService.autoDetectFieldMapping(sampleData[0]) : []),
+        config,
+        stats: { totalRecords: 0, successfulImports: 0, failedImports: 0, duplicatesSkipped: 0 },
+        importErrors: [],
+        importedLeadIds: [],
+        processedRows: 0,
+        totalRows: 0,
+        progressPercentage: 0,
+      });
+
+      // Push to queue
+      await importQueue.add({
+        importId: importRecord._id.toString(),
+        organizerId,
+        fileBuffer: req.file.buffer.toString('base64'),
+        fileName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        fieldMapping: importRecord.fieldMapping,
+        config,
+      });
+
+      return res.status(202).json({
+        success: true,
+        importId: importRecord._id.toString(),
+        message: 'Import queued. Use the importId to track progress.',
       });
     } catch (error: any) {
-      logger.error('Error importing database', { error: error.message });
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to import database',
-        message: error.message
+      logger.error('Error queuing import', { error: error.message });
+      return res.status(500).json({ success: false, error: 'Failed to queue import', message: error.message });
+    }
+  }
+);
+
+/**
+ * @route   GET /api/database-import/:importId/status
+ * @desc    Poll import progress
+ * @access  Private (Organizer with CRM access)
+ */
+router.get(
+  '/:importId/status',
+  authenticateJwt,
+  requireRole(['organizer']),
+  checkCRMAccess,
+  async (req: any, res) => {
+    try {
+      const { importId } = req.params;
+      const organizerId = req.auth.userId;
+
+      const record = await ImportedDatabase.findOne({ _id: importId, organizerId })
+        .select('status processedRows totalRows progressPercentage stats importErrors')
+        .lean();
+
+      if (!record) {
+        return res.status(404).json({ success: false, error: 'Import record not found' });
+      }
+
+      return res.json({
+        success: true,
+        data: {
+          status: record.status,
+          processedRows: record.processedRows,
+          totalRows: record.totalRows,
+          progressPercentage: record.progressPercentage,
+          stats: record.stats,
+          errorCount: record.importErrors?.length ?? 0,
+        },
       });
+    } catch (error: any) {
+      logger.error('Error fetching import status', { error: error.message });
+      return res.status(500).json({ success: false, error: 'Failed to fetch import status' });
     }
   }
 );

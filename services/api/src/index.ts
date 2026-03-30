@@ -274,7 +274,14 @@ const logMessage = (level: string, message: string): void => {
 };
 
 // ==========================================
-// ROUTES - MOUNTED GLOBALLY
+// API v1 — versioned routes (new canonical paths)
+// ==========================================
+import v1Router from './router/v1';
+app.use('/api/v1', v1Router);
+
+// ==========================================
+// ROUTES - LEGACY PATHS (backward compatibility)
+// All existing paths continue to work unchanged.
 // ==========================================
 app.use('/auth', authLimiter, authRoutes);
 app.use('/trips', tripRoutes);

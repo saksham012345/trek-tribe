@@ -1,51 +1,38 @@
+/**
+ * CRM Routes
+ *
+ * Thin router — validates requests, delegates to controllers.
+ * Business logic lives in modules/crm/crm.service.ts
+ */
+
 import express from 'express';
-import leadController from '../controllers/leadController';
 import multer from 'multer';
-import path from 'path';
-import { User } from '../models/User';
-import { databaseImportService } from '../services/databaseImportService';
+import leadController from '../controllers/leadController';
 import ticketController from '../controllers/ticketController';
 import verificationController from '../controllers/verificationController';
 import subscriptionController from '../controllers/subscriptionController';
 import bankDetailsController from '../controllers/bankDetailsController';
-import analyticsService from '../services/analyticsService';
-import notificationService from '../services/notificationService';
-import Lead from '../models/Lead';
-import { Trip } from '../models/Trip';
-import { GroupBooking } from '../models/GroupBooking';
+import * as crmController from '../modules/crm/crm.controller';
 import {
   requireAdmin,
   requireOrganizerOrAdmin,
-  requireRole,
-  AuthRequest,
 } from '../middleware/roleCheck';
-import { requireCRMAccess, requireTripSlots } from '../middleware/crmAccess';
-import {
-  requireTripVerification,
-  canModifyVerification,
-} from '../middleware/tripVerifier';
 import { authenticateToken } from '../middleware/auth';
 
 const router = express.Router();
 
-// Multer config for CRM imports
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/crm_imports/');
-  },
-  filename: (req, file, cb) => {
-    cb(null, `import-${Date.now()}-${file.originalname}`);
-  }
+// Multer for legacy CSV import endpoint
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, 'uploads/crm_imports/'),
+    filename: (_req, file, cb) => cb(null, `import-${Date.now()}-${file.originalname}`),
+  }),
 });
-const upload = multer({ storage });
 
-// Apply authentication to all CRM routes
+// All CRM routes require authentication
 router.use(authenticateToken);
 
-// ============================================
-// LEAD MANAGEMENT ROUTES
-// ============================================
-
+// ─── Lead management ──────────────────────────────────────────────────────────
 router.post('/leads', requireOrganizerOrAdmin, leadController.createLead);
 router.get('/leads', requireOrganizerOrAdmin, leadController.getLeads);
 router.get('/leads/:id', requireOrganizerOrAdmin, leadController.getLeadById);
@@ -53,139 +40,16 @@ router.put('/leads/:id', requireOrganizerOrAdmin, leadController.updateLead);
 router.post('/leads/:id/interactions', requireOrganizerOrAdmin, leadController.addInteraction);
 router.post('/leads/:id/convert', requireOrganizerOrAdmin, leadController.convertLead);
 
-// ============================================
-// CRM STATS ROUTE
-// ============================================
+// ─── Lead pipeline, activities, rescore ──────────────────────────────────────
+router.patch('/leads/:id/pipeline-stage', requireOrganizerOrAdmin, crmController.updatePipelineStage);
+router.post('/leads/activities', requireOrganizerOrAdmin, crmController.recordActivity);
+router.get('/leads/activities/:leadId', requireOrganizerOrAdmin, crmController.getActivities);
+router.post('/leads/rescore', requireOrganizerOrAdmin, crmController.rescoreLeads);
 
-router.get('/stats', requireOrganizerOrAdmin, async (req: AuthRequest, res) => {
-  try {
-    const userId = req.user?.id;
-    const isAdmin = req.user?.role === 'admin';
+// ─── CRM stats ────────────────────────────────────────────────────────────────
+router.get('/stats', requireOrganizerOrAdmin, crmController.getStats);
 
-    // Build query filters based on role
-    const leadQuery: any = {};
-    const tripQuery: any = {};
-    const bookingQuery: any = {};
-
-    if (!isAdmin && userId) {
-      leadQuery.assignedTo = userId;
-      tripQuery.organizerId = userId;
-      // For bookings, we need to filter by trips owned by the organizer
-      const organizerTripIds = await Trip.find({ organizerId: userId }).distinct('_id');
-      bookingQuery.tripId = { $in: organizerTripIds };
-    }
-
-    // Get all leads for this organizer/admin
-    const leads = await Lead.find(leadQuery).lean();
-
-    // Get trips for revenue calculation
-    const trips = await Trip.find(tripQuery).select('_id price participants').lean();
-
-    // Get bookings for accurate revenue calculation
-    bookingQuery.paymentStatus = { $in: ['completed', 'partial'] };
-    bookingQuery.bookingStatus = { $in: ['confirmed', 'completed'] };
-    const bookings = await GroupBooking.find(bookingQuery)
-      .select('finalAmount paymentStatus bookingStatus createdAt')
-      .lean();
-
-    // Calculate revenue metrics
-    const totalRevenue = bookings.reduce((sum, booking) => {
-      if (booking.paymentStatus === 'completed') {
-        return sum + (booking.finalAmount || 0);
-      } else if (booking.paymentStatus === 'partial') {
-        // For partial payments, count the advance amount
-        return sum + ((booking as any).advanceAmount || 0);
-      }
-      return sum;
-    }, 0);
-
-    // Calculate this month's revenue
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const thisMonthRevenue = bookings
-      .filter(booking => new Date(booking.createdAt) >= startOfMonth)
-      .reduce((sum, booking) => {
-        if (booking.paymentStatus === 'completed') {
-          return sum + (booking.finalAmount || 0);
-        } else if (booking.paymentStatus === 'partial') {
-          return sum + ((booking as any).advanceAmount || 0);
-        }
-        return sum;
-      }, 0);
-
-    // Calculate last month's revenue
-    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
-    const lastMonthRevenue = bookings
-      .filter(booking => {
-        const bookingDate = new Date(booking.createdAt);
-        return bookingDate >= startOfLastMonth && bookingDate <= endOfLastMonth;
-      })
-      .reduce((sum, booking) => {
-        if (booking.paymentStatus === 'completed') {
-          return sum + (booking.finalAmount || 0);
-        } else if (booking.paymentStatus === 'partial') {
-          return sum + ((booking as any).advanceAmount || 0);
-        }
-        return sum;
-      }, 0);
-
-    // Calculate revenue growth
-    const revenueGrowth = lastMonthRevenue > 0
-      ? ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100
-      : (thisMonthRevenue > 0 ? 100 : 0);
-
-    // Calculate total bookings
-    const totalBookings = bookings.length;
-    const confirmedBookings = bookings.filter(b => b.bookingStatus === 'confirmed' || b.bookingStatus === 'completed').length;
-
-    // Calculate average booking value
-    const averageBookingValue = totalBookings > 0 ? totalRevenue / totalBookings : 0;
-
-    // Calculate stats
-    const stats = {
-      totalLeads: leads.length,
-      newLeads: leads.filter((l: any) => l.status === 'new').length,
-      contactedLeads: leads.filter((l: any) => l.status === 'contacted').length,
-      interestedLeads: leads.filter((l: any) => l.status === 'interested').length,
-      qualifiedLeads: leads.filter((l: any) => l.status === 'qualified').length,
-      lostLeads: leads.filter((l: any) => l.status === 'lost').length,
-      conversionRate: leads.length > 0
-        ? (leads.filter((l: any) => l.status === 'qualified').length / leads.length) * 100
-        : 0,
-      revenue: {
-        total: totalRevenue,
-        thisMonth: thisMonthRevenue,
-        lastMonth: lastMonthRevenue,
-        growth: revenueGrowth,
-        averageBookingValue: averageBookingValue,
-      },
-      bookings: {
-        total: totalBookings,
-        confirmed: confirmedBookings,
-        pending: totalBookings - confirmedBookings,
-      },
-      trips: {
-        total: trips.length,
-        active: trips.filter((t: any) => t.status === 'active').length,
-      },
-    };
-
-    res.json(stats);
-  } catch (error: any) {
-    console.error('Get CRM stats error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch CRM stats',
-      error: error.message,
-    });
-  }
-});
-
-// ============================================
-// SUPPORT TICKET ROUTES
-// ============================================
-
+// ─── Support tickets ──────────────────────────────────────────────────────────
 router.post('/tickets', ticketController.createTicket);
 router.get('/tickets', ticketController.getTickets);
 router.get('/tickets/:id', ticketController.getTicketById);
@@ -194,516 +58,47 @@ router.post('/tickets/:id/messages', ticketController.addMessage);
 router.put('/tickets/:id/assign', requireAdmin, ticketController.assignTicket);
 router.post('/tickets/:id/resolve', requireAdmin, ticketController.resolveTicket);
 
-// ============================================
-// TRIP VERIFICATION ROUTES
-// ============================================
-
-router.post(
-  '/verifications',
-  requireOrganizerOrAdmin,
-  verificationController.submitForVerification
-);
+// ─── Trip verification ────────────────────────────────────────────────────────
+router.post('/verifications', requireOrganizerOrAdmin, verificationController.submitForVerification);
 router.get('/verifications', requireOrganizerOrAdmin, verificationController.getVerifications);
 router.get('/verifications/trip/:tripId', verificationController.getVerificationByTripId);
-router.put(
-  '/verifications/trip/:tripId/status',
-  requireAdmin,
-  verificationController.updateVerificationStatus
-);
-router.put(
-  '/verifications/trip/:tripId/checklist',
-  requireAdmin,
-  verificationController.updateChecklistItem
-);
+router.put('/verifications/trip/:tripId/status', requireAdmin, verificationController.updateVerificationStatus);
+router.put('/verifications/trip/:tripId/checklist', requireAdmin, verificationController.updateChecklistItem);
 
-// ============================================
-// SUBSCRIPTION & PAYMENT ROUTES
-// ============================================
-
-router.post(
-  '/subscriptions/trial',
-  requireOrganizerOrAdmin,
-  subscriptionController.createTrialSubscription
-);
-router.post(
-  '/subscriptions/purchase/trip-package',
-  requireOrganizerOrAdmin,
-  subscriptionController.purchaseTripPackage
-);
-router.post(
-  '/subscriptions/purchase/crm-bundle',
-  requireOrganizerOrAdmin,
-  subscriptionController.purchaseCRMBundle
-);
+// ─── Subscriptions ────────────────────────────────────────────────────────────
+router.post('/subscriptions/trial', requireOrganizerOrAdmin, subscriptionController.createTrialSubscription);
+router.post('/subscriptions/purchase/trip-package', requireOrganizerOrAdmin, subscriptionController.purchaseTripPackage);
+router.post('/subscriptions/purchase/crm-bundle', requireOrganizerOrAdmin, subscriptionController.purchaseCRMBundle);
 router.get('/subscriptions/my', requireOrganizerOrAdmin, subscriptionController.getSubscription);
 router.get('/subscriptions/:organizerId', requireAdmin, subscriptionController.getSubscription);
 router.get('/subscriptions', requireAdmin, subscriptionController.getAllSubscriptions);
 router.post('/subscriptions/use-trip-slot', requireAdmin, subscriptionController.useTripSlot);
 
-// ============================================
-// BANK DETAILS ROUTES
-// ============================================
-
+// ─── Bank details ─────────────────────────────────────────────────────────────
 router.put('/bank-details', requireOrganizerOrAdmin, bankDetailsController.updateBankDetails);
 router.get('/bank-details', requireOrganizerOrAdmin, bankDetailsController.getBankDetails);
 router.get('/bank-details/:organizerId', requireAdmin, bankDetailsController.getFullBankDetails);
 router.delete('/bank-details', requireOrganizerOrAdmin, bankDetailsController.deleteBankDetails);
 
-// ============================================
-// ANALYTICS ROUTES
-// ============================================
+// ─── Analytics ────────────────────────────────────────────────────────────────
+router.get('/analytics/bookings-over-time', requireOrganizerOrAdmin, crmController.getBookingsOverTime);
+router.get('/analytics/payment-status', requireOrganizerOrAdmin, crmController.getPaymentStatus);
+router.get('/analytics/revenue-per-trip', requireOrganizerOrAdmin, crmController.getRevenuePerTrip);
+router.get('/analytics/lead-sources', requireOrganizerOrAdmin, crmController.getLeadSources);
+router.get('/analytics/organizer', requireOrganizerOrAdmin, crmController.getOrganizerAnalytics);
+router.get('/analytics/user', crmController.getUserAnalytics);
+router.get('/analytics/admin', requireAdmin, crmController.getAdminAnalytics);
+// Note: duplicate /analytics/lead-sources below kept for backward compat (admin-only variant)
+router.get('/analytics/lead-sources-admin', requireAdmin, crmController.getLeadSourcesBreakdown);
+router.get('/analytics/ticket-categories', requireAdmin, crmController.getTicketCategories);
 
-// Enhanced analytics endpoints for graphs (ADD-ONLY, non-breaking)
-router.get('/analytics/bookings-over-time', requireOrganizerOrAdmin, async (req: AuthRequest, res) => {
-  try {
-    const userId = req.user?.id;
-    const isAdmin = req.user?.role === 'admin';
-    const days = parseInt(req.query.days as string) || 30;
+// ─── Lead import / export ─────────────────────────────────────────────────────
+router.post('/import/leads', requireOrganizerOrAdmin, upload.single('file'), crmController.importLeads);
+router.get('/export/leads', requireOrganizerOrAdmin, crmController.exportLeads);
 
-    const tripQuery: any = {};
-    if (!isAdmin && userId) {
-      tripQuery.organizerId = userId;
-    }
-
-    const organizerTripIds = await Trip.find(tripQuery).distinct('_id');
-    const bookingQuery: any = { tripId: { $in: organizerTripIds } };
-
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
-
-    bookingQuery.createdAt = { $gte: startDate, $lte: endDate };
-
-    const bookings = await GroupBooking.find(bookingQuery)
-      .select('createdAt finalAmount paymentStatus')
-      .lean();
-
-    // Group by date
-    const bookingsByDate: Record<string, { count: number; revenue: number }> = {};
-    bookings.forEach(booking => {
-      const date = new Date(booking.createdAt).toISOString().split('T')[0];
-      if (!bookingsByDate[date]) {
-        bookingsByDate[date] = { count: 0, revenue: 0 };
-      }
-      bookingsByDate[date].count++;
-      if (booking.paymentStatus === 'completed' || booking.paymentStatus === 'partial') {
-        bookingsByDate[date].revenue += booking.finalAmount || 0;
-      }
-    });
-
-    // Fill in missing dates with zeros
-    const result = [];
-    for (let i = 0; i < days; i++) {
-      const date = new Date(startDate);
-      date.setDate(date.getDate() + i);
-      const dateStr = date.toISOString().split('T')[0];
-      result.push({
-        date: dateStr,
-        bookings: bookingsByDate[dateStr]?.count || 0,
-        revenue: bookingsByDate[dateStr]?.revenue || 0,
-      });
-    }
-
-    res.json({ success: true, data: result });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Failed to fetch bookings over time', error: error.message });
-  }
-});
-
-router.get('/analytics/payment-status', requireOrganizerOrAdmin, async (req: AuthRequest, res) => {
-  try {
-    const userId = req.user?.id;
-    const isAdmin = req.user?.role === 'admin';
-
-    const tripQuery: any = {};
-    if (!isAdmin && userId) {
-      tripQuery.organizerId = userId;
-    }
-
-    const organizerTripIds = await Trip.find(tripQuery).distinct('_id');
-    const bookingQuery: any = { tripId: { $in: organizerTripIds } };
-
-    const bookings = await GroupBooking.find(bookingQuery)
-      .select('paymentStatus')
-      .lean();
-
-    const statusCounts: Record<string, number> = {};
-    bookings.forEach(booking => {
-      statusCounts[booking.paymentStatus] = (statusCounts[booking.paymentStatus] || 0) + 1;
-    });
-
-    res.json({
-      success: true,
-      data: Object.entries(statusCounts).map(([status, count]) => ({ status, count })),
-    });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Failed to fetch payment status', error: error.message });
-  }
-});
-
-router.get('/analytics/revenue-per-trip', requireOrganizerOrAdmin, async (req: AuthRequest, res) => {
-  try {
-    const userId = req.user?.id;
-    const isAdmin = req.user?.role === 'admin';
-
-    const tripQuery: any = {};
-    if (!isAdmin && userId) {
-      tripQuery.organizerId = userId;
-    }
-
-    const trips = await Trip.find(tripQuery).select('_id title').lean();
-    const tripIds = trips.map(t => t._id);
-
-    const bookings = await GroupBooking.aggregate([
-      { $match: { tripId: { $in: tripIds }, paymentStatus: { $in: ['completed', 'partial'] } } },
-      {
-        $group: {
-          _id: '$tripId',
-          revenue: { $sum: '$finalAmount' },
-          bookings: { $sum: 1 },
-        }
-      },
-    ]);
-
-    const result = bookings.map(booking => {
-      const trip = trips.find(t => t._id.toString() === booking._id.toString());
-      return {
-        tripId: booking._id,
-        tripName: trip?.title || 'Unknown Trip',
-        revenue: booking.revenue,
-        bookings: booking.bookings,
-      };
-    }).sort((a, b) => b.revenue - a.revenue);
-
-    res.json({ success: true, data: result });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Failed to fetch revenue per trip', error: error.message });
-  }
-});
-
-router.get('/analytics/lead-sources', requireOrganizerOrAdmin, async (req: AuthRequest, res) => {
-  try {
-    const userId = req.user?.id;
-    const isAdmin = req.user?.role === 'admin';
-
-    const leadQuery: any = {};
-    if (!isAdmin && userId) {
-      leadQuery.assignedTo = userId;
-    }
-
-    const leads = await Lead.aggregate([
-      { $match: leadQuery },
-      {
-        $group: {
-          _id: '$source',
-          count: { $sum: 1 },
-          converted: { $sum: { $cond: [{ $eq: ['$status', 'converted'] }, 1, 0] } },
-        }
-      },
-      { $sort: { count: -1 } },
-    ]);
-
-    res.json({
-      success: true,
-      data: leads.map(lead => ({
-        source: lead._id || 'other',
-        count: lead.count,
-        converted: lead.converted,
-        conversionRate: lead.count > 0 ? ((lead.converted / lead.count) * 100).toFixed(2) : '0.00',
-      })),
-    });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Failed to fetch lead sources', error: error.message });
-  }
-});
-
-// ============================================
-// LEAD IMPORT/EXPORT SYSTEM
-// ============================================
-
-/**
- * @route   POST /api/crm/import/leads
- * @desc    Import leads from CSV
- */
-router.post('/import/leads', requireOrganizerOrAdmin, upload.single('file'), async (req: AuthRequest, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ success: false, error: 'No file uploaded' });
-    }
-
-    const organizerId = req.user?.id;
-    if (!organizerId) throw new Error('User not found');
-
-    // Use the existing databaseImportService
-    const result = await databaseImportService.importDatabase(
-      req.file as any, // Cast to any to bypass exact multer type match if needed
-      organizerId,
-      undefined, // auto-detect mapping
-      {
-        autoAssignToOrganizer: true,
-        defaultLeadSource: 'form',
-        defaultLeadStatus: 'new'
-      }
-    );
-
-    res.json({
-      success: true,
-      count: result.stats.successfulImports,
-      message: `Successfully imported ${result.stats.successfulImports} leads`
-    });
-  } catch (error: any) {
-    console.error('Lead import error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-/**
- * @route   GET /api/crm/export/leads
- * @desc    Export leads or all users to CSV
- */
-router.get('/export/leads', requireOrganizerOrAdmin, async (req: AuthRequest, res) => {
-  try {
-    const userId = req.user?.id;
-    const isAdmin = req.user?.role === 'admin';
-    const { exportAllUsers } = req.query;
-
-    let data: any[] = [];
-    let filename = `leads-export-${new Date().toISOString().split('T')[0]}.csv`;
-
-    if (exportAllUsers === 'true') {
-      // Export all travelers as potential leads
-      data = await User.find({ role: 'traveler' }).select('name email phone createdAt').lean();
-      filename = `all-users-export-${new Date().toISOString().split('T')[0]}.csv`;
-    } else {
-      // Standard lead export
-      const query: any = {};
-      if (!isAdmin) query.assignedTo = userId;
-      data = await Lead.find(query).populate('tripId', 'title').lean();
-    }
-
-    // Simple CSV generator
-    const headers = exportAllUsers === 'true'
-      ? 'Name,Email,Phone,Joined At\n'
-      : 'Name,Email,Phone,Trip,Status,Source,Created At\n';
-
-    const rows = data.map((item: any) => {
-      if (exportAllUsers === 'true') {
-        return `"${item.name}","${item.email}","${item.phone || ''}","${item.createdAt}"`;
-      } else {
-        return `"${item.name || ''}","${item.email || ''}","${item.phone || ''}","${item.tripId?.title || 'N/A'}","${item.status}","${item.source}","${item.createdAt}"`;
-      }
-    }).join('\n');
-
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.send(headers + rows);
-  } catch (error: any) {
-    console.error('Export error:', error);
-    res.status(500).json({ success: false, error: 'Failed to export data' });
-  }
-});
-
-// Organizer analytics
-router.get('/analytics/organizer', requireOrganizerOrAdmin, async (req: AuthRequest, res) => {
-  try {
-    const organizerId = req.user?.role === 'admin'
-      ? req.query.organizerId as string
-      : req.user?.id;
-
-    if (!organizerId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Organizer ID required',
-      });
-    }
-
-    let dateRange;
-    if (req.query.startDate && req.query.endDate) {
-      dateRange = {
-        start: new Date(req.query.startDate as string),
-        end: new Date(req.query.endDate as string),
-      };
-    }
-
-    const analytics = await analyticsService.getOrganizerAnalytics(organizerId, dateRange);
-
-    res.json({
-      success: true,
-      data: analytics,
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch analytics',
-      error: error.message,
-    });
-  }
-});
-
-// User analytics
-router.get('/analytics/user', async (req: AuthRequest, res) => {
-  try {
-    const userId = req.user?.role === 'admin'
-      ? req.query.userId as string
-      : req.user?.id;
-
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        message: 'User ID required',
-      });
-    }
-
-    const analytics = await analyticsService.getUserAnalytics(userId);
-
-    res.json({
-      success: true,
-      data: analytics,
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch user analytics',
-      error: error.message,
-    });
-  }
-});
-
-// Admin analytics
-router.get('/analytics/admin', requireAdmin, async (req: AuthRequest, res) => {
-  try {
-    let dateRange;
-    if (req.query.startDate && req.query.endDate) {
-      dateRange = {
-        start: new Date(req.query.startDate as string),
-        end: new Date(req.query.endDate as string),
-      };
-    }
-
-    const analytics = await analyticsService.getAdminAnalytics(dateRange);
-
-    res.json({
-      success: true,
-      data: analytics,
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch admin analytics',
-      error: error.message,
-    });
-  }
-});
-
-// Lead sources breakdown
-router.get('/analytics/lead-sources', requireAdmin, async (req: AuthRequest, res) => {
-  try {
-    const sources = await analyticsService.getLeadSourcesBreakdown();
-    res.json({
-      success: true,
-      data: sources,
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch lead sources',
-      error: error.message,
-    });
-  }
-});
-
-// Ticket categories breakdown
-router.get('/analytics/ticket-categories', requireAdmin, async (req: AuthRequest, res) => {
-  try {
-    const categories = await analyticsService.getTicketCategoryBreakdown();
-    res.json({
-      success: true,
-      data: categories,
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch ticket categories',
-      error: error.message,
-    });
-  }
-});
-
-// ============================================
-// NOTIFICATION ROUTES
-// ============================================
-
-router.get('/notifications', async (req: AuthRequest, res) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Authentication required',
-      });
-    }
-
-    const { limit, skip, unreadOnly } = req.query;
-
-    const result = await notificationService.getUserNotifications(req.user.id, {
-      limit: limit ? Number(limit) : undefined,
-      skip: skip ? Number(skip) : undefined,
-      unreadOnly: unreadOnly === 'true',
-    });
-
-    res.json({
-      success: true,
-      data: result.notifications,
-      unreadCount: result.unreadCount,
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch notifications',
-      error: error.message,
-    });
-  }
-});
-
-router.put('/notifications/:id/read', async (req: AuthRequest, res) => {
-  try {
-    const { id } = req.params;
-    const notification = await notificationService.markAsRead(id);
-
-    res.json({
-      success: true,
-      data: notification,
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: 'Failed to mark notification as read',
-      error: error.message,
-    });
-  }
-});
-
-router.put('/notifications/read-all', async (req: AuthRequest, res) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Authentication required',
-      });
-    }
-
-    await notificationService.markAllAsRead(req.user.id);
-
-    res.json({
-      success: true,
-      message: 'All notifications marked as read',
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: 'Failed to mark all as read',
-      error: error.message,
-    });
-  }
-});
+// ─── Notifications ────────────────────────────────────────────────────────────
+router.get('/notifications', crmController.getNotifications);
+router.put('/notifications/:id/read', crmController.markNotificationRead);
+router.put('/notifications/read-all', crmController.markAllNotificationsRead);
 
 export default router;

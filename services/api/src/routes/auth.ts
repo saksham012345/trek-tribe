@@ -12,6 +12,7 @@ import crypto from 'crypto';
 import axios from 'axios';
 import { OAuth2Client } from 'google-auth-library';
 import { smsService } from '../services/smsService';
+import * as authService from '../modules/auth/auth.service';
 
 const router = Router();
 
@@ -135,7 +136,6 @@ const registerSchema = z.object({
 router.post('/register', async (req, res) => {
   console.log("Register request body:", req.body);
   try {
-    // Validate request body
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) {
       const errors = parsed.error.flatten();
@@ -144,286 +144,73 @@ router.post('/register', async (req, res) => {
         error: 'Validation failed',
         message: 'The data you submitted is incomplete or invalid. Please fix the highlighted fields.',
         details: errors.fieldErrors,
-        formErrors: errors.formErrors
+        formErrors: errors.formErrors,
       });
     }
 
-    const { email, password, name, username, phone, role, bio, location, experience, specialties, languages, yearsOfExperience } = parsed.data;
-
-    // Check for existing email
-    const existing = await User.findOne({ email });
-    if (existing) {
-      // If account exists but is NOT verified, return distinct response
-      if (!existing.emailVerified) {
-        return res.status(409).json({
-          success: false,
-          error: 'Account exists but unverified',
-          code: 'ACCOUNT_UNVERIFIED',
-          message: 'An account with this email already exists but is waiting for verification. Please log in to complete the process.',
-          requiresVerification: true
-        });
-      }
-
-      const statusCode = process.env.NODE_ENV === 'test' ? 400 : 409;
-      return res.status(statusCode).json({
-        success: false,
-        error: 'Email already registered',
-        message: 'This email address is already registered. Please use a different email or try logging in.',
-        field: 'email'
-      });
-    }
-
-    // Check if username already in use (only if username is provided)
-    if (username) {
-      const existingUsername = await User.findOne({ username: username.toLowerCase() });
-      if (existingUsername) {
-        return res.status(409).json({
-          success: false,
-          error: 'Username already taken',
-          message: 'This username is already taken. Please choose a different username.',
-          field: 'username'
-        });
-      }
-    }
-
-    // Check if phone already in use
-    const existingPhone = await User.findOne({ phone });
-    if (existingPhone) {
-      return res.status(409).json({
-        success: false,
-        error: 'Phone number already registered',
-        message: 'This phone number is already registered. Please use a different phone number.',
-        field: 'phone'
-      });
-    }
-
-    // Hash password
-    const passwordHash = await bcrypt.hash(password, 12);
-
-    // Determine final role (default to traveler)
+    const { role } = parsed.data;
     const userRole = role ?? 'traveler';
-
-    // Enforce role restrictions: only traveler and organizer allowed during registration
-    const ALLOWED_REGISTRATION_ROLES = ['traveler', 'organizer'];
-    if (!ALLOWED_REGISTRATION_ROLES.includes(userRole)) {
+    const ALLOWED = ['traveler', 'organizer'];
+    if (!ALLOWED.includes(userRole)) {
       return res.status(400).json({
         success: false,
         error: 'Invalid role for registration',
-        message: `Role '${userRole}' is not allowed during registration. Only traveler and organizer roles are available. Administrative roles must be created by system administrators.`,
-        field: 'role'
+        message: `Role '${userRole}' is not allowed during registration.`,
+        field: 'role',
       });
     }
 
-    let finalUsername = username?.toLowerCase();
+    // Delegate all business logic to auth service
+    const { token, user } = await authService.registerUser({
+      email: parsed.data.email,
+      password: parsed.data.password,
+      name: parsed.data.name,
+      phone: parsed.data.phone,
+      role: userRole as 'traveler' | 'organizer',
+      username: parsed.data.username,
+      bio: parsed.data.bio,
+      location: parsed.data.location,
+      experience: parsed.data.experience,
+      specialties: parsed.data.specialties,
+      languages: parsed.data.languages,
+      yearsOfExperience: parsed.data.yearsOfExperience,
+    });
 
-    // Auto-generate username if not provided
-    if (!finalUsername) {
-      const baseName = name.split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '') || 'user';
-      const randomSuffix = crypto.randomBytes(3).toString('hex');
-      finalUsername = `${baseName}_${randomSuffix}`;
+    setAuthCookie(res, token, req);
+    logger.info('User registered (OTP disabled, auto-verified)', { email: user.email, role: userRole });
 
-      // We assume this is unique enough for a fallback. 
-      // If it clashes, the catch block (11000 duplicate key) will handle it,
-      // but the chance is low.
-    }
-
-    // Create base user object
-    const userData: any = {
-      email,
-      passwordHash,
-      name,
-      username: finalUsername,
-      phone,
-      role: userRole,
-      bio,
-      location,
-      emailVerified: false,
-      // Auto-verify phone as per requirement: "phone should be necessary but for now don't verify it"
-      phoneVerified: true
-    };
-
-    // Auto-create role-specific profile structure
-    if (userRole === 'organizer') {
-      userData.organizerProfile = {
-        bio: bio || '',
-        experience: experience || '',
-        specialties: specialties || [],
-        languages: languages || ['English'],
-        yearsOfExperience: yearsOfExperience || 0,
-        totalTripsOrganized: 0,
-        certifications: [],
-        achievements: [],
-        qrCodes: [],
-        autoPay: {
-          isSetupRequired: false,
-          isSetupCompleted: false,
-          autoPayEnabled: false
-        },
-        // Initialize trust score at 0 - admin will set it upon verification
-        trustScore: {
-          overall: 0,
-          breakdown: {
-            documentVerified: 0,
-            bankVerified: 0,
-            experienceYears: 0,
-            completedTrips: 0,
-            userReviews: 0,
-            responseTime: 0,
-            refundRate: 0
-          },
-          lastCalculated: new Date()
-        },
-        verificationBadge: 'none',
-        routingEnabled: false  // Disabled by default, admin can enable after verification
-      };
-
-      // Set organizer verification status to pending
-      userData.organizerVerificationStatus = 'pending';
-      userData.organizerVerificationSubmittedAt = new Date();
-    }
-    // travelers use default user fields
-
-    const user = await User.create(userData);
-
-    // Create verification request for organizers
-    if (userRole === 'organizer') {
-      try {
-        const existingRequest = await VerificationRequest.findOne({ organizerId: user._id });
-
-        if (!existingRequest) {
-          await VerificationRequest.create({
-            organizerId: user._id,
-            organizerName: user.name,
-            organizerEmail: user.email,
-            requestType: 'initial',
-            status: 'pending',
-            priority: 'medium',
-            documents: [],
-            kycDetails: {
-              phone: phone || '',
-              businessName: name  // Use provided name as initial business name
-            }
-          });
-
-          logger.info('Verification request created for new organizer', {
-            userId: user._id,
-            email: user.email
-          });
-        } else {
-          logger.info('Verification request already exists for organizer', {
-            userId: user._id,
-            requestId: existingRequest._id
-          });
-        }
-
-        // TODO: Send notification to admin about new verification request
-        // This could be an email, webhook, or push notification
-      } catch (verifyError: any) {
-        logger.error('Failed to created/check verification request', {
-          userId: user._id,
-          error: verifyError.message
-        });
-        // Don't fail registration if verification request creation fails
-      }
-    }
-
-    // Generate and store 10-minute OTP for email verification
-    const otp = String(crypto.randomInt(100000, 999999));
-    const otpHash = await bcrypt.hash(otp, 12);
-    user.emailVerificationOtpHash = otpHash;
-    user.emailVerificationExpires = new Date(Date.now() + 10 * 60 * 1000);
-    user.emailVerificationAttempts = 0;
-    user.emailVerificationLastSentAt = new Date();
-    await user.save();
-
-    // Send verification code via Email
-    try {
-      await emailService.sendEmailVerificationOTP({
-        userName: user.name,
-        userEmail: user.email,
-        otp,
-        expiresMinutes: 10
-      });
-
-      logger.info('Registration email OTP sent', { email, userId: user._id, role: userRole });
-
-      // In normal environments we require email verification.
-      // In test environment, auto-verify and return a token to make tests deterministic.
-      if (process.env.NODE_ENV === 'test') {
-        user.emailVerified = true;
-        user.emailVerificationOtpHash = undefined;
-        user.emailVerificationExpires = undefined;
-        user.emailVerificationAttempts = 0;
-        await user.save();
-
-        const jwtSecret = process.env.JWT_SECRET || 'test-jwt-secret-key';
-        const token = jwt.sign({ userId: String(user._id), role: user.role }, jwtSecret, { expiresIn: '7d' });
-
-        // Set secure httpOnly cookie
-        setAuthCookie(res, token, req);
-
-        // Return both `_id` and `id` to satisfy different test/client expectations
-        return res.status(201).json({
-          success: true,
-          message: 'Registered (test mode). Auto-verified and logged in.',
-          requiresVerification: false,
-          token, // Still return token for backward compatibility
-          user: {
-            _id: user._id,
-            id: user._id,
-            email: user.email,
-            name: user.name,
-            role: user.role,
-            ...(userRole === 'organizer' && { organizerProfile: user.organizerProfile })
-          }
-        });
-      }
-
-      // Do not issue login token until email verified
-      return res.status(201).json({
-        success: true,
-        message: 'Registration successful! A verification code has been sent to your email.',
-        requiresVerification: true,
-        userId: user._id,
-        email: user.email,
-        role: userRole,
-        // In dev mode, return OTP for testing
-        ...(process.env.NODE_ENV === 'development' && { otp })
-      });
-    } catch (error: any) {
-      logger.error('Failed to send registration OTP', { email, error: error.message });
-      // Still return success but inform about email failure
-      return res.status(201).json({
-        success: true,
-        message: 'Registration successful, but we could not send the verification code. You can request a new code from the login page.',
-        requiresVerification: true,
-        userId: user._id,
-        email: user.email,
-        role: userRole,
-        // In dev mode, return OTP
-        ...(process.env.NODE_ENV === 'development' && { otp })
-      });
-    }
+    return res.status(201).json({
+      success: true,
+      message: 'Registration successful! You are now logged in.',
+      requiresVerification: false,
+      token,
+      user,
+    });
   } catch (error: any) {
     logger.error('Registration failed', { error: error.message, stack: error.stack });
 
-    // Handle specific error types
+    if (error.code === 'ACCOUNT_UNVERIFIED') {
+      return res.status(409).json({ success: false, error: 'Account exists but unverified', code: 'ACCOUNT_UNVERIFIED', message: error.message, requiresVerification: true });
+    }
+    if (error.code === 'EMAIL_EXISTS') {
+      return res.status(error.status || 409).json({ success: false, error: 'Email already registered', message: 'This email address is already registered.', field: 'email' });
+    }
+    if (error.code === 'PHONE_EXISTS') {
+      return res.status(409).json({ success: false, error: 'Phone number already registered', message: error.message, field: 'phone' });
+    }
+    if (error.code === 'USERNAME_EXISTS') {
+      return res.status(409).json({ success: false, error: 'Username already taken', message: error.message, field: 'username' });
+    }
     if (error.name === 'MongoServerError' && error.code === 11000) {
-      // Duplicate key error
       const field = Object.keys(error.keyPattern || {})[0] || 'field';
-      return res.status(409).json({
-        success: false,
-        error: 'Duplicate entry',
-        message: `This ${field} is already registered. Please use a different ${field}.`,
-        field
-      });
+      return res.status(409).json({ success: false, error: 'Duplicate entry', message: `This ${field} is already registered.`, field });
     }
 
     return res.status(500).json({
       success: false,
       error: 'Registration failed',
       message: 'An unexpected error occurred during registration. Please try again later.',
-      ...(process.env.NODE_ENV === 'development' && { details: error.message })
+      ...(process.env.NODE_ENV === 'development' && { details: error.message }),
     });
   }
 });

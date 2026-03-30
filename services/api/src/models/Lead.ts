@@ -1,5 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+export type PipelineStage = 'new' | 'contacted' | 'interested' | 'negotiating' | 'booked' | 'lost';
+
 export interface ILead extends Document {
   userId?: mongoose.Types.ObjectId;
   tripId?: mongoose.Types.ObjectId;
@@ -8,6 +10,7 @@ export interface ILead extends Document {
   name?: string;
   source: 'trip_view' | 'inquiry' | 'partial_booking' | 'chat' | 'form' | 'other';
   status: 'new' | 'contacted' | 'interested' | 'not_interested' | 'converted' | 'lost';
+  pipelineStage: PipelineStage;
   leadScore: number;
   interactions: {
     type: 'email' | 'call' | 'chat' | 'message' | 'visit';
@@ -47,6 +50,11 @@ const LeadSchema: Schema = new Schema(
       default: 'new',
     },
     leadScore: { type: Number, default: 0, min: 0, max: 100 },
+    pipelineStage: {
+      type: String,
+      enum: ['new', 'contacted', 'interested', 'negotiating', 'booked', 'lost'],
+      default: 'new',
+    },
     interactions: [
       {
         type: {
@@ -97,11 +105,14 @@ const LeadSchema: Schema = new Schema(
 );
 
 // Indexes for performance
+LeadSchema.index({ email: 1, assignedTo: 1 }); // compound for dedup
 LeadSchema.index({ email: 1 });
 LeadSchema.index({ status: 1 });
 LeadSchema.index({ tripId: 1 });
 LeadSchema.index({ assignedTo: 1 });
 LeadSchema.index({ leadScore: -1 });
+LeadSchema.index({ source: 1 });
+LeadSchema.index({ pipelineStage: 1 });
 LeadSchema.index({ createdAt: -1 });
 
 export default mongoose.model<ILead>('Lead', LeadSchema);

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import io from 'socket.io-client';
 import api from '../config/api';
 import { User } from '../types';
 import SubscriptionCard from '../components/crm/SubscriptionCard';
@@ -6,6 +7,10 @@ import { useToast } from '../components/ui/Toast';
 import { Skeleton } from '../components/ui/Skeleton';
 import BankDetailsTab from '../components/crm/BankDetailsTab';
 import ImportLeadsModal from '../components/crm/ImportLeadsModal';
+import LeadScoreBadge from '../components/crm/LeadScoreBadge';
+import LeadSourcesChart from '../components/crm/LeadSourcesChart';
+import ImportHistoryPanel from '../components/crm/ImportHistoryPanel';
+import LeadKanban, { Lead as KanbanLead } from '../components/crm/LeadKanban';
 
 // Payments Tab Component
 const PaymentsTab: React.FC<{ user: User }> = ({ user }) => {
@@ -227,6 +232,19 @@ interface Lead {
   createdAt: string;
 }
 
+// CRM imported leads (flat structure from /api/crm/leads)
+interface CrmLead {
+  _id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  source?: string;
+  status?: string;
+  leadScore: number;
+  pipelineStage: 'new' | 'contacted' | 'interested' | 'negotiating' | 'booked' | 'lost';
+  createdAt: string;
+}
+
 interface Ticket {
   _id: string;
   subject: string;
@@ -241,10 +259,14 @@ const OrganizerCRMDashboard: React.FC<OrganizerCRMProps> = ({ user }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [crmLeads, setCrmLeads] = useState<CrmLead[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [analyticsRefreshKey, setAnalyticsRefreshKey] = useState(0);
+  const [leadsView, setLeadsView] = useState<'list' | 'kanban'>('list');
+  const socketRef = useRef<any>(null);
 
   const handleExportAllData = async () => {
     try {
@@ -268,6 +290,43 @@ const OrganizerCRMDashboard: React.FC<OrganizerCRMProps> = ({ user }) => {
 
   useEffect(() => {
     fetchDashboardData();
+  }, [activeTab]);
+
+  const fetchCrmLeads = async () => {
+    try {
+      const res = await api.get('/api/crm/leads?sort=leadScore&order=desc');
+      setCrmLeads(res.data.data || res.data.leads || []);
+    } catch (err) {
+      console.error('Failed to fetch CRM leads', err);
+    }
+  };
+
+  // Socket.IO — listen for leads_imported event
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const socketUrl = process.env.REACT_APP_API_URL || process.env.REACT_APP_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+    const socket = io(socketUrl, {
+      path: '/socket.io/',
+      auth: { token },
+      withCredentials: true,
+    } as any);
+    socketRef.current = socket;
+
+    socket.on(`leads_imported:${user._id}`, () => {
+      setAnalyticsRefreshKey(k => k + 1);
+      fetchCrmLeads();
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [user._id]);
+
+  // Fetch CRM leads when leads tab is active
+  useEffect(() => {
+    if (activeTab === 'leads') {
+      fetchCrmLeads();
+    }
   }, [activeTab]);
 
   const fetchDashboardData = async () => {
@@ -414,6 +473,21 @@ const OrganizerCRMDashboard: React.FC<OrganizerCRMProps> = ({ user }) => {
                   </div>
                 </div>
               </div>
+
+              <div className="bg-white rounded-xl shadow-lg p-6 col-span-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Hot Leads</p>
+                    <p className="text-3xl font-bold text-red-600 mt-1">
+                      {crmLeads.filter(l => l.leadScore >= 75).length}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">Score ≥ 75</p>
+                  </div>
+                  <div className="p-4 bg-red-100 rounded-full">
+                    <span className="text-3xl">🔥</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Recent Activity */}
@@ -482,6 +556,12 @@ const OrganizerCRMDashboard: React.FC<OrganizerCRMProps> = ({ user }) => {
               <div className="h-64 flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg">
                 <p className="text-gray-500">Revenue chart coming soon...</p>
               </div>
+            </div>
+
+            {/* Lead Sources Chart */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">🗂️ Lead Sources</h3>
+              <LeadSourcesChart refreshKey={analyticsRefreshKey} />
             </div>
           </div>
         )}
@@ -554,65 +634,111 @@ const OrganizerCRMDashboard: React.FC<OrganizerCRMProps> = ({ user }) => {
         )}
 
         {activeTab === 'leads' && (
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-gray-900">🎯 Lead Management</h3>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowImportModal(true)}
-                  className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700 transition-all flex items-center gap-2"
-                >
-                  <span className="text-lg">📥</span> Import Leads
-                </button>
-                <button
-                  onClick={handleExportAllData}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-all flex items-center gap-2"
-                >
-                  <span className="text-lg">📊</span> Export All Data
-                </button>
-                <select className="px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                  <option>All Leads</option>
-                  <option>New</option>
-                  <option>Contacted</option>
-                  <option>Converted</option>
-                </select>
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-900">🎯 Lead Management</h3>
+                <div className="flex gap-2 flex-wrap">
+                  {/* List / Kanban toggle */}
+                  <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+                    <button
+                      onClick={() => setLeadsView('list')}
+                      className={`px-3 py-2 text-sm font-medium transition-colors ${leadsView === 'list' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                    >
+                      ☰ List
+                    </button>
+                    <button
+                      onClick={() => setLeadsView('kanban')}
+                      className={`px-3 py-2 text-sm font-medium transition-colors ${leadsView === 'kanban' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                    >
+                      ⬛ Kanban
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => setShowImportModal(true)}
+                    className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700 transition-all flex items-center gap-2"
+                  >
+                    <span className="text-lg">📥</span> Import Leads
+                  </button>
+                  <button
+                    onClick={handleExportAllData}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-all flex items-center gap-2"
+                  >
+                    <span className="text-lg">📊</span> Export All Data
+                  </button>
+                  <select className="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <option>All Leads</option>
+                    <option>New</option>
+                    <option>Contacted</option>
+                    <option>Converted</option>
+                  </select>
+                </div>
               </div>
+
+              {loading ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                </div>
+              ) : crmLeads.length === 0 ? (
+                <div className="text-center py-12">
+                  <span className="text-4xl">📭</span>
+                  <p className="text-gray-500 mt-4">No leads yet</p>
+                </div>
+              ) : leadsView === 'kanban' ? (
+                <LeadKanban
+                  leads={crmLeads as KanbanLead[]}
+                  onStageChange={(leadId, stage) => {
+                    setCrmLeads(prev =>
+                      prev.map(l => l._id === leadId ? { ...l, pipelineStage: stage as CrmLead['pipelineStage'] } : l)
+                    );
+                  }}
+                />
+              ) : (
+                <div className="space-y-4">
+                  {crmLeads.map((lead) => (
+                    <div key={lead._id} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="font-semibold text-gray-900">{lead.name}</p>
+                          <p className="text-sm text-gray-600">{lead.email}</p>
+                          {lead.source && (
+                            <p className="text-xs text-gray-500 capitalize mt-0.5">{lead.source.replace(/_/g, ' ')}</p>
+                          )}
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          <LeadScoreBadge score={lead.leadScore} />
+                          {lead.status && (
+                            <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
+                              lead.status === 'new' ? 'bg-blue-100 text-blue-800' :
+                              lead.status === 'contacted' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-green-100 text-green-800'
+                            }`}>
+                              {lead.status.toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span>📧 {lead.email}</span>
+                        <span>{new Date(lead.createdAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {loading ? (
-              <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              </div>
-            ) : leads.length === 0 ? (
-              <div className="text-center py-12">
-                <span className="text-4xl">📭</span>
-                <p className="text-gray-500 mt-4">No leads yet</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {leads.map((lead) => (
-                  <div key={lead._id} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <p className="font-semibold text-gray-900">{lead.travelerId.name}</p>
-                        <p className="text-sm text-gray-600">{lead.tripId.title}</p>
-                      </div>
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${lead.status === 'new' ? 'bg-blue-100 text-blue-800' :
-                        lead.status === 'contacted' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-green-100 text-green-800'
-                        }`}>
-                        {lead.status.toUpperCase()}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-700 mb-2">{lead.message}</p>
-                    <div className="flex items-center justify-between text-xs text-gray-500">
-                      <span>📧 {lead.travelerId.email}</span>
-                      <span>{new Date(lead.createdAt).toLocaleDateString()}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            {/* Import History */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">📋 Import History</h3>
+              <ImportHistoryPanel
+                refreshKey={analyticsRefreshKey}
+                onRollback={() => {
+                  setAnalyticsRefreshKey(k => k + 1);
+                  fetchCrmLeads();
+                }}
+              />
+            </div>
           </div>
         )}
 
@@ -708,6 +834,8 @@ const OrganizerCRMDashboard: React.FC<OrganizerCRMProps> = ({ user }) => {
           onClose={() => setShowImportModal(false)}
           onSuccess={() => {
             setShowImportModal(false);
+            setAnalyticsRefreshKey(k => k + 1);
+            fetchCrmLeads();
             fetchDashboardData();
           }}
         />

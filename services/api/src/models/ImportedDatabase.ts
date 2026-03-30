@@ -53,6 +53,11 @@ export interface IImportedDatabase extends Document {
   canRollback: boolean;
   rolledBackAt?: Date;
 
+  // Progress tracking
+  processedRows: number;
+  totalRows: number;
+  progressPercentage: number;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -118,7 +123,12 @@ const ImportedDatabaseSchema: Schema = new Schema(
     }],
 
     canRollback: { type: Boolean, default: true },
-    rolledBackAt: { type: Date }
+    rolledBackAt: { type: Date },
+
+    // Progress tracking
+    processedRows: { type: Number, default: 0 },
+    totalRows: { type: Number, default: 0 },
+    progressPercentage: { type: Number, default: 0 },
   },
   {
     timestamps: true
