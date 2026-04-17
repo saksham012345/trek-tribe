@@ -102,7 +102,7 @@ export async function onboardOrganizer(organizerId: string, userEmail: string, u
         scheduledPaymentDate,
         paymentAmount: DEFAULT_AUTOPAY_PLAN.amount,
         autoPayEnabled: false,
-      };
+      } as any;
       await organizer.save();
       logger.info('60-day trial started on route creation', { userId: organizerId, scheduledDate: scheduledPaymentDate });
     }

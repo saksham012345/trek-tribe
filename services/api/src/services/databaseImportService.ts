@@ -414,7 +414,7 @@ class DatabaseImportService {
 
           // Create lead
           const lead = await Lead.create(leadData);
-          importedLeadIds.push(lead._id);
+          importedLeadIds.push(lead._id as any);
           successCount++;
 
         } catch (error: any) {

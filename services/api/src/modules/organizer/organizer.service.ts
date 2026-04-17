@@ -113,7 +113,7 @@ export async function verifyPayment(
     booking.rejectionReason = notes || 'Payment verification failed';
   }
 
-  booking.verifiedBy = organizerId;
+  booking.verifiedBy = organizerId as any;
   booking.verifiedAt = new Date();
   booking.verificationNotes = notes;
 

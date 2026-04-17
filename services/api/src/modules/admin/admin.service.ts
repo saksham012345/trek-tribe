@@ -314,7 +314,7 @@ export async function verifyTrip(adminId: string, tripId: string, adminNotes?: s
   if (trip.verificationStatus === 'approved') throw Object.assign(new Error('Trip already approved'), { status: 400 });
 
   trip.verificationStatus = 'approved';
-  trip.verifiedBy = adminId;
+  trip.verifiedBy = adminId as any;
   trip.verifiedAt = new Date();
   if (adminNotes) trip.adminNotes = adminNotes;
   trip.status = 'active';
@@ -345,7 +345,7 @@ export async function rejectTrip(adminId: string, tripId: string, rejectionReaso
   trip.verificationStatus = 'rejected';
   trip.rejectionReason = rejectionReason || 'No reason provided';
   trip.adminNotes = adminNotes || trip.adminNotes;
-  trip.verifiedBy = adminId;
+  trip.verifiedBy = adminId as any;
   trip.verifiedAt = new Date();
   trip.status = 'cancelled';
   await trip.save();
@@ -453,7 +453,7 @@ export async function approveOrganizerVerification(adminId: string, userId: stri
 
   user.organizerVerificationStatus = 'approved';
   user.organizerVerificationApprovedAt = new Date();
-  user.organizerVerificationReviewedBy = adminId;
+  user.organizerVerificationReviewedBy = adminId as any;
   user.isVerified = true;
 
   if (!user.organizerProfile) user.organizerProfile = {} as any;
@@ -506,7 +506,7 @@ export async function rejectOrganizerVerification(adminId: string, userId: strin
   user.organizerVerificationStatus = 'rejected';
   user.organizerVerificationRejectedAt = new Date();
   user.organizerVerificationRejectionReason = reason;
-  user.organizerVerificationReviewedBy = adminId;
+  user.organizerVerificationReviewedBy = adminId as any;
   await user.save();
 
   try {
@@ -631,7 +631,7 @@ export async function approveVerificationRequest(adminId: string, requestId: str
   organizer.organizerProfile.routingEnabled = enableRouting;
   organizer.organizerVerificationStatus = 'approved';
   organizer.organizerVerificationApprovedAt = new Date();
-  organizer.organizerVerificationApprovedBy = adminId;
+  organizer.organizerVerificationApprovedBy = adminId as any;
 
   if (!organizer.organizerProfile.autoPay) organizer.organizerProfile.autoPay = {} as any;
   organizer.organizerProfile.autoPay.autoPayEnabled = true;
@@ -649,8 +649,8 @@ export async function approveVerificationRequest(adminId: string, requestId: str
     });
   }
 
-  request.status = 'approved';
-  request.reviewedBy = adminId;
+  request.status = 'approved' as any;
+  request.reviewedBy = adminId as any;
   request.reviewedAt = new Date();
   request.adminNotes = adminNotes || '';
   request.initialTrustScore = trustScore;
@@ -685,8 +685,8 @@ export async function rejectVerificationRequest(adminId: string, requestId: stri
   organizer.organizerVerificationRejectionReason = rejectionReason;
   await organizer.save();
 
-  request.status = 'rejected';
-  request.reviewedBy = adminId;
+  request.status = 'rejected' as any;
+  request.reviewedBy = adminId as any;
   request.reviewedAt = new Date();
   request.adminNotes = adminNotes || rejectionReason;
   await request.save();
@@ -712,11 +712,11 @@ export async function updateVerificationRequestStatus(adminId: string, requestId
   const request = await VerificationRequest.findById(requestId);
   if (!request) throw Object.assign(new Error('Verification request not found'), { status: 404 });
 
-  request.status = status;
-  if (priority) request.priority = priority;
+  request.status = status as any;
+  if (priority) request.priority = priority as any;
   if (adminNotes) request.adminNotes = adminNotes;
   if (['approved', 'rejected'].includes(status)) {
-    request.reviewedBy = adminId;
+    request.reviewedBy = adminId as any;
     request.reviewedAt = new Date();
   }
   await request.save();
@@ -776,7 +776,7 @@ export async function overrideUserSubscription(adminId: string, userId: string, 
     subscription.tripsPerCycle = Math.max(subscription.tripsPerCycle, subscription.tripsRemaining);
     updates.tripsAdded = addTrips;
   }
-  if (setPlan) { subscription.plan = setPlan; updates.plan = setPlan; }
+  if (setPlan) { subscription.plan = setPlan as any; updates.plan = setPlan; }
 
   await subscription.save();
   logger.info('Admin updated user subscription manually', { adminId, targetUserId: userId, updates });
@@ -835,7 +835,7 @@ export async function verifyOrganizer(adminId: string, userId: string, status: '
 
   if (status === 'approved') {
     user.organizerVerificationApprovedAt = new Date();
-    user.organizerVerificationApprovedBy = adminId;
+    user.organizerVerificationApprovedBy = adminId as any;
     if (!user.organizerProfile) user.organizerProfile = {} as any;
     if (!user.organizerProfile.autoPay) user.organizerProfile.autoPay = {} as any;
     user.organizerProfile.autoPay.autoPayEnabled = true;
