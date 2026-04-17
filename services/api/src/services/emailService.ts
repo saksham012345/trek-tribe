@@ -106,24 +106,8 @@ class EmailService {
   }
 
   private async send(to: string, subject: string, html: string, text?: string): Promise<boolean> {
-    if (!this.isServiceReady()) {
-      logger.warn('Email service not ready, skipping email send');
-      return false;
-    }
-    try {
-      await sgMail.send({
-        to,
-        from: { email: this.fromEmail, name: 'Trek Tribe' },
-        subject,
-        html,
-        text: text || html.replace(/<[^>]*>/g, '')
-      });
-      return true;
-    } catch (error: any) {
-      const detail = error?.response?.body?.errors?.[0]?.message || error.message;
-      logger.error('SendGrid send failed', { error: detail, to });
-      return false;
-    }
+    logger.info('Email system disabled manually. Would have sent email:', { to, subject });
+    return true;
   }
 
   private generateBookingConfirmationHTML(data: BookingEmailData): string {
