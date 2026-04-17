@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../config/api';
 import { useToast, ToastContainer } from '../components/Toast';
+import { DashboardLayout } from '../layout/DashboardLayout';
+import { Home, Users, PlusSquare, Copy } from 'lucide-react';
 
 interface DashboardStats {
   trips: {
@@ -177,30 +179,29 @@ const OrganizerDashboardNew: React.FC = () => {
 
   if (!data) return null;
 
+  const navigationItems = [
+    { name: 'Home', href: '/admin', icon: Home },
+    { name: 'CRM & Leads', href: '/crm', icon: Users },
+    { name: 'Create Trip', href: '/create-trip', icon: PlusSquare },
+  ];
+
   return (
-    <>
+    <DashboardLayout user={user} navigationItems={navigationItems}>
       <ToastContainer toasts={toasts} onRemove={removeToast} />
-      <div className="min-h-screen bg-gradient-to-br from-forest-50 via-nature-50 to-forest-100 p-4 md:p-6 lg:p-8">
-        <div className="max-w-7xl mx-auto space-y-6">
-          {/* Header */}
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-forest-900 mb-2">
-                  🏔️ Organizer Dashboard
-                </h1>
-                <p className="text-forest-600">
-                  Welcome back, <span className="font-semibold">{user?.name}</span>!
-                </p>
-              </div>
-              <button
-                onClick={() => navigate('/trips/create')}
-                className="px-6 py-3 bg-gradient-to-r from-forest-600 to-nature-600 text-white font-semibold rounded-xl hover:from-forest-700 hover:to-nature-700 transition-all shadow-lg hover:shadow-xl"
-              >
-                + Create New Trip
-              </button>
-            </div>
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-extrabold text-forest-900 mb-2">🏔️ Organizer Dashboard</h1>
+            <p className="text-gray-500 font-medium">Welcome back, <span className="font-bold text-forest-700">{user?.name}</span>!</p>
           </div>
+          <button
+            onClick={() => navigate('/create-trip')}
+            className="flex items-center gap-2 px-6 py-3 bg-forest-600 text-[#b4d4b4] font-bold rounded-2xl hover:bg-forest-700 hover:text-white transition-all shadow-[0_8px_16px_rgb(20,83,45,0.2)] active:scale-[0.98]"
+          >
+            <PlusSquare className="w-5 h-5"/> Create New Trip
+          </button>
+        </div>
 
           {/* Alerts */}
           {data.alerts.length > 0 && (
@@ -429,18 +430,32 @@ const OrganizerDashboardNew: React.FC = () => {
                   data.recentTrips.map((trip) => (
                     <div
                       key={trip._id}
-                      onClick={() => navigate(`/trips/${trip._id}`)}
-                      className="p-4 bg-forest-50 rounded-lg hover:bg-forest-100 transition-colors cursor-pointer"
+                      className="p-4 bg-gray-50 rounded-xl hover:bg-forest-50 transition-colors border border-gray-100"
                     >
-                      <h4 className="font-semibold text-forest-900 mb-1">{trip.title}</h4>
-                      <div className="flex items-center justify-between text-sm text-forest-600">
-                        <span>{formatDate(trip.startDate)}</span>
-                        <span>{trip.participants}/{trip.capacity} travelers</span>
+                      <div className="flex justify-between items-start mb-2 group cursor-pointer" onClick={() => navigate(`/trips/${trip._id}`)}>
+                        <h4 className="font-bold text-gray-900 group-hover:text-forest-600">{trip.title}</h4>
+                        <span className="text-xs font-bold px-2 py-1 bg-white border border-gray-200 rounded-lg text-gray-600">
+                          {trip.participants}/{trip.capacity} joined
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm text-gray-500 font-medium">
+                        <span>📅 {formatDate(trip.startDate)}</span>
+                        
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Logic to duplicate trip (passing state to create-trip page to prefill logic over there)
+                            navigate('/create-trip', { state: { duplicateTripId: trip._id } });
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-forest-700 hover:bg-forest-50 hover:border-forest-200 text-xs font-bold transition-colors"
+                        >
+                          <Copy className="w-3.5 h-3.5" /> Duplicate
+                        </button>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-forest-500 text-center py-8">No trips yet</p>
+                  <p className="text-sm font-medium text-gray-400 text-center py-8">No trips yet</p>
                 )}
               </div>
             </div>
@@ -489,8 +504,7 @@ const OrganizerDashboardNew: React.FC = () => {
             </div>
           </div>
         </div>
-      </div>
-    </>
+    </DashboardLayout>
   );
 };
 

@@ -1,0 +1,168 @@
+﻿
+> trekk-tribe-web@0.1.0 test
+> react-scripts test --coverage
+
+-------------------------------------|---------|----------|---------|---------|-------------------
+File                                 | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------------------------|---------|----------|---------|---------|-------------------
+All files                            |       0 |        0 |       0 |       0 |                   
+ src                                 |       0 |        0 |       0 |       0 |                   
+  App.tsx                            |       0 |        0 |       0 |       0 | 21-345            
+  index.tsx                          |       0 |      100 |     100 |       0 | 11-14             
+ src/components                      |       0 |        0 |       0 |       0 |                   
+  AIAnalyticsDashboard.tsx           |       0 |        0 |       0 |       0 | 31-299            
+  AIChatWidget.tsx                   |       0 |        0 |       0 |       0 |                   
+  AIChatWidgetClean.tsx              |       0 |        0 |       0 |       0 | 17-985            
+  AIRecommendations.tsx              |       0 |        0 |       0 |       0 | 28-243            
+  AISmartSearch.tsx                  |       0 |        0 |       0 |       0 | 31-300            
+  APIDebugger.tsx                    |       0 |        0 |       0 |       0 | 5-134             
+  AuthChecker.tsx                    |       0 |        0 |       0 |       0 | 5-28              
+  BookingDetailsModal.tsx            |       0 |        0 |       0 |       0 | 60-515            
+  BottomNav.tsx                      |       0 |        0 |       0 |       0 | 9-62              
+  CompleteProfileModal.tsx           |       0 |        0 |       0 |       0 | 10-348            
+  CookieConsent.tsx                  |       0 |        0 |       0 |       0 | 11-257            
+  CookieSettings.tsx                 |       0 |        0 |       0 |       0 | 12-226            
+  EmailVerificationModal.tsx         |       0 |        0 |       0 |       0 | 13-126            
+  EnhancedProfileCard.tsx            |       0 |        0 |       0 |       0 | 55-561            
+  EnhancedProfileForm.tsx            |       0 |        0 |       0 |       0 | 84-812            
+  ErrorBoundary.tsx                  |       0 |        0 |       0 |       0 | 16-126            
+  FloatingJoinCTA.tsx                |       0 |        0 |       0 |       0 | 6-47              
+  Footer.tsx                         |       0 |      100 |       0 |       0 | 4-100             
+  GoogleLoginButton.tsx              |       0 |        0 |       0 |       0 | 26-166            
+  Header.tsx                         |       0 |        0 |       0 |       0 | 12-301            
+  IdVerificationUpload.tsx           |       0 |        0 |       0 |       0 | 13-337            
+  JoinTheTribeModal.tsx              |       0 |        0 |       0 |       0 | 11-34             
+  JoinTripModal.tsx                  |       0 |        0 |       0 |       0 | 64-806            
+  LiveActivityTicker.tsx             |       0 |        0 |       0 |       0 | 12-72             
+  LoadingSkeleton.tsx                |       0 |        0 |       0 |       0 | 9-103             
+  NotificationCenter.tsx             |       0 |        0 |       0 |       0 | 5-138             
+  OptimizedImage.tsx                 |       0 |        0 |       0 |       0 | 14-76             
+  OrganizerQRDisplay.tsx             |       0 |        0 |       0 |       0 | 25-180            
+  PaymentUpload.tsx                  |       0 |        0 |       0 |       0 | 17-207            
+  PaymentVerification.tsx            |       0 |        0 |       0 |       0 | 57-297            
+  PhoneVerificationModal.tsx         |       0 |        0 |       0 |       0 | 13-116            
+  PostCard.tsx                       |       0 |        0 |       0 |       0 | 43-317            
+  PostCreator.tsx                    |       0 |        0 |       0 |       0 | 9-613             
+  PreviousTripImages.tsx             |       0 |        0 |       0 |       0 | 21-237            
+  ProfilePhotoUpload.tsx             |       0 |        0 |       0 |       0 | 12-100            
+  ProfileSearch.tsx                  |       0 |        0 |       0 |       0 | 29-215            
+  ProtectedRoute.tsx                 |       0 |        0 |       0 |       0 | 20-49             
+  QRCodeUpload.tsx                   |       0 |        0 |       0 |       0 | 20-260            
+  RecommendationsWidget.tsx          |       0 |        0 |       0 |       0 | 29-139            
+  ReputationWidget.tsx               |       0 |        0 |       0 |       0 | 12-90             
+  ReviewModal.tsx                    |       0 |        0 |       0 |       0 | 18-206            
+  ReviewsList.tsx                    |       0 |        0 |       0 |       0 | 24-238            
+  RoleSelectModal.tsx                |       0 |        0 |       0 |       0 | 18-124            
+  SaveTripButton.tsx                 |       0 |        0 |       0 |       0 | 12-84             
+  SocialShareButtons.tsx             |       0 |        0 |       0 |       0 | 12-195            
+  Toast.tsx                          |       0 |        0 |       0 |       0 | 12-182            
+  UserEditModal.tsx                  |       0 |        0 |       0 |       0 | 10-122            
+ src/components/auth                 |       0 |        0 |       0 |       0 |                   
+  EmailVerificationGuard.tsx         |       0 |        0 |       0 |       0 | 10-48             
+  ForgotPassword.tsx                 |       0 |        0 |       0 |       0 | 9-103             
+  PhoneRequirementGuard.tsx          |       0 |        0 |       0 |       0 | 5-46              
+  ResetPassword.tsx                  |       0 |        0 |       0 |       0 | 5-231             
+ src/components/crm                  |       0 |        0 |       0 |       0 |                   
+  AutoPayToggle.tsx                  |       0 |        0 |       0 |       0 | 9-47              
+  BankDetailsTab.tsx                 |       0 |        0 |       0 |       0 | 13-229            
+  BillingHistory.tsx                 |       0 |        0 |       0 |       0 | 17-57             
+  ImportHistoryPanel.tsx             |       0 |        0 |       0 |       0 | 27-163            
+  ImportLeadsModal.tsx               |       0 |        0 |       0 |       0 | 14-554            
+  ImportProgressBar.tsx              |       0 |        0 |       0 |       0 | 17-83             
+  LeadKanban.tsx                     |       0 |        0 |       0 |       0 | 21-110            
+  LeadScoreBadge.tsx                 |       0 |        0 |       0 |       0 | 17-26             
+  LeadSourcesChart.tsx               |       0 |        0 |       0 |       0 | 11-156            
+  LeadsList.tsx                      |       0 |        0 |       0 |       0 | 22-171            
+  SubscriptionCard.tsx               |       0 |        0 |       0 |       0 | 24-100            
+  TicketsView.tsx                    |       0 |        0 |       0 |       0 | 4-219             
+  UpdatePaymentMethod.tsx            |       0 |        0 |       0 |       0 | 11-39             
+ src/components/features             |       0 |        0 |       0 |       0 |                   
+  TripCard.tsx                       |       0 |        0 |       0 |       0 | 19-106            
+ src/components/organizer            |       0 |        0 |       0 |       0 |                   
+  ExpenseStats.tsx                   |       0 |        0 |       0 |       0 | 19-97             
+ src/components/organizer/dashboard  |       0 |        0 |       0 |       0 |                   
+  CRMPreviewSection.tsx              |       0 |        0 |       0 |       0 | 9-141             
+  PaymentVerificationSection.tsx     |       0 |        0 |       0 |       0 | 33-110            
+  TripsListSection.tsx               |       0 |        0 |       0 |       0 | 21-140            
+ src/components/payment              |       0 |        0 |       0 |       0 |                   
+  RazorpayCheckout.tsx               |       0 |        0 |       0 |       0 | 54-209            
+ src/components/ui                   |       0 |        0 |       0 |       0 |                   
+  Badge.tsx                          |       0 |        0 |       0 |       0 | 3-24              
+  Button.tsx                         |       0 |        0 |       0 |       0 | 4-57              
+  Card.tsx                           |       0 |        0 |       0 |       0 | 3-18              
+  LoadingButton.tsx                  |       0 |        0 |       0 |       0 | 14-40             
+  Skeleton.tsx                       |       0 |        0 |       0 |       0 | 3-4               
+  Toast.tsx                          |       0 |        0 |       0 |       0 | 5-26              
+  Tooltip.tsx                        |       0 |        0 |       0 |       0 | 9-17              
+ src/config                          |       0 |        0 |       0 |       0 |                   
+  api.ts                             |       0 |        0 |       0 |       0 | 6-101             
+  firebase.ts                        |       0 |        0 |     100 |       0 | 6-50              
+ src/contexts                        |       0 |        0 |       0 |       0 |                   
+  AuthContext.tsx                    |       0 |        0 |       0 |       0 | 15-166            
+  NotificationContext.tsx            |       0 |        0 |       0 |       0 | 26-147            
+ src/layout                          |       0 |        0 |       0 |       0 |                   
+  ConsumerLayout.tsx                 |       0 |        0 |       0 |       0 | 11                
+  DashboardLayout.tsx                |       0 |        0 |       0 |       0 | 12-81             
+ src/pages                           |       0 |        0 |       0 |       0 |                   
+  AIShowcase.tsx                     |       0 |        0 |       0 |       0 | 17-306            
+  AdminCRMDashboard.tsx              |       0 |        0 |       0 |       0 | 34-484            
+  AdminDashboard.tsx                 |       0 |        0 |       0 |       0 | 95-1155           
+  AdminOrganizerVerification.tsx     |       0 |        0 |       0 |       0 | 72-761            
+  AgentDashboard.tsx                 |       0 |        0 |       0 |       0 | 83-1236           
+  AutoPaySetup.tsx                   |       0 |        0 |       0 |       0 | 30-516            
+  CRMDashboard.tsx                   |       0 |        0 |       0 |       0 | 24-1015           
+  CompleteProfile.tsx                |       0 |        0 |       0 |       0 | 8-259             
+  CreateTrip.tsx                     |       0 |        0 |       0 |       0 | 71-1671           
+  CreateTripNew.tsx                  |       0 |        0 |       0 |       0 | 29-976            
+  EditTrip.tsx                       |       0 |        0 |       0 |       0 | 12-405            
+  EnhancedAgentDashboard.tsx         |       0 |        0 |       0 |       0 | 55-759            
+  EnhancedCRMDashboard.tsx           |       0 |        0 |       0 |       0 | 20-896            
+  EnhancedEditTrip.tsx               |       0 |        0 |       0 |       0 | 35-514            
+  EnhancedProfile.tsx                |       0 |        0 |       0 |       0 | 51-580            
+  EnhancedProfilePage.tsx            |       0 |        0 |       0 |       0 | 92-829            
+  EventsPage.tsx                     |       0 |        0 |       0 |       0 | 24-483            
+  GroupsPage.tsx                     |       0 |        0 |       0 |       0 | 19-321            
+  Home.tsx                           |       0 |        0 |       0 |       0 | 45-479            
+  JoinTheTribe.tsx                   |       0 |        0 |       0 |       0 | 9-186             
+  Login.tsx                          |       0 |        0 |       0 |       0 | 11-248            
+  MarketplaceCheckout.tsx            |       0 |        0 |       0 |       0 | 12-138            
+  MyBookings.tsx                     |       0 |        0 |       0 |       0 | 36-311            
+  OrganizerCRM.tsx                   |       0 |      100 |       0 |       0 | 15                
+  OrganizerCRMDashboard.tsx          |       0 |        0 |       0 |       0 | 16-839            
+  OrganizerDashboard.tsx             |       0 |        0 |       0 |       0 | 55-308            
+  OrganizerDashboardNew.tsx          |       0 |        0 |       0 |       0 | 97-480            
+  OrganizerRouteOnboarding.tsx       |       0 |        0 |       0 |       0 | 21-391            
+  OrganizerSettlements.tsx           |       0 |        0 |       0 |       0 | 25-268            
+  OrganizerVerificationDashboard.tsx |       0 |        0 |       0 |       0 | 20-266            
+  PaymentVerificationDashboard.tsx   |       0 |        0 |       0 |       0 | 39-429            
+  PhoneVerification.tsx              |       0 |        0 |       0 |       0 | 7-335             
+  PrivacyPolicy.tsx                  |       0 |      100 |       0 |       0 | 4-7               
+  ProfessionalCRMDashboard.tsx       |       0 |        0 |       0 |       0 | 46-822            
+  Profile.tsx                        |       0 |        0 |       0 |       0 | 27-464            
+  Register.tsx                       |       0 |        0 |       0 |       0 | 13-505            
+  SearchPage.tsx                     |       0 |        0 |       0 |       0 | 23-327            
+  Subscribe.tsx                      |       0 |        0 |       0 |       0 | 19-310            
+  TermsConditions.tsx                |       0 |      100 |       0 |       0 | 4-7               
+  TripDetails.tsx                    |       0 |        0 |       0 |       0 | 46-611            
+  TripFinancePage.tsx                |       0 |        0 |       0 |       0 | 12-310            
+  Trips.tsx                          |       0 |        0 |       0 |       0 | 21-185            
+  VerifyEmail.tsx                    |       0 |        0 |       0 |       0 | 6-50              
+  Wishlist.tsx                       |       0 |        0 |       0 |       0 | 28-273            
+ src/pages/custom-trips              |       0 |        0 |       0 |       0 |                   
+  MyRequestsPage.tsx                 |       0 |        0 |       0 |       0 | 18-87             
+  ProposalViewPage.tsx               |       0 |        0 |       0 |       0 | 24-115            
+  RequestTripPage.tsx                |       0 |        0 |       0 |       0 | 7-75              
+ src/services                        |       0 |        0 |       0 |       0 |                   
+  apiClient.ts                       |       0 |      100 |     100 |       0 | 9                 
+  authService.ts                     |       0 |        0 |       0 |       0 | 19-87             
+ src/types                           |       0 |      100 |     100 |       0 |                   
+  finance.ts                         |       0 |      100 |     100 |       0 | 27                
+  index.ts                           |       0 |        0 |       0 |       0 |                   
+ src/utils                           |       0 |        0 |       0 |       0 |                   
+  apiCache.ts                        |       0 |        0 |       0 |       0 | 8-92              
+  config.ts                          |       0 |        0 |       0 |       0 | 9-78              
+  fileUpload.ts                      |       0 |        0 |       0 |       0 | 9-39              
+  razorpay.ts                        |       0 |        0 |       0 |       0 | 12-116            
+  uploadTest.ts                      |       0 |        0 |       0 |       0 | 17-186            
+  url.ts                             |       0 |        0 |       0 |       0 | 12-39             
+-------------------------------------|---------|----------|---------|---------|-------------------

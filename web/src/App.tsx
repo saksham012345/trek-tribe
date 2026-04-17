@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Header from './components/Header';
 import Footer from './components/Footer';
+import BottomNav from './components/BottomNav';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -137,7 +138,7 @@ function AppContent() {
       <PhoneRequirementGuard />
       <div className="min-h-screen bg-forest-50 flex flex-col font-sans text-forest-900 selection:bg-earth-200 selection:text-forest-900">
         <Header user={user} onLogout={handleLogout} />
-        <main className="pt-16 flex-grow relative z-0">
+        <main className="pt-16 flex-grow relative z-0 pb-16 md:pb-0">
           <React.Suspense fallback={
             <div className="min-h-[60vh] flex items-center justify-center bg-forest-50">
               <div className="text-center">
@@ -324,6 +325,7 @@ function AppContent() {
           </React.Suspense>
         </main>
         <Footer />
+        <BottomNav user={user} />
         <FloatingJoinCTA />
 
         {/* AI Chat Support Widget */}

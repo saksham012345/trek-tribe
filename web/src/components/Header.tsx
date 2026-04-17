@@ -73,7 +73,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
                     }}
                   />
                 </div>
-                <span className="text-xl font-bold bg-gradient-to-r from-forest-900 to-forest-700 bg-clip-text text-transparent tracking-tight">
+                <span className="text-lg md:text-xl font-bold bg-gradient-to-r from-forest-900 to-forest-700 bg-clip-text text-transparent tracking-tight">
                   TrekTribe
                 </span>
               </Link>
@@ -155,10 +155,27 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
                 </div>
               )}
 
-              {/* Mobile Menu Button */}
+              {/* Mobile: show avatar + notifications */}
+              {user && (
+                <div className="flex md:hidden items-center gap-2">
+                  <NotificationCenter />
+                  <Link to="/my-profile" className="w-9 h-9 rounded-full bg-gradient-to-tr from-forest-500 to-nature-400 p-[2px]">
+                    <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden">
+                      {user.profilePhoto ? (
+                        <img src={user.profilePhoto} alt={user.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-xs font-bold text-forest-600">{user.name.charAt(0)}</span>
+                      )}
+                    </div>
+                  </Link>
+                </div>
+              )}
+
+              {/* Mobile Menu Button — hidden on mobile since BottomNav handles navigation */}
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="md:hidden p-2 rounded-xl text-forest-600 hover:bg-forest-50 transition-colors"
+                className="hidden p-2 rounded-xl text-forest-600 hover:bg-forest-50 transition-colors"
+                aria-label="Menu"
               >
                 <div className="w-6 h-5 flex flex-col justify-between">
                   <span className={`w-full h-0.5 bg-current rounded-full transition-all duration-300 ${isMobileMenuOpen ? 'rotate-45 translate-y-2' : ''}`} />

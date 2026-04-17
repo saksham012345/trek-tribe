@@ -3,7 +3,6 @@
 .chat-widget-container {
   position: fixed;
   bottom: 80px;
-  /* Above ticker */
   right: 20px;
   z-index: 1000;
   font-family: 'Inter', sans-serif;
@@ -127,13 +126,9 @@
 }
 
 @keyframes typing {
-
-  0%,
-  80%,
-  100% {
+  0%, 80%, 100% {
     transform: scale(0);
   }
-
   40% {
     transform: scale(1);
   }
@@ -144,7 +139,6 @@
     opacity: 0;
     transform: translateY(20px) scale(0.95);
   }
-
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -163,4 +157,125 @@
 .scrollbar-thin::-webkit-scrollbar-thumb {
   background-color: rgba(16, 185, 129, 0.2);
   border-radius: 20px;
+}
+
+/* ================================================
+   DESKTOP RESPONSIVE: >= 768px
+   Expand the chat into a full side-panel docked to
+   the right edge for a proper dual-panel experience.
+   ================================================ */
+@media (min-width: 768px) {
+  .chat-widget-container {
+    bottom: 24px;
+    right: 24px;
+  }
+
+  .glass-panel {
+    width: 440px;
+    height: 680px;
+    max-height: 85vh;
+    border-radius: 20px;
+  }
+
+  .chat-messages {
+    padding: 24px;
+    gap: 18px;
+  }
+
+  .message-bubble {
+    max-width: 75%;
+    font-size: 14.5px;
+    padding: 14px 18px;
+  }
+
+  .glass-header {
+    padding: 18px 24px;
+  }
+
+  .chat-input {
+    font-size: 15px;
+  }
+
+  .chat-input-wrapper {
+    padding: 8px 8px 8px 18px;
+  }
+}
+
+/* ================================================
+   LARGE DESKTOP: >= 1280px
+   Full dock-right panel with conversation sidebar
+   ================================================ */
+@media (min-width: 1280px) {
+  .chat-widget-container {
+    bottom: 24px;
+    right: 24px;
+  }
+
+  .glass-panel {
+    width: 520px;
+    height: 720px;
+    max-height: 88vh;
+  }
+
+  .message-bubble {
+    max-width: 70%;
+  }
+
+  /* Show the session list panel on xl screens */
+  .chat-session-list {
+    display: flex;
+    flex-direction: column;
+    width: 200px;
+    border-right: 1px solid rgba(0, 0, 0, 0.06);
+    background: rgba(249, 250, 251, 0.8);
+    overflow-y: auto;
+  }
+
+  .chat-session-item {
+    padding: 12px 16px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    font-size: 13px;
+    color: #374151;
+    transition: background 0.15s;
+  }
+
+  .chat-session-item:hover {
+    background: rgba(16, 185, 129, 0.08);
+  }
+
+  .chat-session-item.active {
+    background: rgba(16, 185, 129, 0.12);
+    border-left: 3px solid #10b981;
+    font-weight: 600;
+  }
+
+  /* Make the panel a two-column layout */
+  .glass-panel.has-sessions {
+    display: flex;
+    flex-direction: row;
+  }
+
+  .glass-panel.has-sessions .chat-main-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+}
+
+/* Slide-up animation for the AI resolution preview */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
 }

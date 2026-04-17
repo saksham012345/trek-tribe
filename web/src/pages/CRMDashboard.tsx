@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { DashboardLayout } from '../layout/DashboardLayout';
+import { Home, Users, Settings, PlusSquare } from 'lucide-react';
+import { Badge } from '../components/ui/Badge';
 import api from '../config/api';
 import { useToast, ToastContainer } from '../components/Toast';
 import { Skeleton } from '../components/ui/Skeleton';
@@ -496,11 +499,16 @@ const CRMDashboard: React.FC = () => {
     );
   }
 
+  const navigationItems = [
+    { name: 'Home', href: '/admin', icon: Home },
+    { name: 'CRM & Leads', href: '/crm', icon: Users },
+    { name: 'Create Trip', href: '/create-trip', icon: PlusSquare },
+  ];
+
   return (
-    <>
+    <DashboardLayout user={user} navigationItems={navigationItems}>
       <ToastContainer toasts={toasts} onRemove={removeToast} />
-      <div className="min-h-screen bg-gradient-to-br from-forest-50 via-nature-50 to-forest-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto space-y-8">
           {/* Header */}
           <div className="mb-8 flex items-center justify-between">
             <div>
@@ -687,43 +695,36 @@ const CRMDashboard: React.FC = () => {
                 </div>
               </div>
 
-              {/* Leads Table */}
-              <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-                <div className="overflow-x-auto">
+              {/* Responsive Leads List */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                
+                {/* Desktop View */}
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-gradient-to-r from-forest-600 to-nature-600 text-white">
+                    <thead className="bg-gray-50 border-b border-gray-100">
                       <tr>
-                        <th className="px-6 py-4 text-left font-semibold">Name</th>
-                        <th className="px-6 py-4 text-left font-semibold">Email</th>
-                        <th className="px-6 py-4 text-left font-semibold">Phone</th>
-                        <th className="px-6 py-4 text-left font-semibold">Trip</th>
-                        <th className="px-6 py-4 text-left font-semibold">Status</th>
-                        <th className="px-6 py-4 text-left font-semibold">Verified</th>
-                        <th className="px-6 py-4 text-left font-semibold">Action</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Name</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Contact</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Trip</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-forest-200">
+                    <tbody className="divide-y divide-gray-100">
                       {filteredLeads.length > 0 ? (
-                        filteredLeads.map((lead, idx) => (
-                          <tr key={lead._id} className={idx % 2 === 0 ? 'bg-white' : 'bg-forest-50'}>
-                            <td className="px-6 py-4 font-medium text-forest-900">{lead.name}</td>
-                            <td className="px-6 py-4 text-forest-700">{lead.email}</td>
-                            <td className="px-6 py-4 text-forest-700">{lead.phone}</td>
-                            <td className="px-6 py-4 text-forest-700">{lead.tripName}</td>
+                        filteredLeads.map((lead) => (
+                          <tr key={lead._id} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-6 py-4 font-bold text-gray-900">{lead.name}</td>
+                            <td className="px-6 py-4 text-sm text-gray-500">
+                              <div>{lead.email}</div>
+                              <div>{lead.phone}</div>
+                            </td>
+                            <td className="px-6 py-4 text-sm font-semibold text-forest-700">{lead.tripName}</td>
                             <td className="px-6 py-4">
                               <select
                                 value={lead.status}
                                 onChange={(e) => updateLeadStatus(lead._id, e.target.value)}
-                                className={`px-3 py-1 rounded-full text-xs font-semibold border-2 focus:outline-none ${lead.status === 'new'
-                                  ? 'bg-blue-100 border-blue-300 text-blue-700'
-                                  : lead.status === 'contacted'
-                                    ? 'bg-yellow-100 border-yellow-300 text-yellow-700'
-                                    : lead.status === 'interested'
-                                      ? 'bg-orange-100 border-orange-300 text-orange-700'
-                                      : lead.status === 'qualified'
-                                        ? 'bg-green-100 border-green-300 text-green-700'
-                                        : 'bg-red-100 border-red-300 text-red-700'
-                                  }`}
+                                className="px-3 py-1.5 rounded-xl text-xs font-bold border border-gray-200 focus:ring-2 focus:ring-forest-500 bg-white"
                               >
                                 <option value="new">New</option>
                                 <option value="contacted">Contacted</option>
@@ -733,46 +734,63 @@ const CRMDashboard: React.FC = () => {
                               </select>
                             </td>
                             <td className="px-6 py-4">
-                              {lead.verified ? (
-                                <span className="inline-flex items-center gap-1 text-green-700">
-                                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                  </svg>
-                                  Verified
-                                </span>
-                              ) : (
-                                <button
-                                  onClick={() => verifyLead(lead._id)}
-                                  className="text-nature-600 hover:text-nature-700 font-semibold hover:underline"
-                                >
-                                  Verify
-                                </button>
-                              )}
-                            </td>
-                            <td className="px-6 py-4">
                               <button
-                                onClick={() => {
-                                  setSelectedLead(lead);
-                                  setEditingNote(lead.notes);
-                                  setShowModal(true);
-                                }}
-                                className="text-forest-600 hover:text-forest-700 font-semibold hover:underline"
+                                onClick={() => { setSelectedLead(lead); setEditingNote(lead.notes); setShowModal(true); }}
+                                className="text-forest-600 font-bold hover:text-forest-800 text-sm"
                               >
-                                View
+                                Manage
                               </button>
                             </td>
                           </tr>
                         ))
                       ) : (
-                        <tr>
-                          <td colSpan={7} className="px-6 py-8 text-center text-forest-600">
-                            <p className="text-lg font-semibold mb-2">No leads found</p>
-                            <p className="text-sm">Leads will appear here as people inquire about your trips</p>
-                          </td>
-                        </tr>
+                        <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500 font-medium">No leads found</td></tr>
                       )}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Mobile View */}
+                <div className="md:hidden flex flex-col divide-y divide-gray-100">
+                  {filteredLeads.length > 0 ? (
+                    filteredLeads.map((lead) => (
+                      <div key={lead._id} className="p-4 space-y-3">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h4 className="font-bold text-gray-900">{lead.name}</h4>
+                            <p className="text-xs text-gray-500">{lead.tripName}</p>
+                          </div>
+                          <Badge variant={lead.status === 'qualified' ? 'success' : lead.status === 'new' ? 'brand' : 'neutral'}>
+                            {lead.status}
+                          </Badge>
+                        </div>
+                        <div className="text-sm text-gray-600 block">
+                          📞 {lead.phone} <br/> ✉️ {lead.email}
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                           <select
+                              value={lead.status}
+                              onChange={(e) => updateLeadStatus(lead._id, e.target.value)}
+                              className="flex-1 px-3 py-2 rounded-xl text-xs font-bold border border-gray-200 bg-gray-50"
+                            >
+                              <option value="new">New</option>
+                              <option value="contacted">Contacted</option>
+                              <option value="interested">Interested</option>
+                              <option value="qualified">Qualified</option>
+                              <option value="lost">Lost</option>
+                            </select>
+                            <button
+                              onClick={() => { setSelectedLead(lead); setEditingNote(lead.notes); setShowModal(true); }}
+                              className="px-4 py-2 bg-forest-50 text-forest-700 rounded-xl text-xs font-bold"
+                            >
+                              Manage
+                            </button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-8 text-center text-gray-500 font-medium">No leads found</div>
+                  )}{/* End Mobile Leads Render */}
                 </div>
               </div>
             </>
@@ -944,7 +962,6 @@ const CRMDashboard: React.FC = () => {
             </div>
           )}
         </div>
-      </div>
 
       {/* Lead Details Modal */}
       {showModal && selectedLead && (
@@ -1004,7 +1021,7 @@ const CRMDashboard: React.FC = () => {
           </div>
         </div>
       )}
-    </>
+    </DashboardLayout>
   );
 };
 

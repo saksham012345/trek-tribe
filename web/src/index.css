@@ -135,3 +135,131 @@ code {
   scrollbar-width: none;
   /* Firefox */
 }
+
+/* ─── Mobile-First Overrides ─────────────────────────────────────────────── */
+
+/* Safe area support for notched phones */
+:root {
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+}
+
+/* Minimum touch target size (44px) for all interactive elements */
+button, a, [role="button"], input[type="checkbox"], input[type="radio"], select {
+  min-height: 44px;
+}
+
+/* Prevent text size adjustment on orientation change */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Remove tap highlight on mobile */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Better focus styles for keyboard nav */
+:focus-visible {
+  outline: 2px solid #15803d;
+  outline-offset: 2px;
+}
+
+/* Mobile card improvements */
+@media (max-width: 768px) {
+  /* Full-width cards on mobile */
+  .mobile-full {
+    margin-left: -1rem;
+    margin-right: -1rem;
+    border-radius: 0;
+  }
+
+  /* Larger text for readability */
+  body {
+    font-size: 16px; /* Prevents iOS zoom on input focus */
+  }
+
+  /* Inputs must be at least 16px to prevent iOS zoom */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+
+  /* Better modal on mobile — full screen from bottom */
+  .trektribe-modal {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    width: 100%;
+    max-width: 100%;
+    border-radius: 20px 20px 0 0;
+    max-height: 90vh;
+    animation: slideUpMobile 0.3s ease-out;
+  }
+
+  @keyframes slideUpMobile {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
+  /* Hide desktop footer on mobile */
+  footer {
+    display: none;
+  }
+
+  /* Floating CTA — hide on mobile (bottom nav handles navigation) */
+  .floating-join-cta {
+    display: none;
+  }
+}
+
+/* Horizontal scroll snap for card rows */
+.scroll-snap-x {
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+.scroll-snap-x > * {
+  scroll-snap-align: start;
+}
+
+/* Pull-to-refresh feel */
+@media (max-width: 768px) {
+  .page-container {
+    overscroll-behavior-y: contain;
+  }
+}
+
+/* Mobile page padding — account for bottom nav */
+@media (max-width: 768px) {
+  .page-content {
+    padding-bottom: calc(56px + env(safe-area-inset-bottom));
+  }
+}
+
+/* Horizontal scroll chips */
+.chips-scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.chips-scroll::-webkit-scrollbar { display: none; }
+
+/* Card touch feedback */
+@media (max-width: 768px) {
+  .touch-card {
+    transition: transform 0.1s ease;
+  }
+  .touch-card:active {
+    transform: scale(0.98);
+  }
+}

@@ -1,0 +1,1254 @@
+﻿
+> trekk-tribe-web@0.1.0 test
+> react-scripts test --coverage
+
+node.exe : FAIL src/__test
+s__/Login.test.tsx
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo        
+      : NotSpecified: (F  
+  AIL src/__tests__/Log   
+ in.test.tsx:String) [    
+], RemoteException
+    + FullyQualifiedError 
+   Id : NativeCommandErr  
+  or
+ 
+  ΓùÅ Test suite failed 
+to run
+
+    Cannot find module 
+'react-router-dom' from 's
+rc/__tests__/Login.test.ts
+x'
+
+    [0m [90m 1 |[39m 
+[36mimport[39m 
+[33mReact[39m 
+[36mfrom[39m [32m'react
+'[39m[33m;[39m
+     [90m 2 |[39m 
+[36mimport[39m { 
+render[33m,[39m 
+screen[33m,[39m 
+fireEvent[33m,[39m 
+waitFor } [36mfrom[39m 
+[32m'@testing-library/reac
+t'[39m[33m;[39m
+    
+[31m[1m>[22m[39m[90m 
+3 |[39m [36mimport[39m 
+{ [33mBrowserRouter[39m 
+} [36mfrom[39m [32m'rea
+ct-router-dom'[39m[33m;
+[39m
+     [90m   |[39m 
+[31m[1m^[22m[39m
+     [90m 4 |[39m 
+[36mimport[39m 
+[33mLogin[39m 
+[36mfrom[39m [32m'../pa
+ges/Login'[39m[33m;[39m
+     [90m 5 |[39m 
+[36mimport[39m { 
+[33mAuthProvider[39m } 
+[36mfrom[39m [32m'../co
+ntexts/AuthContext'[39m[
+33m;[39m
+     [90m 6 |[39m 
+[36mimport[39m [32m'@te
+sting-library/jest-dom'[3
+9m[33m;[39m[0m
+
+      at 
+Resolver.resolveModule (no
+de_modules/jest-resolve/bu
+ild/resolver.js:324:11)
+      at 
+Object.<anonymous> (src/__
+tests__/Login.test.tsx:3:1
+)
+
+PASS src/__tests__/fast-ch
+eck-setup.test.ts (11.458 
+s)
+FAIL src/components/crm/__
+tests__/TicketsView.test.t
+sx
+  ΓùÅ Test suite failed 
+to run
+
+    Jest encountered an 
+unexpected token
+
+    Jest failed to parse 
+a file. This happens e.g. 
+when your code or its 
+dependencies use 
+non-standard JavaScript 
+syntax, or when Jest is 
+not configured to support 
+such syntax.
+
+    Out of the box Jest 
+supports Babel, which 
+will be used to transform 
+your files into valid JS 
+based on your Babel 
+configuration.
+
+    By default 
+"node_modules" folder is 
+ignored by transformers.
+
+    Here's what you can 
+do:
+     ΓÇó If you are 
+trying to use ECMAScript 
+Modules, see https://jestj
+s.io/docs/ecmascript-modul
+es for how to enable it.
+     ΓÇó If you are 
+trying to use TypeScript, 
+see https://jestjs.io/docs
+/getting-started#using-typ
+escript
+     ΓÇó To have some of 
+your "node_modules" files 
+transformed, you can 
+specify a custom 
+"transformIgnorePatterns" 
+in your config.
+     ΓÇó If you need a 
+custom transformation 
+specify a "transform" 
+option in your config.
+     ΓÇó If you simply 
+want to mock your non-JS 
+modules (e.g. binary 
+assets) you can stub them 
+out with the 
+"moduleNameMapper" config 
+option.
+
+    You'll find more 
+details and examples of 
+these config options in 
+the docs:
+    https://jestjs.io/docs
+/configuration
+    For information about 
+custom transformations, 
+see:
+    https://jestjs.io/docs
+/code-transformation
+
+    Details:
+
+    C:\Users\hp\Desktop\tr
+ektribe\trek-tribe\web\nod
+e_modules\axios\index.js:1
+    ({"Object.<anonymous>"
+:function(module,exports,r
+equire,__dirname,__filenam
+e,jest){import axios from 
+'./lib/axios.js';
+                          
+                          
+                          
+        ^^^^^^
+
+    SyntaxError: Cannot 
+use import statement 
+outside a module
+
+    [0m[31m[1m>[22m[3
+9m[90m 1 |[39m 
+[36mimport[39m axios 
+[36mfrom[39m [32m'axios
+'[39m[33m;[39m
+     [90m   |[39m 
+[31m[1m^[22m[39m
+     [90m 2 |[39m 
+[36mimport[39m { 
+apiCache } [36mfrom[39m 
+[32m'../utils/apiCache'[
+39m[33m;[39m
+     [90m 3 |[39m
+     [90m 4 |[39m 
+[90m// API 
+Configuration[39m[0m
+
+      at Runtime.createScr
+iptFromCode (node_modules/
+jest-runtime/build/index.j
+s:1728:14)
+      at 
+Object.<anonymous> 
+(src/config/api.ts:1:1)
+      at 
+Object.<anonymous> (src/co
+mponents/crm/TicketsView.t
+sx:2:1)
+      at 
+Object.<anonymous> (src/co
+mponents/crm/__tests__/Tic
+ketsView.test.tsx:3:1)
+
+FAIL src/__tests__/profile
+-url-bug-exploration.test.
+ts (11.971 s)
+  ΓùÅ Property 1: Fault 
+Condition - Profile URLs 
+Use Username Format ΓÇ║ 
+Bug Condition Exploration 
+- Profile URL Generation 
+ΓÇ║ EXPLORATION TEST: 
+Registration URL hint 
+should show /u/ prefix 
+with username
+
+    Property failed after 
+1 tests
+    { seed: -1602279556, 
+path: "0:0:0:0:0:0:0:0:0:0
+:0:0:0", endOnFailure: 
+true }
+    Counterexample: [{"use
+rname":"aaa","name":"   
+"}]
+    Shrunk 12 time(s)
+
+    Hint: Enable verbose 
+mode in order to have the 
+list of all failing 
+values encountered during 
+the run
+
+    [0m [90m 53 |[39m  
+     [90m// Expected: 
+Should show "trektribe.com
+/u/{username}"[39m
+     [90m 54 |[39m      
+ 
+    
+[31m[1m>[22m[39m[90m 
+55 |[39m       
+fc[33m.[39massert(
+     [90m    |[39m      
+    [31m[1m^[22m[39m
+     [90m 56 |[39m      
+   fc[33m.[39mproperty(
+     [90m 57 |[39m      
+     fc[33m.[39mrecord({
+     [90m 58 |[39m      
+       
+username[33m:[39m 
+fc[33m.[39mstring({ 
+minLength[33m:[39m 
+[35m3[39m[33m,[39m 
+maxLength[33m:[39m 
+[35m20[39m 
+})[33m.[39mfilter(s 
+[33m=>[39m [35m/^[a-z0-
+9-]+$/[39m[33m.[39mtest
+(s))[33m,[39m[0m
+
+      at buildError (node_
+modules/fast-check/lib/cjs
+/fast-check.js:2449:16)
+      at throwIfFailed (no
+de_modules/fast-check/lib/
+cjs/fast-check.js:2456:8)
+      at reportRunDetails 
+(node_modules/fast-check/l
+ib/cjs/fast-check.js:2472:
+14)
+      at Module.assert (no
+de_modules/fast-check/lib/
+cjs/fast-check.js:2529:7)
+      at 
+Object.<anonymous> (src/__
+tests__/profile-url-bug-ex
+ploration.test.ts:55:10)
+
+  ΓùÅ Property 1: Fault 
+Condition - Profile URLs 
+Use Username Format ΓÇ║ 
+Bug Condition Exploration 
+- Profile URL Generation 
+ΓÇ║ EXPLORATION TEST: 
+Profile share should 
+generate /u/ prefix with 
+username
+
+    Property failed after 
+1 tests
+    { seed: -1987659250, 
+path: "0:0:0:0:0:0:0:0:0:0
+:0:0:0:0:0:0:0:0:0:0:0:0:0
+:0:0:0:0:0:0:0:0", 
+endOnFailure: true }
+    Counterexample: [{"_id
+":"00000000000000000000000
+0","username":undefined,"u
+niqueUrl":undefined,"name"
+:"   "}]
+    Shrunk 30 time(s)
+
+    Hint: Enable verbose 
+mode in order to have the 
+list of all failing 
+values encountered during 
+the run
+
+    [0m [90m 80 |[39m  
+     [90m// Expected: 
+Should use "/u/" prefix 
+with username 
+fallback[39m
+     [90m 81 |[39m      
+ 
+    
+[31m[1m>[22m[39m[90m 
+82 |[39m       
+fc[33m.[39massert(
+     [90m    |[39m      
+    [31m[1m^[22m[39m
+     [90m 83 |[39m      
+   fc[33m.[39mproperty(
+     [90m 84 |[39m      
+     fc[33m.[39mrecord({
+     [90m 85 |[39m      
+       _id[33m:[39m fc[
+33m.[39marray(fc[33m.[3
+9mconstantFrom([32m'0'[3
+9m[33m,[39m 
+[32m'1'[39m[33m,[39m 
+[32m'2'[39m[33m,[39m 
+[32m'3'[39m[33m,[39m 
+[32m'4'[39m[33m,[39m 
+[32m'5'[39m[33m,[39m 
+[32m'6'[39m[33m,[39m 
+[32m'7'[39m[33m,[39m 
+[32m'8'[39m[33m,[39m 
+[32m'9'[39m[33m,[39m 
+[32m'a'[39m[33m,[39m 
+[32m'b'[39m[33m,[39m 
+[32m'c'[39m[33m,[39m 
+[32m'd'[39m[33m,[39m 
+[32m'e'[39m[33m,[39m 
+[32m'f'[39m)[33m,[39m 
+{ minLength[33m:[39m 
+[35m24[39m[33m,[39m 
+maxLength[33m:[39m 
+[35m24[39m 
+})[33m.[39mmap(arr 
+[33m=>[39m arr[33m.[39
+mjoin([32m''[39m))[33m,
+[39m[0m
+
+      at buildError (node_
+modules/fast-check/lib/cjs
+/fast-check.js:2449:16)
+      at throwIfFailed (no
+de_modules/fast-check/lib/
+cjs/fast-check.js:2456:8)
+      at reportRunDetails 
+(node_modules/fast-check/l
+ib/cjs/fast-check.js:2472:
+14)
+      at Module.assert (no
+de_modules/fast-check/lib/
+cjs/fast-check.js:2529:7)
+      at 
+Object.<anonymous> (src/__
+tests__/profile-url-bug-ex
+ploration.test.ts:82:10)
+
+  ΓùÅ Property 1: Fault 
+Condition - Profile URLs 
+Use Username Format ΓÇ║ 
+Bug Condition Exploration 
+- Profile URL Generation 
+ΓÇ║ EXPLORATION TEST: 
+Search navigation should 
+use /u/ prefix with 
+username
+
+    Property failed after 
+1 tests
+    { seed: -299510244, 
+path: "0:0:0:0:0:0:0:0:0:0
+:0:0:0:0:0:0:0:0:0:0:0:0:0
+:0:0:0:0:0:0", 
+endOnFailure: true }
+    Counterexample: [{"_id
+":"00000000000000000000000
+0","username":undefined,"u
+niqueUrl":undefined,"name"
+:"   "}]
+    Shrunk 28 time(s)
+
+    Hint: Enable verbose 
+mode in order to have the 
+list of all failing 
+values encountered during 
+the run
+
+    [0m [90m 129 |[39m 
+      [90m// Expected: 
+Should use `/u/` with 
+username fallback[39m
+     [90m 130 |[39m     
+  
+    
+[31m[1m>[22m[39m[90m 
+131 |[39m       
+fc[33m.[39massert(
+     [90m     |[39m     
+     [31m[1m^[22m[39m
+     [90m 132 |[39m     
+    fc[33m.[39mproperty(
+     [90m 133 |[39m     
+      
+fc[33m.[39mrecord({
+     [90m 134 |[39m     
+        _id[33m:[39m fc
+[33m.[39marray(fc[33m.[
+39mconstantFrom([32m'0'[
+39m[33m,[39m 
+[32m'1'[39m[33m,[39m 
+[32m'2'[39m[33m,[39m 
+[32m'3'[39m[33m,[39m 
+[32m'4'[39m[33m,[39m 
+[32m'5'[39m[33m,[39m 
+[32m'6'[39m[33m,[39m 
+[32m'7'[39m[33m,[39m 
+[32m'8'[39m[33m,[39m 
+[32m'9'[39m[33m,[39m 
+[32m'a'[39m[33m,[39m 
+[32m'b'[39m[33m,[39m 
+[32m'c'[39m[33m,[39m 
+[32m'd'[39m[33m,[39m 
+[32m'e'[39m[33m,[39m 
+[32m'f'[39m)[33m,[39m 
+{ minLength[33m:[39m 
+[35m24[39m[33m,[39m 
+maxLength[33m:[39m 
+[35m24[39m 
+})[33m.[39mmap(arr 
+[33m=>[39m arr[33m.[39
+mjoin([32m''[39m))[33m,
+[39m[0m
+
+      at buildError (node_
+modules/fast-check/lib/cjs
+/fast-check.js:2449:16)
+      at throwIfFailed (no
+de_modules/fast-check/lib/
+cjs/fast-check.js:2456:8)
+      at reportRunDetails 
+(node_modules/fast-check/l
+ib/cjs/fast-check.js:2472:
+14)
+      at Module.assert (no
+de_modules/fast-check/lib/
+cjs/fast-check.js:2529:7)
+      at 
+Object.<anonymous> (src/__
+tests__/profile-url-bug-ex
+ploration.test.ts:131:10)
+
+  ΓùÅ Property 1: Fault 
+Condition - Profile URLs 
+Use Username Format ΓÇ║ 
+Bug Condition Exploration 
+- Profile URL Generation 
+ΓÇ║ EXPLORATION TEST: 
+Profile edit preview 
+should show /u/ prefix 
+with username
+
+    Property failed after 
+1 tests
+    { seed: -1192951039, 
+path: 
+"0:0:0:0:0:0:0:0:0", 
+endOnFailure: true }
+    Counterexample: [{"use
+rname":"aaa","name":"   
+"}]
+    Shrunk 8 time(s)
+
+    Hint: Enable verbose 
+mode in order to have the 
+list of all failing 
+values encountered during 
+the run
+
+    [0m [90m 169 |[39m 
+      [90m// Expected: 
+Should show 
+"/u/{username}"[39m
+     [90m 170 |[39m     
+  
+    
+[31m[1m>[22m[39m[90m 
+171 |[39m       
+fc[33m.[39massert(
+     [90m     |[39m     
+     [31m[1m^[22m[39m
+     [90m 172 |[39m     
+    fc[33m.[39mproperty(
+     [90m 173 |[39m     
+      
+fc[33m.[39mrecord({
+     [90m 174 |[39m     
+        
+username[33m:[39m 
+fc[33m.[39mstring({ 
+minLength[33m:[39m 
+[35m3[39m[33m,[39m 
+maxLength[33m:[39m 
+[35m20[39m 
+})[33m.[39mfilter(s 
+[33m=>[39m [35m/^[a-z0-
+9-]+$/[39m[33m.[39mtest
+(s))[33m,[39m[0m
+
+      at buildError (node_
+modules/fast-check/lib/cjs
+/fast-check.js:2449:16)
+      at throwIfFailed (no
+de_modules/fast-check/lib/
+cjs/fast-check.js:2456:8)
+      at reportRunDetails 
+(node_modules/fast-check/l
+ib/cjs/fast-check.js:2472:
+14)
+      at Module.assert (no
+de_modules/fast-check/lib/
+cjs/fast-check.js:2529:7)
+      at 
+Object.<anonymous> (src/__
+tests__/profile-url-bug-ex
+ploration.test.ts:171:10)
+
+  ΓùÅ Property 1: Fault 
+Condition - Profile URLs 
+Use Username Format ΓÇ║ 
+Bug Condition Exploration 
+- Profile URL Generation 
+ΓÇ║ EXPLORATION TEST: 
+Profile URLs should never 
+use ObjectId when 
+username exists
+
+    Property failed after 
+1 tests
+    { seed: -993089617, 
+path: "0:0:0:0:0:0:0:0:0:0
+:0:0:0:0:0:0:0:0:0:0:0:0:0
+:0:0:0:0:0:0:0:0:0:0:0:0:0
+:0", endOnFailure: true }
+    Counterexample: [{"_id
+":"00000000000000000000000
+0","username":"aaa","name"
+:"   "}]
+    Shrunk 36 time(s)
+
+    Hint: Enable verbose 
+mode in order to have the 
+list of all failing 
+values encountered during 
+the run
+
+    [0m [90m 198 |[39m 
+      [90m// Current 
+bug: Code uses ObjectId 
+even when username is 
+available[39m
+     [90m 199 |[39m     
+  
+    
+[31m[1m>[22m[39m[90m 
+200 |[39m       
+fc[33m.[39massert(
+     [90m     |[39m     
+     [31m[1m^[22m[39m
+     [90m 201 |[39m     
+    fc[33m.[39mproperty(
+     [90m 202 |[39m     
+      
+fc[33m.[39mrecord({
+     [90m 203 |[39m     
+        _id[33m:[39m fc
+[33m.[39marray(fc[33m.[
+39mconstantFrom([32m'0'[
+39m[33m,[39m 
+[32m'1'[39m[33m,[39m 
+[32m'2'[39m[33m,[39m 
+[32m'3'[39m[33m,[39m 
+[32m'4'[39m[33m,[39m 
+[32m'5'[39m[33m,[39m 
+[32m'6'[39m[33m,[39m 
+[32m'7'[39m[33m,[39m 
+[32m'8'[39m[33m,[39m 
+[32m'9'[39m[33m,[39m 
+[32m'a'[39m[33m,[39m 
+[32m'b'[39m[33m,[39m 
+[32m'c'[39m[33m,[39m 
+[32m'd'[39m[33m,[39m 
+[32m'e'[39m[33m,[39m 
+[32m'f'[39m)[33m,[39m 
+{ minLength[33m:[39m 
+[35m24[39m[33m,[39m 
+maxLength[33m:[39m 
+[35m24[39m 
+})[33m.[39mmap(arr 
+[33m=>[39m arr[33m.[39
+mjoin([32m''[39m))[33m,
+[39m[0m
+
+      at buildError (node_
+modules/fast-check/lib/cjs
+/fast-check.js:2449:16)
+      at throwIfFailed (no
+de_modules/fast-check/lib/
+cjs/fast-check.js:2456:8)
+      at reportRunDetails 
+(node_modules/fast-check/l
+ib/cjs/fast-check.js:2472:
+14)
+      at Module.assert (no
+de_modules/fast-check/lib/
+cjs/fast-check.js:2529:7)
+      at 
+Object.<anonymous> (src/__
+tests__/profile-url-bug-ex
+ploration.test.ts:200:10)
+
+  ΓùÅ Property 1: Fault 
+Condition - Profile URLs 
+Use Username Format ΓÇ║ 
+Bug Condition Exploration 
+- Profile URL Generation 
+ΓÇ║ EXPLORATION TEST: 
+Username fallback order 
+should be username ΓåÆ 
+uniqueUrl ΓåÆ _id
+
+    Property failed after 
+1 tests
+    { seed: 1301962488, 
+path: "0:0:0:0:0:0:0:0:0:0
+:0:0:0:0:0:0:0:0:0:0:0:0:0
+:0:0:0:0:0:0", 
+endOnFailure: true }
+    Counterexample: [{"_id
+":"00000000000000000000000
+0","username":undefined,"u
+niqueUrl":undefined,"name"
+:"   "}]
+    Shrunk 28 time(s)
+
+    Hint: Enable verbose 
+mode in order to have the 
+list of all failing 
+values encountered during 
+the run
+
+    [0m [90m 239 |[39m 
+      [90m// Current 
+bug: Code doesn't follow 
+consistent fallback 
+order[39m
+     [90m 240 |[39m     
+  
+    
+[31m[1m>[22m[39m[90m 
+241 |[39m       
+fc[33m.[39massert(
+     [90m     |[39m     
+     [31m[1m^[22m[39m
+     [90m 242 |[39m     
+    fc[33m.[39mproperty(
+     [90m 243 |[39m     
+      
+fc[33m.[39mrecord({
+     [90m 244 |[39m     
+        _id[33m:[39m fc
+[33m.[39marray(fc[33m.[
+39mconstantFrom([32m'0'[
+39m[33m,[39m 
+[32m'1'[39m[33m,[39m 
+[32m'2'[39m[33m,[39m 
+[32m'3'[39m[33m,[39m 
+[32m'4'[39m[33m,[39m 
+[32m'5'[39m[33m,[39m 
+[32m'6'[39m[33m,[39m 
+[32m'7'[39m[33m,[39m 
+[32m'8'[39m[33m,[39m 
+[32m'9'[39m[33m,[39m 
+[32m'a'[39m[33m,[39m 
+[32m'b'[39m[33m,[39m 
+[32m'c'[39m[33m,[39m 
+[32m'd'[39m[33m,[39m 
+[32m'e'[39m[33m,[39m 
+[32m'f'[39m)[33m,[39m 
+{ minLength[33m:[39m 
+[35m24[39m[33m,[39m 
+maxLength[33m:[39m 
+[35m24[39m 
+})[33m.[39mmap(arr 
+[33m=>[39m arr[33m.[39
+mjoin([32m''[39m))[33m,
+[39m[0m
+
+      at buildError (node_
+modules/fast-check/lib/cjs
+/fast-check.js:2449:16)
+      at throwIfFailed (no
+de_modules/fast-check/lib/
+cjs/fast-check.js:2456:8)
+      at reportRunDetails 
+(node_modules/fast-check/l
+ib/cjs/fast-check.js:2472:
+14)
+      at Module.assert (no
+de_modules/fast-check/lib/
+cjs/fast-check.js:2529:7)
+      at 
+Object.<anonymous> (src/__
+tests__/profile-url-bug-ex
+ploration.test.ts:241:10)
+
+FAIL src/components/crm/__
+tests__/LeadsList.test.tsx
+ (12.71 s)
+  ΓùÅ Console
+
+    console.error
+      Error: 
+AggregateError
+          at 
+Object.dispatchError (C:\U
+sers\hp\Desktop\trektribe\
+trek-tribe\web\node_module
+s\jest-environment-jsdom\n
+ode_modules\jsdom\lib\jsdo
+m\living\xhr\xhr-utils.js:
+63:19)
+          at 
+Request.<anonymous> (C:\Us
+ers\hp\Desktop\trektribe\t
+rek-tribe\web\node_modules
+\jest-environment-jsdom\no
+de_modules\jsdom\lib\jsdom
+\living\xhr\XMLHttpRequest
+-impl.js:655:18)
+          at Request.emit 
+(node:events:520:35)
+          at 
+ClientRequest.<anonymous> 
+(C:\Users\hp\Desktop\trekt
+ribe\trek-tribe\web\node_m
+odules\jest-environment-js
+dom\node_modules\jsdom\lib
+\jsdom\living\helpers\http
+-request.js:121:14)
+          at 
+ClientRequest.emit 
+(node:events:508:28)
+          at 
+emitErrorEvent 
+(node:_http_client:108:11)
+          at Socket.socket
+ErrorListener 
+(node:_http_client:575:5)
+          at Socket.emit 
+(node:events:508:28)
+          at emitErrorNT (
+node:internal/streams/dest
+roy:170:8)
+          at 
+emitErrorCloseNT (node:int
+ernal/streams/destroy:129:
+3)
+          at 
+processTicksAndRejections 
+(node:internal/process/tas
+k_queues:89:21) undefined
+
+      at VirtualConsole.<a
+nonymous> (node_modules/je
+st-environment-jsdom/node_
+modules/jsdom/lib/jsdom/vi
+rtual-console.js:29:45)
+
+    console.error
+      TypeError: Network 
+request failed
+          at C:\Users\hp\D
+esktop\trektribe\trek-trib
+e\web\node_modules\whatwg-
+fetch\dist\fetch.umd.js:56
+7:18
+          at Timeout.task 
+[as _onTimeout] (C:\Users\
+hp\Desktop\trektribe\trek-
+tribe\web\node_modules\jes
+t-environment-jsdom\node_m
+odules\jsdom\lib\jsdom\bro
+wser\Window.js:516:19)
+          at 
+listOnTimeout (node:intern
+al/timers:605:17)
+          at 
+processTimers (node:intern
+al/timers:541:7)
+
+    [0m [90m 49 |[39m  
+     setPages(data[33m.[
+39mpagination[33m?[39m[
+33m.[39mpages 
+[33m||[39m 
+[35m1[39m)[33m;[39m
+     [90m 50 |[39m     
+} [36mcatch[39m (e) {
+    
+[31m[1m>[22m[39m[90m 
+51 |[39m       console[3
+3m.[39merror(e)[33m;[39
+m
+     [90m    |[39m      
+         
+[31m[1m^[22m[39m
+     [90m 52 |[39m      
+ setError([32m'Failed to 
+load leads. You may not 
+have access or the server 
+is down.'[39m)[33m;[39m
+     [90m 53 |[39m     
+} [36mfinally[39m {
+     [90m 54 |[39m      
+ setLoading([36mfalse[39
+m)[33m;[39m[0m
+
+      at fetchLeads (src/c
+omponents/crm/LeadsList.ts
+x:51:15)
+
+  ΓùÅ renders new lead 
+button and opens form
+
+    Unable to find an 
+element with the text: + 
+New Lead. This could be 
+because the text is 
+broken up by multiple 
+elements. In this case, 
+you can provide a 
+function for your text 
+matcher to make your 
+matcher more flexible.
+
+    Ignored nodes: 
+comments, script, style
+    [36m<body>[39m
+      [36m<div>[39m
+        [36m<div[39m
+          [33mclass[39m=
+[32m"bg-white rounded 
+shadow p-4"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39
+m=[32m"text-red-600 
+mb-2"[39m
+          [36m>[39m
+            [0mFailed to 
+load leads. You may not 
+have access or the server 
+is down.[0m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39
+m=[32m"flex items-center 
+gap-2 mb-4"[39m
+          [36m>[39m
+            
+[36m<input[39m
+              [33mclass[
+39m=[32m"border rounded 
+px-2 py-1 flex-1"[39m
+              [33mplaceho
+lder[39m=[32m"Search 
+leads by name, email or 
+phone"[39m
+              [33mvalue[
+39m=[32m""[39m
+            [36m/>[39m
+            
+[36m<button[39m
+              [33mclass[
+39m=[32m"bg-blue-600 
+text-white px-3 py-1 
+rounded"[39m
+            [36m>[39m
+              [0m+ 
+New[0m
+            
+[36m</button>[39m
+          [36m</div>[39m
+          [36m<div>[39m
+            
+[36m<table[39m
+              [33mclass[
+39m=[32m"w-full 
+text-left 
+table-fixed"[39m
+            [36m>[39m
+              
+[36m<thead>[39m
+                
+[36m<tr[39m
+                  [33mcla
+ss[39m=[32m"text-sm 
+text-gray-700 
+border-b"[39m
+                
+[36m>[39m
+                  
+[36m<th[39m
+                    [33mc
+lass[39m=[32m"py-2"[39m
+                  
+[36m>[39m
+                    
+[0mName[0m
+                  
+[36m</th>[39m
+                  
+[36m<th>[39m
+                    
+[0mEmail[0m
+                  
+[36m</th>[39m
+                  
+[36m<th>[39m
+                    
+[0mPhone[0m
+                  
+[36m</th>[39m
+                  
+[36m<th[39m
+                    [33mc
+lass[39m=[32m"w-40"[39m
+                  
+[36m>[39m
+                    
+[0mActions[0m
+                  
+[36m</th>[39m
+                
+[36m</tr>[39m
+              
+[36m</thead>[39m
+              [36m<tbody 
+/>[39m
+            
+[36m</table>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"flex 
+items-center 
+justify-between mt-4"[39m
+            [36m>[39m
+              
+[36m<div[39m
+                [33mclass
+[39m=[32m"text-sm 
+text-gray-600"[39m
+              [36m>[39m
+                [0mPage 
+[0m
+                [0m1[0m
+                [0m of 
+[0m
+                [0m1[0m
+              
+[36m</div>[39m
+              
+[36m<div[39m
+                [33mclass
+[39m=[32m"flex 
+gap-2"[39m
+              [36m>[39m
+                
+[36m<button[39m
+                  [33mcla
+ss[39m=[32m"px-2 py-1 
+border rounded"[39m
+                  [33mdis
+abled[39m=[32m""[39m
+                
+[36m>[39m
+                  
+[0mPrev[0m
+                
+[36m</button>[39m
+                
+[36m<button[39m
+                  [33mcla
+ss[39m=[32m"px-2 py-1 
+border rounded"[39m
+                  [33mdis
+abled[39m=[32m""[39m
+                
+[36m>[39m
+                  
+[0mNext[0m
+                
+[36m</button>[39m
+              
+[36m</div>[39m
+            
+[36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</body>[39m
+
+    [0m [90m  6 |[39m 
+test([32m'renders new 
+lead button and opens 
+form'[39m[33m,[39m 
+[36masync[39m () 
+[33m=>[39m {
+     [90m  7 |[39m   ren
+der([33m<[39m[33mLeadsL
+ist[39m [33m/[39m[33m>
+[39m)[33m;[39m
+    
+[31m[1m>[22m[39m[90m 
+ 8 |[39m   
+[36mconst[39m newBtn 
+[33m=[39m 
+[36mawait[39m screen[33
+m.[39mfindByText([32m'+ 
+New Lead'[39m)[33m;[39m
+     [90m    |[39m      
+                         
+[31m[1m^[22m[39m
+     [90m  9 |[39m   exp
+ect(newBtn)[33m.[39mtoBe
+InTheDocument()[33m;[39m
+     [90m 10 |[39m   fir
+eEvent[33m.[39mclick(new
+Btn)[33m;[39m
+     [90m 11 |[39m   
+[36mconst[39m saveBtn 
+[33m=[39m 
+[36mawait[39m screen[33
+m.[39mfindByText([32m'Sa
+ve'[39m)[33m;[39m[0m
+
+      at waitForWrapper (n
+ode_modules/@testing-libra
+ry/react/node_modules/@tes
+ting-library/dom/dist/wait
+-for.js:163:27)
+      at findByText (node_
+modules/@testing-library/r
+eact/node_modules/@testing
+-library/dom/dist/query-he
+lpers.js:86:33)
+      at 
+Object.<anonymous> (src/co
+mponents/crm/__tests__/Lea
+dsList.test.tsx:8:31)
+
+PASS src/__tests__/profile
+-preservation.test.ts 
+(12.84 s)
+-------------------------------------|---------|----------|---------|---------|--------------------
+File                                 | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s  
+-------------------------------------|---------|----------|---------|---------|--------------------
+All files                            |    0.24 |     0.08 |    0.13 |    0.26 |                    
+ src                                 |       0 |        0 |       0 |       0 |                    
+  App.tsx                            |       0 |        0 |       0 |       0 | 21-345             
+  index.tsx                          |       0 |      100 |     100 |       0 | 11-14              
+ src/components                      |       0 |        0 |       0 |       0 |                    
+  AIAnalyticsDashboard.tsx           |       0 |        0 |       0 |       0 | 31-299             
+  AIChatWidget.tsx                   |       0 |        0 |       0 |       0 |                    
+  AIChatWidgetClean.tsx              |       0 |        0 |       0 |       0 | 17-967             
+  AIRecommendations.tsx              |       0 |        0 |       0 |       0 | 28-243             
+  AISmartSearch.tsx                  |       0 |        0 |       0 |       0 | 31-300             
+  APIDebugger.tsx                    |       0 |        0 |       0 |       0 | 5-134              
+  AuthChecker.tsx                    |       0 |        0 |       0 |       0 | 5-28               
+  BookingDetailsModal.tsx            |       0 |        0 |       0 |       0 | 60-515             
+  BottomNav.tsx                      |       0 |        0 |       0 |       0 | 9-62               
+  CompleteProfileModal.tsx           |       0 |        0 |       0 |       0 | 10-348             
+  CookieConsent.tsx                  |       0 |        0 |       0 |       0 | 11-257             
+  CookieSettings.tsx                 |       0 |        0 |       0 |       0 | 12-226             
+  EmailVerificationModal.tsx         |       0 |        0 |       0 |       0 | 13-126             
+  EnhancedProfileCard.tsx            |       0 |        0 |       0 |       0 | 55-561             
+  EnhancedProfileForm.tsx            |       0 |        0 |       0 |       0 | 84-812             
+  ErrorBoundary.tsx                  |       0 |        0 |       0 |       0 | 16-126             
+  FloatingJoinCTA.tsx                |       0 |        0 |       0 |       0 | 6-47               
+  Footer.tsx                         |       0 |      100 |       0 |       0 | 4-100              
+  GoogleLoginButton.tsx              |       0 |        0 |       0 |       0 | 26-166             
+  Header.tsx                         |       0 |        0 |       0 |       0 | 12-301             
+  IdVerificationUpload.tsx           |       0 |        0 |       0 |       0 | 13-337             
+  JoinTheTribeModal.tsx              |       0 |        0 |       0 |       0 | 11-34              
+  JoinTripModal.tsx                  |       0 |        0 |       0 |       0 | 64-806             
+  LiveActivityTicker.tsx             |       0 |        0 |       0 |       0 | 12-72              
+  LoadingSkeleton.tsx                |       0 |        0 |       0 |       0 | 9-103              
+  NotificationCenter.tsx             |       0 |        0 |       0 |       0 | 5-138              
+  OptimizedImage.tsx                 |       0 |        0 |       0 |       0 | 14-76              
+  OrganizerQRDisplay.tsx             |       0 |        0 |       0 |       0 | 25-180             
+  PaymentUpload.tsx                  |       0 |        0 |       0 |       0 | 17-207             
+  PaymentVerification.tsx            |       0 |        0 |       0 |       0 | 57-297             
+  PhoneVerificationModal.tsx         |       0 |        0 |       0 |       0 | 13-116             
+  PostCard.tsx                       |       0 |        0 |       0 |       0 | 43-317             
+  PostCreator.tsx                    |       0 |        0 |       0 |       0 | 9-613              
+  PreviousTripImages.tsx             |       0 |        0 |       0 |       0 | 21-237             
+  ProfilePhotoUpload.tsx             |       0 |        0 |       0 |       0 | 12-100             
+  ProfileSearch.tsx                  |       0 |        0 |       0 |       0 | 29-215             
+  ProtectedRoute.tsx                 |       0 |        0 |       0 |       0 | 20-49              
+  QRCodeUpload.tsx                   |       0 |        0 |       0 |       0 | 20-260             
+  RecommendationsWidget.tsx          |       0 |        0 |       0 |       0 | 29-139             
+  ReputationWidget.tsx               |       0 |        0 |       0 |       0 | 12-90              
+  ReviewModal.tsx                    |       0 |        0 |       0 |       0 | 18-206             
+  ReviewsList.tsx                    |       0 |        0 |       0 |       0 | 24-238             
+  RoleSelectModal.tsx                |       0 |        0 |       0 |       0 | 18-124             
+  SaveTripButton.tsx                 |       0 |        0 |       0 |       0 | 12-84              
+  SocialShareButtons.tsx             |       0 |        0 |       0 |       0 | 12-195             
+  Toast.tsx                          |       0 |        0 |       0 |       0 | 12-182             
+  UserEditModal.tsx                  |       0 |        0 |       0 |       0 | 10-122             
+ src/components/auth                 |       0 |        0 |       0 |       0 |                    
+  EmailVerificationGuard.tsx         |       0 |        0 |       0 |       0 | 10-48              
+  ForgotPassword.tsx                 |       0 |        0 |       0 |       0 | 9-103              
+  PhoneRequirementGuard.tsx          |       0 |        0 |       0 |       0 | 5-46               
+  ResetPassword.tsx                  |       0 |        0 |       0 |       0 | 5-231              
+ src/components/crm                  |    3.86 |     1.72 |    2.29 |    4.15 |                    
+  AutoPayToggle.tsx                  |       0 |        0 |       0 |       0 | 9-47               
+  BankDetailsTab.tsx                 |       0 |        0 |       0 |       0 | 13-229             
+  BillingHistory.tsx                 |       0 |        0 |       0 |       0 | 17-57              
+  ImportHistoryPanel.tsx             |       0 |        0 |       0 |       0 | 27-163             
+  ImportLeadsModal.tsx               |       0 |        0 |       0 |       0 | 14-554             
+  ImportProgressBar.tsx              |       0 |        0 |       0 |       0 | 17-83              
+  LeadKanban.tsx                     |       0 |        0 |       0 |       0 | 21-110             
+  LeadScoreBadge.tsx                 |       0 |        0 |       0 |       0 | 17-26              
+  LeadSourcesChart.tsx               |       0 |        0 |       0 |       0 | 11-156             
+  LeadsList.tsx                      |   31.34 |    18.75 |      15 |    36.2 | 45-49,59-64,76-171 
+  SubscriptionCard.tsx               |       0 |        0 |       0 |       0 | 24-100             
+  TicketsView.tsx                    |       0 |        0 |       0 |       0 | 4-219              
+  UpdatePaymentMethod.tsx            |       0 |        0 |       0 |       0 | 11-39              
+ src/components/features             |       0 |        0 |       0 |       0 |                    
+  TripCard.tsx                       |       0 |        0 |       0 |       0 | 19-106             
+ src/components/organizer            |       0 |        0 |       0 |       0 |                    
+  ExpenseStats.tsx                   |       0 |        0 |       0 |       0 | 19-97              
+ src/components/organizer/dashboard  |       0 |        0 |       0 |       0 |                    
+  CRMPreviewSection.tsx              |       0 |        0 |       0 |       0 | 9-141              
+  PaymentVerificationSection.tsx     |       0 |        0 |       0 |       0 | 33-110             
+  TripsListSection.tsx               |       0 |        0 |       0 |       0 | 21-140             
+ src/components/payment              |       0 |        0 |       0 |       0 |                    
+  RazorpayCheckout.tsx               |       0 |        0 |       0 |       0 | 54-209             
+ src/components/ui                   |       0 |        0 |       0 |       0 |                    
+  Badge.tsx                          |       0 |        0 |       0 |       0 | 3-24               
+  Button.tsx                         |       0 |        0 |       0 |       0 | 4-57               
+  Card.tsx                           |       0 |        0 |       0 |       0 | 3-18               
+  LoadingButton.tsx                  |       0 |        0 |       0 |       0 | 14-40              
+  Skeleton.tsx                       |       0 |        0 |       0 |       0 | 3-4                
+  Toast.tsx                          |       0 |        0 |       0 |       0 | 5-26               
+  Tooltip.tsx                        |       0 |        0 |       0 |       0 | 9-17               
+ src/config                          |       0 |        0 |       0 |       0 |                    
+  api.ts                             |       0 |        0 |       0 |       0 | 6-101              
+  firebase.ts                        |       0 |        0 |     100 |       0 | 6-50               
+ src/contexts                        |       0 |        0 |       0 |       0 |                    
+  AuthContext.tsx                    |       0 |        0 |       0 |       0 | 15-166             
+  NotificationContext.tsx            |       0 |        0 |       0 |       0 | 26-147             
+ src/layout                          |       0 |        0 |       0 |       0 |                    
+  ConsumerLayout.tsx                 |       0 |        0 |       0 |       0 | 11                 
+  DashboardLayout.tsx                |       0 |        0 |       0 |       0 | 12-81              
+ src/pages                           |       0 |        0 |       0 |       0 |                    
+  AIShowcase.tsx                     |       0 |        0 |       0 |       0 | 17-306             
+  AdminCRMDashboard.tsx              |       0 |        0 |       0 |       0 | 34-484             
+  AdminDashboard.tsx                 |       0 |        0 |       0 |       0 | 95-1155            
+  AdminOrganizerVerification.tsx     |       0 |        0 |       0 |       0 | 72-761             
+  AgentDashboard.tsx                 |       0 |        0 |       0 |       0 | 83-1236            
+  AutoPaySetup.tsx                   |       0 |        0 |       0 |       0 | 30-516             
+  CRMDashboard.tsx                   |       0 |        0 |       0 |       0 | 24-1015            
+  CompleteProfile.tsx                |       0 |        0 |       0 |       0 | 8-259              
+  CreateTrip.tsx                     |       0 |        0 |       0 |       0 | 71-1671            
+  CreateTripNew.tsx                  |       0 |        0 |       0 |       0 | 29-976             
+  EditTrip.tsx                       |       0 |        0 |       0 |       0 | 12-405             
+  EnhancedAgentDashboard.tsx         |       0 |        0 |       0 |       0 | 55-759             
+  EnhancedCRMDashboard.tsx           |       0 |        0 |       0 |       0 | 20-896             
+  EnhancedEditTrip.tsx               |       0 |        0 |       0 |       0 | 35-514             
+  EnhancedProfile.tsx                |       0 |        0 |       0 |       0 | 51-580             
+  EnhancedProfilePage.tsx            |       0 |        0 |       0 |       0 | 92-829             
+  EventsPage.tsx                     |       0 |        0 |       0 |       0 | 24-483             
+  GroupsPage.tsx                     |       0 |        0 |       0 |       0 | 19-321             
+  Home.tsx                           |       0 |        0 |       0 |       0 | 45-479             
+  JoinTheTribe.tsx                   |       0 |        0 |       0 |       0 | 9-186              
+  Login.tsx                          |       0 |        0 |       0 |       0 | 11-248             
+  MarketplaceCheckout.tsx            |       0 |        0 |       0 |       0 | 12-138             
+  MyBookings.tsx                     |       0 |        0 |       0 |       0 | 36-311             
+  OrganizerCRM.tsx                   |       0 |      100 |       0 |       0 | 15                 
+  OrganizerCRMDashboard.tsx          |       0 |        0 |       0 |       0 | 16-839             
+  OrganizerDashboard.tsx             |       0 |        0 |       0 |       0 | 55-308             
+  OrganizerDashboardNew.tsx          |       0 |        0 |       0 |       0 | 97-480             
+  OrganizerRouteOnboarding.tsx       |       0 |        0 |       0 |       0 | 21-391             
+  OrganizerSettlements.tsx           |       0 |        0 |       0 |       0 | 25-268             
+  OrganizerVerificationDashboard.tsx |       0 |        0 |       0 |       0 | 20-266             
+  PaymentVerificationDashboard.tsx   |       0 |        0 |       0 |       0 | 39-429             
+  PhoneVerification.tsx              |       0 |        0 |       0 |       0 | 7-335              
+  PrivacyPolicy.tsx                  |       0 |      100 |       0 |       0 | 4-7                
+  ProfessionalCRMDashboard.tsx       |       0 |        0 |       0 |       0 | 46-822             
+  Profile.tsx                        |       0 |        0 |       0 |       0 | 27-464             
+  Register.tsx                       |       0 |        0 |       0 |       0 | 13-505             
+  SearchPage.tsx                     |       0 |        0 |       0 |       0 | 23-327             
+  Subscribe.tsx                      |       0 |        0 |       0 |       0 | 19-310             
+  TermsConditions.tsx                |       0 |      100 |       0 |       0 | 4-7                
+  TripDetails.tsx                    |       0 |        0 |       0 |       0 | 46-611             
+  TripFinancePage.tsx                |       0 |        0 |       0 |       0 | 12-310             
+  Trips.tsx                          |       0 |        0 |       0 |       0 | 21-185             
+  VerifyEmail.tsx                    |       0 |        0 |       0 |       0 | 6-50               
+  Wishlist.tsx                       |       0 |        0 |       0 |       0 | 28-273             
+ src/pages/custom-trips              |       0 |        0 |       0 |       0 |                    
+  MyRequestsPage.tsx                 |       0 |        0 |       0 |       0 | 18-87              
+  ProposalViewPage.tsx               |       0 |        0 |       0 |       0 | 24-115             
+  RequestTripPage.tsx                |       0 |        0 |       0 |       0 | 7-75               
+ src/services                        |       0 |        0 |       0 |       0 |                    
+  apiClient.ts                       |       0 |      100 |     100 |       0 | 9                  
+  authService.ts                     |       0 |        0 |       0 |       0 | 19-87              
+ src/types                           |       0 |      100 |     100 |       0 |                    
+  finance.ts                         |       0 |      100 |     100 |       0 | 27                 
+  index.ts                           |       0 |        0 |       0 |       0 |                    
+ src/utils                           |       0 |        0 |       0 |       0 |                    
+  apiCache.ts                        |       0 |        0 |       0 |       0 | 8-92               
+  config.ts                          |       0 |        0 |       0 |       0 | 9-78               
+  fileUpload.ts                      |       0 |        0 |       0 |       0 | 9-39               
+  razorpay.ts                        |       0 |        0 |       0 |       0 | 12-116             
+  uploadTest.ts                      |       0 |        0 |       0 |       0 | 17-186             
+  url.ts                             |       0 |        0 |       0 |       0 | 12-39              
+-------------------------------------|---------|----------|---------|---------|--------------------
+
+Test Suites: 4 failed, 2 
+passed, 6 total
+Tests:       7 failed, 16 
+passed, 23 total
+Snapshots:   0 total
+Time:        41.38 s
+Ran all test suites.

@@ -56,7 +56,7 @@
       "^pure-rand/utils/skipN$": "<rootDir>/node_modules/pure-rand/lib/utils/skipN.js"
     },
     "transformIgnorePatterns": [
-      "node_modules/(?!(fast-check|pure-rand)/)"
+      "node_modules/(?!(fast-check|pure-rand|axios|react-router|react-router-dom|@remix-run)/)"
     ]
   },
   "browserslist": {

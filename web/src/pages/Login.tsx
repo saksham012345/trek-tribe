@@ -113,7 +113,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   return (
     <>
       <ToastContainer toasts={toasts} onRemove={removeToast} />
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-forest-50 via-nature-50 to-forest-100 py-8 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-forest-50 via-nature-50 to-forest-100 py-6 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
         {/* Animated background elements */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-40 -right-40 w-80 h-80 bg-nature-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
@@ -143,7 +143,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           </div>
 
           {/* Login Card */}
-          <div className="bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl p-6 sm:p-8 md:p-10 border border-white/20 transform transition-all duration-300 hover:shadow-3xl">
+          <div className="bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl p-5 sm:p-8 md:p-10 border border-white/20 transform transition-all duration-300 hover:shadow-3xl">
             {/* Google Sign-In - only show if not logged in */}
             {!user && (
               <div className="space-y-4 mb-6">

@@ -713,9 +713,26 @@ const AIChatWidgetClean: React.FC = () => {
 
       {/* Full widget */}
       {isOpen && (
-        <div className="chat-widget glass-panel">
-          <div className="chat-header glass-header">
-            <div className="flex items-center gap-3">
+        <div className="chat-widget glass-panel has-sessions">
+          {/* Desktop Dual-Panel Sidebar (visible on xl screens) */}
+          <div className="chat-session-list hidden xl:flex">
+            <div className="p-4 font-bold border-b border-gray-100 text-sm text-emerald-800 bg-white/50">
+              Recent Chats
+            </div>
+            <div className="chat-session-item active">
+              Current Session
+            </div>
+            <div className="chat-session-item opacity-60">
+              Goa Trip Planning
+            </div>
+            <div className="chat-session-item opacity-60">
+              Booking Support
+            </div>
+          </div>
+
+          <div className="chat-main-col relative flex flex-col flex-1 min-w-0">
+            <div className="chat-header glass-header">
+              <div className="flex items-center gap-3">
               <div className="relative">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-100 to-white flex items-center justify-center border border-white/50 shadow-sm">
                   <span className="text-xl">🤖</span>
@@ -874,6 +891,7 @@ const AIChatWidgetClean: React.FC = () => {
                 )}
               </div>
             )}
+          </div>
           </div>
         </div>
       )}

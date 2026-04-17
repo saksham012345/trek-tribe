@@ -278,20 +278,20 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-forest-50 via-white to-nature-50">
-      {/* Hero */}
+      {/* Hero — compact on mobile */}
       <div className="bg-gradient-to-r from-forest-700 to-nature-600 text-white">
-        <div className="max-w-6xl mx-auto px-6 py-10 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Join TrekTribe</h1>
-            <p className="text-white/90 mt-1">Create your adventure profile and start exploring curated treks.</p>
+            <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight">Join TrekTribe</h1>
+            <p className="text-white/90 mt-1 text-sm sm:text-base">Create your adventure profile and start exploring curated treks.</p>
           </div>
           <div className="hidden sm:block text-5xl">🏔️</div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 pb-12">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-4 sm:-mt-8 pb-12">
         <div className="grid lg:grid-cols-2 gap-8">
-          {/* Left: Brand card */}
+          {/* Left: Brand card — desktop only */}
           <div className="hidden lg:block">
             <div className="bg-white rounded-2xl shadow-xl p-8 border border-forest-200">
               <h3 className="text-xl font-bold text-forest-800 mb-4">Why TrekTribe?</h3>
@@ -304,9 +304,9 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
             </div>
           </div>
 
-          {/* Right: Form card */}
-          <div className="w-full space-y-6 sm:space-y-8">
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-6 sm:p-8 border border-forest-200">
+          {/* Form card — full width on mobile */}
+          <div className="w-full space-y-4 sm:space-y-6">
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-5 sm:p-8 border border-forest-200">
               {/* Google Sign-Up - only show if not logged in */}
               {!user && (
                 <div className="space-y-3 mb-4">
@@ -473,7 +473,7 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="group relative w-full flex justify-center py-3 sm:py-4 px-4 sm:px-6 border border-transparent text-base sm:text-lg font-bold rounded-xl text-white bg-gradient-to-r from-nature-600 to-forest-600 hover:from-nature-700 hover:to-forest-700 focus:outline-none focus:ring-4 focus:ring-nature-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                    className="group relative w-full flex justify-center py-4 px-6 border border-transparent text-base font-bold rounded-xl text-white bg-gradient-to-r from-nature-600 to-forest-600 hover:from-nature-700 hover:to-forest-700 focus:outline-none focus:ring-4 focus:ring-nature-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl min-h-[52px]"
                   >
                     {loading ? (
                       <span className="flex items-center gap-2">
