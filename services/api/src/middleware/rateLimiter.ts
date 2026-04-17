@@ -36,16 +36,41 @@ export const apiLimiter = rateLimit({
 
 /**
  * Stricter rate limiter for authentication routes
- * Limits: 5 login attempts per 15 minutes
+ * Limits: 3 login attempts per 15 minutes
  */
 export const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // limit each IP to 5 requests per windowMs
+  windowMs: 15 * 60 * 1000, // 35 minutes
+  max: 3, // limit each IP to 3 requests per windowMs
   skipSuccessfulRequests: true, // Don't count successful requests
   message: 'Too many login attempts, please try again after 15 minutes.',
   standardHeaders: true,
   legacyHeaders: false,
   store: getRedisStore('auth'),
+});
+
+/**
+ * Rate limiter for account registration
+ * Limits: 5 registrations per hour per IP
+ */
+export const registrationLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5,
+  message: 'Too many account registrations from this IP, please try again in an hour.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: getRedisStore('registration'),
+});
+
+/**
+ * Rate limiter for verification requests (KYC/OTP)
+ */
+export const verificationLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10,
+  message: 'Too many verification attempts, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: getRedisStore('verification'),
 });
 
 /**

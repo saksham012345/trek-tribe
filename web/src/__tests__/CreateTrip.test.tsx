@@ -38,36 +38,70 @@ describe('OrganizerDashboardNew: Create & Duplicate Trip', () => {
   });
 
   test('renders dashboard layout and header', async () => {
-    render(<OrganizerDashboardNew user={mockUser as any} />);
+    (api.get as jest.Mock).mockResolvedValue({ 
+      data: {
+        stats: { trips: { total: 0, active: 0, upcoming: 0, completed: 0 }, bookings: { total: 0, pending: 0, confirmed: 0, cancelled: 0 }, revenue: { total: 0, thisMonth: 0, lastMonth: 0, growth: 0 }, participants: { total: 0, thisMonth: 0 } },
+        autoPay: { isSetup: false, subscriptionActive: false, listingsRemaining: 0 },
+        subscription: { isActive: false, tripsPublished: 0, tripsLimit: 5 },
+        alerts: [],
+        quickActions: [],
+        recentTrips: [],
+        recentBookings: []
+      }
+    });
+
+    render(<OrganizerDashboardNew />);
 
     expect(screen.getByTestId('dashboard-layout')).toBeInTheDocument();
     
     await waitFor(() => {
-      expect(screen.getByText('Trip Dashboard')).toBeInTheDocument();
+      expect(screen.getByText(/Organizer Dashboard/)).toBeInTheDocument();
     });
   });
 
   test('clicking Create Trip opens the modal', async () => {
-    render(<OrganizerDashboardNew user={mockUser as any} />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Trip Dashboard')).toBeInTheDocument();
+    (api.get as jest.Mock).mockResolvedValue({ 
+      data: {
+        stats: { trips: { total: 0, active: 0, upcoming: 0, completed: 0 }, bookings: { total: 0, pending: 0, confirmed: 0, cancelled: 0 }, revenue: { total: 0, thisMonth: 0, lastMonth: 0, growth: 0 }, participants: { total: 0, thisMonth: 0 } },
+        autoPay: { isSetup: false, subscriptionActive: false, listingsRemaining: 0 },
+        subscription: { isActive: false, tripsPublished: 0, tripsLimit: 5 },
+        alerts: [],
+        quickActions: [],
+        recentTrips: [],
+        recentBookings: []
+      }
     });
 
-    const createBtn = screen.getByText('Create Trip');
+    render(<OrganizerDashboardNew />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Organizer Dashboard/)).toBeInTheDocument();
+    });
+
+    const createBtn = screen.getByText('Create New Trip');
     fireEvent.click(createBtn);
 
-    expect(screen.getByText('Create New Trip / Post')).toBeInTheDocument();
-    expect(screen.getByText('Save Draft')).toBeInTheDocument();
-    expect(screen.getByText('Publish Trip')).toBeInTheDocument();
+    // The component redirects to /create-trip, it doesn't open a modal anymore
+    expect((global as any).__mockNavigate).toHaveBeenCalledWith('/create-trip');
   });
 
   test('renders empty state when no trips are present', async () => {
-    render(<OrganizerDashboardNew user={mockUser as any} />);
+    (api.get as jest.Mock).mockResolvedValue({ 
+      data: {
+        stats: { trips: { total: 0, active: 0, upcoming: 0, completed: 0 }, bookings: { total: 0, pending: 0, confirmed: 0, cancelled: 0 }, revenue: { total: 0, thisMonth: 0, lastMonth: 0, growth: 0 }, participants: { total: 0, thisMonth: 0 } },
+        autoPay: { isSetup: false, subscriptionActive: false, listingsRemaining: 0 },
+        subscription: { isActive: false, tripsPublished: 0, tripsLimit: 5 },
+        alerts: [],
+        quickActions: [],
+        recentTrips: [],
+        recentBookings: []
+      }
+    });
+
+    render(<OrganizerDashboardNew />);
 
     await waitFor(() => {
-      expect(screen.getByText('No trips created yet')).toBeInTheDocument();
-      expect(screen.getByText('Create your first adventure to get started.')).toBeInTheDocument();
+      expect(screen.getByText('No trips yet')).toBeInTheDocument();
     });
   });
 
@@ -80,18 +114,35 @@ describe('OrganizerDashboardNew: Create & Duplicate Trip', () => {
       endDate: '2027-01-10',
       price: 50000,
       status: 'active',
-      participants: []
+      participants: 5,
+      capacity: 20
     }];
-    (api.get as jest.Mock).mockResolvedValueOnce({ data: mockTrips });
 
-    render(<OrganizerDashboardNew user={mockUser as any} />);
+    const mockDashboardData = {
+      stats: {
+        trips: { total: 1, active: 1, upcoming: 1, completed: 0 },
+        bookings: { total: 0, pending: 0, confirmed: 0, cancelled: 0 },
+        revenue: { total: 0, thisMonth: 0, lastMonth: 0, growth: 0 },
+        participants: { total: 0, thisMonth: 0 }
+      },
+      autoPay: { isSetup: true, subscriptionActive: true, listingsRemaining: 10 },
+      subscription: { isActive: true, tripsPublished: 1, tripsLimit: 10 },
+      alerts: [],
+      quickActions: [],
+      recentTrips: mockTrips,
+      recentBookings: []
+    };
+
+    (api.get as jest.Mock).mockResolvedValueOnce({ data: mockDashboardData });
+
+    render(<OrganizerDashboardNew />);
 
     await waitFor(() => {
       expect(screen.getByText('Himalayan Trek')).toBeInTheDocument();
+      // Use getAllByText for Himalayas since it might appear in multiple places or as partial match
       expect(screen.getByText(/Himalayas/)).toBeInTheDocument();
       // Test the newly added "Duplicate" button is present
-      const optionsBtn = screen.getByTitle('Options');
-      expect(optionsBtn).toBeInTheDocument();
+      expect(screen.getByText('Duplicate')).toBeInTheDocument();
     });
   });
 });

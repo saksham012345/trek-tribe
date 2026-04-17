@@ -42,6 +42,8 @@
   },
   "jest": {
     "moduleNameMapper": {
+      "^react-router-dom$": "<rootDir>/node_modules/react-router-dom/dist/index.js",
+      "^react-router$": "<rootDir>/node_modules/react-router/dist/index.js",
       "^fast-check$": "<rootDir>/node_modules/fast-check/lib/cjs/fast-check.js",
       "^pure-rand/generator/congruential32$": "<rootDir>/node_modules/pure-rand/lib/generator/congruential32.js",
       "^pure-rand/generator/mersenne$": "<rootDir>/node_modules/pure-rand/lib/generator/mersenne.js",
@@ -86,8 +88,8 @@
     "@types/lodash": "^4.17.24",
     "@types/prettier": "^2.7.3",
     "@types/q": "^1.5.8",
-    "@types/react": "^19.2.9",
-    "@types/react-dom": "^19.2.3",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
     "@types/resolve": "^1.20.6",
     "@types/retry": "^0.12.5",
     "@types/serve-index": "^1.9.4",

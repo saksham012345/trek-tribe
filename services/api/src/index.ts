@@ -64,7 +64,7 @@ import eventsRoutes from './routes/events';
 import bankDetailsRoutes from './routes/bankDetails';
 import financeRoutes from './routes/finance';
 import databaseImportRoutes from './routes/databaseImport';
-import { apiLimiter, authLimiter, otpLimiter } from './middleware/rateLimiter';
+import { apiLimiter, authLimiter, otpLimiter, registrationLimiter, verificationLimiter } from './middleware/rateLimiter';
 import { cronScheduler } from './services/cronScheduler';
 import { chargeRetryWorker } from './services/chargeRetryWorker';
 import { Trip } from './models/Trip';
@@ -121,19 +121,15 @@ app.use(compression({
 }));
 
 app.use(helmet({
-  // Enable CSP in all environments for better security (can be more lenient in development)
+  // Enable CSP in all environments for better security
   contentSecurityPolicy: {
     useDefaults: true,
     directives: {
       ...helmet.contentSecurityPolicy.getDefaultDirectives(),
       "default-src": ["'self'"],
-      // Only allow Razorpay checkout script; disallow inline scripts
       "script-src": ["'self'", 'https://checkout.razorpay.com', ...(process.env.NODE_ENV === 'development' ? ["'unsafe-eval'", "'unsafe-inline'"] : [])],
-      // Allow Razorpay checkout to be framed
       "frame-src": ['https://checkout.razorpay.com'],
-      // Images from self and data URLs; https generally
       "img-src": ["'self'", 'data:', 'https:'],
-      // Restrict connections to self, frontend/backend domains, AI service, and Razorpay API
       "connect-src": [
         "'self'",
         'https:',
@@ -143,17 +139,20 @@ app.use(helmet({
         process.env.AI_SERVICE_URL || '',
         'https://api.razorpay.com'
       ].filter(Boolean),
-      // Block embedding of objects completely
       "object-src": ["'none'"],
-      // Allow styles from self and inline styles in development (for React development tools)
       "style-src": ["'self'", "'unsafe-inline'"]
     },
-    // Only report violations in production, allow in development for easier debugging
     reportOnly: process.env.NODE_ENV === 'development'
   },
   crossOriginEmbedderPolicy: true,
-  // Relax COOP to allow OAuth popups and cross-origin postMessage (Google Sign-In)
-  crossOriginOpenerPolicy: { policy: 'unsafe-none' }
+  crossOriginOpenerPolicy: { policy: 'unsafe-none' },
+  dnsPrefetchControl: { allow: false },
+  frameguard: { action: 'deny' },
+  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+  ieNoOpen: true,
+  noSniff: true,
+  referrerPolicy: { policy: 'same-origin' },
+  xssFilter: true
 }));
 
 // Enable rate limiting in non-test environments for brute-force protection
@@ -329,11 +328,11 @@ console.log('✅ CRM routes mounted at /api/crm');
 // logMessage('INFO', 'CRM routes registered'); // Only log if we are in start() or just console.log
 
 // Email Verification Routes
-app.use('/api/verify-email', emailVerificationRoutes);
+app.use('/api/verify-email', verificationLimiter, emailVerificationRoutes);
 console.log('✅ Email verification routes mounted at /api/verify-email');
 
 // KYC and ID Verification Routes
-app.use('/api/verification', verificationRoutes);
+app.use('/api/verification', verificationLimiter, verificationRoutes);
 console.log('✅ Verification routes mounted at /api/verification');
 
 // Recommendations Routes
