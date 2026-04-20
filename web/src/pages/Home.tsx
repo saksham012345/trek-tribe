@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import api from '../config/api';
 import { User } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -105,13 +105,18 @@ const Home: React.FC<HomeProps> = ({ user: userProp }) => {
     return () => clearInterval(interval);
   }, [heroImages.length]);
 
+  const canonicalHomeUrl =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}/`
+      : 'https://tripe.sbpgm.com/';
+
   return (
     <div className="min-h-screen bg-forest-50">
       <Helmet>
         <title>TrekTribe | Group Trips, Adventure Travel & Eco-Tourism</title>
         <meta name="description" content="Join TrekTribe for the best group trips, adventure travel, solo trips, and weekend getaways. Connect with nature and like-minded travelers." />
         <meta name="keywords" content="group trips, adventure travel, budget trips, family trips, solo trips, weekend trips, eco-tourism, hiking groups" />
-        <link rel="canonical" href="https://trektribe.com/home" />
+        <link rel="canonical" href={canonicalHomeUrl} />
       </Helmet>
       {/* Hero Section with Dynamic Background */}
       <section

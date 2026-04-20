@@ -148,10 +148,10 @@ function AppContent() {
             </div>
           }>
             <Routes>
-              {/* Default route - redirect to login if not authenticated, home if authenticated */}
+              {/* Public landing route for guests; authenticated users continue to app home */}
               <Route
                 path="/"
-                element={user ? <Navigate to="/home" replace /> : <Navigate to="/login" replace />}
+                element={user ? <Navigate to="/home" replace /> : <Home user={null} />}
               />
               {/* Home route - requires authentication and email verification */}
               <Route
