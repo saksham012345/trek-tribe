@@ -198,16 +198,6 @@ const PaymentsTab: React.FC<{ user: User }> = ({ user }) => {
         </div>
       )}
 
-      {showImportModal && (
-        <ImportLeadsModal
-          isOpen={showImportModal}
-          onClose={() => setShowImportModal(false)}
-          onSuccess={() => {
-            setShowImportModal(false);
-            fetchDashboardData();
-          }}
-        />
-      )}
     </div>
   );
 };
@@ -305,6 +295,7 @@ const OrganizerCRMDashboard: React.FC<OrganizerCRMProps> = ({ user }) => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     const socketUrl = process.env.REACT_APP_API_URL || process.env.REACT_APP_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+    const organizerId = (user as any)._id || user.id;
     const socket = io(socketUrl, {
       path: '/socket.io/',
       auth: { token },
@@ -312,15 +303,17 @@ const OrganizerCRMDashboard: React.FC<OrganizerCRMProps> = ({ user }) => {
     } as any);
     socketRef.current = socket;
 
-    socket.on(`leads_imported:${user._id}`, () => {
-      setAnalyticsRefreshKey(k => k + 1);
-      fetchCrmLeads();
-    });
+    if (organizerId) {
+      socket.on(`leads_imported:${organizerId}`, () => {
+        setAnalyticsRefreshKey(k => k + 1);
+        fetchCrmLeads();
+      });
+    }
 
     return () => {
       socket.disconnect();
     };
-  }, [user._id]);
+  }, [user.id]);
 
   // Fetch CRM leads when leads tab is active
   useEffect(() => {
