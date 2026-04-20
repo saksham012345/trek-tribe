@@ -64,6 +64,9 @@ export interface GroupBookingDocument extends Document {
   cancellationDate?: Date;
   refundAmount?: number;
   refundStatus?: 'pending' | 'processed' | 'failed';
+  reminders?: {
+    tripStart24hSentAt?: Date;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -179,6 +182,12 @@ const groupBookingSchema = new Schema(
     refundStatus: {
       type: String,
       enum: ['pending', 'processed', 'failed']
+    },
+    reminders: {
+      type: {
+        tripStart24hSentAt: { type: Date }
+      },
+      required: false
     }
   },
   {

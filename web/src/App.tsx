@@ -42,6 +42,7 @@ const retryLazyLoad = (
 
 // Lazy load heavy components with retry logic
 const Trips = React.lazy(() => retryLazyLoad(() => import('./pages/Trips')));
+const Discover = React.lazy(() => retryLazyLoad(() => import('./pages/Discover')));
 const CreateTrip = React.lazy(() => retryLazyLoad(() => import('./pages/CreateTrip')));
 const EnhancedEditTrip = React.lazy(() => retryLazyLoad(() => import('./pages/EnhancedEditTrip')));
 const Profile = React.lazy(() => retryLazyLoad(() => import('./pages/Profile')));
@@ -76,6 +77,10 @@ const ProposalViewPage = React.lazy(() => retryLazyLoad(() => import('./pages/cu
 const CompleteProfile = React.lazy(() => retryLazyLoad(() => import('./pages/CompleteProfile')));
 const VerifyEmail = React.lazy(() => retryLazyLoad(() => import('./pages/VerifyEmail')));
 const TripFinancePage = React.lazy(() => retryLazyLoad(() => import('./pages/TripFinancePage')));
+const Blogs = React.lazy(() => retryLazyLoad(() => import('./pages/Blogs')));
+const BlogDetails = React.lazy(() => retryLazyLoad(() => import('./pages/BlogDetails')));
+const AdminBlogs = React.lazy(() => retryLazyLoad(() => import('./pages/AdminBlogs')));
+const AdminContentManager = React.lazy(() => retryLazyLoad(() => import('./pages/AdminContentManager')));
 
 // Error Boundary for lazy loading failures
 type ChunkErrorBoundaryProps = { children?: React.ReactNode };
@@ -198,10 +203,14 @@ function AppContent() {
                 element={user ? <Navigate to="/" /> : <ResetPassword />}
               />
               <Route path="/trips" element={<Trips user={user || null} />} />
+              <Route path="/discover" element={<Discover user={user || null} />} />
               <Route path="/trips/category/:category" element={<Trips user={user || null} />} />
               <Route path="/trips/destination/:destination" element={<Trips user={user || null} />} />
               <Route path="/trips/:slug" element={<TripDetails user={user || null} />} />
               <Route path="/trip/:id" element={<TripDetails user={user || null} />} />
+              <Route path="/blogs" element={<Blogs />} />
+              <Route path="/blogs/:slug" element={<BlogDetails />} />
+              <Route path="/stories" element={<Navigate to="/blogs" replace />} />
               <Route
                 path="/create-trip"
                 element={
@@ -229,6 +238,14 @@ function AppContent() {
               <Route
                 path="/admin/organizer-verification"
                 element={user?.role === 'admin' ? <EmailVerificationGuard><AdminOrganizerVerification /></EmailVerificationGuard> : <Navigate to="/home" />}
+              />
+              <Route
+                path="/admin/blogs"
+                element={user?.role === 'admin' ? <EmailVerificationGuard><AdminBlogs /></EmailVerificationGuard> : <Navigate to="/home" />}
+              />
+              <Route
+                path="/admin/content"
+                element={user?.role === 'admin' ? <EmailVerificationGuard><AdminContentManager /></EmailVerificationGuard> : <Navigate to="/home" />}
               />
               <Route
                 path="/agent"

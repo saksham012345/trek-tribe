@@ -56,6 +56,8 @@ import usersRoutes from './routes/users';
 import dashboardRoutes from './routes/dashboard';
 import paymentVerificationRoutes from './routes/paymentVerification';
 import paymentRoutes from './routes/payments';
+import blogRoutes from './routes/blogs';
+import siteSettingsRoutes from './routes/siteSettings';
 import marketplaceRoutes from './routes/marketplace';
 import customTripRoutes from './routes/customTrips';
 import seedRoutes from './routes/seed';
@@ -315,9 +317,11 @@ if (ENABLE_AI) {
 app.use('/', viewsRoutes);
 app.use('/api/follow', followRoutes);
 app.use('/api/posts', postsRoutes);
+app.use('/api/blogs', blogRoutes);
 app.use('/api/groups', groupsRoutes);
 app.use('/api/events', eventsRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/site-settings', siteSettingsRoutes);
 app.use('/support', supportRoutes);
 app.use('/api/support', supportRoutes); // Also mount at /api/support for consistency
 app.use('/stats', statsRoutes);

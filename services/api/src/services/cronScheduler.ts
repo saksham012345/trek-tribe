@@ -3,6 +3,7 @@ import { autoPayService } from './autoPayService';
 import { subscriptionNotificationService } from './subscriptionNotificationService';
 import { runDailyFollowUpCheck } from './marketingAutomationService';
 import { logger } from '../utils/logger';
+import { send24HourTripReminders } from './bookingNotificationService';
 
 class CronScheduler {
   private jobs: ScheduledTask[] = [];
@@ -16,6 +17,7 @@ class CronScheduler {
     this.schedulePaymentReminders();
     this.scheduleTrialNotifications();
     this.scheduleMarketingAutomation();
+    this.scheduleTripStartReminders();
     this.scheduleTripViewCacheCleanup();
     
     logger.info('Cron scheduler initialized with all jobs');
@@ -102,6 +104,26 @@ class CronScheduler {
   }
 
   /**
+   * Schedule 24-hour trip start reminders - runs every hour.
+   */
+  private scheduleTripStartReminders() {
+    const job = cron.schedule('5 * * * *', async () => {
+      logger.info('Running scheduled 24-hour trip reminders');
+      try {
+        const result = await send24HourTripReminders();
+        logger.info('Trip reminder job completed', result);
+      } catch (error: any) {
+        logger.error('Error sending trip reminders', { error: error.message });
+      }
+    }, {
+      timezone: 'Asia/Kolkata'
+    });
+
+    this.jobs.push(job);
+    logger.info('Trip reminder job scheduled (hourly at minute 5 IST)');
+  }
+
+  /**
    * Schedule trip view cache cleanup - runs every hour
    */
   private scheduleTripViewCacheCleanup() {
@@ -145,6 +167,7 @@ class CronScheduler {
         { name: 'Payment reminders', schedule: 'Daily at 10 AM IST' },
         { name: 'Trial notifications', schedule: 'Daily at 9 AM IST' },
         { name: 'Marketing automation', schedule: 'Daily at 11 AM IST' },
+        { name: 'Trip start reminders', schedule: 'Hourly at minute 5 IST' },
         { name: 'Trip view cache cleanup', schedule: 'Every hour' }
       ]
     };

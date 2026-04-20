@@ -9,6 +9,7 @@ import { Request, Response } from 'express';
 import * as tripsService from './trips.service';
 import { socketService } from '../../services/socketService';
 import { logger } from '../../utils/logger';
+import { notifyFollowersOnNewTrip } from '../../services/tripNotificationService';
 
 // ─── Create trip ──────────────────────────────────────────────────────────────
 
@@ -123,6 +124,21 @@ export async function createTrip(req: any, res: Response) {
     }
 
     socketService.broadcastTripUpdate(trip, 'created');
+
+    // Notify followers of organizer about this newly published trip (non-blocking).
+    notifyFollowersOnNewTrip({
+      tripId: String(trip._id),
+      organizerId: String(organizerId),
+      tripTitle: body.title,
+      destination: body.destination,
+      startDate: body.startDate
+    }).catch((notifyError: any) => {
+      logger.error('Failed to trigger follower trip alerts', {
+        tripId: String(trip._id),
+        organizerId: String(organizerId),
+        error: notifyError?.message
+      });
+    });
 
     const tripObj = trip.toObject ? trip.toObject() : trip;
     if (!tripObj.category) {

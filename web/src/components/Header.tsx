@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+﻿import React, { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { User } from '../types';
 import NotificationCenter from './NotificationCenter';
 import { getSafeUrl } from '../utils/url';
@@ -10,12 +10,10 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
-  const navigate = useNavigate();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
-  // Handle scroll effect
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 20);
@@ -26,13 +24,13 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
 
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + '/');
 
-  const NavLink = ({ to, icon, children, className = '' }: { to: string; icon?: string; children?: React.ReactNode; className?: string }) => (
+  const NavLink = ({ to, children, className = '' }: { to: string; children?: React.ReactNode; className?: string }) => (
     <Link
       to={to}
       className={`
-        relative px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2 group
+        relative px-4 py-2 rounded-full text-sm font-medium transition-all duration-300
         ${isActive(to)
           ? 'bg-forest-100 text-forest-700 shadow-sm ring-1 ring-forest-200'
           : 'text-forest-600 hover:text-forest-900 hover:bg-forest-50'
@@ -40,7 +38,6 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
         ${className}
       `}
     >
-      {icon && <span className="text-lg group-hover:scale-110 transition-transform duration-300">{icon}</span>}
       {children}
     </Link>
   );
@@ -58,7 +55,6 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center">
-            {/* Logo */}
             <div className="flex items-center">
               <Link to="/" className="flex items-center gap-3 group" onClick={closeMobileMenu}>
                 <div className="relative w-10 h-10 flex items-center justify-center">
@@ -79,30 +75,33 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
               </Link>
             </div>
 
-            {/* Desktop Navigation */}
             <nav className="hidden md:flex items-center gap-1">
-              <NavLink to="/trips" icon="🌿">Discover</NavLink>
-              <NavLink to="/search" icon="🔍">Organizers</NavLink>
-              <NavLink to="/ai-showcase" icon="🤖">AI Compass</NavLink>
+              <NavLink to="/discover">Discover</NavLink>
+              <NavLink to="/search">Organizers</NavLink>
+              <NavLink to="/blogs">Blogs</NavLink>
+              <NavLink to="/ai-showcase">AI Compass</NavLink>
 
               {user?.role === 'organizer' && (
                 <>
                   <div className="w-px h-6 bg-forest-200 mx-2"></div>
-                  <NavLink to="/create-trip" icon="➕">Create</NavLink>
-                  <NavLink to="/crm" icon="📊">CRM</NavLink>
+                  <NavLink to="/create-trip">Create</NavLink>
+                  <NavLink to="/crm">CRM</NavLink>
                 </>
               )}
 
               {user?.role === 'admin' && (
-                <NavLink to="/admin" icon="🛠️" className="text-purple-600">Admin</NavLink>
+                <>
+                  <NavLink to="/admin" className="text-purple-600">Admin</NavLink>
+                  <NavLink to="/admin/content" className="text-purple-600">Content</NavLink>
+                  <NavLink to="/admin/blogs" className="text-purple-600">Blog Admin</NavLink>
+                </>
               )}
 
               {user?.role === 'agent' && (
-                <NavLink to="/agent" icon="🕵️" className="text-blue-600">Agent</NavLink>
+                <NavLink to="/agent" className="text-blue-600">Agent</NavLink>
               )}
             </nav>
 
-            {/* User Actions */}
             <div className="flex items-center gap-3">
               {user ? (
                 <div className="hidden md:flex items-center gap-3 pl-2">
@@ -113,7 +112,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
                     className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-red-50 text-forest-400 hover:text-red-500 transition-colors"
                     title="Wishlist"
                   >
-                    ❤️
+                    ❤
                   </Link>
 
                   <div className="w-px h-6 bg-forest-200 mx-1"></div>
@@ -155,7 +154,6 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
                 </div>
               )}
 
-              {/* Mobile: show avatar + notifications */}
               {user && (
                 <div className="flex md:hidden items-center gap-2">
                   <NotificationCenter />
@@ -171,7 +169,6 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
                 </div>
               )}
 
-              {/* Mobile Menu Button — hidden on mobile since BottomNav handles navigation */}
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="hidden p-2 rounded-xl text-forest-600 hover:bg-forest-50 transition-colors"
@@ -188,7 +185,6 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
         </div>
       </header>
 
-      {/* Mobile Menu Overlay */}
       <div
         className={`
           fixed inset-0 z-40 bg-forest-900/20 backdrop-blur-sm transition-opacity duration-300 md:hidden
@@ -197,7 +193,6 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
         onClick={closeMobileMenu}
       />
 
-      {/* Mobile Menu Panel */}
       <div
         className={`
           fixed top-0 right-0 z-50 w-[80%] max-w-sm h-full bg-white shadow-2xl transition-transform duration-300 ease-out transform md:hidden
@@ -243,10 +238,11 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
           <div className="space-y-1">
             <h4 className="text-xs font-bold text-forest-400 uppercase tracking-wider mb-2 px-4">Menu</h4>
             {[
-              { to: '/trips', icon: '🌿', label: 'Discover' },
-              { to: '/search', icon: '🔍', label: 'Organizers' },
-              { to: '/ai-showcase', icon: '🤖', label: 'AI Compass' },
-            ].map(link => (
+              { to: '/discover', icon: 'D', label: 'Discover' },
+              { to: '/search', icon: 'O', label: 'Organizers' },
+              { to: '/blogs', icon: 'B', label: 'Blogs' },
+              { to: '/ai-showcase', icon: 'A', label: 'AI Compass' },
+            ].map((link) => (
               <Link
                 key={link.to}
                 to={link.to}
@@ -266,10 +262,10 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
                 <div className="my-4 border-t border-forest-100"></div>
                 <h4 className="text-xs font-bold text-forest-400 uppercase tracking-wider mb-2 px-4">Organizer</h4>
                 <Link to="/create-trip" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50">
-                  <span className="text-xl">➕</span> Create Trip
+                  <span className="text-xl">C</span> Create Trip
                 </Link>
                 <Link to="/crm" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50">
-                  <span className="text-xl">📊</span> CRM
+                  <span className="text-xl">R</span> CRM
                 </Link>
               </>
             )}
@@ -279,7 +275,23 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
                 <div className="my-4 border-t border-forest-100"></div>
                 <h4 className="text-xs font-bold text-forest-400 uppercase tracking-wider mb-2 px-4">Agent</h4>
                 <Link to="/agent" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50">
-                  <span className="text-xl">🕵️</span> Dashboard
+                  <span className="text-xl">G</span> Dashboard
+                </Link>
+              </>
+            )}
+
+            {user?.role === 'admin' && (
+              <>
+                <div className="my-4 border-t border-forest-100"></div>
+                <h4 className="text-xs font-bold text-forest-400 uppercase tracking-wider mb-2 px-4">Admin</h4>
+                <Link to="/admin" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50">
+                  <span className="text-xl">A</span> Dashboard
+                </Link>
+                <Link to="/admin/content" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50">
+                  <span className="text-xl">C</span> Content
+                </Link>
+                <Link to="/admin/blogs" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50">
+                  <span className="text-xl">B</span> Blog Admin
                 </Link>
               </>
             )}
@@ -289,19 +301,22 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
                 <div className="my-4 border-t border-forest-100"></div>
                 <h4 className="text-xs font-bold text-forest-400 uppercase tracking-wider mb-2 px-4">Account</h4>
                 <Link to="/my-profile" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50">
-                  <span className="text-xl">👤</span> Profile
+                  <span className="text-xl">P</span> Profile
                 </Link>
                 <Link to="/my-bookings" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50">
-                  <span className="text-xl">📋</span> Bookings
+                  <span className="text-xl">K</span> Bookings
                 </Link>
                 <Link to="/wishlist" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50">
-                  <span className="text-xl">❤️</span> Wishlist
+                  <span className="text-xl">W</span> Wishlist
                 </Link>
                 <button
-                  onClick={() => { onLogout(); closeMobileMenu(); }}
+                  onClick={() => {
+                    onLogout();
+                    closeMobileMenu();
+                  }}
                   className="w-full flex items-center gap-4 px-4 py-3 rounded-xl text-red-600 hover:bg-red-50 text-left mt-2"
                 >
-                  <span className="text-xl">🚪</span> Logout
+                  <span className="text-xl">L</span> Logout
                 </button>
               </>
             )}

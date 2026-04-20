@@ -15,6 +15,7 @@ import { logger } from '../../utils/logger';
 import { emailService } from '../../services/emailService';
 import { trackPartialBooking } from '../../services/bookingAbandonmentService';
 import { fileHandler } from '../../utils/fileHandler';
+import { sendBookingConfirmationNotifications } from '../../services/bookingNotificationService';
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
@@ -587,26 +588,46 @@ export async function verifyPayment(bookingId: string, userId: string, status: s
       await trip.save();
     }
 
-    if (emailService.isServiceReady()) {
-      const mainBooker = await User.findById(booking.mainBookerId);
-      if (mainBooker) {
-        emailService.sendBookingConfirmation({
-          userName: mainBooker.name,
-          userEmail: mainBooker.email,
-          tripTitle: trip.title,
-          tripDestination: trip.destination,
-          startDate: new Date(trip.startDate).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }),
-          endDate: new Date(trip.endDate).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }),
-          totalTravelers: booking.numberOfGuests,
-          totalAmount: booking.finalAmount,
-          organizerName: (trip.organizerId as any).name,
-          organizerEmail: (trip.organizerId as any).email,
-          organizerPhone: (trip.organizerId as any).phone,
-          bookingId: booking._id.toString()
-        }).catch((error: any) => {
-          logger.error('Failed to send payment verification email', { error: error.message });
+    const [mainBooker, organizer] = await Promise.all([
+      User.findById(booking.mainBookerId).select('name email phone').lean(),
+      User.findById(trip.organizerId).select('name email phone').lean()
+    ]);
+
+    if (emailService.isServiceReady() && mainBooker && organizer) {
+      emailService.sendBookingConfirmation({
+        userName: mainBooker.name,
+        userEmail: mainBooker.email,
+        tripTitle: trip.title,
+        tripDestination: trip.destination,
+        startDate: new Date(trip.startDate).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }),
+        endDate: new Date(trip.endDate).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }),
+        totalTravelers: booking.numberOfGuests,
+        totalAmount: booking.finalAmount,
+        organizerName: organizer.name,
+        organizerEmail: organizer.email,
+        organizerPhone: organizer.phone || '',
+        bookingId: booking._id.toString()
+      }).catch((error: any) => {
+        logger.error('Failed to send payment verification email', { error: error.message });
+      });
+    }
+
+    if (mainBooker) {
+      sendBookingConfirmationNotifications({
+        bookingId: String(booking._id),
+        userName: mainBooker.name,
+        userEmail: mainBooker.email,
+        userPhone: mainBooker.phone,
+        tripTitle: trip.title,
+        tripDestination: trip.destination,
+        tripStartDate: trip.startDate,
+        totalAmount: booking.finalAmount
+      }).catch((notifyError: any) => {
+        logger.error('Failed to send booking confirmation notifications', {
+          bookingId: String(booking._id),
+          error: notifyError?.message
         });
-      }
+      });
     }
   } else if (status === 'rejected') {
     booking.paymentStatus = 'failed';

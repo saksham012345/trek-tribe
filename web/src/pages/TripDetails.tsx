@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import api from '../config/api';
 import JoinTripModal from '../components/JoinTripModal';
@@ -45,6 +45,7 @@ interface TripDetailsProps {
 
 const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
   const { id, slug } = useParams<{ id: string; slug: string }>();
+  const navigate = useNavigate();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -231,6 +232,22 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
         </script>
       </Helmet>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-4">
+          <button
+            onClick={() => {
+              if (window.history.length > 1) {
+                navigate(-1);
+              } else {
+                navigate('/discover');
+              }
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-forest-200 bg-white text-forest-700 hover:bg-forest-50 transition-colors"
+          >
+            <span>←</span>
+            <span>Back</span>
+          </button>
+        </div>
+
         {/* Image Gallery */}
         <div className="mb-8">
           {tripImages.length > 0 ? (

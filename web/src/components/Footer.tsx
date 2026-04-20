@@ -46,10 +46,10 @@ const Footer: React.FC = () => {
                         </h3>
                         <ul className="space-y-4">
                             {[
-                                { label: 'Find Adventures', to: '/trips' },
+                                { label: 'Find Adventures', to: '/discover' },
                                 { label: 'Meet Organizers', to: '/search' },
                                 { label: 'AI Travel Assistant', to: '/ai-showcase' },
-                                { label: 'Community Stories', to: '/stories' },
+                                { label: 'Community Stories', to: '/blogs' },
                             ].map((link) => (
                                 <li key={link.label}>
                                     <Link

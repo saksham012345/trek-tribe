@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import api from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
 import { getSafeUrl } from '../utils/url';
@@ -37,7 +37,7 @@ interface ProfileUser {
     overall: number;
     breakdown?: any;
     badge?: string;
-  };
+  } | number;
   isVerified?: boolean;
   createdAt: string;
 }
@@ -62,6 +62,10 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
   const [loading, setLoading] = useState(false);
   const [showFollowers, setShowFollowers] = useState(false);
   const [showFollowing, setShowFollowing] = useState(false);
+  const normalizedTrustScore =
+    typeof profile.trustScore === 'number'
+      ? { overall: profile.trustScore, badge: undefined as string | undefined }
+      : profile.trustScore;
 
   useEffect(() => {
     if (!isOwnProfile && currentUser) {
@@ -100,10 +104,10 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
 
   const getRoleIcon = (role: string) => {
     switch (role) {
-      case 'organizer': return '🗺️';
-      case 'admin': return '🛠️';
-      case 'agent': return '🎧';
-      default: return '🎒';
+      case 'organizer': return 'ðŸ—ºï¸';
+      case 'admin': return 'ðŸ› ï¸';
+      case 'agent': return 'ðŸŽ§';
+      default: return 'ðŸŽ’';
     }
   };
 
@@ -165,7 +169,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <span className="text-4xl">👤</span>
+                <span className="text-4xl">ðŸ‘¤</span>
               )}
             </div>
           </div>
@@ -174,7 +178,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
             <h1 className="text-3xl font-bold mb-1 flex items-center gap-2">
               {profile.name}
               {profile.isVerified && (
-                <span className="text-2xl" title="Verified Profile">✅</span>
+                <span className="text-2xl" title="Verified Profile">âœ…</span>
               )}
             </h1>
             {profile.username && (
@@ -188,7 +192,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
             </p>
             {profile.location && (
               <p className="text-white flex items-center gap-1 opacity-80">
-                📍 {profile.location}
+                ðŸ“ {profile.location}
               </p>
             )}
           </div>
@@ -212,7 +216,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
                 </span>
               ) : followStatus?.isFollowing ? (
                 <span className="flex items-center gap-2">
-                  <span>✓</span>
+                  <span>âœ“</span>
                   Following
                 </span>
               ) : (
@@ -260,29 +264,29 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
         )}
 
         {/* Trust Score Section for Organizers */}
-        {profile.role === 'organizer' && profile.trustScore && (
+        {profile.role === 'organizer' && normalizedTrustScore && (
           <div className="mb-6 p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border border-yellow-200">
             <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-              <span className="text-xl">⭐</span>
+              <span className="text-xl">â­</span>
               Trust Score
             </h3>
             <div className="flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <div className="text-3xl font-bold text-orange-600">
-                    {profile.trustScore.overall.toFixed(0)}
+                    {normalizedTrustScore.overall.toFixed(0)}
                   </div>
                   <span className="text-sm text-gray-600">/100</span>
                 </div>
-                {profile.trustScore.badge && profile.trustScore.badge !== 'none' && (
+                {normalizedTrustScore.badge && normalizedTrustScore.badge !== 'none' && (
                   <div className="inline-block px-3 py-1 bg-yellow-200 text-yellow-800 rounded-full text-xs font-semibold capitalize">
-                    {profile.trustScore.badge} Badge
+                    {normalizedTrustScore.badge} Badge
                   </div>
                 )}
               </div>
               <div className="text-right">
                 <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400 to-yellow-400 flex items-center justify-center text-white font-bold text-xl">
-                  {Math.round((profile.trustScore.overall / 100) * 100)}%
+                  {Math.round((normalizedTrustScore.overall / 100) * 100)}%
                 </div>
               </div>
             </div>
@@ -309,7 +313,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 bg-pink-100 text-pink-700 px-3 py-2 rounded-full text-sm hover:bg-pink-200 transition-colors"
                 >
-                  📷 Instagram
+                  ðŸ“· Instagram
                 </a>
               )}
               {profile.socialLinks.website && (
@@ -319,7 +323,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 bg-blue-100 text-blue-700 px-3 py-2 rounded-full text-sm hover:bg-blue-200 transition-colors"
                 >
-                  🌐 Website
+                  ðŸŒ Website
                 </a>
               )}
               {profile.socialLinks.facebook && (
@@ -329,7 +333,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 bg-blue-100 text-blue-700 px-3 py-2 rounded-full text-sm hover:bg-blue-200 transition-colors"
                 >
-                  📘 Facebook
+                  ðŸ“˜ Facebook
                 </a>
               )}
               {profile.socialLinks.twitter && (
@@ -339,7 +343,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 bg-sky-100 text-sky-700 px-3 py-2 rounded-full text-sm hover:bg-sky-200 transition-colors"
                 >
-                  🐦 Twitter
+                  ðŸ¦ Twitter
                 </a>
               )}
               {profile.socialLinks.linkedin && (
@@ -349,7 +353,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 bg-blue-100 text-blue-700 px-3 py-2 rounded-full text-sm hover:bg-blue-200 transition-colors"
                 >
-                  💼 LinkedIn
+                  ðŸ’¼ LinkedIn
                 </a>
               )}
             </div>
@@ -366,7 +370,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
               )}
               {profile.organizerProfile.yearsOfExperience && (
                 <p className="text-sm text-gray-600">
-                  🎖️ {profile.organizerProfile.yearsOfExperience} years of experience
+                  ðŸŽ–ï¸ {profile.organizerProfile.yearsOfExperience} years of experience
                 </p>
               )}
               {profile.organizerProfile.specialties && profile.organizerProfile.specialties.length > 0 && (
@@ -410,7 +414,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
               onClick={handleShareProfile}
               className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1 px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors"
             >
-              📤 Share
+              ðŸ“¤ Share
             </button>
           </div>
         </div>
@@ -433,7 +437,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
                 onClick={() => setShowFollowers(false)}
                 className="text-gray-500 hover:text-gray-700"
               >
-                ✕
+                âœ•
               </button>
             </div>
             <FollowersList userId={profile._id} />
@@ -451,7 +455,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
                 onClick={() => setShowFollowing(false)}
                 className="text-gray-500 hover:text-gray-700"
               >
-                ✕
+                âœ•
               </button>
             </div>
             <FollowingList userId={profile._id} />
@@ -508,7 +512,7 @@ const FollowersList: React.FC<{ userId: string }> = ({ userId }) => {
                 className="w-full h-full rounded-full object-cover"
               />
             ) : (
-              <span>👤</span>
+              <span>ðŸ‘¤</span>
             )}
           </div>
           <div>
@@ -567,7 +571,7 @@ const FollowingList: React.FC<{ userId: string }> = ({ userId }) => {
                 className="w-full h-full rounded-full object-cover"
               />
             ) : (
-              <span>👤</span>
+              <span>ðŸ‘¤</span>
             )}
           </div>
           <div>

@@ -1,5 +1,6 @@
 import sgMail from '@sendgrid/mail';
 import { logger } from '../utils/logger';
+import { getSiteSettings } from './siteSettingsService';
 
 interface BookingEmailData {
   userName: string;
@@ -106,8 +107,37 @@ class EmailService {
   }
 
   private async send(to: string, subject: string, html: string, text?: string): Promise<boolean> {
-    logger.info('Email system disabled manually. Would have sent email:', { to, subject });
-    return true;
+    if (!this.isInitialized) {
+      logger.warn('Email service not initialized. Skipping send.', { to, subject });
+      return false;
+    }
+
+    try {
+      const settings = await getSiteSettings();
+      if (settings.integrations?.emailProvider === 'disabled' || settings.notifications?.emailEnabled === false) {
+        logger.info('Email send skipped due to settings', { to, subject });
+        return false;
+      }
+
+      const fromEmail =
+        settings.contact?.bookingFromEmail ||
+        settings.contact?.otpFromEmail ||
+        this.fromEmail;
+
+      await sgMail.send({
+        to,
+        from: fromEmail,
+        subject,
+        html,
+        text
+      });
+
+      logger.info('Email sent successfully', { to, subject });
+      return true;
+    } catch (error: any) {
+      logger.error('Email send failed', { to, subject, error: error?.message });
+      return false;
+    }
   }
 
   private generateBookingConfirmationHTML(data: BookingEmailData): string {

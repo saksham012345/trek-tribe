@@ -8,6 +8,7 @@ interface ProfileSearchResult {
   name: string;
   email: string;
   username?: string;
+  uniqueUrl?: string;
   profilePhoto?: string;
   role: string;
   location?: string;
