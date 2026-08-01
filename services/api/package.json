@@ -32,6 +32,8 @@
     "demo:organizer:premium": "ts-node create-premium-organizer.ts",
     "demo:organizer:crm": "ts-node create-crm-organizer.ts",
     "grant:crm:access": "ts-node grant-premium-crm-access.ts",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
     "test": "jest --config jest.config.js --runInBand",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
@@ -51,6 +53,7 @@
     "test:crm": "ts-node test-crm-features.ts"
   },
   "dependencies": {
+    "@prisma/client": "^6.19.3",
     "@sendgrid/mail": "^8.1.6",
     "@sentry/node": "^7.58.0",
     "@types/bull": "^3.15.9",
@@ -86,6 +89,7 @@
     "openai": "^4.67.1",
     "pdfkit": "^0.13.0",
     "pino": "^9.3.2",
+    "prisma": "^6.19.3",
     "prom-client": "^14.0.0",
     "qrcode": "^1.5.3",
     "qrcode-terminal": "^0.12.0",

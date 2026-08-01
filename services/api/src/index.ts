@@ -76,6 +76,7 @@ import { logger } from './utils/logger';
 import errorHandler from './middleware/errorHandler';
 import metrics from './middleware/metrics';
 import { authenticateJwt, requireRole } from './middleware/auth';
+import { prisma } from './lib/prisma';
 
 
 const app = express();
@@ -423,12 +424,23 @@ app.get('/health', asyncErrorHandler(async (_req: Request, res: Response) => {
   // Test database operation
   const dbTest = mongoose.connection.db ? await mongoose.connection.db.admin().ping() : false;
 
+  let postgresStatus = 'disconnected';
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    postgresStatus = 'connected';
+  } catch (err) {
+    postgresStatus = 'disconnected';
+  }
+
   const health = {
     status: 'ok',
     timestamp: new Date().toISOString(),
     mongodb: {
       status: statusMap[mongoStatus as keyof typeof statusMap],
       ping: dbTest ? 'successful' : 'failed'
+    },
+    postgres: {
+      status: postgresStatus
     },
     socketIO: socketService.getServiceStatus(),
     uptime: process.uptime(),
