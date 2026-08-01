@@ -14,6 +14,23 @@ jobs:
     defaults:
       run:
         working-directory: services/api
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: trektribe
+          POSTGRES_PASSWORD: trek-tribe-postgres-pass
+          POSTGRES_DB: trektribe
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U trektribe -d trektribe"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://trektribe:trek-tribe-postgres-pass@localhost:5432/trektribe
+      DIRECT_URL: postgresql://trektribe:trek-tribe-postgres-pass@localhost:5432/trektribe
     steps:
       - name: Checkout
         uses: actions/checkout@v4
