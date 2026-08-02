@@ -7,3 +7,53 @@ datasource db {
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
+
+enum VendorCategory {
+  hotel
+  homestay
+  campsite
+  transport
+  driver
+  guide
+  trek_leader
+  equipment_rental
+  food
+  photographer
+  videographer
+  permit_agency
+  emergency_contact
+  custom
+
+  @@map("vendor_category")
+}
+
+enum VendorAvailability {
+  available
+  busy
+  unavailable
+
+  @@map("vendor_availability")
+}
+
+model Vendor {
+  id                  String             @id @default(uuid())
+  organizerId         String             @map("organizer_id")
+  businessName        String             @map("business_name")
+  contactPerson       String?            @map("contact_person")
+  phone               String?
+  email                String?
+  whatsappNumber      String?            @map("whatsapp_number")
+  category            VendorCategory
+  customCategoryLabel String?            @map("custom_category_label")
+  address             String?
+  gstNumber           String?            @map("gst_number")
+  pricingNotes        String?            @map("pricing_notes")
+  rating              Decimal?
+  availabilityStatus  VendorAvailability @default(available) @map("availability_status")
+  notes               String?
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+
+  @@index([organizerId])
+  @@map("vendors")
+}
