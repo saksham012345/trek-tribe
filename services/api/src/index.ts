@@ -66,6 +66,8 @@ import eventsRoutes from './routes/events';
 import bankDetailsRoutes from './routes/bankDetails';
 import financeRoutes from './routes/finance';
 import vendorRoutes from './routes/vendors';
+import tripVendorRoutes from './routes/tripVendors';
+import vendorAssignmentRoutes from './routes/vendorAssignments';
 import databaseImportRoutes from './routes/databaseImport';
 import { apiLimiter, authLimiter, otpLimiter, registrationLimiter, verificationLimiter } from './middleware/rateLimiter';
 import { cronScheduler } from './services/cronScheduler';
@@ -408,6 +410,10 @@ console.log('✅ Finance routes mounted at /api/finance');
 // Vendor Management Routes (Organizer-scoped, private)
 app.use('/api/vendors', vendorRoutes);
 console.log('✅ Vendor routes mounted at /api/vendors');
+app.use('/api/trips', tripVendorRoutes);
+console.log('✅ Trip-vendor assignment routes mounted at /api/trips');
+app.use('/api/trip-vendor-assignments', vendorAssignmentRoutes);
+console.log('✅ Vendor assignment routes mounted at /api/trip-vendor-assignments');
 
 // Database Import Routes (CRM Feature)
 app.use('/api/database-import', databaseImportRoutes);

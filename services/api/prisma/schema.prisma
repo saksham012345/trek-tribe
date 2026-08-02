@@ -54,7 +54,8 @@ model Vendor {
   createdAt           DateTime           @default(now()) @map("created_at")
   updatedAt           DateTime           @updatedAt @map("updated_at")
 
-  documents VendorDocument[]
+  documents   VendorDocument[]
+  assignments TripVendorAssignment[]
 
   @@index([organizerId])
   @@map("vendors")
@@ -71,4 +72,18 @@ model VendorDocument {
 
   @@index([vendorId])
   @@map("vendor_documents")
+}
+
+model TripVendorAssignment {
+  id         String         @id @default(uuid())
+  tripId     String         @map("trip_id")
+  vendorId   String         @map("vendor_id")
+  category   VendorCategory
+  assignedAt DateTime       @default(now()) @map("assigned_at")
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
+  @@index([vendorId])
+  @@map("trip_vendor_assignments")
 }
