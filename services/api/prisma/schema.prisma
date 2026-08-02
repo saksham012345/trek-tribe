@@ -144,3 +144,26 @@ model VendorEvent {
   @@index([processedAt])
   @@map("vendor_events")
 }
+
+enum VendorCommunicationStatus {
+  sent
+  failed
+  pending
+
+  @@map("vendor_communication_status")
+}
+
+model VendorCommunicationLog {
+  id            String                    @id @default(uuid())
+  assignmentId  String?                   @map("assignment_id")
+  vendorId      String                    @map("vendor_id")
+  eventType     VendorEventType           @map("event_type")
+  status        VendorCommunicationStatus @default(pending)
+  sentAt        DateTime?                 @map("sent_at")
+  emailSnapshot String                    @map("email_snapshot")
+  createdAt     DateTime                  @default(now()) @map("created_at")
+
+  @@index([vendorId])
+  @@index([assignmentId])
+  @@map("vendor_communication_log")
+}

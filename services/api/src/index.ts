@@ -753,6 +753,15 @@ async function deferredInitialization() {
     console.warn('⚠️ Failed to register vendor event relay job:', err.message);
   }
 
+  // 5. Start the vendor notification workers
+  try {
+    const { startVendorNotificationWorkers } = await import('./services/vendorNotificationWorker');
+    startVendorNotificationWorkers();
+    console.log('✅ Vendor notification workers started');
+  } catch (err: any) {
+    console.warn('⚠️ Failed to start vendor notification workers:', err.message);
+  }
+
   console.log('✨ All background services initialized');
 }
 
