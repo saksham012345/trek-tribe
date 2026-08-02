@@ -81,9 +81,47 @@ model TripVendorAssignment {
   category   VendorCategory
   assignedAt DateTime       @default(now()) @map("assigned_at")
 
-  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vendor  Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  payment VendorPayment?
 
   @@index([tripId])
   @@index([vendorId])
   @@map("trip_vendor_assignments")
+}
+
+enum VendorPaymentStatus {
+  pending
+  partial
+  paid
+  overdue
+
+  @@map("vendor_payment_status")
+}
+
+model VendorPayment {
+  id          String              @id @default(uuid())
+  assignmentId String             @unique @map("assignment_id")
+  totalAmount Decimal             @map("total_amount")
+  paidAmount  Decimal             @default(0) @map("paid_amount")
+  dueDate     DateTime?           @map("due_date")
+  status      VendorPaymentStatus @default(pending)
+  recordedAt  DateTime            @default(now()) @map("recorded_at")
+
+  assignment TripVendorAssignment  @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  history    VendorPaymentHistory[]
+
+  @@map("vendor_payments")
+}
+
+model VendorPaymentHistory {
+  id              String   @id @default(uuid())
+  vendorPaymentId String   @map("vendor_payment_id")
+  amount          Decimal
+  paidAt          DateTime @default(now()) @map("paid_at")
+  note            String?
+
+  vendorPayment VendorPayment @relation(fields: [vendorPaymentId], references: [id], onDelete: Cascade)
+
+  @@index([vendorPaymentId])
+  @@map("vendor_payment_history")
 }
