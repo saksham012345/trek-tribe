@@ -125,3 +125,22 @@ model VendorPaymentHistory {
   @@index([vendorPaymentId])
   @@map("vendor_payment_history")
 }
+
+enum VendorEventType {
+  vendor_payment_completed
+  pre_departure_reminder
+
+  @@map("vendor_event_type")
+}
+
+model VendorEvent {
+  id          String          @id @default(uuid())
+  tripId      String          @map("trip_id")
+  eventType   VendorEventType @map("event_type")
+  payload     Json
+  createdAt   DateTime        @default(now()) @map("created_at")
+  processedAt DateTime?       @map("processed_at")
+
+  @@index([processedAt])
+  @@map("vendor_events")
+}

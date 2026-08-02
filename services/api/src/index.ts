@@ -740,6 +740,19 @@ async function deferredInitialization() {
     }
   }
 
+  // 4. Register the vendor-event relay as a repeatable job
+  try {
+    const { vendorRelayQueue } = await import('./lib/queue');
+    await vendorRelayQueue.upsertJobScheduler(
+      'vendor-relay-repeatable',
+      { every: 30000 },
+      { name: 'relay-tick', data: {} }
+    );
+    console.log('✅ Vendor event relay repeatable job registered');
+  } catch (err: any) {
+    console.warn('⚠️ Failed to register vendor event relay job:', err.message);
+  }
+
   console.log('✨ All background services initialized');
 }
 
