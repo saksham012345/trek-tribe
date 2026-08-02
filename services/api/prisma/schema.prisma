@@ -54,6 +54,21 @@ model Vendor {
   createdAt           DateTime           @default(now()) @map("created_at")
   updatedAt           DateTime           @updatedAt @map("updated_at")
 
+  documents VendorDocument[]
+
   @@index([organizerId])
   @@map("vendors")
+}
+
+model VendorDocument {
+  id         String   @id @default(uuid())
+  vendorId   String   @map("vendor_id")
+  fileName   String   @map("file_name")
+  fileUrl    String   @map("file_url")
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@map("vendor_documents")
 }

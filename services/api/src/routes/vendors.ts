@@ -51,4 +51,35 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+router.post('/:id/documents', async (req, res) => {
+  try {
+    const organizerId = (req as any).auth.userId;
+    const { fileName, fileUrl } = req.body;
+    const doc = await vendorService.addDocument(organizerId, req.params.id, fileName, fileUrl);
+    res.status(201).json(doc);
+  } catch (err: any) {
+    res.status(404).json({ error: err.message });
+  }
+});
+
+router.get('/:id/documents', async (req, res) => {
+  try {
+    const organizerId = (req as any).auth.userId;
+    const docs = await vendorService.listDocuments(organizerId, req.params.id);
+    res.json(docs);
+  } catch (err: any) {
+    res.status(404).json({ error: err.message });
+  }
+});
+
+router.delete('/:id/documents/:documentId', async (req, res) => {
+  try {
+    const organizerId = (req as any).auth.userId;
+    await vendorService.deleteDocument(organizerId, req.params.id, req.params.documentId);
+    res.status(204).send();
+  } catch (err: any) {
+    res.status(404).json({ error: err.message });
+  }
+});
+
 export default router;

@@ -43,6 +43,24 @@ class VendorService {
     if (!existing) throw new Error('Vendor not found');
     await prisma.vendor.delete({ where: { id: vendorId } });
   }
+
+  async addDocument(organizerId: string, vendorId: string, fileName: string, fileUrl: string) {
+    const vendor = await this.getVendor(organizerId, vendorId);
+    if (!vendor) throw new Error('Vendor not found');
+    return prisma.vendorDocument.create({ data: { vendorId, fileName, fileUrl } });
+  }
+
+  async listDocuments(organizerId: string, vendorId: string) {
+    const vendor = await this.getVendor(organizerId, vendorId);
+    if (!vendor) throw new Error('Vendor not found');
+    return prisma.vendorDocument.findMany({ where: { vendorId }, orderBy: { uploadedAt: 'desc' } });
+  }
+
+  async deleteDocument(organizerId: string, vendorId: string, documentId: string) {
+    const vendor = await this.getVendor(organizerId, vendorId);
+    if (!vendor) throw new Error('Vendor not found');
+    await prisma.vendorDocument.delete({ where: { id: documentId } });
+  }
 }
 
 export const vendorService = new VendorService();
