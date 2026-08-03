@@ -23,7 +23,7 @@ class VendorPaymentService {
     totalAmount?: number,
     dueDate?: Date
   ) {
-    await assertOwnedAssignment(organizerId, assignmentId);
+    const ownedAssignment = await assertOwnedAssignment(organizerId, assignmentId);
 
     return prisma.$transaction(async (tx) => {
       let payment = await tx.vendorPayment.findUnique({ where: { assignmentId } });
@@ -47,9 +47,19 @@ class VendorPaymentService {
         data: { paidAmount: newPaidAmount, status }
       });
 
-      return tx.vendorPaymentHistory.create({
+      const historyEntry = await tx.vendorPaymentHistory.create({
         data: { vendorPaymentId: payment.id, amount, note }
       });
+
+      await tx.vendorEvent.create({
+        data: {
+          tripId: ownedAssignment.tripId,
+          eventType: 'vendor_payment_completed',
+          payload: { assignmentId, vendorId: ownedAssignment.vendorId, amount }
+        }
+      });
+
+      return historyEntry;
     });
   }
 

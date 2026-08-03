@@ -84,4 +84,37 @@ describe('Vendor payment tracking', () => {
     expect(res.status).toBe(400);
     await Trip.deleteOne({ _id: trip._id });
   });
+
+  it('writes a vendor_payment_completed event in the same transaction as the payment', async () => {
+    const trip = await Trip.create({
+      title: 'Event Trigger Test Trip',
+      description: 'Test trip',
+      organizerId,
+      destination: 'Kedarnath',
+      startDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
+      endDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
+      price: 15000,
+      capacity: 20,
+      categories: ['adventure'],
+      images: []
+    });
+    const vendorRes = await request(app).post('/api/vendors').set('Authorization', `Bearer ${token}`)
+      .send({ businessName: 'Event Test Vendor', category: 'food' });
+    const assignRes = await request(app).post(`/api/trips/${trip._id}/vendors`).set('Authorization', `Bearer ${token}`)
+      .send({ vendorId: vendorRes.body.id, category: 'food' });
+
+    await request(app)
+      .post(`/api/trip-vendor-assignments/${assignRes.body.id}/payments`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ totalAmount: 10000, amount: 10000 });
+
+    const event = await prisma.vendorEvent.findFirst({
+      where: { eventType: 'vendor_payment_completed' },
+      orderBy: { createdAt: 'desc' }
+    });
+    expect(event).not.toBeNull();
+    expect((event?.payload as any).assignmentId).toBe(assignRes.body.id);
+
+    await Trip.deleteOne({ _id: trip._id });
+  });
 });
