@@ -18,10 +18,9 @@ export async function processNotificationJob(data: NotificationJobData) {
     throw new Error(`Vendor ${data.vendorId} has no email on file`);
   }
 
-  const { subject, html } = renderVendorEmail(data.eventType, {
-    ...data.payload,
-    vendorBusinessName: vendor.businessName
-  });
+  const { subject, html } = data.payload.prerenderedHtml
+    ? { subject: `Resent: ${data.eventType}`, html: data.payload.prerenderedHtml }
+    : renderVendorEmail(data.eventType, { ...data.payload, vendorBusinessName: vendor.businessName });
 
   let sendSucceeded = false;
   let sendError: Error | undefined;

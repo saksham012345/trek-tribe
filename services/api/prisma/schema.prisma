@@ -54,8 +54,9 @@ model Vendor {
   createdAt           DateTime           @default(now()) @map("created_at")
   updatedAt           DateTime           @updatedAt @map("updated_at")
 
-  documents   VendorDocument[]
-  assignments TripVendorAssignment[]
+  documents         VendorDocument[]
+  assignments       TripVendorAssignment[]
+  communicationLogs VendorCommunicationLog[]
 
   @@index([organizerId])
   @@map("vendors")
@@ -162,6 +163,8 @@ model VendorCommunicationLog {
   sentAt        DateTime?                 @map("sent_at")
   emailSnapshot String                    @map("email_snapshot")
   createdAt     DateTime                  @default(now()) @map("created_at")
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
   @@index([vendorId])
   @@index([assignmentId])
