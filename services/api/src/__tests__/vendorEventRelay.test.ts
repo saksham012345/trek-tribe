@@ -1,6 +1,8 @@
 import { prisma } from '../lib/prisma';
 import { vendorNotificationQueue } from '../lib/queue';
 import { processUnprocessedVendorEvents } from '../services/vendorEventRelay';
+import mongoose from 'mongoose';
+import { Trip } from '../models/Trip';
 
 describe('Vendor event relay', () => {
   let vendorId: string;
@@ -66,5 +68,52 @@ describe('Vendor event relay', () => {
       .filter(j => j.data.eventId === event.id).length;
 
     expect(countsAfterSecond).toBe(countsAfterFirst);
+  });
+
+  it('synthesizes a pre_departure_reminder event for a trip departing in exactly 3 days, once', async () => {
+    const departingTripId = new mongoose.Types.ObjectId().toString();
+    const threeDaysOut = new Date();
+    threeDaysOut.setDate(threeDaysOut.getDate() + 3);
+
+    await Trip.create({
+      _id: departingTripId,
+      title: 'Reminder Test Trip',
+      description: 'Test trip',
+      organizerId: 'organizer-reminder-test',
+      destination: 'Manali',
+      startDate: threeDaysOut,
+      endDate: threeDaysOut,
+      price: 15000,
+      capacity: 20,
+      categories: ['adventure'],
+      images: [],
+      status: 'active'
+    });
+
+    const vendor = await prisma.vendor.create({
+      data: { organizerId: 'organizer-reminder-test', businessName: 'Reminder Vendor', category: 'guide' }
+    });
+    await prisma.tripVendorAssignment.create({
+      data: { tripId: departingTripId, vendorId: vendor.id, category: 'guide' }
+    });
+
+    await processUnprocessedVendorEvents();
+
+    const event = await prisma.vendorEvent.findFirst({
+      where: { tripId: departingTripId, eventType: 'pre_departure_reminder' }
+    });
+    expect(event).not.toBeNull();
+
+    // Run again — must not create a second reminder event for the same trip.
+    await processUnprocessedVendorEvents();
+    const eventsAfterSecondRun = await prisma.vendorEvent.findMany({
+      where: { tripId: departingTripId, eventType: 'pre_departure_reminder' }
+    });
+    expect(eventsAfterSecondRun.length).toBe(1);
+
+    await prisma.tripVendorAssignment.deleteMany({ where: { tripId: departingTripId } });
+    await prisma.vendor.delete({ where: { id: vendor.id } });
+    await prisma.vendorEvent.deleteMany({ where: { tripId: departingTripId } });
+    await Trip.deleteOne({ _id: departingTripId });
   });
 });

@@ -1,7 +1,36 @@
 import { prisma } from '../lib/prisma';
 import { vendorNotificationQueue } from '../lib/queue';
+import { Trip } from '../models/Trip';
+
+async function synthesizePreDepartureReminders() {
+  const threeDaysFromNow = new Date();
+  threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
+  threeDaysFromNow.setHours(0, 0, 0, 0);
+  const threeDaysFromNowEnd = new Date(threeDaysFromNow);
+  threeDaysFromNowEnd.setHours(23, 59, 59, 999);
+
+  const departingTrips = await Trip.find({
+    startDate: { $gte: threeDaysFromNow, $lte: threeDaysFromNowEnd },
+    status: 'active'
+  }).select('_id');
+
+  for (const trip of departingTrips) {
+    const tripId = trip._id.toString();
+
+    const alreadyExists = await prisma.vendorEvent.findFirst({
+      where: { tripId, eventType: 'pre_departure_reminder' }
+    });
+    if (alreadyExists) continue;
+
+    await prisma.vendorEvent.create({
+      data: { tripId, eventType: 'pre_departure_reminder', payload: {} }
+    });
+  }
+}
 
 export async function processUnprocessedVendorEvents() {
+  await synthesizePreDepartureReminders();
+
   const events = await prisma.vendorEvent.findMany({
     where: { processedAt: null },
     orderBy: { createdAt: 'asc' },
