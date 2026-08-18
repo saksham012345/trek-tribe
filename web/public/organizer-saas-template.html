@@ -151,6 +151,8 @@ const NAV = [
     { id:'bookings', label:'Bookings', icon:'ticket', cap:'ownTrips', sub:'Traveller bookings and payment state' },
     { id:'payments', label:'Payment verification', icon:'shield', cap:'finance', sub:'UPI screenshots and QR validation queue' },
     { id:'requests', label:'Custom requests', icon:'inbox', cap:'trips', sub:'Bespoke itinerary requests and proposals' },
+    { id:'ops', label:'Trip operations', icon:'clipboard', cap:'ownTrips', sub:'Checklist, rooms, transport, kit, attendance, permits, emergency' },
+    { id:'documents', label:'Documents', icon:'file', cap:'ownTrips', sub:'Permits, insurance, waivers and contracts with expiry tracking' },
   ]},
   { group:'Vendor OS', items:[
     { id:'vendors', label:'Vendors', icon:'store', cap:'trips', sub:'Hotels, transport, guides, equipment, food' },
@@ -178,10 +180,14 @@ const NAV = [
     { id:'leads', label:'Leads', icon:'users', cap:'marketing', sub:'Pipeline, scoring and conversions' },
     { id:'tickets', label:'Support tickets', icon:'help', cap:'marketing', sub:'Traveller queries assigned to you' },
     { id:'reviews', label:'Reviews', icon:'star', cap:'marketing', sub:'Traveller reviews and verification' },
+    { id:'crm', label:'Customers (CRM)', icon:'users', cap:'crm', sub:'Contacts, tags, notes and emergency contacts' },
   ]},
   { group:'Account', items:[
     { id:'team', label:'Team & roles', icon:'shieldUser', cap:'team', sub:'Staff accounts and fixed permission tiers · FR-17' },
     { id:'settings', label:'Settings', icon:'cog', cap:'team', sub:'Profile, bank details, notifications' },
+    { id:'business-profile', label:'Business profile', icon:'building', cap:'team', sub:'Description, covers, portfolio, verification and KYC' },
+    { id:'certifications', label:'My certifications', icon:'award', cap:'team', sub:'Your own credentials and their expiry' },
+    { id:'knowledge', label:'Knowledge Hub', icon:'book', cap:'knowledge', sub:'Platform guides, templates and checklists — readable by every role' },
   ]},
 ];
 
@@ -205,6 +211,11 @@ const ICONS = {
   split:'<path d="M3 6h5l4 6 4-6h5"/><path d="M3 18h5l4-6"/><path d="m18 3 3 3-3 3"/><path d="m18 15 3 3-3 3"/>',
   flow:'<path d="M3 17c4 0 4-10 8-10s4 10 8 10"/><path d="M3 7h3M18 17h3"/>',
   copy:'<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+  clipboard:'<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 13l2 2 4-4"/>',
+  file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
+  building:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 8h.01M15 8h.01M9 12h.01M15 12h.01M10 21v-4h4v4"/>',
+  award:'<circle cx="12" cy="9" r="6"/><path d="m8.2 13.8-1.4 7 5.2-3 5.2 3-1.4-7"/>',
+  book:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
   megaphone:'<path d="m3 11 15-6v14L3 13z"/><path d="M6 12v6a2 2 0 0 0 4 0v-5"/>',
   send:'<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/>',
   tag:'<path d="M20 13 13 20a2 2 0 0 1-3 0L4 14V4h10l6 6a2 2 0 0 1 0 3z"/><circle cx="8.5" cy="8.5" r="1.2"/>',
@@ -242,6 +253,16 @@ const MOCK = {
     { id:'BK-2289', traveller:'Amit Singh', trip:'Goecha La', pax:1, amount:109000, method:'UPI', pay:'Pending', date:'01 Jun' },
     { id:'BK-2288', traveller:'Neha Verma', trip:'Kashmir Great Lakes', pax:2, amount:148000, method:'UPI', pay:'Pending', date:'31 May' },
     { id:'BK-2287', traveller:'Arjun Mehta', trip:'Markha Valley', pax:1, amount:96000, method:'Card', pay:'Refunded', date:'29 May' },
+    /* A full 8-seat departure is several bookings, not one. The seed used to
+       show Zanskar as 8/8 while carrying a single 2-seat booking, which made
+       occupancy read 13% for a trip labelled Full. */
+    { id:'BK-2286', traveller:'Kabir Sethi', trip:'Zanskar Traverse', pax:3, amount:426000, method:'UPI', pay:'Verified', date:'28 May' },
+    { id:'BK-2285', traveller:'Ira Bose', trip:'Zanskar Traverse', pax:2, amount:284000, method:'Card', pay:'Verified', date:'26 May' },
+    { id:'BK-2284', traveller:'Nikhil Rao', trip:'Zanskar Traverse', pax:1, amount:142000, method:'UPI', pay:'Verified', date:'24 May' },
+    { id:'BK-2283', traveller:'Sneha Pillai', trip:'Markha Valley', pax:4, amount:384000, method:'UPI', pay:'Verified', date:'22 May' },
+    { id:'BK-2282', traveller:'Tarun Gill', trip:'Markha Valley', pax:4, amount:384000, method:'Card', pay:'Verified', date:'21 May' },
+    { id:'BK-2281', traveller:'Rhea Menon', trip:'Kashmir Great Lakes', pax:2, amount:148000, method:'UPI', pay:'Verified', date:'20 May' },
+    { id:'BK-2280', traveller:'Vikram Sethi', trip:'Goecha La', pax:1, amount:109000, method:'Card', pay:'Verified', date:'19 May' },
   ],
   leads: {
     New:[{n:'Kavya Iyer',t:'Zanskar Traverse',s:82},{n:'Rohit Nair',t:'Goecha La',s:64}],
@@ -349,6 +370,7 @@ const PERMS = {
   finance:     ['owner','finance'],                              // payments, payouts, invoices, GST
   vendorPay:   ['owner','operations','finance'],
   marketing:   ['owner','marketing'],                            // marketing suite + CRM segmentation
+  crm:         ['owner','marketing'],                            // same matrix row as marketing suite
   knowledge:   ROLES,
   dashboard:   ROLES,                                            // ASSUMED — not in the spec matrix
 };
@@ -755,12 +777,25 @@ function effectiveStatus(t){
    derived from seat fill; keeping it out of the status column stops the two
    meanings collapsing into one field. */
 const hasDeparted = t => t.start_date < Date.now();
+
+/* Seats sold and fill are DERIVED from bookings, not stored on the trip. The
+   seeded pair used to disagree with the bookings behind it (an "8/8 Full"
+   departure carrying one 2-seat booking), and a stored count is exactly the
+   kind of field that drifts the moment a booking is cancelled. */
+const confirmedSeats = tripId => analyticsBookings()
+  .filter(b => b.trip_id===tripId && b.status==='confirmed')
+  .reduce((s,b) => s + (b.pax || 1), 0);
+const seatsLabel = t => confirmedSeats(t.id) + '/' + (t.max_participants ?? '—');
+const fillPct = t => t.max_participants
+  ? Math.min(100, Math.round(confirmedSeats(t.id) / t.max_participants * 100))
+  : 0;
+
 function sellState(t){
   /* A departure that has already left is not selling anything, whatever its
      seat fill says. Derived from the date so a trip ages out on its own. */
   if (hasDeparted(t)) return 'Past';
   if (effectiveStatus(t) !== 'published') return effectiveStatus(t)==='scheduled' ? 'Scheduled' : 'Draft';
-  return t.fill >= 100 ? 'Full' : 'Selling';
+  return t.max_participants && confirmedSeats(t.id) >= t.max_participants ? 'Full' : 'Selling';
 }
 
 function publishTrip(id){
@@ -928,7 +963,7 @@ function canonicalTripId(name){
 function analyticsBookings(){
   const st = { Verified:'confirmed', Pending:'pending_payment', Refunded:'cancelled' };
   const current = MOCK.bookings.map(b => ({
-    id:b.id, traveler:b.traveller, trip:b.trip, amount:b.amount,
+    id:b.id, traveler:b.traveller, trip:b.trip, amount:b.amount, pax:b.pax,
     status: st[b.pay] || 'pending_payment', at:new Date(b.date + ' 2026').getTime(),
   }));
   /* Prior-season rows, pinned to LAST season's departures by id. Without
@@ -945,7 +980,7 @@ function analyticsBookings(){
        not, which is how the geography view's stated scope limit gets exercised. */
     { id:'BK-1866', traveler:'Dev Patel',      trip:'Kashmir Great Lakes',trip_id:'TRIP.P4', amount:74000,  status:'confirmed' },
     { id:'BK-1859', traveler:'Farida Qureshi', trip:'Goecha La',          trip_id:'TRIP.P3', amount:109000, status:'confirmed' },
-  ].map(b => ({ ...b, at: past[b.trip_id] - 45*DAY }));   // booked ~6 weeks before departure
+  ].map(b => ({ ...b, pax:b.pax || 1, at: past[b.trip_id] - 45*DAY }));   // booked ~6 weeks before departure
   return current.concat(prior).map(b => ({ ...b, trip_id: b.trip_id || canonicalTripId(b.trip) }));
 }
 
@@ -998,8 +1033,15 @@ function vProfitableDestinations(){
 function vOccupancyByTrip(){
   const bk = analyticsBookings();
   return tripRows().map(t => {
-    const booked = bk.filter(b => b.trip_id===t.id && b.status==='confirmed').length;
-    return { trip:t.name, booked, cap:t.max_participants,
+    /* The spec's wording is "confirmed booking count vs max_participants", but
+       max_participants counts SEATS and one booking can hold several. Counting
+       rows against seats would report a full 8-seat trip as 4/8. Seats are
+       summed here; the wording looks like a spec slip, flagged not silently
+       reinterpreted. */
+    const rows   = bk.filter(b => b.trip_id===t.id && b.status==='confirmed');
+    const booked = rows.reduce((s,b) => s + (b.pax || 1), 0);
+    return { trip:t.name, code:t.code, dep:t.dep, past:hasDeparted(t),
+             booked, rows:rows.length, cap:t.max_participants,
              pct: t.max_participants ? Math.round(booked / t.max_participants * 100) : null };
   });
 }
@@ -1074,6 +1116,381 @@ const seedTripViews = () => tripRows().slice(0,5).map((t,i) => ({
   trip:t.name, views:[1840, 1210, 760, 320, 690][i] || 0, enquiries:[212,168,96,31,105][i] || 0,
 }));
 const tripViews = () => STORE.get('tripDailyViews', seedTripViews());
+
+/* ==========================================================================
+   P3 · Operations management — 2026-08-05-operations-documents-design.md
+   Seven spec routes (`/dashboard/trips/:id/ops/{equipment,transport,rooms,
+   checklist,attendance,permits,emergency}`) are presented here as one trip-
+   scoped workspace with seven tabs. Same screens, one trip selector instead
+   of seven nav entries — an organizer works a departure, not a subsystem.
+   ========================================================================== */
+
+const OPS_TABS = ['checklist','rooms','transport','equipment','attendance','permits','emergency'];
+const opsTrip = () => STORE.get('opsTrip', 'TRIP.01');
+const opsTab  = () => STORE.get('opsTab', 'checklist');
+
+/* Bookings are the unit ops works in. Note the spec models room, transport and
+   medical records per BOOKING, not per person — so a family of four sharing one
+   booking cannot be split across two rooms. Flagged in the rooms tab. */
+const opsRoster = tripId => analyticsBookings()
+  .filter(b => b.trip_id===tripId && (b.status==='confirmed' || b.status==='pending_payment'))
+  .sort((a,b) => a.traveler.localeCompare(b.traveler));
+
+const seedEquipment = () => ([
+  { id:'eq1', organizer_id:'demo-org', name:'4-season dome tent', category:'Tents', total_quantity:6, condition_notes:'Two flysheets patched after last season' },
+  { id:'eq2', organizer_id:'demo-org', name:'MSR stove', category:'Cooking', total_quantity:4, condition_notes:'One needs a new pump cup' },
+  { id:'eq3', organizer_id:'demo-org', name:'Group first-aid kit', category:'Safety', total_quantity:3, condition_notes:'Restocked Jan' },
+  { id:'eq4', organizer_id:'demo-org', name:'Garmin inReach', category:'Comms', total_quantity:2, condition_notes:'Subscriptions active' },
+]);
+const equipmentItems = () => STORE.get('equipmentItems', seedEquipment());
+
+const ALLOC_STATUS = ['reserved','issued','returned','lost_or_damaged'];
+const seedAllocations = () => ([
+  { id:'al1', trip_id:'TRIP.01', source:'owned', equipment_item_id:'eq1', trip_vendor_assignment_id:null,
+    item_description:'4-season dome tent', quantity:4, quantity_returned:null, status:'issued', allocated_at:Date.now()-3*DAY, returned_at:null },
+  { id:'al2', trip_id:'TRIP.01', source:'owned', equipment_item_id:'eq4', trip_vendor_assignment_id:null,
+    item_description:'Garmin inReach', quantity:2, quantity_returned:null, status:'issued', allocated_at:Date.now()-3*DAY, returned_at:null },
+  { id:'al3', trip_id:'TRIP.01', source:'vendor_rental', equipment_item_id:null, trip_vendor_assignment_id:'Himalaya Gear Rentals',
+    item_description:'Crampons + ice axe, 8 sets', quantity:8, quantity_returned:null, status:'reserved', allocated_at:Date.now()-6*DAY, returned_at:null },
+  { id:'al4', trip_id:'TRIP.01', source:'owned', equipment_item_id:'eq2', trip_vendor_assignment_id:null,
+    item_description:'MSR stove', quantity:2, quantity_returned:2, status:'returned', allocated_at:Date.now()-40*DAY, returned_at:Date.now()-9*DAY },
+]);
+const allocations = () => STORE.get('tripEquipmentAllocations', seedAllocations());
+
+/* CHECK from the spec: exactly one of equipment_item_id / trip_vendor_assignment_id
+   is non-null and consistent with `source`. Enforced here rather than assumed,
+   because a row that satisfies neither is unattributable stock. */
+function allocationValid(a){
+  const owned  = a.source==='owned'  && a.equipment_item_id && !a.trip_vendor_assignment_id;
+  const rental = a.source==='vendor_rental' && a.trip_vendor_assignment_id && !a.equipment_item_id;
+  return Boolean(owned || rental);
+}
+/* Owned stock committed elsewhere. A catalog of 6 tents with 4 issued to a live
+   trip leaves 2, and the UI must say so before someone promises them twice. */
+function equipmentAvailability(itemId){
+  const item = equipmentItems().find(e => e.id===itemId);
+  if (!item) return null;
+  const out = allocations()
+    .filter(a => a.equipment_item_id===itemId && (a.status==='reserved' || a.status==='issued'))
+    .reduce((s,a)=>s+a.quantity, 0);
+  return { total:item.total_quantity, committed:out, free:item.total_quantity - out };
+}
+
+const seedTransport = () => ([
+  { id:'tl1', trip_id:'TRIP.01', trip_vendor_assignment_id:'Zanskar Transport Co.', vehicle_label:'Innova — LA01C4412',
+    capacity:6, departure_point:'Leh — Main Bazaar', departure_time:Date.now()+30*DAY, notes:'Leaves 05:30 sharp' },
+  { id:'tl2', trip_id:'TRIP.01', trip_vendor_assignment_id:'Zanskar Transport Co.', vehicle_label:'Tempo Traveller — LA02B7781',
+    capacity:8, departure_point:'Leh — Main Bazaar', departure_time:Date.now()+30*DAY, notes:'Gear vehicle, 2 spare seats' },
+]);
+const transportLegs = () => STORE.get('tripTransportLegs', seedTransport());
+const seedTransportAssign = () => ([
+  { id:'ta1', booking_id:'BK-2291', trip_transport_leg_id:'tl1', seat_number:'1A', assigned_at:Date.now()-2*DAY },
+  { id:'ta2', booking_id:'BK-2286', trip_transport_leg_id:'tl1', seat_number:'2A', assigned_at:Date.now()-2*DAY },
+]);
+const transportAssignments = () => STORE.get('bookingTransportAssignments', seedTransportAssign());
+
+const seedRooms = () => ([
+  { id:'rm1', trip_id:'TRIP.01', trip_vendor_assignment_id:'Hotel Snowview', room_label:'201', room_type:'double', capacity:2, notes:'' },
+  { id:'rm2', trip_id:'TRIP.01', trip_vendor_assignment_id:'Hotel Snowview', room_label:'202', room_type:'triple', capacity:3, notes:'' },
+  { id:'rm3', trip_id:'TRIP.01', trip_vendor_assignment_id:'Hotel Snowview', room_label:'203', room_type:'triple', capacity:3, notes:'Ground floor' },
+]);
+const tripRooms = () => STORE.get('tripRooms', seedRooms());
+const seedRoomAssign = () => ([
+  { id:'ra1', booking_id:'BK-2291', trip_room_id:'rm1', assigned_at:Date.now()-2*DAY, notes:'requested twin beds' },
+]);
+const roomAssignments = () => STORE.get('bookingRoomAssignments', seedRoomAssign());
+
+/* Occupancy counts SEATS, since a booking brings its whole party into the room. */
+const roomOccupants = roomId => roomAssignments()
+  .filter(r => r.trip_room_id===roomId)
+  .reduce((s,r) => { const b = analyticsBookings().find(x=>x.id===r.booking_id); return s + (b ? b.pax : 1); }, 0);
+
+const FITNESS = ['fit','minor_concerns','needs_review'];
+const seedMedical = () => ([
+  { id:'md1', booking_id:'BK-2291', has_medical_conditions:false, conditions_description:null, medications:null,
+    allergies:'Penicillin', fitness_self_assessment:'fit',
+    emergency_contact_name:'Sunita Kumar', emergency_contact_phone:'+91 98110 44521', emergency_contact_relation:'Spouse',
+    declared_at:Date.now()-5*DAY, document_id:'doc5' },
+  { id:'md2', booking_id:'BK-2286', has_medical_conditions:true, conditions_description:'Asthma — exercise induced',
+    medications:'Salbutamol inhaler', allergies:null, fitness_self_assessment:'minor_concerns',
+    emergency_contact_name:'Roshni Sethi', emergency_contact_phone:'+91 99300 77812', emergency_contact_relation:'Sister',
+    declared_at:Date.now()-4*DAY, document_id:null },
+  { id:'md3', booking_id:'BK-2285', has_medical_conditions:true, conditions_description:'Previous knee reconstruction (2023)',
+    medications:null, allergies:null, fitness_self_assessment:'needs_review',
+    emergency_contact_name:'Anup Bose', emergency_contact_phone:'+91 98450 11298', emergency_contact_relation:'Father',
+    declared_at:Date.now()-3*DAY, document_id:null },
+]);
+const medicalDeclarations = () => STORE.get('bookingMedicalDeclarations', seedMedical());
+const medicalFor = bookingId => medicalDeclarations().find(m => m.booking_id===bookingId) || null;
+
+const seedChecklistTpl = () => ([
+  { id:'ck1', trip_id:'TRIP.01', label:'ID proof uploaded',           sort_order:1, is_required:true },
+  { id:'ck2', trip_id:'TRIP.01', label:'Waiver signed',               sort_order:2, is_required:true },
+  { id:'ck3', trip_id:'TRIP.01', label:'Medical declaration filed',   sort_order:3, is_required:true },
+  { id:'ck4', trip_id:'TRIP.01', label:'Inner Line Permit photo sent',sort_order:4, is_required:true },
+  { id:'ck5', trip_id:'TRIP.01', label:'Gear briefing attended',      sort_order:5, is_required:false },
+]);
+const checklistTemplates = () => STORE.get('tripChecklistTemplates', seedChecklistTpl());
+const seedChecklistDone = () => ([
+  { id:'cc1', booking_id:'BK-2291', trip_checklist_template_id:'ck1', is_complete:true,  completed_at:Date.now()-6*DAY },
+  { id:'cc2', booking_id:'BK-2291', trip_checklist_template_id:'ck2', is_complete:true,  completed_at:Date.now()-6*DAY },
+  { id:'cc3', booking_id:'BK-2291', trip_checklist_template_id:'ck3', is_complete:true,  completed_at:Date.now()-5*DAY },
+  { id:'cc4', booking_id:'BK-2286', trip_checklist_template_id:'ck1', is_complete:true,  completed_at:Date.now()-5*DAY },
+  { id:'cc5', booking_id:'BK-2286', trip_checklist_template_id:'ck3', is_complete:true,  completed_at:Date.now()-4*DAY },
+  { id:'cc6', booking_id:'BK-2285', trip_checklist_template_id:'ck1', is_complete:true,  completed_at:Date.now()-3*DAY },
+]);
+const checklistCompletions = () => STORE.get('bookingChecklistCompletions', seedChecklistDone());
+const checklistDone = (bookingId, tplId) => Boolean(
+  checklistCompletions().find(c => c.booking_id===bookingId && c.trip_checklist_template_id===tplId && c.is_complete));
+
+/* Departure readiness is the REQUIRED items only — an optional gear briefing
+   missing should never make a traveller look unready to fly. */
+function readiness(tripId){
+  const req = checklistTemplates().filter(t => t.trip_id===tripId && t.is_required);
+  const roster = opsRoster(tripId);
+  const blocked = roster.filter(b => req.some(t => !checklistDone(b.id, t.id)));
+  return { required:req.length, roster:roster.length, blocked,
+           pct: roster.length && req.length
+             ? Math.round(roster.reduce((s,b)=>s+req.filter(t=>checklistDone(b.id,t.id)).length,0) / (roster.length*req.length) * 100)
+             : 0 };
+}
+
+const ATTENDANCE = ['present','absent','no_show','left_early'];
+const attendanceRows = () => STORE.get('bookingAttendance', []);
+const attendanceFor = (bookingId, date) => (attendanceRows()
+  .find(a => a.booking_id===bookingId && a.attendance_date===date) || {}).status || null;
+
+const PERMIT_TYPES  = ['forest_department','wildlife_sanctuary','inner_line_permit','protected_area_permit','other'];
+const PERMIT_STATUS = ['not_applied','applied','approved','rejected','expired'];
+const seedPermits = () => ([
+  { id:'pm1', trip_id:'TRIP.01', permit_type:'inner_line_permit', custom_type_label:null,
+    issuing_authority:'DC Office, Leh', permit_number:'ILP/2026/44821',
+    applied_date:Date.now()-25*DAY, issue_date:Date.now()-18*DAY, expiry_date:Date.now()+52*DAY,
+    status:'approved', document_id:'doc1', notes:'Covers all 8 travellers' },
+  { id:'pm2', trip_id:'TRIP.01', permit_type:'protected_area_permit', custom_type_label:null,
+    issuing_authority:'Ladakh Autonomous Hill Council', permit_number:null,
+    applied_date:Date.now()-9*DAY, issue_date:null, expiry_date:null,
+    status:'applied', document_id:null, notes:'Chased twice, no acknowledgement yet' },
+  { id:'pm3', trip_id:'TRIP.01', permit_type:'forest_department', custom_type_label:null,
+    issuing_authority:'J&K Forest Dept', permit_number:'FD/2025/9912',
+    applied_date:Date.now()-300*DAY, issue_date:Date.now()-290*DAY, expiry_date:Date.now()-12*DAY,
+    status:'approved', document_id:'doc2', notes:'Last season’s permit' },
+]);
+const tripPermits = () => STORE.get('tripPermits', seedPermits());
+
+/* A permit whose expiry has passed is expired whatever the stored status says.
+   Derived on read, so an approval recorded last season cannot keep reading
+   "approved" on a departure leaving tomorrow. */
+function permitStatus(p){
+  if (p.status === 'approved' && p.expiry_date && p.expiry_date < Date.now()) return 'expired';
+  return p.status;
+}
+const permitBlockers = tripId => tripPermits()
+  .filter(p => p.trip_id===tripId && !['approved'].includes(permitStatus(p)));
+
+const seedEmergencyPlan = () => ([
+  { id:'ep1', trip_id:'TRIP.01', nearest_hospital_name:'SNM Hospital, Leh',
+    nearest_hospital_phone:'+91 1982 252 012', nearest_hospital_address:'Sonam Norboo Memorial Hospital, Leh 194101',
+    evacuation_notes:'Helicopter evac from Padum requires DC clearance; road evac to Kargil ~9 hrs.',
+    local_authority_contact:'Padum Police Checkpoint — +91 1983 245 011', updated_at:Date.now()-11*DAY },
+]);
+const emergencyPlans = () => STORE.get('tripEmergencyPlans', seedEmergencyPlan());
+const emergencyPlanFor = tripId => emergencyPlans().find(p => p.trip_id===tripId) || null;
+
+const INCIDENT_TYPES = ['medical','accident','lost_participant','weather','other'];
+const SEVERITY = ['low','medium','high','critical'];
+const seedIncidents = () => ([
+  { id:'in1', trip_id:'TRIP.01', booking_id:'BK-2286', reported_by_user_id:'Trip leader',
+    incident_type:'medical', description:'Asthma flare at Shingo La approach; inhaler used, group paused 40 min.',
+    severity:'medium', status:'resolved', occurred_at:Date.now()-2*DAY, resolved_at:Date.now()-2*DAY,
+    actions_taken:'Rested, monitored SpO2, descended 200m. Traveller continued next morning.' },
+  { id:'in2', trip_id:'TRIP.01', booking_id:null, reported_by_user_id:'Trip leader',
+    incident_type:'weather', description:'Whiteout above camp 2, visibility under 20m.',
+    severity:'high', status:'in_progress', occurred_at:Date.now()-6*3600000, resolved_at:null,
+    actions_taken:'Held at camp 2. Reassess 06:00.' },
+]);
+const incidents = () => STORE.get('tripEmergencyIncidents', seedIncidents());
+
+/* ---- Documents ---- */
+const DOC_CATEGORIES = ['permit','insurance','waiver','medical_form','vendor_contract','organizer_certification','invoice','other'];
+const VERIFY_STATUS  = ['not_applicable','pending','verified','rejected'];
+const seedDocuments = () => ([
+  { id:'doc1', category:'permit', subject_trip_id:'TRIP.01', subject_booking_id:null, subject_user_id:null, subject_vendor_assignment_id:null,
+    file_name:'ILP-2026-44821.pdf', mime_type:'application/pdf', file_size_bytes:412_000,
+    issue_date:Date.now()-18*DAY, expiry_date:Date.now()+52*DAY, verification_status:'verified', uploaded_by:'Demo Organizer', created_at:Date.now()-18*DAY },
+  { id:'doc2', category:'permit', subject_trip_id:'TRIP.01', subject_booking_id:null, subject_user_id:null, subject_vendor_assignment_id:null,
+    file_name:'forest-permit-2025.pdf', mime_type:'application/pdf', file_size_bytes:298_000,
+    issue_date:Date.now()-290*DAY, expiry_date:Date.now()-12*DAY, verification_status:'verified', uploaded_by:'Demo Organizer', created_at:Date.now()-290*DAY },
+  { id:'doc3', category:'insurance', subject_trip_id:'TRIP.01', subject_booking_id:null, subject_user_id:null, subject_vendor_assignment_id:null,
+    file_name:'group-travel-insurance.pdf', mime_type:'application/pdf', file_size_bytes:1_140_000,
+    issue_date:Date.now()-60*DAY, expiry_date:Date.now()+18*DAY, verification_status:'not_applicable', uploaded_by:'Demo Organizer', created_at:Date.now()-60*DAY },
+  { id:'doc4', category:'vendor_contract', subject_trip_id:null, subject_booking_id:null, subject_user_id:null, subject_vendor_assignment_id:'Zanskar Transport Co.',
+    file_name:'transport-agreement-signed.pdf', mime_type:'application/pdf', file_size_bytes:520_000,
+    issue_date:Date.now()-30*DAY, expiry_date:null, verification_status:'not_applicable', uploaded_by:'Demo Organizer', created_at:Date.now()-30*DAY },
+  { id:'doc5', category:'medical_form', subject_trip_id:null, subject_booking_id:'BK-2291', subject_user_id:null, subject_vendor_assignment_id:null,
+    file_name:'medical-declaration-rajesh.pdf', mime_type:'application/pdf', file_size_bytes:190_000,
+    issue_date:Date.now()-5*DAY, expiry_date:null, verification_status:'not_applicable', uploaded_by:'Rajesh Kumar', created_at:Date.now()-5*DAY },
+  { id:'doc6', category:'organizer_certification', subject_trip_id:null, subject_booking_id:null, subject_user_id:'demo-org', subject_vendor_assignment_id:null,
+    file_name:'wilderness-first-responder.pdf', mime_type:'application/pdf', file_size_bytes:830_000,
+    issue_date:Date.now()-500*DAY, expiry_date:Date.now()+140*DAY, verification_status:'verified', uploaded_by:'Demo Organizer', created_at:Date.now()-500*DAY },
+  { id:'doc7', category:'organizer_certification', subject_trip_id:null, subject_booking_id:null, subject_user_id:'demo-org', subject_vendor_assignment_id:null,
+    file_name:'adventure-tour-operator-licence.pdf', mime_type:'application/pdf', file_size_bytes:640_000,
+    issue_date:Date.now()-700*DAY, expiry_date:Date.now()+25*DAY, verification_status:'pending', uploaded_by:'Demo Organizer', created_at:Date.now()-700*DAY },
+]);
+const documents = () => STORE.get('documents', seedDocuments());
+
+/* CHECK from the spec: exactly one subject column is non-null. A document
+   attached to nothing, or to two things, has no owner to expire against. */
+function documentSubjectValid(d){
+  return [d.subject_trip_id, d.subject_booking_id, d.subject_user_id, d.subject_vendor_assignment_id]
+    .filter(Boolean).length === 1;
+}
+const DOC_EXPIRY_WARN_DAYS = 30;
+function docExpiry(d){
+  if (!d.expiry_date) return { state:'none' };
+  const days = Math.ceil((d.expiry_date - Date.now()) / DAY);
+  if (days < 0)  return { state:'expired', days };
+  if (days <= DOC_EXPIRY_WARN_DAYS) return { state:'expiring', days };
+  return { state:'valid', days };
+}
+const documentSubject = d =>
+  d.subject_trip_id   ? (tripRows().find(t=>t.id===d.subject_trip_id)||{}).name || d.subject_trip_id
+: d.subject_booking_id? 'Booking ' + d.subject_booking_id
+: d.subject_user_id   ? 'Organizer (own credential)'
+: d.subject_vendor_assignment_id || '—';
+
+/* Outbox + log, same shape as Vendor OS. */
+const OPS_EVENTS = ['document_expiring_soon','permit_status_changed','checklist_incomplete_reminder','pre_departure_ops_reminder'];
+const opsOutbox = () => STORE.get('opsDocumentEvents', []);
+const opsLog    = () => STORE.get('opsNotificationLog', []);
+function emitOpsEvent(event_type, ctx){
+  const now = Date.now();
+  STORE.set('opsDocumentEvents', opsOutbox().concat({
+    id:'oe'+now+Math.random().toString(36).slice(2,6), event_type,
+    trip_id:ctx.trip_id||null, booking_id:ctx.booking_id||null, document_id:ctx.document_id||null,
+    payload:ctx.payload||{}, created_at:now, processed_at:now }));
+  STORE.set('opsNotificationLog', opsLog().concat({
+    id:'ol'+now+Math.random().toString(36).slice(2,6), event_type,
+    trip_id:ctx.trip_id||null, booking_id:ctx.booking_id||null,
+    recipient_user_id:'Demo Organizer', channel:'email', status:'sent',
+    sent_at:now, error_message:null, created_at:now,
+    snapshot:ctx.body || '' }));
+}
+
+/* ==========================================================================
+   P3 · CRM — 2026-08-05-crm-design.md
+   `customer_profiles` (one per organizer/traveller pair), append-only
+   `customer_notes`, and `customer_tags`.
+   ========================================================================== */
+
+const seedCustomerProfiles = () => ([
+  { id:'cp1', organizer_id:'demo-org', traveler_user_id:'Rajesh Kumar',
+    emergency_contact_name:'Sunita Kumar', emergency_contact_phone:'+91 98110 44521', emergency_contact_relationship:'Spouse' },
+  { id:'cp2', organizer_id:'demo-org', traveler_user_id:'Priya Sharma',
+    emergency_contact_name:'Manoj Sharma', emergency_contact_phone:'+91 98200 33110', emergency_contact_relationship:'Father' },
+  { id:'cp3', organizer_id:'demo-org', traveler_user_id:'Kabir Sethi',
+    emergency_contact_name:'Roshni Sethi', emergency_contact_phone:'+91 99300 77812', emergency_contact_relationship:'Sister' },
+  { id:'cp4', organizer_id:'demo-org', traveler_user_id:'Dev Patel',
+    emergency_contact_name:null, emergency_contact_phone:null, emergency_contact_relationship:null },
+]);
+const customerProfiles = () => STORE.get('customerProfiles', seedCustomerProfiles());
+const seedCustomerNotes = () => ([
+  { id:'cn1', customer_profile_id:'cp1', author_user_id:'Demo Organizer', note_text:'Repeat traveller, three departures. Prefers a single tent, happy to pay the supplement.', created_at:Date.now()-40*DAY },
+  { id:'cn2', customer_profile_id:'cp1', author_user_id:'Demo Organizer', note_text:'Asked about Zanskar in winter — follow up in September.', created_at:Date.now()-12*DAY },
+  { id:'cn3', customer_profile_id:'cp3', author_user_id:'Demo Organizer', note_text:'Asthmatic. Cleared by his doctor, carries an inhaler. Brief the lead guide.', created_at:Date.now()-4*DAY },
+]);
+const customerNotes = () => STORE.get('customerNotes', seedCustomerNotes());
+const seedCustomerTags = () => ([
+  { id:'ct1', customer_profile_id:'cp1', tag_label:'VIP' },
+  { id:'ct2', customer_profile_id:'cp1', tag_label:'prefers single tent' },
+  { id:'ct3', customer_profile_id:'cp2', tag_label:'referred by Rohan' },
+  { id:'ct4', customer_profile_id:'cp3', tag_label:'needs medical brief' },
+]);
+const customerTags = () => STORE.get('customerTags', seedCustomerTags());
+
+/* The customer LIST is derived from bookings joined to this organizer's trips —
+   the profile row only carries enrichment. A traveller who has booked but whose
+   profile was never opened still has to appear, or the list silently hides
+   customers. */
+function crmCustomers(){
+  const stats = {};
+  analyticsBookings().forEach(b => {
+    const c = stats[b.traveler] || (stats[b.traveler] = { name:b.traveler, bookings:0, confirmed:0, spend:0, first:b.at, last:b.at, trips:[] });
+    c.bookings += 1;
+    if (b.status==='confirmed'){ c.confirmed += 1; c.spend += b.amount; }
+    c.first = Math.min(c.first, b.at); c.last = Math.max(c.last, b.at);
+    c.trips.push({ id:b.id, trip:b.trip, amount:b.amount, status:b.status, at:b.at, pax:b.pax });
+  });
+  return Object.values(stats).map(c => {
+    const p = customerProfiles().find(x => x.traveler_user_id === c.name) || null;
+    return { ...c, profile:p,
+      tags: p ? customerTags().filter(t=>t.customer_profile_id===p.id) : [],
+      notes: p ? customerNotes().filter(n=>n.customer_profile_id===p.id).sort((a,b)=>b.created_at-a.created_at) : [],
+      segment: c.confirmed > 1 ? 'Repeat' : c.confirmed === 1 ? 'New' : 'Prospect',
+      hasEmergency: Boolean(p && p.emergency_contact_phone) };
+  }).sort((a,b) => b.spend - a.spend);
+}
+
+/* ==========================================================================
+   P3 · Knowledge Hub — 2026-08-05-enterprise-integrations-knowledge-design.md
+   Platform-authored, organizer-read. Every role can read it (matrix row 177).
+   ========================================================================== */
+
+const KNOWLEDGE_CATEGORIES = ['marketing_guide','business_template','safety_checklist','pricing_strategy','legal_resource','industry_report'];
+const CATEGORY_LABEL = {
+  marketing_guide:'Marketing guide', business_template:'Business template',
+  safety_checklist:'Safety checklist', pricing_strategy:'Pricing strategy',
+  legal_resource:'Legal resource', industry_report:'Industry report',
+};
+const seedArticles = () => ([
+  { id:'ka1', slug:'pricing-a-multi-day-trek', title:'Pricing a multi-day trek without eroding your margin',
+    category:'pricing_strategy', is_published:true, published_at:Date.now()-20*DAY, author:'TrekTribe editorial',
+    content:'Most operators price backwards from a competitor’s listing and discover the margin problem only after the season closes.\n\nStart from cost per departure at minimum viable group size, not at full occupancy. A trek that only works at 8/8 is a trek that loses money at 6/8 — and 6/8 is the common case.\n\nBuild the vendor cost, permit cost and staff cost per departure first. Divide by your break-even headcount, not your capacity. Everything above that number is margin; everything below is subsidy.',
+    attachments:[{ label:'Per-departure costing sheet (XLSX)' }] },
+  { id:'ka2', slug:'gst-for-tour-operators', title:'GST for tour operators: 5% gross vs 18% on margin',
+    category:'legal_resource', is_published:true, published_at:Date.now()-45*DAY, author:'TrekTribe editorial',
+    content:'Two schemes are available and they are not interchangeable. The 5% scheme applies to the gross package value and carries no input tax credit. The 18% margin scheme (Rule 33) applies only to your margin, and does allow ITC.\n\nWhich is cheaper depends entirely on how much of your cost base carries recoverable GST. An operator whose costs are mostly unregistered local vendors usually lands on 5% gross; one buying hotel nights and transport from GST-registered suppliers often does better on margin.\n\nThe scheme is set on your GST profile and drives every invoice the platform issues, so changing it mid-year has consequences for invoices already raised.',
+    attachments:[] },
+  { id:'ka3', slug:'pre-departure-safety-checklist', title:'The pre-departure safety checklist we would not run without',
+    category:'safety_checklist', is_published:true, published_at:Date.now()-8*DAY, author:'TrekTribe editorial',
+    content:'Every item below has, at some point, been the thing that mattered.\n\nMedical declarations collected and read — not just collected. Emergency contact reachable on a number you have dialled at least once. Nearest hospital identified with a phone number, not a map pin. Evacuation route agreed with the local authority, in writing where possible. Permits valid on the departure date, not merely issued.\n\nThe last one catches operators out most often: a permit approved last season reads "approved" in a filing cabinet long after it has expired.',
+    attachments:[{ label:'Printable pre-departure checklist (PDF)' }] },
+  { id:'ka4', slug:'filling-shoulder-season-departures', title:'Filling shoulder-season departures',
+    category:'marketing_guide', is_published:true, published_at:Date.now()-30*DAY, author:'TrekTribe editorial',
+    content:'Shoulder season is not a discounting problem, it is a positioning problem. The same route in October is a different product from the same route in June: fewer people, colder nights, better light.\n\nSell the difference rather than the discount. Operators who cut price to fill October train their June customers to wait.',
+    attachments:[] },
+  { id:'ka5', slug:'vendor-agreement-template', title:'Vendor agreement template for transport and catering',
+    category:'business_template', is_published:true, published_at:Date.now()-90*DAY, author:'TrekTribe editorial',
+    content:'A one-page agreement that covers the four things that actually go wrong: headcount changes, date changes, cancellation, and payment timing.\n\nEverything else is negotiable. These four are what you will be arguing about at 6am in a car park.',
+    attachments:[{ label:'Vendor agreement (DOCX)' }, { label:'Vendor agreement (PDF)' }] },
+  { id:'ka6', slug:'india-adventure-travel-2026', title:'India adventure travel: what changed in 2026',
+    category:'industry_report', is_published:false, published_at:null, author:'TrekTribe editorial',
+    content:'Draft — not yet published.', attachments:[] },
+]);
+const knowledgeArticles = () => STORE.get('knowledgeArticles', seedArticles());
+const publishedArticles = () => knowledgeArticles().filter(a => a.is_published);
+
+/* ==========================================================================
+   P3 · Business profile — `organizer_profiles` (core-platform-organizer-auth)
+   ========================================================================== */
+
+const VERIFICATION_STATUS = ['unverified','pending','verified','rejected'];
+const KYC_STATUS = ['not_started','pending','verified','rejected'];
+const seedOrgProfile = () => ({
+  organizer_id:'demo-org',
+  business_description:'Small-group Himalayan treks since 2018. We run our own kitchens, cap groups at eight, and pay guides above the regional rate.',
+  social_links:{ instagram:'@trektribe.in', facebook:'trektribe', twitter:'', linkedin:'trektribe', website:'https://trektribe.in' },
+  cover_image_urls:['cover-zanskar.jpg','cover-camp.jpg','cover-ridge.jpg'],
+  company_portfolio:[
+    { title:'Zanskar winter traverse', description:'First commercial crossing we ran in February conditions.', image_url:'portfolio-zanskar.jpg', completed_year:2024 },
+    { title:'Kashmir Great Lakes — 40 departures', description:'Our longest-running route.', image_url:'portfolio-kgl.jpg', completed_year:2025 },
+  ],
+  verification_status:'verified', verification_submitted_at:Date.now()-200*DAY, verification_reviewed_at:Date.now()-190*DAY,
+  verification_rejection_reason:null,
+  razorpay_linked_account_id:'acc_NkP2xQ81LmZ4aB', kyc_status:'verified', kyc_status_updated_at:Date.now()-190*DAY,
+});
+const orgProfile = () => STORE.get('organizerProfile', seedOrgProfile());
+const COVER_IMAGE_CAP = 5;   // API-layer cap from the spec
 
 /* ---------------- ui helpers ---------------- */
 const TONE = {
@@ -1190,6 +1607,397 @@ V.analytics = () => `
       </div></div>`)}
   </div>`;
 
+/* ---- P3 · trip operations workspace ---- */
+const OPS_TAB_LABEL = { checklist:'Checklist', rooms:'Rooms', transport:'Transport',
+  equipment:'Equipment', attendance:'Attendance', permits:'Permits', emergency:'Emergency' };
+
+V.ops = () => {
+  const tid = opsTrip(), tab = opsTab();
+  const t = tripRows().find(x => x.id===tid) || tripRows()[0];
+  const roster = opsRoster(t.id), rdy = readiness(t.id), blockers = permitBlockers(t.id);
+  const live = ['checklist','rooms','transport','equipment','attendance','permits','emergency'];
+
+  const header = card(`<div class="p-4">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <div class="flex items-center gap-2">
+          <h2 class="font-semibold">${t.name}</h2>${badge(sellState(t))}
+        </div>
+        <p class="text-sm text-nature-500">${t.code} · departs ${t.dep} · ${roster.length} booking${roster.length===1?'':'s'} · ${confirmedSeats(t.id)} seat${confirmedSeats(t.id)===1?'':'s'} confirmed</p>
+      </div>
+      <label class="text-sm">Departure
+        <select class="ml-2 h-9 rounded-md border border-nature-300 px-2 bg-white" onchange="setOpsTrip(this.value)">
+          ${tripRows().filter(x=>!hasDeparted(x)).map(x=>`<option value="${x.id}" ${x.id===t.id?'selected':''}>${x.name} — ${x.dep}</option>`).join('')}
+        </select></label>
+    </div>
+    <div class="mt-4 grid gap-3 sm:grid-cols-3">
+      ${[['Checklist complete', rdy.pct + '%', rdy.blocked.length + ' traveller' + (rdy.blocked.length===1?'':'s') + ' still blocked'],
+         ['Permits clear', blockers.length ? 'No' : 'Yes', blockers.length ? blockers.length + ' outstanding' : 'all approved and in date'],
+         ['Rooms allocated', roomAssignments().filter(r=>tripRooms().some(rm=>rm.id===r.trip_room_id && rm.trip_id===t.id)).length + '/' + roster.length, 'bookings placed']]
+        .map(([l,v,n])=>`<div class="rounded-md border border-nature-200 p-3"><p class="text-xs text-nature-500">${l}</p><p class="mt-0.5 text-xl font-semibold tnum">${v}</p><p class="text-xs text-nature-400">${n}</p></div>`).join('')}
+    </div>
+    <div class="mt-4 flex flex-wrap gap-1.5">
+      ${live.map(k=>`<button class="px-3 h-8 rounded-md text-sm ${k===tab?'bg-nature-900 text-white':'bg-nature-100 hover:bg-nature-200'}" onclick="setOpsTab(&#39;${k}&#39;)">${OPS_TAB_LABEL[k]}</button>`).join('')}
+    </div>
+  </div>`);
+
+  return header + `<div class="mt-4">${(OPS_VIEW[tab] || OPS_VIEW.checklist)(t, roster)}</div>`;
+};
+
+const OPS_VIEW = {};
+
+OPS_VIEW.checklist = (t, roster) => {
+  const tpls = checklistTemplates().filter(c => c.trip_id===t.id).sort((a,b)=>a.sort_order-b.sort_order);
+  if (!tpls.length) return card(`<div class="p-4">${emptyState('No checklist for this departure','Add the items every traveller must clear before they fly.')}</div>`);
+  return card(`<div class="p-4">${sectionHead('Pre-departure checklist', `<span class="text-xs text-nature-500 font-mono">booking_checklist_completions</span>`)}
+    <p class="text-sm text-nature-600">One row per booking, not per person — the spec models completions against <code class="font-mono">bookings.id</code>. Required items are marked <span class="text-red-600">*</span>; optional ones never block a departure.</p></div>
+  ${table([{t:'Booking'}].concat(tpls.map(c=>({t:c.label + (c.is_required?' <span class="text-red-600">*</span>':'')}))).concat([{t:'Ready',right:true}]),
+    roster.map(b=>{
+      const req = tpls.filter(c=>c.is_required);
+      const ok  = req.every(c=>checklistDone(b.id, c.id));
+      return td(`<span class="font-medium">${b.traveler}</span><div class="text-xs text-nature-500">${b.id} · ${b.pax} seat${b.pax===1?'':'s'}</div>`)+
+        tpls.map(c=>{
+          const done = checklistDone(b.id, c.id);
+          return td(`<button onclick="toggleChecklist(&#39;${b.id}&#39;,&#39;${c.id}&#39;)" title="${done?'Mark incomplete':'Mark complete'}"
+            class="w-6 h-6 rounded ${done?'bg-forest-600 text-white':'bg-nature-100 hover:bg-nature-200 text-transparent'} grid place-items-center text-xs font-bold">✓</button>`);
+        }).join('')+
+        td(ok?badge('Ready','green'):badge('Blocked','red'),'text-right');
+    }))}`);
+};
+
+OPS_VIEW.rooms = (t, roster) => {
+  const rooms = tripRooms().filter(r => r.trip_id===t.id);
+  const placed = new Set(roomAssignments().filter(r=>rooms.some(rm=>rm.id===r.trip_room_id)).map(r=>r.booking_id));
+  const unplaced = roster.filter(b => !placed.has(b.id));
+  return `
+  ${card(`<div class="p-4">${sectionHead('Room allocation', `<span class="text-xs text-nature-500 font-mono">trip_rooms · booking_room_assignments</span>`)}
+    <p class="text-sm text-nature-600">Over-capacity is checked at assignment time, not enforced by the database — an organizer adding an extra mattress deliberately is warned, not blocked.</p>
+    <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      ${rooms.map(rm=>{
+        const occ = roomOccupants(rm.id), over = occ > rm.capacity;
+        const inRoom = roomAssignments().filter(r=>r.trip_room_id===rm.id);
+        return `<div class="rounded-md border ${over?'border-red-300 bg-red-50':'border-nature-200'} p-3">
+          <div class="flex items-center justify-between"><p class="font-medium">Room ${rm.room_label}</p>
+            <span class="text-xs tnum ${over?'text-red-700 font-medium':'text-nature-500'}">${occ}/${rm.capacity}</span></div>
+          <p class="text-xs text-nature-500">${rm.room_type}${rm.trip_vendor_assignment_id?' · '+rm.trip_vendor_assignment_id:''}</p>
+          ${over?`<p class="text-xs text-red-700 mt-1">Over capacity by ${occ-rm.capacity}</p>`:''}
+          <ul class="mt-2 space-y-1 text-sm">${inRoom.length?inRoom.map(r=>{
+            const b = analyticsBookings().find(x=>x.id===r.booking_id);
+            return `<li class="flex items-center justify-between gap-2"><span>${b?b.traveler:r.booking_id} <span class="text-nature-400">(${b?b.pax:'?'})</span></span>
+              <button class="text-xs text-nature-500 hover:text-red-600" onclick="unassignRoom(&#39;${r.id}&#39;)">remove</button></li>`;
+          }).join(''):'<li class="text-sm text-nature-400">Empty</li>'}</ul>
+          ${rm.notes?`<p class="text-xs text-nature-400 mt-2">${rm.notes}</p>`:''}
+        </div>`;
+      }).join('')}
+    </div>
+    ${unplaced.length?`<div class="mt-4 rounded-md border border-earth-300 bg-earth-50 p-3">
+      <p class="text-sm font-medium">${unplaced.length} booking${unplaced.length===1?'':'s'} not yet placed</p>
+      <div class="mt-2 flex flex-wrap gap-2">${unplaced.map(b=>`<button class="px-2.5 h-8 rounded-md bg-white border border-nature-300 hover:bg-nature-100 text-xs" onclick="assignRoom(&#39;${b.id}&#39;)">${b.traveler} (${b.pax}) →</button>`).join('')}</div>
+    </div>`:`<p class="text-sm text-forest-700 mt-4">Every booking on this departure has a room.</p>`}
+  </div>`)}
+  ${card(`<div class="p-4 text-sm">
+    <p class="font-medium">A modelling limit worth knowing before you rely on this</p>
+    <p class="text-nature-700 mt-1">The spec keys room assignments to <code class="font-mono">bookings.id</code>, and a booking can hold several travellers. A family of four booked together therefore cannot be split across two rooms — the assignment moves all four or none. Splitting a party needs a per-participant table the spec does not define.</p>
+  </div>`)}`;
+};
+
+OPS_VIEW.transport = (t, roster) => {
+  const legs = transportLegs().filter(l => l.trip_id===t.id);
+  const assigned = transportAssignments();
+  return card(`<div class="p-4">${sectionHead('Transport legs', `<span class="text-xs text-nature-500 font-mono">trip_transport_legs</span>`)}
+    <p class="text-sm text-nature-600">A traveller may ride several legs on a multi-leg trip, but only once per leg — <code class="font-mono">UNIQUE(booking_id, trip_transport_leg_id)</code>.</p>
+    <div class="mt-4 space-y-3">
+      ${legs.length ? legs.map(l=>{
+        const on = assigned.filter(a=>a.trip_transport_leg_id===l.id);
+        const seats = on.reduce((s,a)=>{const b=analyticsBookings().find(x=>x.id===a.booking_id); return s+(b?b.pax:1);},0);
+        const over = seats > l.capacity;
+        return `<div class="rounded-md border ${over?'border-red-300 bg-red-50':'border-nature-200'} p-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div><p class="font-medium">${l.vehicle_label}</p>
+              <p class="text-xs text-nature-500">${l.departure_point}${l.departure_time?' · '+DATE_IN(l.departure_time):''}${l.trip_vendor_assignment_id?' · '+l.trip_vendor_assignment_id:''}</p></div>
+            <span class="text-xs tnum ${over?'text-red-700 font-medium':'text-nature-500'}">${seats}/${l.capacity} seats</span>
+          </div>
+          <div class="mt-2 flex flex-wrap gap-1.5">${on.map(a=>{
+            const b=analyticsBookings().find(x=>x.id===a.booking_id);
+            return `<span class="text-xs bg-nature-100 rounded px-2 py-1">${b?b.traveler:a.booking_id}${a.seat_number?' · '+a.seat_number:''}</span>`;
+          }).join('') || '<span class="text-xs text-nature-400">Nobody assigned</span>'}</div>
+          ${l.notes?`<p class="text-xs text-nature-400 mt-2">${l.notes}</p>`:''}
+        </div>`;
+      }).join('') : emptyState('No transport legs','Add the vehicles running this departure.')}
+    </div>
+    ${(() => {
+      const placed = new Set(assigned.filter(a=>legs.some(l=>l.id===a.trip_transport_leg_id)).map(a=>a.booking_id));
+      const missing = roster.filter(b=>!placed.has(b.id));
+      return missing.length ? `<div class="mt-4 rounded-md border border-earth-300 bg-earth-50 p-3 text-sm">
+        <span class="font-medium">${missing.length} booking${missing.length===1?'':'s'} with no seat on any leg:</span>
+        ${missing.map(b=>b.traveler).join(', ')}</div>` : '';
+    })()}
+  </div>`);
+};
+
+OPS_VIEW.equipment = (t) => {
+  const rows = allocations().filter(a => a.trip_id===t.id);
+  const invalid = rows.filter(a => !allocationValid(a));
+  return `
+  ${card(`<div class="p-4">${sectionHead('Allocated to this departure', `<span class="text-xs text-nature-500 font-mono">trip_equipment_allocations</span>`)}</div>
+  ${rows.length ? table([{t:'Item'},{t:'Source'},{t:'Qty',right:true},{t:'Returned',right:true},{t:'Status'},{t:'',right:true}], rows.map(a=>
+    td(`<span class="font-medium">${a.item_description}</span>${a.equipment_item_id?`<div class="text-xs text-nature-500">${a.equipment_item_id}</div>`:''}`)+
+    td(a.source==='owned'?badge('Owned','slate'):badge('Vendor rental','blue')+`<div class="text-xs text-nature-500 mt-0.5">${a.trip_vendor_assignment_id}</div>`)+
+    td(`<span class="tnum">${a.quantity}</span>`,'text-right')+
+    td(a.quantity_returned==null?'<span class="text-nature-400">—</span>':`<span class="tnum">${a.quantity_returned}</span>`,'text-right')+
+    td(`<span class="font-mono text-xs">${a.status}</span>`)+
+    td(a.status==='issued'
+        ? btn('Mark returned','ghost',`onclick="returnAllocation(&#39;${a.id}&#39;)"`)
+        : a.status==='reserved'
+        ? btn('Issue','ghost',`onclick="issueAllocation(&#39;${a.id}&#39;)"`)
+        : '<span class="text-xs text-nature-400">closed</span>','text-right')
+  )) : `<div class="p-4">${emptyState('Nothing allocated','Reserve owned kit or a vendor rental for this departure.')}</div>`}`)}
+  ${invalid.length?`<div class="mt-4">${card(`<div class="p-4 text-sm"><p class="font-medium text-red-700">${invalid.length} allocation row${invalid.length===1?'':'s'} fail the spec CHECK</p>
+    <p class="text-nature-700 mt-1">Each row must have exactly one of <code class="font-mono">equipment_item_id</code> / <code class="font-mono">trip_vendor_assignment_id</code>, matching its <code class="font-mono">source</code>. A row satisfying neither is stock nobody owns.</p></div>`)}</div>`:''}
+  <div class="mt-4">${card(`<div class="p-4">${sectionHead('Owned catalog', `<span class="text-xs text-nature-500 font-mono">equipment_items</span>`)}
+    <p class="text-sm text-nature-600">Free stock is the catalog total minus everything reserved or issued across all live departures — promising the same four tents twice is the failure this prevents.</p></div>
+  ${table([{t:'Item'},{t:'Category'},{t:'Total',right:true},{t:'Committed',right:true},{t:'Free',right:true},{t:'Condition'}], equipmentItems().map(e=>{
+    const av = equipmentAvailability(e.id);
+    return td(`<span class="font-medium">${e.name}</span>`)+td(e.category)+
+      td(`<span class="tnum">${av.total}</span>`,'text-right')+
+      td(`<span class="tnum">${av.committed}</span>`,'text-right')+
+      td(`<span class="tnum font-medium ${av.free<=0?'text-red-600':''}">${av.free}</span>`,'text-right')+
+      td(`<span class="text-nature-500">${e.condition_notes||'—'}</span>`);
+  }))}`)}</div>`;
+};
+
+OPS_VIEW.attendance = (t, roster) => {
+  const today = new Date().toISOString().slice(0,10);
+  return card(`<div class="p-4">${sectionHead('Attendance — ' + today, `<span class="text-xs text-nature-500 font-mono">booking_attendance</span>`)}
+    <p class="text-sm text-nature-600">One row per booking per date — <code class="font-mono">UNIQUE(booking_id, attendance_date)</code>, so marking twice updates rather than duplicates.</p></div>
+  ${table([{t:'Booking'},{t:'Seats'},{t:'Status'},{t:'',right:true}], roster.map(b=>{
+    const st = attendanceFor(b.id, today);
+    return td(`<span class="font-medium">${b.traveler}</span><div class="text-xs text-nature-500">${b.id}</div>`)+
+      td(`<span class="tnum">${b.pax}</span>`)+
+      td(st?`<span class="font-mono text-xs">${st}</span>`:'<span class="text-nature-400 text-sm">not marked</span>')+
+      td(`<div class="flex gap-1 justify-end flex-wrap">${ATTENDANCE.map(a=>
+        `<button class="px-2 h-7 rounded text-[11px] ${st===a?'bg-nature-900 text-white':'bg-nature-100 hover:bg-nature-200'}" onclick="markAttendance(&#39;${b.id}&#39;,&#39;${a}&#39;)">${a.replace('_',' ')}</button>`).join('')}</div>`,'text-right');
+  }))}`);
+};
+
+OPS_VIEW.permits = (t) => {
+  const rows = tripPermits().filter(p => p.trip_id===t.id);
+  const TONE_FOR = { approved:'green', applied:'amber', not_applied:'slate', rejected:'red', expired:'red' };
+  return card(`<div class="p-4">${sectionHead('Permits', `<span class="text-xs text-nature-500 font-mono">trip_permits</span>`)}
+    <p class="text-sm text-nature-600">Status is derived on read: an approved permit whose expiry has passed reads <code class="font-mono">expired</code>, whatever the stored value says. Changing status emits <code class="font-mono">permit_status_changed</code> to the ops outbox.</p></div>
+  ${rows.length ? table([{t:'Permit'},{t:'Authority'},{t:'Number'},{t:'Expires'},{t:'Status'},{t:'',right:true}], rows.map(p=>{
+    const st = permitStatus(p), drifted = st !== p.status;
+    return td(`<span class="font-medium">${(p.custom_type_label||p.permit_type).replace(/_/g,' ')}</span>${p.notes?`<div class="text-xs text-nature-500">${p.notes}</div>`:''}`)+
+      td(p.issuing_authority)+
+      td(p.permit_number?`<span class="font-mono text-xs">${p.permit_number}</span>`:'<span class="text-nature-400">—</span>')+
+      td(p.expiry_date?DATE_IN(p.expiry_date):'<span class="text-nature-400">—</span>')+
+      td(badge(st.replace(/_/g,' '), TONE_FOR[st]) + (drifted?`<div class="text-[11px] text-red-700 mt-0.5">stored as ${p.status}</div>`:''))+
+      td(`<select class="h-8 rounded-md border border-nature-300 px-2 bg-white text-xs" onchange="setPermitStatus(&#39;${p.id}&#39;,this.value)">
+        ${PERMIT_STATUS.map(s=>`<option value="${s}" ${s===p.status?'selected':''}>${s.replace(/_/g,' ')}</option>`).join('')}</select>`,'text-right');
+  })) : `<div class="p-4">${emptyState('No permits recorded','Add the permits this route needs.')}</div>`}`);
+};
+
+OPS_VIEW.emergency = (t) => {
+  const plan = emergencyPlanFor(t.id);
+  const inc = incidents().filter(i => i.trip_id===t.id).sort((a,b)=>b.occurred_at-a.occurred_at);
+  const SEV_TONE = { low:'slate', medium:'amber', high:'red', critical:'red' };
+  return `
+  ${card(`<div class="p-4">${sectionHead('Emergency plan', `<span class="text-xs text-nature-500 font-mono">trip_emergency_plans</span>`)}
+    ${plan ? `<dl class="grid sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+      <div><dt class="text-nature-500">Nearest hospital</dt><dd class="font-medium">${plan.nearest_hospital_name}</dd>
+        <dd class="text-nature-600">${plan.nearest_hospital_phone}</dd>
+        <dd class="text-nature-500 text-xs">${plan.nearest_hospital_address}</dd></div>
+      <div><dt class="text-nature-500">Local authority</dt><dd>${plan.local_authority_contact || '—'}</dd></div>
+      <div class="sm:col-span-2"><dt class="text-nature-500">Evacuation</dt><dd>${plan.evacuation_notes}</dd></div>
+    </dl>
+    <p class="text-xs text-nature-400 mt-3">Last updated ${DATE_IN(plan.updated_at)}</p>`
+    : emptyState('No emergency plan filed','This must be completed before departure.')}
+  </div>`)}
+  <div class="mt-4">${card(`<div class="p-4">${sectionHead('Incident log', `<span class="text-xs text-nature-500 font-mono">trip_emergency_incidents</span>`)}
+    <p class="text-sm text-nature-600">Append-only in practice — an incident is closed by resolving it, never by deleting the record.</p></div>
+  ${inc.length ? `<div class="divide-y divide-nature-100">${inc.map(i=>`<div class="p-4">
+    <div class="flex flex-wrap items-center gap-2">
+      ${badge(i.severity, SEV_TONE[i.severity])}
+      <span class="font-mono text-xs text-nature-500">${i.incident_type}</span>
+      ${badge(i.status==='resolved'?'Resolved':i.status==='in_progress'?'Open':'Open', i.status==='resolved'?'green':'amber')}
+      <span class="text-xs text-nature-400 ml-auto">${DATE_IN(i.occurred_at)}</span>
+    </div>
+    <p class="text-sm mt-2">${i.description}</p>
+    <p class="text-sm text-nature-600 mt-1"><span class="text-nature-500">Actions:</span> ${i.actions_taken}</p>
+    <p class="text-xs text-nature-400 mt-1">Reported by ${i.reported_by_user_id}${i.booking_id?' · concerns '+i.booking_id:''}</p>
+    ${i.status!=='resolved'?`<div class="mt-2">${btn('Mark resolved','ghost',`onclick="resolveIncident(&#39;${i.id}&#39;)"`)}</div>`:''}
+  </div>`).join('')}</div>` : `<div class="p-4">${emptyState('No incidents logged','Nothing has gone wrong on this departure.')}</div>`}`)}</div>
+  <div class="mt-4">${card(`<div class="p-4">${sectionHead('Medical declarations + emergency contacts', `<span class="text-xs text-nature-500 font-mono">booking_medical_declarations</span>`)}
+    <p class="text-sm text-nature-600">This is the table the booking screen could not read from before it existed. Trip leaders see this for their own assigned departures (permission matrix row 173).</p></div>
+  ${table([{t:'Booking'},{t:'Fitness'},{t:'Conditions'},{t:'Emergency contact'}], opsRoster(t.id).map(b=>{
+    const m = medicalFor(b.id);
+    if (!m) return td(`<span class="font-medium">${b.traveler}</span>`)+td('<span class="text-red-600 text-sm">not filed</span>')+td('<span class="text-nature-400">—</span>')+td('<span class="text-red-600 text-sm">missing</span>');
+    const tone = { fit:'green', minor_concerns:'amber', needs_review:'red' }[m.fitness_self_assessment];
+    return td(`<span class="font-medium">${b.traveler}</span><div class="text-xs text-nature-500">${b.id}</div>`)+
+      td(badge(m.fitness_self_assessment.replace(/_/g,' '), tone))+
+      td(m.has_medical_conditions
+          ? `<span class="text-sm">${m.conditions_description}</span>${m.medications?`<div class="text-xs text-nature-500">Meds: ${m.medications}</div>`:''}${m.allergies?`<div class="text-xs text-nature-500">Allergies: ${m.allergies}</div>`:''}`
+          : `<span class="text-sm text-nature-500">None declared</span>${m.allergies?`<div class="text-xs text-nature-500">Allergies: ${m.allergies}</div>`:''}`)+
+      td(`<span class="font-medium">${m.emergency_contact_name}</span><div class="text-xs text-nature-500">${m.emergency_contact_phone} · ${m.emergency_contact_relation}</div>`);
+  }))}`)}</div>`;
+};
+
+/* ---- P3 · documents ---- */
+V.documents = () => {
+  const all = documents().filter(d => d.category !== 'organizer_certification');
+  const bad = documents().filter(d => !documentSubjectValid(d));
+  const expiring = documents().filter(d => ['expired','expiring'].includes(docExpiry(d).state));
+  const CAT_TONE = { permit:'blue', insurance:'green', waiver:'slate', medical_form:'amber', vendor_contract:'slate', invoice:'slate', other:'slate' };
+  return `
+  ${expiring.length ? card(`<div class="p-4">
+    <p class="font-medium">${expiring.length} document${expiring.length===1?'':'s'} need attention</p>
+    <p class="text-sm text-nature-600 mt-1">Anything expired, or expiring within ${DOC_EXPIRY_WARN_DAYS} days, is what the <code class="font-mono">document_expiring_soon</code> scan picks up.</p>
+    <ul class="mt-2 space-y-1 text-sm">${expiring.map(d=>{const e=docExpiry(d);
+      return `<li class="flex flex-wrap items-center gap-2"><span class="font-medium">${d.file_name}</span>
+        <span class="text-nature-500">${documentSubject(d)}</span>
+        ${e.state==='expired'?badge('expired '+Math.abs(e.days)+'d ago','red'):badge('expires in '+e.days+'d','amber')}
+        ${btn('Notify','ghost',`onclick="notifyExpiry(&#39;${d.id}&#39;)"`)}</li>`;
+    }).join('')}</ul>
+  </div>`, 'border-earth-300') : ''}
+  <div class="mt-4">${card(`<div class="p-4">${sectionHead('Documents', `<span class="text-xs text-nature-500 font-mono">documents</span>`)}
+    <p class="text-sm text-nature-600">One polymorphic table with four nullable subject columns and a CHECK that exactly one is set — so a single upload endpoint and a single expiry scan cover permits, insurance, waivers, medical forms and vendor contracts alike.</p></div>
+  ${table([{t:'File'},{t:'Category'},{t:'Attached to'},{t:'Issued'},{t:'Expires'},{t:'Verification'}], all.map(d=>{
+    const e = docExpiry(d);
+    return td(`<span class="font-medium">${d.file_name}</span><div class="text-xs text-nature-500">${Math.round(d.file_size_bytes/1024)} KB · uploaded by ${d.uploaded_by}</div>`)+
+      td(badge(d.category.replace(/_/g,' '), CAT_TONE[d.category]))+
+      td(documentSubject(d))+
+      td(d.issue_date?DATE_IN(d.issue_date):'<span class="text-nature-400">—</span>')+
+      td(!d.expiry_date?'<span class="text-nature-400">—</span>'
+         : e.state==='expired' ? `<span class="text-red-600">${DATE_IN(d.expiry_date)}</span>`
+         : e.state==='expiring'? `<span class="text-earth-800">${DATE_IN(d.expiry_date)}</span>`
+         : DATE_IN(d.expiry_date))+
+      td(d.verification_status==='not_applicable'?'<span class="text-nature-400 text-sm">n/a</span>'
+         : badge(d.verification_status, d.verification_status==='verified'?'green':d.verification_status==='rejected'?'red':'amber'));
+  }))}`)}</div>
+  ${bad.length?`<div class="mt-4">${card(`<div class="p-4 text-sm"><p class="font-medium text-red-700">${bad.length} document row${bad.length===1?'':'s'} fail the subject CHECK</p>
+    <p class="text-nature-700 mt-1">Exactly one subject column must be non-null. A document attached to nothing has no owner to expire against; one attached to two has two.</p></div>`)}</div>`:''}
+  <div class="mt-4">${card(`<div class="p-4">${sectionHead('Ops notification log', `<span class="text-xs text-nature-500 font-mono">ops_document_events → ops_notification_log</span>`)}
+    <p class="text-sm text-nature-600">Same transactional-outbox shape as Vendor OS: the event is written first, the send is logged after.</p>
+    ${opsLog().length?`<ul class="mt-3 space-y-2">${opsLog().slice().reverse().map(l=>`<li class="text-sm border-l-2 border-forest-500 pl-3">
+      <span class="font-mono text-xs text-nature-500">${l.event_type}</span> ${badge(l.status==='sent'?'Delivered':'Failed', l.status==='sent'?'green':'red')}
+      <div class="text-nature-600">${l.snapshot||''}</div>
+      <div class="text-xs text-nature-400">${new Date(l.sent_at).toLocaleString('en-IN')} · ${l.channel} · ${l.recipient_user_id}</div></li>`).join('')}</ul>`
+    :`<p class="text-sm text-nature-500 mt-2">Nothing sent yet. Trigger one from an expiring document or a permit status change.</p>`}
+  </div>`)}</div>`;
+};
+
+V.certifications = () => {
+  const certs = documents().filter(d => d.category==='organizer_certification');
+  return card(`<div class="p-4">${sectionHead('Organizer certifications', `<span class="text-xs text-nature-500 font-mono">documents · subject_user_id</span>`)}
+    <p class="text-sm text-nature-600">Your own credentials, not a trip's. These are the documents with <code class="font-mono">subject_user_id</code> set, and the only category besides permits where verification status is meaningful.</p></div>
+  ${table([{t:'Certification'},{t:'Issued'},{t:'Expires'},{t:'Verification'},{t:'',right:true}], certs.map(d=>{
+    const e = docExpiry(d);
+    return td(`<span class="font-medium">${d.file_name}</span>`)+
+      td(d.issue_date?DATE_IN(d.issue_date):'—')+
+      td(e.state==='expired'?`<span class="text-red-600">${DATE_IN(d.expiry_date)} · expired</span>`
+        :e.state==='expiring'?`<span class="text-earth-800">${DATE_IN(d.expiry_date)} · in ${e.days}d</span>`
+        :DATE_IN(d.expiry_date))+
+      td(badge(d.verification_status, d.verification_status==='verified'?'green':d.verification_status==='rejected'?'red':'amber'))+
+      td(e.state==='valid'?'<span class="text-xs text-nature-400">in date</span>':btn('Notify','ghost',`onclick="notifyExpiry(&#39;${d.id}&#39;)"`),'text-right');
+  }))}`);
+};
+
+/* ---- P3 · CRM ---- */
+V.crm = () => {
+  const rows = crmCustomers();
+  const repeat = rows.filter(c=>c.segment==='Repeat').length;
+  const noEmergency = rows.filter(c=>c.confirmed>0 && !c.hasEmergency);
+  return `
+  <div class="grid gap-4 sm:grid-cols-4 mb-5">
+    ${[['Customers',String(rows.length),'anyone who has booked'],
+       ['Repeat',String(repeat),'more than one confirmed'],
+       ['Total spend',INR(rows.reduce((s,c)=>s+c.spend,0)),'confirmed bookings'],
+       ['Tagged',String(rows.filter(c=>c.tags.length).length),'have at least one tag']]
+      .map(([l,v,n])=>card(`<div class="p-4"><p class="text-xs text-nature-500">${l}</p><p class="mt-1 text-2xl font-semibold tnum">${v}</p><p class="text-xs text-nature-400 mt-1">${n}</p></div>`)).join('')}
+  </div>
+  ${noEmergency.length?card(`<div class="p-4 text-sm">
+    <p class="font-medium">${noEmergency.length} customer${noEmergency.length===1?'':'s'} with a confirmed booking have no emergency contact on file</p>
+    <p class="text-nature-600 mt-1">${noEmergency.map(c=>c.traveler||c.name).join(', ')} — a per-booking medical declaration may still cover them; this is the organizer-level record.</p>
+  </div>`,'border-earth-300 mb-4'):''}
+  ${card(`<div class="p-4">${sectionHead('Customers', `<span class="text-xs text-nature-500 font-mono">customer_profiles</span>`)}
+    <p class="text-sm text-nature-600">The list is derived from bookings on your trips — a traveller whose enrichment record was never opened still appears, otherwise the list would quietly hide customers.</p></div>
+  ${table([{t:'Customer'},{t:'Segment'},{t:'Bookings'},{t:'Spend',right:true},{t:'Tags'},{t:'Emergency contact'},{t:'',right:true}], rows.map(c=>
+    td(`<span class="font-medium">${c.name}</span><div class="text-xs text-nature-500">last booked ${DATE_IN(c.last)}</div>`)+
+    td(badge(c.segment, c.segment==='Repeat'?'green':c.segment==='New'?'slate':'amber'))+
+    td(`<span class="tnum">${c.confirmed}</span>${c.bookings>c.confirmed?`<span class="text-xs text-nature-400"> of ${c.bookings}</span>`:''}`)+
+    td(`<span class="tnum">${INR(c.spend)}</span>`,'text-right')+
+    td(c.tags.length?c.tags.map(t=>`<span class="text-[11px] bg-nature-100 rounded px-1.5 py-0.5 mr-1">${t.tag_label}</span>`).join(''):'<span class="text-nature-400 text-sm">—</span>')+
+    td(c.hasEmergency?`<span class="text-sm">${c.profile.emergency_contact_name}</span><div class="text-xs text-nature-500">${c.profile.emergency_contact_phone}</div>`:'<span class="text-sm text-earth-800">not on file</span>')+
+    td(btn('Open','ghost',`onclick="openCustomer(&#39;${c.name.replace(/'/g,'')}&#39;)"`),'text-right')
+  ))}`)}`;
+};
+
+/* ---- P3 · knowledge hub ---- */
+V.knowledge = () => {
+  const arts = publishedArticles();
+  const byCat = {};
+  arts.forEach(a => (byCat[a.category] = byCat[a.category] || []).push(a));
+  const drafts = knowledgeArticles().length - arts.length;
+  return `
+  ${card(`<div class="p-4">${sectionHead('Knowledge Hub', `<span class="text-xs text-nature-500 font-mono">knowledge_articles</span>`)}
+    <p class="text-sm text-nature-600">Platform-authored guidance, readable by every role on your team. You cannot edit these — authoring is platform-admin only, which is why unpublished drafts (${drafts}) never appear here.</p>
+  </div>`)}
+  <div class="mt-4 grid gap-4 lg:grid-cols-2">
+    ${KNOWLEDGE_CATEGORIES.filter(c=>byCat[c]).map(c=>card(`<div class="p-4">
+      <p class="text-xs font-medium uppercase tracking-wide text-nature-500 mb-2">${CATEGORY_LABEL[c]}</p>
+      <ul class="space-y-3">${byCat[c].map(a=>`<li>
+        <button class="text-left w-full group" onclick="openArticle(&#39;${a.slug}&#39;)">
+          <span class="font-medium group-hover:text-forest-700">${a.title}</span>
+          <div class="text-xs text-nature-500">${DATE_IN(a.published_at)}${a.attachments.length?` · ${a.attachments.length} attachment${a.attachments.length===1?'':'s'}`:''}</div>
+        </button></li>`).join('')}</ul>
+    </div>`)).join('')}
+  </div>`;
+};
+
+/* ---- P3 · business profile ---- */
+V['business-profile'] = () => {
+  const p = orgProfile();
+  const vTone = { verified:'green', pending:'amber', unverified:'slate', rejected:'red' };
+  const links = Object.entries(p.social_links).filter(([,v])=>v);
+  return `
+  <div class="grid gap-4 lg:grid-cols-3">
+    <div class="lg:col-span-2 space-y-4">
+      ${card(`<div class="p-4">${sectionHead('Business description')}
+        <p class="text-sm text-nature-700">${p.business_description}</p>
+        <div class="mt-4">${btn('Edit description','ghost','onclick="editDescription()"')}</div>
+      </div>`)}
+      ${card(`<div class="p-4">${sectionHead('Cover images', `<span class="text-xs text-nature-500">${p.cover_image_urls.length} of ${COVER_IMAGE_CAP}</span>`)}
+        <p class="text-sm text-nature-600">Capped at ${COVER_IMAGE_CAP} at the API layer. Cloudinary URLs only — the platform never stores image blobs in the database.</p>
+        <div class="mt-3 grid grid-cols-2 sm:grid-cols-5 gap-2">
+          ${p.cover_image_urls.map(u=>`<div class="aspect-[4/3] rounded-md bg-nature-100 border border-nature-200 grid place-items-center text-[10px] text-nature-500 text-center px-1">${u}</div>`).join('')}
+          ${p.cover_image_urls.length < COVER_IMAGE_CAP
+            ? `<button class="aspect-[4/3] rounded-md border border-dashed border-nature-300 hover:bg-nature-50 grid place-items-center text-xs text-nature-500" onclick="addCover()">+ Add</button>`
+            : `<div class="aspect-[4/3] rounded-md border border-dashed border-nature-300 grid place-items-center text-[10px] text-nature-400 text-center px-1">cap reached</div>`}
+        </div>
+      </div>`)}
+      ${card(`<div class="p-4">${sectionHead('Portfolio', `<span class="text-xs text-nature-500 font-mono">company_portfolio</span>`)}
+        <div class="space-y-3">${p.company_portfolio.map(w=>`<div class="rounded-md border border-nature-200 p-3">
+          <div class="flex items-center justify-between gap-2"><p class="font-medium">${w.title}</p><span class="text-xs text-nature-500 tnum">${w.completed_year}</span></div>
+          <p class="text-sm text-nature-600 mt-1">${w.description}</p></div>`).join('')}</div>
+      </div>`)}
+    </div>
+    <div class="space-y-4">
+      ${card(`<div class="p-4">${sectionHead('Verification')}
+        <dl class="text-sm space-y-2">
+          <div class="flex justify-between"><dt class="text-nature-500">Profile</dt><dd>${badge(p.verification_status, vTone[p.verification_status])}</dd></div>
+          <div class="flex justify-between"><dt class="text-nature-500">KYC (Razorpay)</dt><dd>${badge(p.kyc_status.replace(/_/g,' '), vTone[p.kyc_status]||'slate')}</dd></div>
+          <div class="flex justify-between"><dt class="text-nature-500">Linked account</dt><dd class="font-mono text-xs">${p.razorpay_linked_account_id||'—'}</dd></div>
+        </dl>
+        <p class="text-xs text-nature-500 mt-3">Payouts read <code class="font-mono">kyc_status</code> as a precondition — an unverified account cannot be transferred to, which is why a payout can sit at <code class="font-mono">kyc_blocked</code> rather than failing.</p>
+      </div>`)}
+      ${card(`<div class="p-4">${sectionHead('Links')}
+        ${links.length?`<ul class="text-sm space-y-1.5">${links.map(([k,v])=>`<li class="flex justify-between gap-2"><span class="text-nature-500 capitalize">${k}</span><span class="truncate">${v}</span></li>`).join('')}</ul>`:'<p class="text-sm text-nature-400">None set</p>'}
+        <div class="mt-3">${btn('Edit links','ghost','onclick="toast(&#39;Link editor is part of Settings in the React build&#39;)"')}</div>
+      </div>`)}
+    </div>
+  </div>`;
+};
+
 /* ---- G-24 · profitability ---- */
 V['an-profitability'] = () => {
   const rows = vProfitabilityByTrip().sort((a,b)=>b.profit-a.profit);
@@ -1245,9 +2053,9 @@ V['an-occupancy'] = () => {
   </div>
   ${card(`<div class="p-4">${sectionHead('Occupancy by trip', `<span class="text-xs text-nature-500 font-mono">v_occupancy_by_trip</span>`)}
     <p class="text-sm text-nature-600">A trip with no capacity set returns its cap as <code class="font-mono">NULL</code>. That is shown as unavailable, never as 0% or 100%.</p></div>
-  ${table([{t:'Trip'},{t:'Confirmed'},{t:'Capacity'},{t:'Occupancy'}], occ.map(o=>
-    td(`<span class="font-medium">${o.trip}</span>`)+
-    td(`<span class="tnum">${o.booked}</span>`)+
+  ${table([{t:'Trip'},{t:'Seats confirmed'},{t:'Capacity'},{t:'Occupancy'}], occ.map(o=>
+    td(`<span class="font-medium">${o.trip}</span><div class="text-xs text-nature-500">${o.code} · ${o.dep}${o.past?' · departed':''}</div>`)+
+    td(`<span class="tnum">${o.booked}</span><div class="text-[11px] text-nature-400">across ${o.rows} booking${o.rows===1?'':'s'}</div>`)+
     td(o.cap===null?'<span class="text-nature-400">not set</span>':`<span class="tnum">${o.cap}</span>`)+
     td(o.pct===null?'<span class="text-sm text-nature-500">capacity data unavailable</span>':fillBar(Math.min(o.pct,100)))
   ))}`)}
@@ -1345,7 +2153,10 @@ V.trips = () => {
                  : t.template_id ? `<div class="text-[11px] text-nature-400">from template</div>` : '';
     const sched = eff==='scheduled' && t.publish_at ? `<div class="text-[11px] text-nature-400">goes live ${DATE_IN(t.publish_at)}</div>` : '';
     return td(`<span class="font-medium">${t.name}</span><div class="text-xs text-nature-500">${t.code}</div>${origin}`)+
-    td(t.dep)+td(t.days+' days')+td(`<span class="tnum">${t.seats}</span> ${fillBar(t.fill)}`)+
+    td(t.dep)+td(t.days+' days')+
+    td(t.max_participants
+        ? `<span class="tnum">${seatsLabel(t)}</span> ${fillBar(fillPct(t))}`
+        : `<span class="tnum">${seatsLabel(t)}</span><div class="text-[11px] text-nature-400">no capacity set</div>`)+
     td(`<span class="tnum">${INR(t.price)}</span>`)+
     td(`<span class="font-mono text-xs">${eff}</span>${sched}`)+
     td(badge(sellState(t)))+
@@ -2173,6 +2984,218 @@ function toast(msg){
 }
 window.toast = toast;
 
+/* ---- P3 · operations actions ---- */
+window.gotoRoster = function(tripName){
+  const t = tripRows().find(x => x.name===tripName && !hasDeparted(x)) || tripRows().find(x => x.name===tripName);
+  if (t) STORE.set('opsTrip', t.id);
+  STORE.set('opsTab', 'emergency');
+  document.getElementById('modal').hidden = true;
+  location.hash = 'ops';
+};
+window.setOpsTrip = function(id){ STORE.set('opsTrip', id); route(); };
+window.setOpsTab  = function(k){ STORE.set('opsTab', k); route(); };
+
+window.toggleChecklist = function(bookingId, tplId){
+  const rows = checklistCompletions();
+  const hit = rows.find(c => c.booking_id===bookingId && c.trip_checklist_template_id===tplId);
+  if (hit) {
+    /* UNIQUE(booking_id, template_id) — toggling updates the row, never adds a second. */
+    hit.is_complete = !hit.is_complete;
+    hit.completed_at = hit.is_complete ? Date.now() : null;
+  } else {
+    rows.push({ id:'cc'+Date.now(), booking_id:bookingId, trip_checklist_template_id:tplId,
+                is_complete:true, completed_at:Date.now() });
+  }
+  STORE.set('bookingChecklistCompletions', rows);
+  route();
+};
+
+window.assignRoom = function(bookingId){
+  const t = tripRows().find(x=>x.id===opsTrip());
+  const rooms = tripRooms().filter(r=>r.trip_id===t.id);
+  const b = analyticsBookings().find(x=>x.id===bookingId);
+  openModal('Place ' + b.traveler + ' (' + b.pax + ' seat' + (b.pax===1?'':'s') + ')', `
+    <p class="text-sm text-nature-600">Rooms already at capacity are still selectable — the check warns, it does not block. An organizer adding a mattress knows something the database does not.</p>
+    <div class="mt-4 space-y-2">${rooms.map(rm=>{
+      const occ = roomOccupants(rm.id), after = occ + b.pax, over = after > rm.capacity;
+      return `<button class="w-full text-left rounded-md border ${over?'border-earth-300 bg-earth-50':'border-nature-200 hover:bg-nature-50'} p-3"
+        onclick="confirmRoom(&#39;${bookingId}&#39;,&#39;${rm.id}&#39;)">
+        <div class="flex items-center justify-between"><span class="font-medium">Room ${rm.room_label}</span>
+          <span class="text-xs tnum ${over?'text-earth-800':'text-nature-500'}">${occ}/${rm.capacity} → ${after}/${rm.capacity}</span></div>
+        <div class="text-xs text-nature-500">${rm.room_type}</div>
+        ${over?`<div class="text-xs text-earth-800 mt-1">Would exceed capacity by ${after-rm.capacity}</div>`:''}
+      </button>`;
+    }).join('')}</div>`);
+};
+window.confirmRoom = function(bookingId, roomId){
+  const rows = roomAssignments();
+  if (rows.find(r => r.booking_id===bookingId && r.trip_room_id===roomId)) {
+    toast('Already placed in that room.'); return;      // UNIQUE(booking_id, trip_room_id)
+  }
+  rows.push({ id:'ra'+Date.now(), booking_id:bookingId, trip_room_id:roomId, assigned_at:Date.now(), notes:'' });
+  STORE.set('bookingRoomAssignments', rows);
+  document.getElementById('modal').hidden = true;
+  const rm = tripRooms().find(r=>r.id===roomId);
+  const occ = roomOccupants(roomId);
+  toast(occ > rm.capacity ? `Placed — room ${rm.room_label} is now over capacity by ${occ-rm.capacity}.` : `Placed in room ${rm.room_label}.`);
+  route();
+};
+window.unassignRoom = function(id){
+  STORE.set('bookingRoomAssignments', roomAssignments().filter(r => r.id!==id));
+  toast('Removed from room.'); route();
+};
+
+window.markAttendance = function(bookingId, status){
+  const date = new Date().toISOString().slice(0,10);
+  const rows = attendanceRows();
+  const hit = rows.find(a => a.booking_id===bookingId && a.attendance_date===date);
+  if (hit) { hit.status = status; hit.marked_at = Date.now(); }   // UNIQUE(booking_id, date)
+  else rows.push({ id:'at'+Date.now(), booking_id:bookingId, attendance_date:date,
+                   status, marked_by_user_id:'Demo Organizer', marked_at:Date.now(), notes:'' });
+  STORE.set('bookingAttendance', rows);
+  route();
+};
+
+window.issueAllocation = function(id){
+  const rows = allocations();
+  const a = rows.find(x=>x.id===id); if (!a) return;
+  a.status = 'issued';
+  STORE.set('tripEquipmentAllocations', rows);
+  toast('Issued — this quantity is no longer free stock.'); route();
+};
+window.returnAllocation = function(id){
+  const rows = allocations();
+  const a = rows.find(x=>x.id===id); if (!a) return;
+  a.status = 'returned'; a.quantity_returned = a.quantity; a.returned_at = Date.now();
+  STORE.set('tripEquipmentAllocations', rows);
+  toast('Returned — back in free stock.'); route();
+};
+
+window.setPermitStatus = function(id, status){
+  const rows = tripPermits();
+  const p = rows.find(x=>x.id===id); if (!p) return;
+  const from = p.status;
+  p.status = status;
+  if (status==='approved' && !p.issue_date) p.issue_date = Date.now();
+  STORE.set('tripPermits', rows);
+  emitOpsEvent('permit_status_changed', { trip_id:p.trip_id,
+    payload:{ permit:p.permit_type, from, to:status },
+    body:`Permit ${p.permit_type.replace(/_/g,' ')} (${p.issuing_authority}) moved from ${from.replace(/_/g,' ')} to ${status.replace(/_/g,' ')}.` });
+  const eff = permitStatus(p);
+  toast(eff !== status
+    ? `Saved as ${status} — but the expiry has passed, so it reads ${eff}.`
+    : `Permit ${status.replace(/_/g,' ')}. Event queued.`);
+  route();
+};
+
+window.resolveIncident = function(id){
+  const rows = incidents();
+  const i = rows.find(x=>x.id===id); if (!i) return;
+  i.status = 'resolved'; i.resolved_at = Date.now();
+  STORE.set('tripEmergencyIncidents', rows);
+  toast('Incident resolved — the record stays in the log.'); route();
+};
+
+window.notifyExpiry = function(docId){
+  const d = documents().find(x=>x.id===docId); if (!d) return;
+  const e = docExpiry(d);
+  emitOpsEvent('document_expiring_soon', {
+    trip_id:d.subject_trip_id, booking_id:d.subject_booking_id, document_id:d.id,
+    payload:{ file:d.file_name, days:e.days },
+    body: e.state==='expired'
+      ? `${d.file_name} (${documentSubject(d)}) expired ${Math.abs(e.days)} days ago and needs replacing.`
+      : `${d.file_name} (${documentSubject(d)}) expires in ${e.days} days.` });
+  toast('Reminder queued and logged.');
+  route();
+};
+
+/* ---- P3 · CRM actions ---- */
+window.openCustomer = function(name){
+  const c = crmCustomers().find(x => x.name === name); if (!c) return;
+  const p = c.profile;
+  openModal(c.name, `
+    <div class="flex flex-wrap items-center gap-2">
+      ${badge(c.segment, c.segment==='Repeat'?'green':c.segment==='New'?'slate':'amber')}
+      <span class="text-sm text-nature-500">${c.confirmed} confirmed · ${INR(c.spend)} lifetime</span>
+    </div>
+
+    <div class="mt-4 rounded-md border ${c.hasEmergency?'border-nature-200':'border-earth-300 bg-earth-50'} p-3">
+      <p class="text-xs font-medium uppercase tracking-wide text-nature-500">Emergency contact</p>
+      ${c.hasEmergency
+        ? `<p class="text-sm mt-1"><span class="font-medium">${p.emergency_contact_name}</span> · ${p.emergency_contact_relationship}</p>
+           <p class="text-sm text-nature-600">${p.emergency_contact_phone}</p>`
+        : `<p class="text-sm text-nature-700 mt-1">Not on file at the organizer level. A per-booking medical declaration may still carry one — those are separate records and the trip roster is where a leader reads them.</p>`}
+    </div>
+
+    <div class="mt-4">
+      <p class="text-xs font-medium uppercase tracking-wide text-nature-500 mb-1.5">Tags</p>
+      <div class="flex flex-wrap gap-1.5">
+        ${c.tags.map(t=>`<span class="text-xs bg-nature-100 rounded px-2 py-1">${t.tag_label}</span>`).join('') || '<span class="text-sm text-nature-400">None</span>'}
+      </div>
+    </div>
+
+    <div class="mt-4">
+      <p class="text-xs font-medium uppercase tracking-wide text-nature-500 mb-1.5">Travel history</p>
+      <ul class="text-sm space-y-1">${c.trips.sort((a,b)=>b.at-a.at).map(t=>
+        `<li class="flex justify-between gap-2"><span>${t.trip} <span class="text-nature-400">· ${t.pax} seat${t.pax===1?'':'s'}</span></span>
+         <span class="tnum ${t.status==='confirmed'?'':'text-nature-400'}">${INR(t.amount)}${t.status!=='confirmed'?' ('+t.status.replace('_',' ')+')':''}</span></li>`).join('')}</ul>
+    </div>
+
+    <div class="mt-4">
+      <p class="text-xs font-medium uppercase tracking-wide text-nature-500 mb-1.5">Notes</p>
+      <p class="text-xs text-nature-500 mb-2">Append-only — a mistaken note is corrected by adding another, never by editing history.</p>
+      ${p ? `<textarea id="noteText" rows="2" class="w-full rounded-md border border-nature-300 p-2 text-sm" placeholder="Add a note..."></textarea>
+             <div class="mt-2">${btn('Add note','primary',`onclick="addNote(&#39;${p.id}&#39;,&#39;${name.replace(/'/g,'')}&#39;)"`)}</div>`
+           : `<p class="text-sm text-nature-500">No enrichment record yet — one is created the first time you add a note or contact.</p>`}
+      <ul class="mt-3 space-y-2">${c.notes.map(n=>`<li class="text-sm border-l-2 border-nature-300 pl-3">
+        ${n.note_text}<div class="text-xs text-nature-400 mt-0.5">${n.author_user_id} · ${DATE_IN(n.created_at)}</div></li>`).join('')
+        || '<li class="text-sm text-nature-400">No notes yet.</li>'}</ul>
+    </div>`);
+};
+window.addNote = function(profileId, name){
+  const txt = (document.getElementById('noteText').value || '').trim();
+  if (!txt) { toast('Write something first.'); return; }
+  STORE.set('customerNotes', customerNotes().concat({
+    id:'cn'+Date.now(), customer_profile_id:profileId, author_user_id:'Demo Organizer',
+    note_text:txt, created_at:Date.now() }));
+  toast('Note added — earlier notes are untouched.');
+  openCustomer(name);
+};
+
+/* ---- P3 · knowledge + profile ---- */
+window.openArticle = function(slug){
+  const a = knowledgeArticles().find(x=>x.slug===slug); if (!a) return;
+  openModal(a.title, `
+    <div class="flex items-center gap-2 mb-3">
+      ${badge(CATEGORY_LABEL[a.category],'blue')}
+      <span class="text-xs text-nature-500">${DATE_IN(a.published_at)} · ${a.author}</span>
+    </div>
+    ${a.content.split('\n\n').map(p=>`<p class="text-sm text-nature-700 mb-3 leading-relaxed">${p}</p>`).join('')}
+    ${a.attachments.length?`<div class="mt-4 pt-3 border-t border-nature-200">
+      <p class="text-xs font-medium uppercase tracking-wide text-nature-500 mb-2">Attachments</p>
+      <ul class="space-y-1.5">${a.attachments.map(at=>`<li class="text-sm flex items-center gap-2">
+        <span class="text-nature-400">${ico('file')}</span>${at.label}</li>`).join('')}</ul></div>`:''}`);
+};
+window.editDescription = function(){
+  const p = orgProfile();
+  openModal('Business description', `
+    <textarea id="bizDesc" rows="5" class="w-full rounded-md border border-nature-300 p-3 text-sm">${p.business_description}</textarea>
+    <div class="mt-4 flex justify-end gap-2">${btn('Cancel','ghost','data-close')}${btn('Save','primary','onclick="saveDescription()"')}</div>`);
+};
+window.saveDescription = function(){
+  const v = (document.getElementById('bizDesc').value || '').trim();
+  if (!v) { toast('Description cannot be empty.'); return; }
+  STORE.set('organizerProfile', { ...orgProfile(), business_description:v });
+  document.getElementById('modal').hidden = true;
+  toast('Saved.'); route();
+};
+window.addCover = function(){
+  const p = orgProfile();
+  if (p.cover_image_urls.length >= COVER_IMAGE_CAP) { toast(`Capped at ${COVER_IMAGE_CAP} cover images.`); return; }
+  STORE.set('organizerProfile', { ...p, cover_image_urls: p.cover_image_urls.concat('cover-' + (p.cover_image_urls.length+1) + '.jpg') });
+  toast('Cover added.'); route();
+};
+
 /* ---- P2 · trip lifecycle, template and series actions ---- */
 window.doPublish = function(id){
   publishTrip(id);
@@ -2298,12 +3321,25 @@ window.openBooking = function(id){
         <span><span class="font-mono text-xs text-nature-500">${e.type}</span><br>${e.note} <span class="text-nature-400">· ${e.when}</span></span></li>`).join('')}</ol>
     </div>
 
+    ${(() => {
+      const m = medicalFor(b.id);
+      return `<div class="mt-4 rounded-md border ${m?'border-nature-200 bg-nature-50':'border-earth-300 bg-earth-50'} p-3 text-sm">
+        <p class="font-medium">Medical declaration + emergency contact</p>
+        ${m ? `<p class="text-nature-700 mt-1"><span class="font-medium">${m.emergency_contact_name}</span> · ${m.emergency_contact_relation} · ${m.emergency_contact_phone}</p>
+               <p class="text-nature-600">Fitness: ${m.fitness_self_assessment.replace(/_/g,' ')}${m.has_medical_conditions?' — '+m.conditions_description:''}</p>`
+             : `<p class="text-nature-700 mt-1">Not filed for this booking.</p>`}
+        <p class="text-xs text-nature-500 mt-2">Lives in <code class="font-mono">booking_medical_declarations</code>, one row per booking — a booking is one reservation for N seats, so this is not a per-person record. The organizer-level contact on the customer's CRM profile is a separate field.</p>
+        <div class="mt-2 flex gap-2">
+          ${btn('Open trip roster','ghost',`onclick="gotoRoster(&#39;${b.trip.replace(/'/g,'')}&#39;)"`)}
+          ${btn('Open CRM profile','ghost',`onclick="openCustomer(&#39;${b.traveller.replace(/'/g,'')}&#39;)"`)}
+        </div>
+      </div>`;
+    })()}
+
     <div class="mt-4 rounded-md border border-nature-300 border-dashed p-3 text-sm">
-      <p class="font-medium">Two things this screen deliberately does not show</p>
-      <ul class="mt-2 space-y-2 text-nature-700">
-        <li><strong>Per-participant roster and emergency contacts.</strong> The booking spec puts these explicitly out of scope — a booking is one traveller's reservation for N seats, and names, medical forms and room allocation belong to Operations Management, which will FK into <code class="font-mono">bookings.id</code>. There is no table to read them from yet, so nothing is invented here.</li>
-        <li><strong>Approve / reject.</strong> FR-2 asks for it, but <code class="font-mono">bookings.status</code> has no such transition — it runs pending_payment → confirmed on payment capture, with no organizer gate in between. Adding buttons would imply a workflow the backend cannot honour.</li>
-      </ul>
+      <p class="font-medium">One thing this screen deliberately does not show</p>
+      <p class="text-nature-700 mt-1"><strong>Approve / reject.</strong> FR-2 asks for it, but <code class="font-mono">bookings.status</code> has no such transition — it runs pending_payment → confirmed on payment capture, with no organizer gate in between. Adding buttons would imply a workflow the backend cannot honour.</p>
+      <p class="text-nature-600 mt-2">A <strong>per-participant</strong> roster is still absent: every operations table keys to <code class="font-mono">bookings.id</code>, so a party of four cannot be split across rooms or vehicles. That needs a table no spec defines.</p>
     </div>
 
     <div class="mt-5 pt-4 border-t border-nature-200 flex flex-wrap gap-2">
