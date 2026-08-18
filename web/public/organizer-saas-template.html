@@ -1,0 +1,2693 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TrekTribe — Organizer OS (Template)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: { extend: { colors: {
+    forest:{50:'#f0fdf4',100:'#dcfce7',200:'#bbf7d0',300:'#86efac',400:'#4ade80',500:'#22c55e',600:'#16a34a',700:'#15803d',800:'#166534',900:'#14532d',950:'#052e16'},
+    nature:{50:'#fafaf9',100:'#f5f5f4',200:'#e7e5e4',300:'#d6d3d1',400:'#a8a29e',500:'#78716c',600:'#57534e',700:'#44403c',800:'#292524',900:'#1c1917',950:'#0c0a09'},
+    earth:{50:'#fffbeb',100:'#fef3c7',200:'#fde68a',300:'#fcd34d',400:'#fbbf24',500:'#f59e0b',600:'#d97706',700:'#b45309',800:'#92400e',900:'#78350f',950:'#451a03'}
+  }, fontFamily:{ sans:['Inter','system-ui','sans-serif'], mono:['"JetBrains Mono"','ui-monospace','monospace'] } } }
+}
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:#d6d3d1;border-radius:4px}
+  [hidden]{display:none!important}
+  .tnum{font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body class="bg-nature-100 text-nature-900 font-sans text-[15px] antialiased">
+
+<div class="flex min-h-screen">
+
+  <!-- ================= SIDEBAR ================= -->
+  <aside id="sidebar" class="w-64 shrink-0 bg-white border-r border-nature-200 flex flex-col fixed inset-y-0 left-0 z-40 -translate-x-full lg:translate-x-0 transition-transform">
+    <div class="h-16 flex items-center gap-2.5 px-5 border-b border-nature-200">
+      <div class="w-8 h-8 rounded-lg bg-forest-600 text-white grid place-items-center font-bold">T</div>
+      <div class="leading-tight">
+        <div class="font-semibold text-sm">TrekTribe</div>
+        <div class="text-[11px] text-nature-500">Organizer OS</div>
+      </div>
+    </div>
+
+    <nav id="nav" class="flex-1 overflow-y-auto py-4 px-3 space-y-5 text-sm"></nav>
+
+    <div class="p-3 border-t border-nature-200">
+      <div class="rounded-lg bg-forest-50 border border-forest-200 p-3">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-semibold uppercase tracking-wide text-forest-700">Professional</span>
+          <span class="text-[11px] text-forest-600">renews 12 Sep</span>
+        </div>
+        <div class="mt-2 h-1.5 rounded-full bg-forest-200 overflow-hidden">
+          <div class="h-full bg-forest-600" style="width:62%"></div>
+        </div>
+        <p class="mt-1.5 text-[11px] text-forest-700">8 of 13 trips used this cycle</p>
+        <a href="#billing" class="mt-2.5 block text-center text-xs font-semibold text-white bg-forest-600 hover:bg-forest-700 rounded-md py-1.5">Manage plan</a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ================= MAIN ================= -->
+  <div class="flex-1 lg:pl-64 min-w-0">
+
+    <header class="h-16 bg-white/90 backdrop-blur border-b border-nature-200 sticky top-0 z-30 flex items-center gap-3 px-4 sm:px-6">
+      <button id="menuBtn" class="lg:hidden p-2 -ml-2 rounded-md hover:bg-nature-100" aria-label="Menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
+
+      <div class="min-w-0">
+        <h1 id="pageTitle" class="font-semibold truncate">Dashboard</h1>
+        <p id="pageSub" class="text-xs text-nature-500 truncate">—</p>
+      </div>
+
+      <div class="ml-auto flex items-center gap-2">
+        <div class="hidden md:flex items-center gap-2 bg-nature-100 rounded-md px-3 h-9 w-64">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-nature-400"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input placeholder="Search trips, leads, vendors…" class="bg-transparent text-sm outline-none w-full placeholder:text-nature-400" />
+        </div>
+        <!-- role switcher: demonstrates FR-17 / NFR-6 gating live -->
+        <label class="hidden sm:flex items-center gap-1.5 text-xs text-nature-500">
+          <span class="uppercase tracking-wide">Role</span>
+          <select id="roleSel" class="h-9 rounded-md border border-nature-300 bg-white px-2 text-sm text-nature-800">
+            <option value="owner">Owner</option>
+            <option value="operations">Operations</option>
+            <option value="finance">Finance</option>
+            <option value="marketing">Marketing</option>
+            <option value="trip_leader">Trip leader</option>
+          </select>
+        </label>
+        <button class="relative p-2 rounded-md hover:bg-nature-100" aria-label="Notifications">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+          <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white"></span>
+        </button>
+        <div class="flex items-center gap-2 pl-2 border-l border-nature-200">
+          <div class="w-8 h-8 rounded-full bg-forest-600 text-white grid place-items-center text-xs font-semibold">DO</div>
+          <div class="hidden sm:block leading-tight">
+            <div class="text-xs font-semibold">Demo Organizer</div>
+            <div class="text-[11px] text-nature-500">Verified</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main id="view" class="p-4 sm:p-6 max-w-[1500px]"></main>
+  </div>
+</div>
+
+<!-- backdrop for mobile sidebar -->
+<div id="backdrop" class="fixed inset-0 bg-nature-900/40 z-30 lg:hidden" hidden></div>
+
+<!-- modal -->
+<div id="modal" class="fixed inset-0 z-50 grid place-items-center p-4" hidden>
+  <div class="absolute inset-0 bg-nature-900/50" data-close></div>
+  <div class="relative bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-auto">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-nature-200">
+      <h3 id="modalTitle" class="font-semibold">Title</h3>
+      <button data-close class="p-1.5 rounded-md hover:bg-nature-100" aria-label="Close">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div id="modalBody" class="p-5"></div>
+  </div>
+</div>
+
+<!-- toast -->
+<div id="toast" class="fixed bottom-5 right-5 z-50 bg-nature-900 text-white text-sm px-4 py-2.5 rounded-lg shadow-lg" hidden></div>
+
+<script>
+/* =======================================================================
+   TrekTribe Organizer OS — clickable HTML template
+   Hash-routed single file. Every screen maps to real backend modules:
+     crm, vendors, vendorAssignments, vendorCommunications, finance,
+     bookings, paymentVerification, subscriptions, analytics, customTrips,
+     reviews, trips, bankDetails/autoPay, organizer
+   Replace the MOCK objects with API calls when porting to React.
+   ======================================================================= */
+'use strict';
+
+/* ---------------- nav definition ---------------- */
+/* `cap` = capability area from the enterprise-integrations spec's permission
+   matrix. Areas marked ASSUMED are not named in that matrix; see V.team's
+   footnote — they are flagged rather than silently decided. */
+const NAV = [
+  { group:'Overview', items:[
+    { id:'dashboard', label:'Dashboard', icon:'grid', cap:'dashboard', sub:'Revenue, bookings and lead health at a glance' },
+    { id:'analytics', label:'Analytics', icon:'chart', cap:'finance', sub:'Performance, retention and traffic' },
+    { id:'an-profitability', label:'Profitability', icon:'rupee', cap:'finance', sub:'Revenue minus expenses and vendor payments, per trip · FR-9' },
+    { id:'an-occupancy', label:'Occupancy & season', icon:'chart', cap:'finance', sub:'Seat fill per departure and demand by month · FR-9' },
+    { id:'an-customers', label:'Customers', icon:'users', cap:'finance', sub:'Repeat rate, lifetime spend and geography · FR-9' },
+    { id:'an-marketing', label:'Traffic & funnel', icon:'megaphone', cap:'finance', sub:'Views, enquiries and booking conversion · FR-9' },
+  ]},
+  { group:'Operations', items:[
+    { id:'trips', label:'Trips', icon:'mountain', cap:'trips', sub:'All departures you run' },
+    { id:'trip-new', label:'Create trip', icon:'plus', cap:'trips', sub:'Seven-step departure builder' },
+    { id:'trip-templates', label:'Templates & series', icon:'copy', cap:'trips', sub:'Reusable trip shapes and recurring departures · FR-1' },
+    { id:'bookings', label:'Bookings', icon:'ticket', cap:'ownTrips', sub:'Traveller bookings and payment state' },
+    { id:'payments', label:'Payment verification', icon:'shield', cap:'finance', sub:'UPI screenshots and QR validation queue' },
+    { id:'requests', label:'Custom requests', icon:'inbox', cap:'trips', sub:'Bespoke itinerary requests and proposals' },
+  ]},
+  { group:'Vendor OS', items:[
+    { id:'vendors', label:'Vendors', icon:'store', cap:'trips', sub:'Hotels, transport, guides, equipment, food' },
+    { id:'assignments', label:'Assignments & payouts', icon:'link', cap:'vendorPay', sub:'Who is booked on which departure' },
+    { id:'comms', label:'Communications', icon:'mail', cap:'trips', sub:'Automated vendor messages and delivery state' },
+  ]},
+  { group:'Money', items:[
+    { id:'finance', label:'Finance', icon:'rupee', cap:'finance', sub:'Per-trip P&L and expenses' },
+    { id:'settlements', label:'Settlements', icon:'bank', cap:'finance', sub:'Payouts, commission and Route status' },
+    { id:'payouts', label:'Payouts', icon:'split', cap:'finance', sub:'60/40 tranches, commission and Route transfers · FR-10' },
+    { id:'cash-flow', label:'Cash flow', icon:'flow', cap:'finance', sub:'Cash in vs cash out by month · FR-10' },
+    { id:'invoices', label:'GST invoices', icon:'invoice', cap:'finance', sub:'Rule-46 invoices issued to travellers · FR-11' },
+    { id:'gst-profile', label:'GST profile', icon:'scale', cap:'finance', sub:'Legal identity, GSTIN and tax scheme · FR-11' },
+    { id:'reconciliation', label:'Reconciliation', icon:'flag', cap:'finance', sub:'Stuck payments and refunds missing credit notes · NFR-3' },
+    { id:'billing', label:'Plan & billing', icon:'card', cap:'team', sub:'Your TrekTribe subscription — not traveller invoices' },
+  ]},
+  { group:'Marketing', items:[
+    { id:'marketing', label:'Overview', icon:'megaphone', cap:'marketing', sub:'Campaigns, offers and referral performance · FR-12/13' },
+    { id:'campaigns', label:'Campaigns', icon:'send', cap:'marketing', sub:'Email, WhatsApp and push sends · FR-13' },
+    { id:'coupons', label:'Coupons', icon:'tag', cap:'marketing', sub:'Codes, caps and redemption limits · FR-12' },
+    { id:'discount-rules', label:'Automatic discounts', icon:'percent', cap:'marketing', sub:'Early-bird and last-minute rules · FR-12' },
+    { id:'referrals', label:'Referrals', icon:'share', cap:'marketing', sub:'Referral codes and reward status · FR-12' },
+  ]},
+  { group:'Growth', items:[
+    { id:'leads', label:'Leads', icon:'users', cap:'marketing', sub:'Pipeline, scoring and conversions' },
+    { id:'tickets', label:'Support tickets', icon:'help', cap:'marketing', sub:'Traveller queries assigned to you' },
+    { id:'reviews', label:'Reviews', icon:'star', cap:'marketing', sub:'Traveller reviews and verification' },
+  ]},
+  { group:'Account', items:[
+    { id:'team', label:'Team & roles', icon:'shieldUser', cap:'team', sub:'Staff accounts and fixed permission tiers · FR-17' },
+    { id:'settings', label:'Settings', icon:'cog', cap:'team', sub:'Profile, bank details, notifications' },
+  ]},
+];
+
+const ICONS = {
+  grid:'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',
+  chart:'<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>',
+  mountain:'<path d="m3 20 7-12 4 6 2-3 5 9z"/>',
+  plus:'<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',
+  ticket:'<path d="M3 9V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 6v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-6z"/>',
+  shield:'<path d="M12 3l7 3v6c0 5-3.5 8-7 9-3.5-1-7-4-7-9V6z"/><path d="m9 12 2 2 4-4"/>',
+  inbox:'<path d="M3 12h5l2 3h4l2-3h5"/><path d="M4 12 6 5h12l2 7v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/>',
+  store:'<path d="M3 9 5 4h14l2 5"/><path d="M4 9v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9"/><path d="M9 20v-6h6v6"/>',
+  link:'<path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"/>',
+  mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+  rupee:'<path d="M7 5h10M7 9h10M15 5c0 5-3 8-8 8l7 6"/>',
+  bank:'<path d="m3 10 9-6 9 6"/><path d="M5 10v9h14v-9"/><path d="M9 19v-5h6v5"/>',
+  card:'<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
+  users:'<circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 6a3 3 0 0 1 0 6M18 20a5 5 0 0 0-3-4.6"/>',
+  help:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.7"/><path d="M12 17h.01"/>',
+  star:'<path d="m12 4 2.4 5 5.6.8-4 3.9 1 5.5-5-2.7-5 2.7 1-5.5-4-3.9 5.6-.8z"/>',
+  split:'<path d="M3 6h5l4 6 4-6h5"/><path d="M3 18h5l4-6"/><path d="m18 3 3 3-3 3"/><path d="m18 15 3 3-3 3"/>',
+  flow:'<path d="M3 17c4 0 4-10 8-10s4 10 8 10"/><path d="M3 7h3M18 17h3"/>',
+  copy:'<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+  megaphone:'<path d="m3 11 15-6v14L3 13z"/><path d="M6 12v6a2 2 0 0 0 4 0v-5"/>',
+  send:'<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/>',
+  tag:'<path d="M20 13 13 20a2 2 0 0 1-3 0L4 14V4h10l6 6a2 2 0 0 1 0 3z"/><circle cx="8.5" cy="8.5" r="1.2"/>',
+  percent:'<path d="M19 5 5 19"/><circle cx="7.5" cy="7.5" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/>',
+  share:'<circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="m8.2 10.8 7.6-3.6M8.2 13.2l7.6 3.6"/>',
+  invoice:'<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M9 12h7M9 16h5"/>',
+  scale:'<path d="M12 4v16"/><path d="M5 8h14"/><path d="m5 8-3 6h6zM19 8l-3 6h6z"/>',
+  flag:'<path d="M5 21V4"/><path d="M5 5h11l-2 4 2 4H5"/>',
+  shieldUser:'<path d="M12 3l7 3v6c0 5-3.5 8-7 9-3.5-1-7-4-7-9V6z"/><circle cx="12" cy="10" r="2"/><path d="M8.5 16a3.5 3.5 0 0 1 7 0"/>',
+  cog:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2 2 2 0 1 1-4 0 1.7 1.7 0 0 0-2.9-1.2l-.1.1A2 2 0 1 1 4.2 17l.1-.1A1.7 1.7 0 0 0 3.1 14a2 2 0 1 1 0-4 1.7 1.7 0 0 0 1.2-2.9l-.1-.1A2 2 0 1 1 7 4.2l.1.1a1.7 1.7 0 0 0 2.9-1.2 2 2 0 1 1 4 0A1.7 1.7 0 0 0 16.9 4.3l.1-.1A2 2 0 1 1 19.8 7l-.1.1a1.7 1.7 0 0 0 1.2 2.9 2 2 0 1 1 0 4 1.7 1.7 0 0 0-1.5 1z"/>',
+};
+const ico = (n, cls='') => `<svg class="${cls}" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[n]||''}</svg>`;
+
+/* ---------------- mock data (swap for API) ---------------- */
+const INR = n => '₹' + n.toLocaleString('en-IN');
+
+const MOCK = {
+  kpi: [
+    { label:'Revenue (30d)', value:'₹8,42,000', delta:'+18%', up:true, note:'net of 3% commission' },
+    { label:'Confirmed bookings', value:'46', delta:'+9', up:true, note:'across 6 departures' },
+    { label:'Seats filled', value:'71%', delta:'+4%', up:true, note:'128 of 180 seats' },
+    { label:'Payments pending', value:'7', delta:'-3', up:false, note:'awaiting verification' },
+  ],
+  revenue: [280,320,260,410,380,520,470,610,560,720,680,842],
+  trips: [
+    { code:'TRIP.01', name:'Zanskar Traverse', dep:'14 Jun 2026', days:14, seats:'8/8',  fill:100, price:142000, status:'Full' },
+    { code:'TRIP.02', name:'Kashmir Great Lakes', dep:'09 Jul 2026', days:8, seats:'5/8', fill:63, price:74000, status:'Selling' },
+    { code:'TRIP.03', name:'Goecha La', dep:'11 Oct 2026', days:11, seats:'2/8', fill:25, price:109000, status:'Selling' },
+    { code:'TRIP.04', name:'Hampta Pass', dep:'22 Sep 2026', days:5, seats:'0/8', fill:0, price:18500, status:'Draft' },
+    { code:'TRIP.05', name:'Markha Valley', dep:'03 Aug 2026', days:9, seats:'8/8', fill:100, price:96000, status:'Full' },
+  ],
+  bookings: [
+    { id:'BK-2291', traveller:'Rajesh Kumar', trip:'Zanskar Traverse', pax:2, amount:284000, method:'UPI', pay:'Verified', date:'02 Jun' },
+    { id:'BK-2290', traveller:'Priya Sharma', trip:'Kashmir Great Lakes', pax:1, amount:74000, method:'Card', pay:'Verified', date:'01 Jun' },
+    { id:'BK-2289', traveller:'Amit Singh', trip:'Goecha La', pax:1, amount:109000, method:'UPI', pay:'Pending', date:'01 Jun' },
+    { id:'BK-2288', traveller:'Neha Verma', trip:'Kashmir Great Lakes', pax:2, amount:148000, method:'UPI', pay:'Pending', date:'31 May' },
+    { id:'BK-2287', traveller:'Arjun Mehta', trip:'Markha Valley', pax:1, amount:96000, method:'Card', pay:'Refunded', date:'29 May' },
+  ],
+  leads: {
+    New:[{n:'Kavya Iyer',t:'Zanskar Traverse',s:82},{n:'Rohit Nair',t:'Goecha La',s:64}],
+    Contacted:[{n:'Sana Khan',t:'Kashmir Lakes',s:71}],
+    Interested:[{n:'Vikram Rao',t:'Zanskar Traverse',s:88},{n:'Meera Joshi',t:'Hampta Pass',s:57}],
+    Qualified:[{n:'Dev Patel',t:'Markha Valley',s:93}],
+    Converted:[{n:'Priya Sharma',t:'Kashmir Lakes',s:96}],
+  },
+  vendors: [
+    { name:'Hotel Snowview', cat:'Hotel', place:'Manali', phone:'+91 98765 43210', docs:3, status:'Verified' },
+    { name:'Zanskar Transport Co.', cat:'Transport', place:'Leh', phone:'+91 98765 11223', docs:2, status:'Verified' },
+    { name:'Tenzing Guides', cat:'Guide', place:'Yuksom', phone:'+91 98765 55443', docs:4, status:'Verified' },
+    { name:'Himalaya Gear Rentals', cat:'Equipment', place:'Manali', phone:'+91 98765 77889', docs:1, status:'Pending' },
+    { name:'Sonam Kitchen', cat:'Food', place:'Padum', phone:'+91 98765 99001', docs:0, status:'Pending' },
+  ],
+  assignments: [
+    { trip:'Zanskar Traverse', vendor:'Zanskar Transport Co.', role:'Road transfer', agreed:64000, paid:64000, state:'Settled' },
+    { trip:'Zanskar Traverse', vendor:'Sonam Kitchen', role:'Camp catering', agreed:48000, paid:24000, state:'Part paid' },
+    { trip:'Kashmir Great Lakes', vendor:'Tenzing Guides', role:'Lead guide', agreed:36000, paid:0, state:'Unpaid' },
+    { trip:'Goecha La', vendor:'Hotel Snowview', role:'Pre-trek stay', agreed:22000, paid:22000, state:'Settled' },
+  ],
+  comms: [
+    { to:'Zanskar Transport Co.', ch:'WhatsApp', tpl:'Assignment confirmed', when:'2 Jun, 09:12', state:'Delivered' },
+    { to:'Sonam Kitchen', ch:'Email', tpl:'Payment released', when:'1 Jun, 18:40', state:'Delivered' },
+    { to:'Tenzing Guides', ch:'WhatsApp', tpl:'Departure reminder', when:'1 Jun, 08:00', state:'Failed' },
+    { to:'Hotel Snowview', ch:'Email', tpl:'Booking request', when:'31 May, 14:05', state:'Delivered' },
+  ],
+  expenses: [
+    { cat:'Transport', vendor:'Zanskar Transport Co.', amt:64000, date:'02 Jun' },
+    { cat:'Food', vendor:'Sonam Kitchen', amt:48000, date:'02 Jun' },
+    { cat:'Guides', vendor:'Tenzing Guides', amt:36000, date:'01 Jun' },
+    { cat:'Permits', vendor:'State forest dept', amt:12400, date:'28 May' },
+    { cat:'Equipment', vendor:'Himalaya Gear Rentals', amt:18000, date:'27 May' },
+  ],
+  settlements: [
+    { id:'ST-1043', trip:'Zanskar Traverse', gross:284000, comm:8520, net:275480, when:'05 Jun', state:'Paid out' },
+    { id:'ST-1042', trip:'Markha Valley', gross:192000, comm:5760, net:186240, when:'02 Jun', state:'Paid out' },
+    { id:'ST-1041', trip:'Kashmir Great Lakes', gross:148000, comm:4440, net:143560, when:'—', state:'Processing' },
+  ],
+  requests: [
+    { id:'RQ-318', who:'Ananya Gupta', want:'Spiti, 7 days, family of 4', budget:180000, when:'2 Jun', state:'Awaiting proposal' },
+    { id:'RQ-317', who:'Corporate — Zeta Labs', want:'Team offsite, Kasol, 25 pax', budget:640000, when:'31 May', state:'Proposal sent' },
+    { id:'RQ-316', who:'Imran Sheikh', want:'Solo, Markha, Sep', budget:95000, when:'28 May', state:'Converted' },
+  ],
+  reviews: [
+    { who:'Priya Sharma', trip:'Kashmir Great Lakes', rating:5, txt:'Guide knew every stream crossing. Food was better than expected.', v:'Verified' },
+    { who:'Amit Singh', trip:'Goecha La', rating:4, txt:'Hard days, well paced. Tents could be newer.', v:'Verified' },
+    { who:'Unknown user', trip:'Zanskar Traverse', rating:5, txt:'Best trip ever!!!', v:'Unverified' },
+  ],
+  // your TrekTribe subscription receipts — NOT the GST invoices you issue to travellers
+  subscriptionInvoices: [
+    { id:'INV-2026-06', plan:'Professional', amt:2999, when:'12 Jun 2026', state:'Paid' },
+    { id:'INV-2026-05', plan:'Professional', amt:2999, when:'12 May 2026', state:'Paid' },
+    { id:'INV-2026-04', plan:'Starter', amt:999, when:'12 Apr 2026', state:'Paid' },
+  ],
+};
+
+/* ======================= PHASE 1 ENGINE =======================
+   Covers gap refs G-08, G-09, G-10, G-20 from
+   docs/superpowers/plans/2026-08-16-organizer-os-template-gap-closure.md
+   Rules below are taken from the specs, not invented:
+     · permission matrix  → 2026-08-05-enterprise-integrations-knowledge-design.md
+     · GST schemes / Rule 46 / numbering → 2026-08-05-analytics-financial-design.md
+   NOTE the specs' own caveat: the GST figures are secondary-sourced and
+   NOT verified against gst.gov.in. Treat tax output as needing a CA sign-off.
+   ============================================================== */
+
+/* payments + refunds feed the reconciliation view (G-08) */
+const HOURS = h => new Date(Date.now() - h*3600e3);
+MOCK.payments = [
+  { id:'PY-9003', bookingId:'BK-2291', amount:284000, status:'captured',   at:HOURS(120) },
+  { id:'PY-9001', bookingId:'BK-2289', amount:109000, status:'authorized', at:HOURS(30)  }, // stuck > 24h
+  { id:'PY-9004', bookingId:'BK-2288', amount:148000, status:'created',    at:HOURS(40)  }, // stuck > 24h
+  { id:'PY-9002', bookingId:'BK-2290', amount:74000,  status:'captured',   at:HOURS(96)  },
+  { id:'PY-9005', bookingId:'BK-2287', amount:96000,  status:'captured',   at:HOURS(200) },
+];
+MOCK.refunds = [
+  { id:'RF-4401', bookingId:'BK-2287', amount:96000, status:'completed', at:HOURS(180) },
+];
+MOCK.team = [
+  { name:'Demo Organizer', email:'you@example.com',      role:'owner' },
+  { name:'Tenzing N.',     email:'tenzing@example.com',  role:'trip_leader', trips:['Zanskar Traverse'] },
+  { name:'Asha R.',        email:'asha@example.com',     role:'finance' },
+  { name:'Kabir S.',       email:'kabir@example.com',    role:'operations' },
+];
+
+/* ---- persistence (swap for API calls when porting) ---- */
+const STORE = {
+  k:'tt_phase1_v1',
+  all(){ try { return JSON.parse(localStorage.getItem(this.k)) || {}; } catch { return {}; } },
+  get(key, fallback){ const v = this.all()[key]; return v === undefined ? fallback : v; },
+  set(key, val){ const a = this.all(); a[key] = val; localStorage.setItem(this.k, JSON.stringify(a)); },
+  reset(){ localStorage.removeItem(this.k); },
+};
+
+/* ---- G-20: fixed permission tiers (verbatim from the spec matrix) ---- */
+const ROLES = ['owner','operations','finance','marketing','trip_leader'];
+const ROLE_LABEL = { owner:'Owner', operations:'Operations', finance:'Finance', marketing:'Marketing', trip_leader:'Trip leader' };
+const PERMS = {
+  team:        ['owner'],                                        // invite/edit/revoke
+  integrations:['owner'],
+  trips:       ['owner','operations'],                           // create/edit/cancel + vendor assignment
+  leaderAssign:['owner','operations'],
+  ownTrips:    ['owner','operations','trip_leader'],             // trip_leader is scoped per-trip
+  finance:     ['owner','finance'],                              // payments, payouts, invoices, GST
+  vendorPay:   ['owner','operations','finance'],
+  marketing:   ['owner','marketing'],                            // marketing suite + CRM segmentation
+  knowledge:   ROLES,
+  dashboard:   ROLES,                                            // ASSUMED — not in the spec matrix
+};
+let ROLE = STORE.get('role','owner');
+const can = cap => (PERMS[cap] || ROLES).includes(ROLE);
+
+/* ---- G-10 / G-09: GST engine ---- */
+const STATES = ['Himachal Pradesh','Ladakh','Jammu & Kashmir','Sikkim','Uttarakhand','Delhi','Maharashtra','Karnataka','Gujarat','Rajasthan','West Bengal','Tamil Nadu'];
+const GSTIN_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+
+const DEFAULT_GST = {
+  legal_business_name:'', gstin:'', address:'', home_state:'Himachal Pradesh',
+  short_code:'', tax_scheme:'gross_5pct', default_sac_code:'9985',
+};
+const gstProfile = () => Object.assign({}, DEFAULT_GST, STORE.get('gst', {}));
+
+/* Rule 46(b): unique + consecutive per financial year. '2526' = FY2025-26. */
+function financialYear(d){
+  const y = d.getFullYear(), startY = d.getMonth() >= 3 ? y : y - 1;   // FY starts April
+  return String(startY % 100).padStart(2,'0') + String((startY+1) % 100).padStart(2,'0');
+}
+function nextInvoiceNumber(shortCode, fy){
+  const c = STORE.get('counters', {});
+  c[fy] = (c[fy] || 0) + 1;                     // per-FY counter, resets each FY
+  STORE.set('counters', c);
+  return `${shortCode}/${fy}/${String(c[fy]).padStart(5,'0')}`;   // 15 chars ≤ Rule 46(b) cap of 16
+}
+
+/* gross_5pct → 5% of the full package, no ITC.
+   margin_18pct → 18% of the operator's margin only (CGST Rule 33).
+   Intra-state splits CGST+SGST; inter-state is IGST. Exactly one applies. */
+function computeTax({ scheme, gross, margin, placeOfSupply, homeState }){
+  const taxable = scheme === 'gross_5pct' ? gross : margin;
+  const rate    = scheme === 'gross_5pct' ? 5 : 18;
+  const tax     = Math.round(taxable * rate) / 100;
+  const intra   = placeOfSupply === homeState;
+  return {
+    taxable, rate,
+    cgst: intra ? Math.round(tax*50)/100 : 0,
+    sgst: intra ? Math.round(tax*50)/100 : 0,
+    igst: intra ? 0 : tax,
+    tax,
+    // under the margin scheme the traveller still pays the gross package; tax sits on the margin
+    total: Math.round((gross + tax) * 100) / 100,
+    intra,
+  };
+}
+const invoices    = () => STORE.get('invoices', []);
+const creditNotes = () => STORE.get('creditNotes', []);
+
+/* NFR-3 / G-08: reconciliation flags, computed — never hand-authored */
+function reconciliationFlags(){
+  const out = [];
+  const STUCK_HRS = 24;                                  // spec default threshold
+  MOCK.payments.forEach(p => {
+    const hrs = (Date.now() - new Date(p.at)) / 3600e3;
+    if (['created','authorized'].includes(p.status) && hrs > STUCK_HRS){
+      out.push({ kind:'stuck', ref:p.id, booking:p.bookingId, amount:p.amount,
+        detail:`Payment stuck in “${p.status}” for ${Math.round(hrs)}h — webhook likely missed`, sev:'amber' });
+    }
+  });
+  const cnBookings = creditNotes().map(c => c.bookingId);
+  MOCK.refunds.forEach(r => {
+    if (r.status === 'completed' && !cnBookings.includes(r.bookingId)){
+      out.push({ kind:'no_credit_note', ref:r.id, booking:r.bookingId, amount:r.amount,
+        detail:'Completed refund has no GST credit note — the issued invoice is now wrong', sev:'red' });
+    }
+  });
+  return out;
+}
+
+/* ======================= PHASE 1b (P1) ENGINE — revenue =======================
+   Gap refs G-07, G-11, G-12, G-13, G-14, G-15, G-30.
+   Rules from 2026-08-05-marketing-suite-design.md and
+   2026-08-05-analytics-financial-design.md. Nothing here is invented.
+   ============================================================================ */
+const round2 = n => Math.round(n * 100) / 100;
+const DAY = 86400e3;
+const dstr = d => new Date(d).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+
+/* commission: organizer override if one exists, else the platform default row */
+MOCK.commissionConfig = [
+  { organizer_id:null, commission_pct:3.00 },   // platform default, seeded at migration per blueprint
+];
+const commissionPct = orgId =>
+  (MOCK.commissionConfig.find(c => c.organizer_id === orgId) ||
+   MOCK.commissionConfig.find(c => c.organizer_id === null)).commission_pct;
+
+/* ---- G-12 · coupons ---- */
+MOCK.coupons = [
+  { id:'c1', code:'MONSOON20', discount_type:'percentage', value:20, max_discount_amount:15000,
+    trip_id:null, min_booking_amount:50000, first_booking_only:false,
+    starts_at:Date.now()-20*DAY, ends_at:Date.now()+40*DAY,
+    max_total_redemptions:50, max_redemptions_per_user:1, total_redeemed:12, source:'organizer_created' },
+  { id:'c2', code:'FIRSTTREK', discount_type:'fixed_amount', value:5000,
+    max_discount_amount:null, trip_id:null, min_booking_amount:null, first_booking_only:true,
+    starts_at:Date.now()-60*DAY, ends_at:Date.now()+90*DAY,
+    max_total_redemptions:null, max_redemptions_per_user:1, total_redeemed:31, source:'organizer_created' },
+  { id:'c3', code:'ZANSKAR10', discount_type:'percentage', value:10, max_discount_amount:null,
+    trip_id:'Zanskar Traverse', min_booking_amount:null, first_booking_only:false,
+    starts_at:Date.now()-90*DAY, ends_at:Date.now()-5*DAY,          // → expired
+    max_total_redemptions:20, max_redemptions_per_user:1, total_redeemed:7, source:'organizer_created' },
+  { id:'c4', code:'EARLYBIRD25', discount_type:'percentage', value:25, max_discount_amount:20000,
+    trip_id:null, min_booking_amount:null, first_booking_only:false,
+    starts_at:Date.now()-30*DAY, ends_at:Date.now()+30*DAY,
+    max_total_redemptions:10, max_redemptions_per_user:1, total_redeemed:10, source:'organizer_created' }, // → exhausted
+  { id:'c5', code:'REF-8KD2', discount_type:'fixed_amount', value:2000, max_discount_amount:null,
+    trip_id:null, min_booking_amount:null, first_booking_only:false,
+    starts_at:Date.now()+7*DAY, ends_at:Date.now()+120*DAY,          // → inactive (not started)
+    max_total_redemptions:1, max_redemptions_per_user:1, total_redeemed:0, source:'referral_reward' },
+];
+
+/* status is DERIVED on read from dates + counts — the spec is explicit that it
+   is not a separately-maintained flag, to avoid a denormalized value going stale */
+function couponStatus(c){
+  const now = Date.now();
+  if (c.max_total_redemptions != null && c.total_redeemed >= c.max_total_redemptions) return 'exhausted';
+  if (c.ends_at   && c.ends_at   < now) return 'expired';
+  if (c.starts_at && c.starts_at > now) return 'inactive';
+  return 'active';
+}
+
+/* real eligibility + discount computation, incl. the percentage cap */
+function applyCoupon(c, booking, isFirstBooking){
+  const st = couponStatus(c);
+  if (st !== 'active') return { ok:false, reason:`Coupon is ${st}` };
+  if (c.trip_id && c.trip_id !== booking.trip) return { ok:false, reason:`Only valid on ${c.trip_id}` };
+  if (c.min_booking_amount && booking.amount < c.min_booking_amount)
+    return { ok:false, reason:`Needs a booking of at least ${INR(c.min_booking_amount)}` };
+  if (c.first_booking_only && !isFirstBooking) return { ok:false, reason:'First booking only' };
+
+  let d = c.discount_type === 'percentage' ? booking.amount * c.value / 100 : c.value;
+  let capped = false;
+  if (c.discount_type === 'percentage' && c.max_discount_amount != null && d > c.max_discount_amount){
+    d = c.max_discount_amount; capped = true;
+  }
+  d = Math.min(d, booking.amount);
+  return { ok:true, discount:round2(d), payable:round2(booking.amount - d), capped };
+}
+
+/* ---- G-13 · automatic discount rules ---- */
+MOCK.discountRules = [
+  { id:'r1', trip_id:null, rule_type:'early_bird',  threshold_days:60, discount_type:'percentage',   value:15, max_discount_amount:18000, status:'active' },
+  { id:'r2', trip_id:null, rule_type:'last_minute', threshold_days:10, discount_type:'percentage',   value:12, max_discount_amount:12000, status:'active' },
+  { id:'r3', trip_id:'Goecha La', rule_type:'early_bird', threshold_days:90, discount_type:'fixed_amount', value:8000, max_discount_amount:null, status:'active' },
+  { id:'r4', trip_id:null, rule_type:'last_minute', threshold_days:5, discount_type:'fixed_amount',  value:4000, max_discount_amount:null, status:'inactive' },
+];
+/* early_bird: booked at least threshold_days before departure.
+   last_minute: booked at most threshold_days before departure. */
+function matchingRules(daysBefore, tripName){
+  return MOCK.discountRules.filter(r =>
+    r.status === 'active' &&
+    (!r.trip_id || r.trip_id === tripName) &&
+    (r.rule_type === 'early_bird' ? daysBefore >= r.threshold_days : daysBefore <= r.threshold_days)
+  );
+}
+
+/* ---- G-14 · referrals ---- */
+MOCK.referralCode = { code:'TREK-DEMO-8KD2', user:'Demo Organizer' };
+MOCK.referrals = [
+  { id:'rf1', referred_email:'kavya@example.com', referred_user:'Kavya Iyer',  status:'rewarded',  first_booking:'BK-2290', reward_coupon:'REF-8KD2', created:Date.now()-52*DAY },
+  { id:'rf2', referred_email:'rohit@example.com', referred_user:'Rohit Nair',  status:'completed', first_booking:'BK-2289', reward_coupon:null,       created:Date.now()-30*DAY },
+  { id:'rf3', referred_email:'sana@example.com',  referred_user:'Sana Khan',   status:'signed_up', first_booking:null,      reward_coupon:null,       created:Date.now()-14*DAY },
+  { id:'rf4', referred_email:'dev@example.com',   referred_user:null,          status:'pending',   first_booking:null,      reward_coupon:null,       created:Date.now()-3*DAY },
+];
+
+/* ---- G-15 · campaigns ---- */
+MOCK.campaigns = [
+  { id:'cp1', name:'Diwali early-bird push', channel:'email', campaign_type:'festival', occasion_label:'Diwali 2026',
+    status:'sent',      scheduled_at:Date.now()-9*DAY,  recipients:412, sent:408, failed:2, optout:2 },
+  { id:'cp2', name:'Kashmir Lakes — 3 seats left', channel:'whatsapp', campaign_type:'last_minute_announce', occasion_label:null,
+    status:'sending',   scheduled_at:Date.now()-1*3600e3, recipients:186, sent:121, failed:1, optout:0 },
+  { id:'cp3', name:'Autumn departures announce', channel:'email', campaign_type:'promotional', occasion_label:null,
+    status:'scheduled', scheduled_at:Date.now()+4*DAY,  recipients:0,   sent:0,   failed:0, optout:0 },
+  { id:'cp4', name:'Post-trip review request', channel:'push', campaign_type:'review_request', occasion_label:null,
+    status:'draft',     scheduled_at:null,             recipients:0,   sent:0,   failed:0, optout:0 },
+  { id:'cp5', name:'Monsoon coupon blast', channel:'email', campaign_type:'promotional', occasion_label:null,
+    status:'failed',    scheduled_at:Date.now()-20*DAY, recipients:340, sent:0,   failed:340, optout:0 },
+];
+/* the outbox — same pattern as Vendor OS's vendor_events */
+MOCK.marketingEvents = [
+  { type:'coupon_redeemed',        when:Date.now()-2*3600e3,  processed:true },
+  { type:'referral_completed',     when:Date.now()-5*3600e3,  processed:true },
+  { type:'campaign_send_requested',when:Date.now()-1*3600e3,  processed:false },
+  { type:'review_request_due',     when:Date.now()-30*60e3,   processed:false },
+];
+
+/* ---- G-07 · payout tranches ----
+   advance gross = round(total * 0.6, 2); balance gross = total − advance
+   (the REMAINDER, not an independently computed 40%) so the two rows always
+   sum to exactly total_amount with no rounding drift. Commission splits by
+   the identical direct/remainder technique. net is gross − commission. */
+function buildPayouts(booking, tripStart, capturedAt){
+  const pct = commissionPct('demo-org');
+  const total = booking.amount;
+  const advGross = round2(total * 0.6);
+  const balGross = round2(total - advGross);
+  const totalComm = round2(total * pct / 100);
+  const advComm = round2(totalComm * 0.6);
+  const balComm = round2(totalComm - advComm);
+  const mk = (tranche, gross, comm, due, status) => ({
+    booking_id:booking.id, trip:booking.trip, tranche,
+    commission_pct_applied:pct, gross_amount:gross, commission_amount:comm,
+    net_amount:round2(gross - comm), due_at:due, status,
+  });
+  return [
+    mk('advance', advGross, advComm, capturedAt + DAY, booking.pay === 'Verified' ? 'completed' : 'pending'),
+    mk('balance', balGross, balComm, tripStart, tripStart < Date.now() ? 'pending' : 'pending'),
+  ];
+}
+function allPayouts(){
+  const starts = { 'Zanskar Traverse':Date.now()+30*DAY, 'Kashmir Great Lakes':Date.now()+55*DAY,
+                   'Goecha La':Date.now()+140*DAY, 'Markha Valley':Date.now()+80*DAY, 'Hampta Pass':Date.now()+110*DAY };
+  const out = [];
+  MOCK.bookings.filter(b => b.pay !== 'Refunded').forEach(b => {
+    out.push(...buildPayouts(b, starts[b.trip] || Date.now()+60*DAY, Date.now()-10*DAY));
+  });
+  // one KYC-blocked and one voided example so the wider status enum is visible
+  if (out[3]) out[3].status = 'kyc_blocked';
+  if (out[5]) out[5].status = 'initiated';
+  return out;
+}
+
+/* ---- G-11 · cash flow: cash in (payments) vs cash out (expenses + vendor payments) ---- */
+function cashFlow(){
+  const months = ['Feb','Mar','Apr','May','Jun','Jul'];
+  const inn  = [220000, 310000, 285000, 402000, 596000, 284000];
+  // current month's cash out is derived from the real records, per NFR-3: the
+  // same vendor payments and expenses rows the other screens read, not a copy
+  const vendorPaid = MOCK.assignments.reduce((s,a)=>s+a.paid, 0);
+  const expenses   = MOCK.expenses.reduce((s,e)=>s+e.amt, 0);
+  const out = [140000, 190000, 205000, 268000, 331000, vendorPaid + expenses];
+  return months.map((m,i)=>({ month:m, in:inn[i], out:out[i], net:round2(inn[i]-out[i]) }));
+}
+
+/* ======================= P2 ENGINE — Vendor OS depth =======================
+   Gap refs G-05 (all six lifecycle triggers) and G-06 (due dates, outstanding,
+   overdue reminders). Rules from 2026-08-01-vendor-management-design.md.
+   ========================================================================== */
+
+/* the six event types the outbox actually carries — not five; the spec
+   includes vendor_payment_completed alongside the trip lifecycle ones */
+const VENDOR_EVENTS = {
+  trip_created:              { label:'Trip created',            body:t=>`A new departure has been scheduled: ${t.trip}, departing ${t.dep}. Please confirm availability for ${t.pax} travellers.` },
+  trip_dates_changed:        { label:'Dates changed',           body:t=>`The departure dates for ${t.trip} have moved. New departure: ${t.dep}. Please confirm this still works.` },
+  participant_count_changed: { label:'Participant count changed',body:t=>`Headcount for ${t.trip} (departing ${t.dep}) has changed to ${t.pax} travellers. Please adjust your booking.` },
+  trip_cancelled:            { label:'Trip cancelled',          body:t=>`${t.trip}, departing ${t.dep}, has been cancelled. Please release the hold. Cancellation terms as per our agreement.` },
+  vendor_payment_completed:  { label:'Payment released',        body:t=>`A payment has been released against ${t.trip}. Please confirm receipt.` },
+  pre_departure_reminder:    { label:'Pre-departure reminder',  body:t=>`${t.trip} departs ${t.dep} with ${t.pax} travellers. This is your final confirmation reminder.` },
+};
+
+/* ---- G-06: vendor payments. paid_amount is the SUM of the append-only
+   history rows, and outstanding is total − paid, mirroring the spec's
+   generated column rather than storing a second copy of the number. ---- */
+const seedVendorPayments = () => ([
+  { id:'vp1', trip:'Zanskar Traverse',    vendor:'Zanskar Transport Co.', role:'Road transfer',
+    total_amount:64000, due_date:Date.now()-6*DAY,
+    history:[{ amount:64000, paid_at:Date.now()-8*DAY, note:'Full advance on confirmation' }] },
+  { id:'vp2', trip:'Zanskar Traverse',    vendor:'Sonam Kitchen',         role:'Camp catering',
+    total_amount:48000, due_date:Date.now()-3*DAY,
+    history:[{ amount:24000, paid_at:Date.now()-12*DAY, note:'50% advance' }] },       // → overdue
+  { id:'vp3', trip:'Kashmir Great Lakes', vendor:'Tenzing Guides',        role:'Lead guide',
+    total_amount:36000, due_date:Date.now()+4*DAY, history:[] },                        // → due soon
+  { id:'vp4', trip:'Goecha La',           vendor:'Hotel Snowview',        role:'Pre-trek stay',
+    total_amount:22000, due_date:Date.now()+45*DAY,
+    history:[{ amount:22000, paid_at:Date.now()-20*DAY, note:'Paid in full' }] },
+  { id:'vp5', trip:'Markha Valley',       vendor:'Himalaya Gear Rentals', role:'Equipment hire',
+    total_amount:18000, due_date:Date.now()+11*DAY,
+    history:[{ amount:6000, paid_at:Date.now()-2*DAY, note:'Token advance' }] },
+]);
+const vendorPayments = () => STORE.get('vendorPayments', seedVendorPayments());
+const paidAmount   = vp => round2(vp.history.reduce((s,h)=>s+h.amount, 0));
+const outstanding  = vp => round2(vp.total_amount - paidAmount(vp));
+/* status derived from amounts + due date, never stored */
+function vendorPayStatus(vp){
+  const paid = paidAmount(vp);
+  if (paid >= vp.total_amount) return 'paid';
+  if (vp.due_date < Date.now()) return 'overdue';   // precedence over 'partial' — see note in the UI
+  if (paid > 0) return 'partial';
+  return 'pending';
+}
+const DUE_SOON_DAYS = 7;
+const dueSoon = vp => vendorPayStatus(vp) !== 'paid' &&
+  vp.due_date >= Date.now() && vp.due_date <= Date.now() + DUE_SOON_DAYS*DAY;
+
+/* ---- G-05: outbox + communication log ---- */
+const seedVendorComms = () => ([
+  { id:'vc1', trip:'Zanskar Traverse', vendor:'Zanskar Transport Co.', event_type:'trip_created',
+    sent_at:Date.now()-9*DAY, status:'sent',
+    snapshot:'A new departure has been scheduled: Zanskar Traverse, departing 14 Jun 2026. Please confirm availability for 8 travellers.' },
+  { id:'vc2', trip:'Zanskar Traverse', vendor:'Sonam Kitchen', event_type:'vendor_payment_completed',
+    sent_at:Date.now()-12*DAY, status:'sent',
+    snapshot:'A payment has been released against Zanskar Traverse. Please confirm receipt.' },
+  { id:'vc3', trip:'Kashmir Great Lakes', vendor:'Tenzing Guides', event_type:'pre_departure_reminder',
+    sent_at:null, status:'failed',
+    snapshot:'Kashmir Great Lakes departs 09 Jul 2026 with 5 travellers. This is your final confirmation reminder.' },
+  { id:'vc4', trip:'Goecha La', vendor:'Hotel Snowview', event_type:'trip_created',
+    sent_at:Date.now()-15*DAY, status:'sent',
+    snapshot:'A new departure has been scheduled: Goecha La, departing 11 Oct 2026. Please confirm availability for 2 travellers.' },
+]);
+const vendorComms  = () => STORE.get('vendorComms',  seedVendorComms());
+const vendorOutbox = () => STORE.get('vendorOutbox', [
+  { id:'ve1', trip:'Zanskar Traverse', event_type:'trip_created', created:Date.now()-9*DAY, processed:Date.now()-9*DAY },
+  { id:'ve2', trip:'Kashmir Great Lakes', event_type:'pre_departure_reminder', created:Date.now()-1*DAY, processed:null },
+]);
+
+/* firing a trigger writes ONE outbox row, then fans out one log row per
+   assigned vendor — the same outbox → worker → log pipeline as the spec */
+function fireVendorEvent(eventType, tripName){
+  const trip = MOCK.trips.find(t=>t.name===tripName) || { name:tripName, dep:'—', seats:'0/0' };
+  const ctx = { trip:tripName, dep:trip.dep, pax:(trip.seats||'0/0').split('/')[0] };
+  const assigned = MOCK.assignments.filter(a=>a.trip===tripName);
+  if (!assigned.length) return { ok:false, reason:'No vendors are assigned to '+tripName };
+
+  STORE.set('vendorOutbox', vendorOutbox().concat({
+    id:'ve'+Date.now(), trip:tripName, event_type:eventType, created:Date.now(), processed:Date.now(),
+  }));
+  const rendered = VENDOR_EVENTS[eventType].body(ctx);
+  const rows = assigned.map((a,i)=>({
+    id:'vc'+Date.now()+'-'+i, trip:tripName, vendor:a.vendor, event_type:eventType,
+    sent_at:Date.now(), status:'sent',
+    snapshot:rendered,       // frozen at send time so a later template change never alters a resend
+  }));
+  STORE.set('vendorComms', vendorComms().concat(rows));
+  return { ok:true, count:rows.length, vendors:assigned.map(a=>a.vendor) };
+}
+
+/* ==========================================================================
+   P2 · G-01/02/03 — trip templates, recurring series, lifecycle + duplicate
+   Spec: 2026-08-05-core-platform-organizer-auth-design.md
+     `trip_templates`  — id, organizer_id, name, title, destination,
+                         description, itinerary, price, duration_days,
+                         inclusions, exclusions
+     `trip_series`     — id, organizer_id, series_name, title, destination,
+                         description, itinerary, base_price, template_id?
+     `trips` ALTER     — status enum, publish_at, series_id, template_id,
+                         duplicated_from_trip_id
+   A template is never customer-visible and never bookable. A series is a
+   recipe; only the departures it stamps out are real, sellable trips.
+   ========================================================================== */
+
+const TRIP_STATUS = ['draft','scheduled','published'];   // spec enum, verbatim
+
+/* Trips move into STORE here so publish / schedule / duplicate actually mutate
+   state instead of re-rendering a constant. Seeded from MOCK.trips so every
+   other screen keeps reading the same departures it always did. */
+function seedTrips(){
+  const dest = { 'TRIP.01':'Zanskar, Ladakh', 'TRIP.02':'Kashmir', 'TRIP.03':'Sikkim',
+                 'TRIP.04':'Himachal',        'TRIP.05':'Ladakh' };
+  /* max_participants is nullable per the booking spec. TRIP.03 deliberately has
+     no cap so v_occupancy_by_trip's "capacity data unavailable" branch is
+     reachable rather than theoretical. */
+  const cap  = { 'TRIP.01':8, 'TRIP.02':8, 'TRIP.03':null, 'TRIP.04':8, 'TRIP.05':8 };
+  /* Departures are placed relative to today, not on fixed calendar dates. A
+     hard-coded 2026 date silently turns every trip "Past" once that date
+     passes, which is how a demo quietly stops demonstrating anything. */
+  const inDays = { 'TRIP.01':30, 'TRIP.02':55, 'TRIP.03':121, 'TRIP.04':38, 'TRIP.05':14 };
+  return MOCK.trips.map(t => {
+    const start = Date.now() + inDays[t.code]*DAY;
+    return {
+    id:t.code, code:t.code, name:t.name, dep:DATE_IN(start), days:t.days,
+    seats:t.seats, fill:t.fill, price:t.price,
+    destination:dest[t.code], start_date:start,
+    max_participants:cap[t.code],
+    status: t.status === 'Draft' ? 'draft' : 'published',
+    publish_at:null, series_id:null, template_id:null, duplicated_from_trip_id:null,
+    }; }).concat(pastDepartures());
+}
+
+/* Last season's departures. A 2025 Markha run is a DIFFERENT trip from the 2026
+   one, not the same row seen twice — modelling it as one would let a closed
+   season's bookings count against this season's seats. */
+function pastDepartures(){
+  return [
+    { id:'TRIP.P1', code:'TRIP.P1', name:'Markha Valley',       ago:371, days:9,
+      seats:'8/8', fill:100, price:96000,  destination:'Ladakh' },
+    { id:'TRIP.P2', code:'TRIP.P2', name:'Hampta Pass',         ago:410, days:5,
+      seats:'8/8', fill:100, price:18500,  destination:'Himachal' },
+    { id:'TRIP.P3', code:'TRIP.P3', name:'Goecha La',           ago:303, days:11,
+      seats:'6/8', fill:75,  price:109000, destination:'Sikkim' },
+    { id:'TRIP.P4', code:'TRIP.P4', name:'Kashmir Great Lakes', ago:422, days:8,
+      seats:'7/8', fill:88,  price:74000,  destination:'Kashmir' },
+  ].map(t => {
+    const start = Date.now() - t.ago*DAY;
+    return { ...t, start_date:start, dep:DATE_IN(start), max_participants:8, past:true,
+             status:'published', publish_at:null,
+             series_id:null, template_id:null, duplicated_from_trip_id:null };
+  });
+}
+function tripRows(){
+  let r = STORE.get('trips', null);
+  if (!r) { r = seedTrips(); STORE.set('trips', r); }
+  return r;
+}
+const setTrips = rows => STORE.set('trips', rows);
+
+/* A scheduled trip whose publish_at has passed IS published — derived on read,
+   so there is no cron job whose failure could leave the flag stale. */
+function effectiveStatus(t){
+  return (t.status === 'scheduled' && t.publish_at && t.publish_at <= Date.now())
+    ? 'published' : t.status;
+}
+/* Lifecycle status and sell state are two different axes. 'Full'/'Selling' is
+   derived from seat fill; keeping it out of the status column stops the two
+   meanings collapsing into one field. */
+const hasDeparted = t => t.start_date < Date.now();
+function sellState(t){
+  /* A departure that has already left is not selling anything, whatever its
+     seat fill says. Derived from the date so a trip ages out on its own. */
+  if (hasDeparted(t)) return 'Past';
+  if (effectiveStatus(t) !== 'published') return effectiveStatus(t)==='scheduled' ? 'Scheduled' : 'Draft';
+  return t.fill >= 100 ? 'Full' : 'Selling';
+}
+
+function publishTrip(id){
+  setTrips(tripRows().map(t => t.id===id ? {...t, status:'published', publish_at:null} : t));
+}
+function scheduleTrip(id, whenMs){
+  setTrips(tripRows().map(t => t.id===id ? {...t, status:'scheduled', publish_at:whenMs} : t));
+}
+function unpublishTrip(id){
+  setTrips(tripRows().map(t => t.id===id ? {...t, status:'draft', publish_at:null} : t));
+}
+
+/* Derived from the highest code already in use, not from a counter and not
+   from row count. A counter resets on reload while the rows persist, which is
+   exactly how a "new" trip ends up reusing a live trip's code. */
+function nextTripCode(){
+  const max = tripRows().reduce((m,t) => {
+    const n = parseInt(String(t.code).replace(/^TRIP\./,''), 10);
+    return Number.isFinite(n) ? Math.max(m,n) : m;
+  }, 0);
+  return 'TRIP.' + String(max + 1).padStart(2,'0');
+}
+
+function duplicateTrip(id){
+  const rows = tripRows(), src = rows.find(t => t.id===id);
+  if (!src) return null;
+  const code = nextTripCode();
+  const copy = { ...src, id:code, code, name:src.name + ' (copy)',
+    status:'draft', publish_at:null,          // a duplicate never inherits a live state
+    seats:'0/' + (src.max_participants ?? '—'), fill:0,
+    series_id:null,                            // a copy is not part of the original's series
+    duplicated_from_trip_id:src.id };          // traceability only — no behaviour reads it
+  setTrips(rows.concat([copy]));
+  return copy;
+}
+
+const seedTemplates = () => ([
+  { id:'tpl1', organizer_id:'demo-org', name:'Standard 8-day Himalayan trek',
+    title:'8-Day Himalayan Trek', destination:'Himachal',
+    description:'Reusable shape for our mid-difficulty week-long treks.',
+    itinerary:[{day:1,t:'Arrive and acclimatise'},{day:2,t:'Base camp'},{day:3,t:'High camp'},
+               {day:4,t:'Summit push'},{day:5,t:'Descend'},{day:6,t:'Buffer'},
+               {day:7,t:'Return transfer'},{day:8,t:'Depart'}],
+    price:74000, duration_days:8,
+    inclusions:['All meals on trail','Shared tents','Certified lead guide','Permits'],
+    exclusions:['Travel to base city','Personal gear','Insurance'] },
+  { id:'tpl2', organizer_id:'demo-org', name:'Short weekend escape',
+    title:'Weekend Escape', destination:'Himachal',
+    description:'Five-day format for first-timers. Low commitment, high conversion.',
+    itinerary:[{day:1,t:'Drive in'},{day:2,t:'Trek to camp'},{day:3,t:'Pass crossing'},
+               {day:4,t:'Descend'},{day:5,t:'Drive out'}],
+    price:18500, duration_days:5,
+    inclusions:['All meals','Shared tents','Guide'],
+    exclusions:['Travel to base city','Personal gear'] },
+]);
+const templates = () => STORE.get('tripTemplates', seedTemplates());
+
+const seedSeries = () => ([
+  { id:'ser1', organizer_id:'demo-org', series_name:'Kashmir Great Lakes 2026',
+    title:'Kashmir Great Lakes', destination:'Kashmir',
+    description:'Runs fortnightly across the Jul–Sep window.',
+    itinerary:[{day:1,t:'Sonamarg'},{day:2,t:'Nichnai'},{day:3,t:'Vishansar'},
+               {day:4,t:'Gadsar'},{day:5,t:'Satsar'},{day:6,t:'Gangbal'},
+               {day:7,t:'Naranag'},{day:8,t:'Depart'}],
+    base_price:74000, template_id:'tpl1' },
+  { id:'ser2', organizer_id:'demo-org', series_name:'Hampta Pass weekends',
+    title:'Hampta Pass', destination:'Himachal',
+    description:'Every second weekend through the season.',
+    itinerary:[{day:1,t:'Jobra'},{day:2,t:'Chika'},{day:3,t:'Balu ka Ghera'},
+               {day:4,t:'Hampta Pass'},{day:5,t:'Chatru'}],
+    base_price:18500, template_id:'tpl2' },
+]);
+const seriesRows = () => STORE.get('tripSeries', seedSeries());
+
+const DATE_IN = ms => new Date(ms).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+
+/* Both entry points create a real, draft trip. The difference is only which
+   FK gets stamped — template_id (one-off from a shape) or series_id (a
+   departure that belongs to a recurring run). */
+function tripFromTemplate(templateId, startMs){
+  const tpl = templates().find(t => t.id===templateId); if (!tpl) return null;
+  const code = nextTripCode();
+  const row = { id:code, code, name:tpl.title, dep:DATE_IN(startMs), days:tpl.duration_days,
+    seats:'0/8', fill:0, price:tpl.price, destination:tpl.destination,
+    start_date:startMs, max_participants:8, status:'draft', publish_at:null,
+    series_id:null, template_id:tpl.id, duplicated_from_trip_id:null };
+  setTrips(tripRows().concat([row]));
+  return row;
+}
+function departureFromSeries(seriesId, startMs){
+  const s = seriesRows().find(x => x.id===seriesId); if (!s) return null;
+  const code = nextTripCode();
+  const row = { id:code, code, name:s.title, dep:DATE_IN(startMs), days:s.itinerary.length,
+    seats:'0/8', fill:0, price:s.base_price, destination:s.destination,
+    start_date:startMs, max_participants:8, status:'draft', publish_at:null,
+    series_id:s.id, template_id:s.template_id, duplicated_from_trip_id:null };
+  setTrips(tripRows().concat([row]));
+  return row;
+}
+const seriesDepartures = seriesId => tripRows().filter(t => t.series_id===seriesId);
+
+/* ==========================================================================
+   P2 · G-04 — booking detail
+   Spec: 2026-08-05-core-platform-traveler-booking-design.md
+     `bookings.status` enum: pending_payment | confirmed | completed | cancelled
+     `bookings.num_travelers` — a family of four booking together is ONE row
+     `bookings.total_amount`  — snapshot of trips.price * num_travelers at
+                                booking time (price lock-in)
+     `booking_events.event_type` enum, verbatim below
+   ========================================================================== */
+
+const BOOKING_STATUS = ['pending_payment','confirmed','completed','cancelled'];
+const BOOKING_EVENTS = ['booking_confirmed','payment_captured','installment_due_soon',
+  'cancellation_requested','refund_completed','waitlist_seat_freed','waitlist_offer_expiring'];
+
+const bookingStatusOf = b => ({ Verified:'confirmed', Pending:'pending_payment',
+  Refunded:'cancelled' })[b.pay] || 'pending_payment';
+
+/* Price lock-in: total_amount was snapshotted at booking time, so a later trip
+   price edit must NOT move it. This returns both figures so the screen can show
+   the gap rather than assert the rule. */
+function priceLock(b){
+  const t = tripRows().find(x => x.id === canonicalTripId(b.trip));
+  const locked = b.amount;
+  const atCurrent = t ? t.price * b.pax : null;
+  return { locked, atCurrent, drifted: atCurrent !== null && atCurrent !== locked, current: t ? t.price : null };
+}
+
+/* Timeline derived from status — no separate event log to fall out of sync
+   with the booking it describes. */
+function bookingTimeline(b){
+  const st = bookingStatusOf(b), out = [];
+  out.push({ type:'booking_confirmed', when:b.date, note:`${b.pax} seat${b.pax>1?'s':''} held on ${b.trip}` });
+  if (st === 'confirmed' || st === 'completed')
+    out.push({ type:'payment_captured', when:b.date, note:`${INR(b.amount)} captured via ${b.method}` });
+  if (st === 'pending_payment')
+    out.push({ type:'installment_due_soon', when:'pending', note:'Awaiting capture — the seat is held, not sold' });
+  if (st === 'cancelled') {
+    out.push({ type:'cancellation_requested', when:b.date, note:'Traveller requested cancellation' });
+    out.push({ type:'refund_completed', when:b.date, note:`${INR(b.amount)} refunded` });
+  }
+  return out;
+}
+
+/* ==========================================================================
+   P2 · G-24..G-27 — analytics views
+   Spec: 2026-08-05-analytics-financial-design.md. Every number below is
+   computed from the same rows the operational screens read. Nothing here is
+   a hand-authored figure.
+   ========================================================================== */
+
+/* A series stamps out several departures that share a title by design, so a
+   trip NAME is not a key. Everything below joins on trip id; the name-keyed
+   legacy rows (bookings, vendor payments, expenses) resolve to the canonical
+   — earliest-created — trip of that name. Without this, three "Kashmir Great
+   Lakes" departures each claim the same booking and the destination rollup
+   triple-counts it. */
+function canonicalTripId(name){
+  const t = tripRows().find(x => x.name === name);
+  return t ? t.id : null;
+}
+
+/* One row per booking ATTEMPT, not per confirmed booking — a conversion rate
+   needs a denominator, so cancelled and pending rows stay in the set. */
+function analyticsBookings(){
+  const st = { Verified:'confirmed', Pending:'pending_payment', Refunded:'cancelled' };
+  const current = MOCK.bookings.map(b => ({
+    id:b.id, traveler:b.traveller, trip:b.trip, amount:b.amount,
+    status: st[b.pay] || 'pending_payment', at:new Date(b.date + ' 2026').getTime(),
+  }));
+  /* Prior-season rows, pinned to LAST season's departures by id. Without
+     history there is no such thing as a repeat customer; without the pin,
+     a closed season's bookings would fill this season's seats. */
+  const past = {}; pastDepartures().forEach(t => { past[t.id] = t.start_date; });
+  const prior = [
+    { id:'BK-1904', traveler:'Rajesh Kumar', trip:'Markha Valley',      trip_id:'TRIP.P1', amount:96000,  status:'confirmed' },
+    { id:'BK-1877', traveler:'Priya Sharma', trip:'Hampta Pass',        trip_id:'TRIP.P2', amount:18500,  status:'confirmed' },
+    { id:'BK-1852', traveler:'Rajesh Kumar', trip:'Goecha La',          trip_id:'TRIP.P3', amount:109000, status:'confirmed' },
+    { id:'BK-1840', traveler:'Sana Khan',    trip:'Kashmir Great Lakes',trip_id:'TRIP.P4', amount:74000,  status:'cancelled' },
+    /* Two one-time travellers, so the New bucket is populated and not a branch
+       that only exists in theory. Dev Patel has an invoice; Farida Qureshi does
+       not, which is how the geography view's stated scope limit gets exercised. */
+    { id:'BK-1866', traveler:'Dev Patel',      trip:'Kashmir Great Lakes',trip_id:'TRIP.P4', amount:74000,  status:'confirmed' },
+    { id:'BK-1859', traveler:'Farida Qureshi', trip:'Goecha La',          trip_id:'TRIP.P3', amount:109000, status:'confirmed' },
+  ].map(b => ({ ...b, at: past[b.trip_id] - 45*DAY }));   // booked ~6 weeks before departure
+  return current.concat(prior).map(b => ({ ...b, trip_id: b.trip_id || canonicalTripId(b.trip) }));
+}
+
+/* Expenses carry no trip column, so they are attributed through the vendor
+   they were paid to. Anything that matches no vendor stays UNATTRIBUTED and is
+   surfaced as such — silently folding it into one trip would overstate that
+   trip's cost and understate every other. */
+function expenseTrip(e){
+  const vp = vendorPayments().find(v => v.vendor === e.vendor);
+  return vp ? vp.trip : null;
+}
+const unattributedExpenses = () => MOCK.expenses.filter(e => !expenseTrip(e));
+
+/* v_profitability_by_trip — revenue − expenses − vendor_payments.paid_amount.
+   Costs land on the canonical trip only: a departure generated today has not
+   incurred the original departure's vendor bills. */
+function vProfitabilityByTrip(){
+  const bk = analyticsBookings(), vps = vendorPayments();
+  return tripRows().map(t => {
+    const canonical = canonicalTripId(t.name) === t.id;
+    const revenue  = bk.filter(b => b.trip_id===t.id && b.status==='confirmed')
+                       .reduce((s,b)=>s+b.amount, 0);
+    const expenses = !canonical ? 0 : MOCK.expenses.filter(e => expenseTrip(e)===t.name)
+                       .reduce((s,e)=>s+e.amt, 0);
+    const vendor   = !canonical ? 0 : vps.filter(v => v.trip===t.name)
+                       .reduce((s,v)=>s+paidAmount(v), 0);
+    const profit   = revenue - expenses - vendor;
+    return { trip:t.name, code:t.code, dep:t.dep, past:hasDeparted(t),
+             costsOnRecord: expenses + vendor > 0,
+             destination:t.destination, revenue, expenses, vendor, profit,
+             margin: revenue ? Math.round(profit / revenue * 1000)/10 : null };
+  });
+}
+
+/* v_profitable_destinations — the same view rolled up by trips.destination */
+function vProfitableDestinations(){
+  const acc = {};
+  vProfitabilityByTrip().forEach(r => {
+    const d = acc[r.destination] || (acc[r.destination] = { destination:r.destination, revenue:0, cost:0, profit:0, trips:0 });
+    d.revenue += r.revenue; d.cost += r.expenses + r.vendor; d.profit += r.profit; d.trips += 1;
+  });
+  return Object.values(acc)
+    .map(d => ({ ...d, margin: d.revenue ? Math.round(d.profit / d.revenue * 1000)/10 : null }))
+    .sort((a,b) => b.profit - a.profit);
+}
+
+/* v_occupancy_by_trip — confirmed bookings vs trips.max_participants.
+   A null cap is returned as-is; the UI says "capacity data unavailable"
+   rather than dividing by null. */
+function vOccupancyByTrip(){
+  const bk = analyticsBookings();
+  return tripRows().map(t => {
+    const booked = bk.filter(b => b.trip_id===t.id && b.status==='confirmed').length;
+    return { trip:t.name, booked, cap:t.max_participants,
+             pct: t.max_participants ? Math.round(booked / t.max_participants * 100) : null };
+  });
+}
+
+/* v_seasonal_bookings — grouped by EXTRACT(MONTH FROM trips.start_date),
+   aggregated across years */
+function vSeasonalBookings(){
+  const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const byTrip = {}; tripRows().forEach(t => { byTrip[t.id] = new Date(t.start_date).getMonth(); });
+  const counts = new Array(12).fill(0);
+  analyticsBookings().forEach(b => {
+    const m = byTrip[b.trip_id];
+    if (m !== undefined && b.status === 'confirmed') counts[m] += 1;
+  });
+  return M.map((label,i) => ({ label, count:counts[i] }));
+}
+
+/* v_repeat_customers — per traveller: confirmed count, first/last booking,
+   lifetime spend. The >1 bucketing is the API layer's job, done here on read. */
+function vRepeatCustomers(){
+  const acc = {};
+  analyticsBookings().filter(b => b.status==='confirmed').forEach(b => {
+    const c = acc[b.traveler] || (acc[b.traveler] = { traveler:b.traveler, bookings:0, first:b.at, last:b.at, spend:0 });
+    c.bookings += 1; c.spend += b.amount;
+    c.first = Math.min(c.first, b.at); c.last = Math.max(c.last, b.at);
+  });
+  return Object.values(acc)
+    .map(c => ({ ...c, segment: c.bookings > 1 ? 'Repeat' : 'New' }))
+    .sort((a,b) => b.spend - a.spend);
+}
+
+/* v_customer_geography — grouped by the parsed state on gst_invoices.buyer_address.
+   Only invoiced (i.e. paid) bookings appear; unpaid ones contribute no revenue
+   to analyse. That scope limit is stated in the UI, not hidden. */
+const BUYER_STATE = { 'Rajesh Kumar':'Delhi', 'Priya Sharma':'Maharashtra',
+  'Amit Singh':'Uttar Pradesh', 'Neha Verma':'Maharashtra', 'Arjun Mehta':'Karnataka',
+  'Sana Khan':'Delhi', 'Dev Patel':'Gujarat' };
+  /* Farida Qureshi is deliberately absent — a confirmed booking with no invoice
+     yet. She counts as a customer and is excluded from geography, which is the
+     scope limit the view declares rather than a row quietly going missing. */
+function vCustomerGeography(){
+  const acc = {};
+  analyticsBookings().filter(b => b.status==='confirmed').forEach(b => {
+    const state = BUYER_STATE[b.traveler]; if (!state) return;   // no invoice → not counted
+    const g = acc[state] || (acc[state] = { state, bookings:0, revenue:0 });
+    g.bookings += 1; g.revenue += b.amount;
+  });
+  return Object.values(acc).sort((a,b) => b.revenue - a.revenue);
+}
+/* How much confirmed revenue the geography view cannot place. Stated in the UI
+   so the map is never mistaken for the whole book. */
+function geographyUnplaced(){
+  const rows = analyticsBookings().filter(b => b.status==='confirmed' && !BUYER_STATE[b.traveler]);
+  return { count:rows.length, revenue:rows.reduce((s,b)=>s+b.amount,0) };
+}
+
+/* v_booking_funnel_conversion — confirmed ÷ all attempts. No dependency on
+   trip_daily_views, so it is correct from day one. */
+function vBookingFunnelConversion(){
+  const bk = analyticsBookings();
+  const attempts = bk.length, confirmed = bk.filter(b=>b.status==='confirmed').length;
+  return { attempts, confirmed,
+           pending: bk.filter(b=>b.status==='pending_payment').length,
+           cancelled: bk.filter(b=>b.status==='cancelled').length,
+           rate: attempts ? Math.round(confirmed / attempts * 1000)/10 : 0 };
+}
+
+/* trip_daily_views — the view-count half of the funnel. Real rows in
+   production; seeded here so the views→enquiry→booking chain is computable
+   rather than asserted. */
+const seedTripViews = () => tripRows().slice(0,5).map((t,i) => ({
+  trip:t.name, views:[1840, 1210, 760, 320, 690][i] || 0, enquiries:[212,168,96,31,105][i] || 0,
+}));
+const tripViews = () => STORE.get('tripDailyViews', seedTripViews());
+
+/* ---------------- ui helpers ---------------- */
+const TONE = {
+  green:'bg-forest-100 text-forest-800 ring-forest-200',
+  amber:'bg-earth-100 text-earth-800 ring-earth-200',
+  red:'bg-red-100 text-red-700 ring-red-200',
+  slate:'bg-nature-200 text-nature-700 ring-nature-300',
+  blue:'bg-blue-100 text-blue-700 ring-blue-200',
+};
+const STATE_TONE = {
+  Verified:'green', Full:'green', Settled:'green', Delivered:'green', 'Paid out':'green', Paid:'green', Converted:'green',
+  Selling:'blue', Processing:'blue', 'Proposal sent':'blue', 'Part paid':'amber',
+  Pending:'amber', Unpaid:'amber', Draft:'slate', Unverified:'amber', 'Awaiting proposal':'amber',
+  Failed:'red', Refunded:'red',
+  Open:'amber', Resolved:'green', Awaiting:'amber',
+  Past:'slate', Scheduled:'blue',
+};
+const badge = (txt, tone) => `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${TONE[tone||STATE_TONE[txt]||'slate']}">${txt}</span>`;
+
+const card = (inner, cls='') => `<div class="bg-white rounded-xl border border-nature-200 ${cls}">${inner}</div>`;
+const sectionHead = (t, right='') => `<div class="flex items-center justify-between gap-3 mb-3"><h2 class="font-semibold">${t}</h2>${right}</div>`;
+const btn = (t, kind='primary', attrs='') => {
+  const k = { primary:'bg-forest-600 hover:bg-forest-700 text-white',
+              ghost:'bg-white hover:bg-nature-100 text-nature-800 border border-nature-300',
+              danger:'bg-red-600 hover:bg-red-700 text-white' }[kind];
+  return `<button ${attrs} class="inline-flex items-center gap-1.5 rounded-md px-3 h-9 text-sm font-medium ${k}">${t}</button>`;
+};
+
+function table(cols, rows){
+  return `<div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead><tr class="text-left text-[11px] uppercase tracking-wide text-nature-500 border-b border-nature-200">
+        ${cols.map(c=>`<th class="font-medium px-4 py-2.5 ${c.right?'text-right':''}">${c.t}</th>`).join('')}
+      </tr></thead>
+      <tbody>${rows.map(r=>`<tr class="border-b border-nature-100 last:border-0 hover:bg-nature-50">${r}</tr>`).join('')}</tbody>
+    </table></div>`;
+}
+const td = (v, cls='') => `<td class="px-4 py-3 ${cls}">${v}</td>`;
+
+function bars(data, h=120){
+  const max = Math.max(...data), w = 100/data.length;
+  return `<svg viewBox="0 0 100 ${h}" preserveAspectRatio="none" class="w-full" style="height:${h}px">
+    ${data.map((v,i)=>{const bh=(v/max)*(h-10);return `<rect x="${i*w+w*0.22}" y="${h-bh}" width="${w*0.56}" height="${bh}" rx="0.8" fill="#16a34a" opacity="${0.35+0.65*(i/(data.length-1))}"/>`}).join('')}
+  </svg>`;
+}
+function fillBar(pct, tone='bg-forest-600'){
+  return `<div class="flex items-center gap-2"><div class="w-24 h-1.5 rounded-full bg-nature-200 overflow-hidden"><div class="h-full ${tone}" style="width:${pct}%"></div></div><span class="text-xs text-nature-500 tnum">${pct}%</span></div>`;
+}
+const emptyState = (t,s,cta='') => `<div class="text-center py-14"><div class="mx-auto w-11 h-11 rounded-full bg-nature-100 grid place-items-center text-nature-400">${ico('inbox')}</div><p class="mt-3 font-medium">${t}</p><p class="text-sm text-nature-500 mt-1">${s}</p>${cta?`<div class="mt-4">${cta}</div>`:''}</div>`;
+
+/* ---------------- views ---------------- */
+const V = {};
+
+V.dashboard = () => `
+  <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-5">
+    ${MOCK.kpi.map(k=>card(`<div class="p-4">
+      <p class="text-xs text-nature-500">${k.label}</p>
+      <p class="mt-1 text-2xl font-semibold tnum">${k.value}</p>
+      <p class="mt-1.5 text-xs flex items-center gap-1.5">
+        <span class="${k.up?'text-forest-700':'text-red-600'} font-medium">${k.delta}</span>
+        <span class="text-nature-400">${k.note}</span></p>
+    </div>`)).join('')}
+  </div>
+
+  <div class="grid gap-4 lg:grid-cols-3 mb-5">
+    ${card(`<div class="p-4 lg:col-span-2">
+      ${sectionHead('Revenue — last 12 months', `<span class="text-xs text-nature-500">net after 3% platform commission</span>`)}
+      ${bars(MOCK.revenue,140)}
+      <div class="flex justify-between text-[11px] text-nature-400 mt-1"><span>Jul</span><span>Oct</span><span>Jan</span><span>Apr</span><span>Jun</span></div>
+    </div>`,'lg:col-span-2')}
+    ${card(`<div class="p-4">
+      ${sectionHead('Lead pipeline')}
+      <div class="space-y-2.5">
+        ${Object.entries(MOCK.leads).map(([k,v])=>`<div class="flex items-center gap-3">
+          <span class="text-xs w-20 text-nature-600">${k}</span>
+          <div class="flex-1 h-2 rounded-full bg-nature-200 overflow-hidden"><div class="h-full bg-forest-600" style="width:${v.length*20}%"></div></div>
+          <span class="text-xs tnum w-5 text-right">${v.length}</span></div>`).join('')}
+      </div>
+      <a href="#leads" class="mt-4 inline-block text-sm font-medium text-forest-700 hover:underline">Open pipeline →</a>
+    </div>`)}
+  </div>
+
+  <div class="grid gap-4 lg:grid-cols-2">
+    ${card(`<div class="p-4">${sectionHead('Upcoming departures', `<a href="#trips" class="text-sm text-forest-700 hover:underline">All trips</a>`)}</div>
+      ${table([{t:'Trip'},{t:'Departs'},{t:'Seats'},{t:'Status'}], MOCK.trips.slice(0,4).map(t=>
+        td(`<span class="font-medium">${t.name}</span><div class="text-xs text-nature-500">${t.code} · ${t.days} days</div>`)+
+        td(`<span class="text-sm">${t.dep}</span>`)+
+        td(fillBar(t.fill))+
+        td(badge(t.status))
+      ))}`)}
+    ${card(`<div class="p-4">${sectionHead('Needs your attention', `<a href="#payments" class="text-sm text-forest-700 hover:underline">Verification queue</a>`)}
+      <ul class="space-y-2.5 text-sm">
+        <li class="flex items-start gap-2.5"><span class="mt-0.5">${badge('7','amber')}</span><span>UPI payment screenshots awaiting verification <span class="text-nature-500">— oldest 2 days old</span></span></li>
+        <li class="flex items-start gap-2.5"><span class="mt-0.5">${badge('1','red')}</span><span>Vendor message failed to deliver <span class="text-nature-500">— Tenzing Guides, WhatsApp</span></span></li>
+        <li class="flex items-start gap-2.5"><span class="mt-0.5">${badge('2','amber')}</span><span>Vendors missing documents <span class="text-nature-500">— Sonam Kitchen, Himalaya Gear</span></span></li>
+        <li class="flex items-start gap-2.5"><span class="mt-0.5">${badge('1','amber')}</span><span>Custom request awaiting proposal <span class="text-nature-500">— Ananya Gupta, Spiti</span></span></li>
+        <li class="flex items-start gap-2.5"><span class="mt-0.5">${badge('1','amber')}</span><span>Unverified review flagged <span class="text-nature-500">— possible spam</span></span></li>
+      </ul></div>`)}
+  </div>`;
+
+V.analytics = () => `
+  <div class="grid gap-4 sm:grid-cols-4 mb-5">
+    ${[['Conversion rate','24.6%','leads → bookings'],['Avg booking value','₹98,400','per booking'],['Repeat travellers','31%','booked before'],['Seat utilisation','71%','across departures']]
+      .map(([l,v,n])=>card(`<div class="p-4"><p class="text-xs text-nature-500">${l}</p><p class="mt-1 text-2xl font-semibold tnum">${v}</p><p class="text-xs text-nature-400 mt-1">${n}</p></div>`)).join('')}
+  </div>
+  <div class="grid gap-4 lg:grid-cols-2">
+    ${card(`<div class="p-4">${sectionHead('Bookings by trip')}${bars([46,38,22,14,9],150)}
+      <div class="flex justify-between text-[11px] text-nature-400 mt-1">${MOCK.trips.map(t=>`<span>${t.name.split(' ')[0]}</span>`).join('')}</div></div>`)}
+    ${card(`<div class="p-4">${sectionHead('Traffic → booking funnel')}
+      <div class="space-y-3">
+        ${[['Trip page views',4820,100],['Enquiries started',612,13],['Leads captured',248,5],['Bookings confirmed',46,1]]
+          .map(([l,v,p])=>`<div><div class="flex justify-between text-sm"><span>${l}</span><span class="tnum font-medium">${v.toLocaleString('en-IN')}</span></div>
+          <div class="mt-1 h-2 rounded-full bg-nature-200 overflow-hidden"><div class="h-full bg-forest-600" style="width:${p}%"></div></div></div>`).join('')}
+      </div></div>`)}
+  </div>`;
+
+/* ---- G-24 · profitability ---- */
+V['an-profitability'] = () => {
+  const rows = vProfitabilityByTrip().sort((a,b)=>b.profit-a.profit);
+  const un = unattributedExpenses();
+  const T = rows.reduce((a,r)=>({rev:a.rev+r.revenue, cost:a.cost+r.expenses+r.vendor, pro:a.pro+r.profit}),{rev:0,cost:0,pro:0});
+  return `
+  <div class="grid gap-4 sm:grid-cols-3 mb-5">
+    ${[['Revenue',INR(T.rev),'confirmed bookings only'],['Cost',INR(T.cost),'expenses + vendor paid'],['Profit',INR(T.pro),T.rev?Math.round(T.pro/T.rev*1000)/10+'% margin':'—']]
+      .map(([l,v,n])=>card(`<div class="p-4"><p class="text-xs text-nature-500">${l}</p><p class="mt-1 text-2xl font-semibold tnum">${v}</p><p class="text-xs text-nature-400 mt-1">${n}</p></div>`)).join('')}
+  </div>
+  ${card(`<div class="p-4">${sectionHead('Profitability by trip', `<span class="text-xs text-nature-500 font-mono">v_profitability_by_trip</span>`)}
+    <p class="text-sm text-nature-600">Revenue − expenses − vendor payments <em>actually paid</em>. An agreed vendor amount that has not been released is not a cost yet.</p></div>
+  ${table([{t:'Trip'},{t:'Destination'},{t:'Revenue',right:true},{t:'Expenses',right:true},{t:'Vendor paid',right:true},{t:'Profit',right:true},{t:'Margin',right:true}], rows.map(r=>
+    td(`<span class="font-medium">${r.trip}</span><div class="text-xs text-nature-500">${r.code} · ${r.dep}${r.past?' · departed':''}</div>`)+td(r.destination)+
+    td(`<span class="tnum">${INR(r.revenue)}</span>`,'text-right')+
+    td(`<span class="tnum">${INR(r.expenses)}</span>`,'text-right')+
+    td(`<span class="tnum">${INR(r.vendor)}</span>`,'text-right')+
+    td(`<span class="tnum font-medium ${r.profit<0?'text-red-600':''}">${INR(r.profit)}</span>`,'text-right')+
+    td(r.margin===null?'<span class="text-nature-400">—</span>'
+       : `<span class="tnum ${r.margin<0?'text-red-600':''}">${r.margin}%</span>${r.revenue && !r.costsOnRecord?'<div class="text-[11px] text-earth-700">no costs recorded</div>':''}`,'text-right')
+  ))}
+  ${(()=>{const n=rows.filter(r=>r.revenue && !r.costsOnRecord).length; return n ? `<div class="px-4 py-3 border-t border-nature-200 text-sm text-nature-600">
+    <strong class="tnum">${n}</strong> departure${n>1?'s':''} show a 100% margin only because no expense or vendor payment rows exist against ${n>1?'them':'it'} — that is missing cost data, not profit. Older departures in this dataset predate the vendor payment records.
+  </div>` : '';})()}`)}
+  <div class="mt-4">${card(`<div class="p-4">${sectionHead('Most profitable destinations', `<span class="text-xs text-nature-500 font-mono">v_profitable_destinations</span>`)}</div>
+  ${table([{t:'Destination'},{t:'Trips'},{t:'Revenue',right:true},{t:'Cost',right:true},{t:'Profit',right:true},{t:'Margin',right:true}], vProfitableDestinations().map(d=>
+    td(`<span class="font-medium">${d.destination}</span>`)+td(`<span class="tnum">${d.trips}</span>`)+
+    td(`<span class="tnum">${INR(d.revenue)}</span>`,'text-right')+
+    td(`<span class="tnum">${INR(d.cost)}</span>`,'text-right')+
+    td(`<span class="tnum font-medium ${d.profit<0?'text-red-600':''}">${INR(d.profit)}</span>`,'text-right')+
+    td(d.margin===null?'<span class="text-nature-400">—</span>':`<span class="tnum">${d.margin}%</span>`,'text-right')
+  ))}`)}</div>
+  ${un.length ? `<div class="mt-4">${card(`<div class="p-4">
+    <p class="font-medium text-sm">${un.length} expense${un.length>1?'s':''} could not be attributed to a trip</p>
+    <p class="text-sm text-nature-600 mt-1">These are paid to a party with no vendor payment record, so no trip can claim them. They are excluded from the per-trip figures above rather than being folded into one trip — that would overstate its cost and understate every other.</p>
+    <ul class="mt-2 text-sm text-nature-700 list-disc pl-5">${un.map(e=>`<li>${e.cat} — ${e.vendor} — <span class="tnum">${INR(e.amt)}</span></li>`).join('')}</ul>
+  </div>`)}</div>` : ''}`;
+};
+
+/* ---- G-25 · occupancy ---- */
+V['an-occupancy'] = () => {
+  const occ = vOccupancyByTrip();
+  const measurable = occ.filter(o => o.pct !== null);
+  const avg = measurable.length ? Math.round(measurable.reduce((s,o)=>s+o.pct,0)/measurable.length) : 0;
+  const season = vSeasonalBookings();
+  const peak = season.reduce((a,b)=>b.count>a.count?b:a, season[0]);
+  return `
+  <div class="grid gap-4 sm:grid-cols-3 mb-5">
+    ${[['Average occupancy',avg+'%',measurable.length+' of '+occ.length+' trips have a cap set'],
+       ['Busiest month',peak.count?peak.label:'—','across all seasons'],
+       ['Capacity unknown',String(occ.length-measurable.length),'no max_participants']]
+      .map(([l,v,n])=>card(`<div class="p-4"><p class="text-xs text-nature-500">${l}</p><p class="mt-1 text-2xl font-semibold tnum">${v}</p><p class="text-xs text-nature-400 mt-1">${n}</p></div>`)).join('')}
+  </div>
+  ${card(`<div class="p-4">${sectionHead('Occupancy by trip', `<span class="text-xs text-nature-500 font-mono">v_occupancy_by_trip</span>`)}
+    <p class="text-sm text-nature-600">A trip with no capacity set returns its cap as <code class="font-mono">NULL</code>. That is shown as unavailable, never as 0% or 100%.</p></div>
+  ${table([{t:'Trip'},{t:'Confirmed'},{t:'Capacity'},{t:'Occupancy'}], occ.map(o=>
+    td(`<span class="font-medium">${o.trip}</span>`)+
+    td(`<span class="tnum">${o.booked}</span>`)+
+    td(o.cap===null?'<span class="text-nature-400">not set</span>':`<span class="tnum">${o.cap}</span>`)+
+    td(o.pct===null?'<span class="text-sm text-nature-500">capacity data unavailable</span>':fillBar(Math.min(o.pct,100)))
+  ))}`)}
+  <div class="mt-4">${card(`<div class="p-4">${sectionHead('Seasonal demand', `<span class="text-xs text-nature-500 font-mono">v_seasonal_bookings</span>`)}
+    <p class="text-sm text-nature-600 mb-3">Confirmed bookings grouped by departure month, aggregated across years — which months consistently sell.</p>
+    ${bars(season.map(s=>s.count||0.001), 140)}
+    <div class="flex justify-between text-[11px] text-nature-400 mt-1">${season.map(s=>`<span>${s.label[0]}</span>`).join('')}</div>
+    <div class="mt-3 flex flex-wrap gap-2">${season.filter(s=>s.count).map(s=>`<span class="text-xs bg-nature-100 rounded px-2 py-1">${s.label}: <span class="tnum font-medium">${s.count}</span></span>`).join('')}</div>
+  </div>`)}</div>`;
+};
+
+/* ---- G-26 · customers ---- */
+V['an-customers'] = () => {
+  const cust = vRepeatCustomers();
+  const repeat = cust.filter(c=>c.segment==='Repeat').length;
+  const geo = vCustomerGeography();
+  const totalRev = geo.reduce((s,g)=>s+g.revenue,0);
+  return `
+  <div class="grid gap-4 sm:grid-cols-3 mb-5">
+    ${[['Customers',String(cust.length),'with at least one confirmed booking'],
+       ['Repeat rate',(cust.length?Math.round(repeat/cust.length*100):0)+'%',repeat+' booked more than once'],
+       ['Lifetime spend',INR(cust.reduce((s,c)=>s+c.spend,0)),'confirmed bookings, all time']]
+      .map(([l,v,n])=>card(`<div class="p-4"><p class="text-xs text-nature-500">${l}</p><p class="mt-1 text-2xl font-semibold tnum">${v}</p><p class="text-xs text-nature-400 mt-1">${n}</p></div>`)).join('')}
+  </div>
+  ${card(`<div class="p-4">${sectionHead('Repeat customers', `<span class="text-xs text-nature-500 font-mono">v_repeat_customers</span>`)}
+    <p class="text-sm text-nature-600">New vs Repeat is bucketed on read at more than one confirmed booking — not stored, so it can never go stale.</p></div>
+  ${table([{t:'Traveller'},{t:'Segment'},{t:'Bookings'},{t:'First'},{t:'Most recent'},{t:'Lifetime spend',right:true}], cust.map(c=>
+    td(`<span class="font-medium">${c.traveler}</span>`)+
+    td(badge(c.segment, c.segment==='Repeat'?'green':'slate'))+
+    td(`<span class="tnum">${c.bookings}</span>`)+
+    td(DATE_IN(c.first))+td(DATE_IN(c.last))+
+    td(`<span class="tnum font-medium">${INR(c.spend)}</span>`,'text-right')
+  ))}`)}
+  <div class="mt-4">${card(`<div class="p-4">${sectionHead('Where customers book from', `<span class="text-xs text-nature-500 font-mono">v_customer_geography</span>`)}
+    <p class="text-sm text-nature-600">Grouped by the state parsed from the GST invoice's buyer address. Only invoiced bookings appear — an uninvoiced booking has contributed no revenue to place on a map.</p></div>
+  ${table([{t:'State'},{t:'Bookings'},{t:'Revenue',right:true},{t:'Share'}], geo.map(g=>
+    td(`<span class="font-medium">${g.state}</span>`)+td(`<span class="tnum">${g.bookings}</span>`)+
+    td(`<span class="tnum">${INR(g.revenue)}</span>`,'text-right')+
+    td(fillBar(totalRev?Math.round(g.revenue/totalRev*100):0))
+  ))}
+  ${(()=>{const u=geographyUnplaced(); return u.count ? `<div class="px-4 py-3 border-t border-nature-200 text-sm text-nature-600">
+    <strong class="tnum">${u.count}</strong> confirmed booking${u.count>1?'s':''} worth <strong class="tnum">${INR(u.revenue)}</strong> ${u.count>1?'have':'has'} no invoice yet, so ${u.count>1?'they are':'it is'} not on this table. The totals here are a subset of confirmed revenue, not all of it.
+  </div>` : '';})()}`)}</div>`;
+};
+
+/* ---- G-27 · marketing analytics ---- */
+V['an-marketing'] = () => {
+  const f = vBookingFunnelConversion();
+  const views = tripViews();
+  const totalViews = views.reduce((s,v)=>s+v.views,0);
+  const totalEnq   = views.reduce((s,v)=>s+v.enquiries,0);
+  const stages = [['Trip page views',totalViews],['Enquiries started',totalEnq],['Booking attempts',f.attempts],['Bookings confirmed',f.confirmed]];
+  const top = stages[0][1];
+  return `
+  <div class="grid gap-4 sm:grid-cols-4 mb-5">
+    ${[['Attempt → confirmed',f.rate+'%','v_booking_funnel_conversion'],
+       ['View → enquiry',(totalViews?Math.round(totalEnq/totalViews*1000)/10:0)+'%','trip_daily_views'],
+       ['Pending payment',String(f.pending),'attempts not yet confirmed'],
+       ['Cancelled',String(f.cancelled),'of '+f.attempts+' attempts']]
+      .map(([l,v,n])=>card(`<div class="p-4"><p class="text-xs text-nature-500">${l}</p><p class="mt-1 text-2xl font-semibold tnum">${v}</p><p class="text-xs text-nature-400 mt-1 font-mono">${n}</p></div>`)).join('')}
+  </div>
+  <div class="grid gap-4 lg:grid-cols-2">
+    ${card(`<div class="p-4">${sectionHead('Booking funnel')}
+      <div class="space-y-3">${stages.map(([l,v])=>`<div>
+        <div class="flex justify-between text-sm"><span>${l}</span><span class="tnum font-medium">${v.toLocaleString('en-IN')}</span></div>
+        <div class="mt-1 h-2 rounded-full bg-nature-200 overflow-hidden"><div class="h-full bg-forest-600" style="width:${top?Math.max(v/top*100,0.6):0}%"></div></div></div>`).join('')}</div>
+      <p class="text-xs text-nature-500 mt-3">The confirmed ÷ attempts rate needs no view data, so it is correct from the first booking. The view-based rates only become meaningful once <code class="font-mono">trip_daily_views</code> has accumulated.</p>
+    </div>`)}
+    ${card(`<div class="p-4">${sectionHead('Per-trip traffic', `<span class="text-xs text-nature-500 font-mono">trip_daily_views</span>`)}</div>
+    ${table([{t:'Trip'},{t:'Views',right:true},{t:'Enquiries',right:true},{t:'Rate',right:true}], views.map(v=>
+      td(`<span class="font-medium">${v.trip}</span>`)+
+      td(`<span class="tnum">${v.views.toLocaleString('en-IN')}</span>`,'text-right')+
+      td(`<span class="tnum">${v.enquiries}</span>`,'text-right')+
+      td(`<span class="tnum">${v.views?Math.round(v.enquiries/v.views*1000)/10:0}%</span>`,'text-right')
+    ))}`)}
+  </div>`;
+};
+
+V.trips = () => {
+  const rows = tripRows();
+  const originName = id => (rows.find(t=>t.id===id)||{}).name || id;
+  return card(`
+  <div class="p-4">${sectionHead('Trips', `<div class="flex gap-2">
+      ${btn('Templates','ghost','onclick="location.hash=&#39;trip-templates&#39;"')}
+      ${btn('+ New trip','primary','onclick="location.hash=&#39;trip-new&#39;"')}</div>`)}
+    <div class="flex flex-wrap gap-2 mb-1">
+      ${['All','Selling','Full','Draft','Past'].map((f,i)=>`<button class="px-3 h-8 rounded-md text-sm ${i===0?'bg-nature-900 text-white':'bg-nature-100 hover:bg-nature-200'}">${f}</button>`).join('')}
+    </div>
+    <p class="text-xs text-nature-500 mt-2">Lifecycle status (<code class="font-mono">draft / scheduled / published</code>) is the spec enum. <strong>Full</strong> and <strong>Selling</strong> are derived from seat fill — a separate axis, deliberately not merged into one column.</p>
+  </div>
+  ${table([{t:'Trip'},{t:'Departs'},{t:'Duration'},{t:'Seats'},{t:'Price'},{t:'Lifecycle'},{t:'Sell state'},{t:'',right:true}], rows.map(t=>{
+    const eff = effectiveStatus(t);
+    const origin = t.duplicated_from_trip_id ? `<div class="text-[11px] text-nature-400">duplicated from ${originName(t.duplicated_from_trip_id)}</div>`
+                 : t.series_id ? `<div class="text-[11px] text-nature-400">series departure</div>`
+                 : t.template_id ? `<div class="text-[11px] text-nature-400">from template</div>` : '';
+    const sched = eff==='scheduled' && t.publish_at ? `<div class="text-[11px] text-nature-400">goes live ${DATE_IN(t.publish_at)}</div>` : '';
+    return td(`<span class="font-medium">${t.name}</span><div class="text-xs text-nature-500">${t.code}</div>${origin}`)+
+    td(t.dep)+td(t.days+' days')+td(`<span class="tnum">${t.seats}</span> ${fillBar(t.fill)}`)+
+    td(`<span class="tnum">${INR(t.price)}</span>`)+
+    td(`<span class="font-mono text-xs">${eff}</span>${sched}`)+
+    td(badge(sellState(t)))+
+    td(`<div class="flex gap-1.5 justify-end flex-wrap">
+        ${hasDeparted(t)
+          ? ''   /* publishing or unpublishing a departure that already left is meaningless */
+          : eff!=='published'
+          ? `<button class="px-2.5 h-8 rounded-md bg-forest-600 hover:bg-forest-700 text-white text-xs" onclick="doPublish(&#39;${t.id}&#39;)">Publish</button>
+             <button class="px-2.5 h-8 rounded-md bg-nature-100 hover:bg-nature-200 text-xs" onclick="doSchedule(&#39;${t.id}&#39;)">Schedule</button>`
+          : `<button class="px-2.5 h-8 rounded-md bg-nature-100 hover:bg-nature-200 text-xs" onclick="doUnpublish(&#39;${t.id}&#39;)">Unpublish</button>`}
+        <button class="px-2.5 h-8 rounded-md bg-nature-100 hover:bg-nature-200 text-xs" onclick="doDuplicate(&#39;${t.id}&#39;)">Duplicate</button>
+        ${hasDeparted(t) ? '' : `<button class="px-2.5 h-8 rounded-md bg-nature-100 hover:bg-nature-200 text-xs" onclick="changeTripPrice(&#39;${t.id}&#39;)">Price</button>`}
+        <button class="px-2.5 h-8 rounded-md bg-nature-100 hover:bg-nature-200 text-xs" onclick="location.hash=&#39;finance&#39;">Finance</button></div>`,'text-right');
+  }))}`);
+};
+
+V['trip-templates'] = () => {
+  const tpls = templates();
+  return `
+  ${card(`<div class="p-4">${sectionHead('Trip templates', btn('Back to trips','ghost','onclick="location.hash=&#39;trips&#39;"'))}
+    <p class="text-sm text-nature-600">A template is a reusable shape, not a departure. It has <strong>no dates and no seats</strong>, never appears in search, and can never be booked. Using one creates a real trip in <code class="font-mono">draft</code>.</p>
+  </div>`)}
+  <div class="grid gap-4 lg:grid-cols-2 mt-4">
+    ${tpls.map(t => card(`<div class="p-4">
+      <div class="flex items-start justify-between gap-3">
+        <div><p class="font-medium">${t.name}</p>
+          <p class="text-xs text-nature-500">${t.title} · ${t.destination} · ${t.duration_days} days</p></div>
+        ${badge('Not bookable','slate')}
+      </div>
+      <p class="text-sm text-nature-600 mt-2">${t.description}</p>
+      <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm mt-3">
+        <dt class="text-nature-500">Base price</dt><dd class="tnum">${INR(t.price)}</dd>
+        <dt class="text-nature-500">Itinerary</dt><dd>${t.itinerary.length} days defined</dd>
+        <dt class="text-nature-500">Inclusions</dt><dd>${t.inclusions.length}</dd>
+        <dt class="text-nature-500">Exclusions</dt><dd>${t.exclusions.length}</dd>
+      </dl>
+      <div class="mt-4 flex gap-2">
+        ${btn('Use this template','primary',`onclick="useTemplate(&#39;${t.id}&#39;)"`)}
+        ${btn('View itinerary','ghost',`onclick="viewTemplate(&#39;${t.id}&#39;)"`)}
+      </div></div>`)).join('')}
+  </div>
+  <div class="mt-4">
+    ${card(`<div class="p-4">${sectionHead('Recurring series')}
+      <p class="text-sm text-nature-600 mb-3">A series is a template plus a cadence. Each departure it generates is a real trip carrying <code class="font-mono">series_id</code>, so cancelling one departure never touches the others.</p>
+      ${table([{t:'Series'},{t:'Destination'},{t:'Base price'},{t:'From template'},{t:'Departures'},{t:'',right:true}], seriesRows().map(s=>
+        td(`<span class="font-medium">${s.series_name}</span><div class="text-xs text-nature-500">${s.description}</div>`)+
+        td(s.destination)+td(`<span class="tnum">${INR(s.base_price)}</span>`)+
+        td(s.template_id ? `<span class="font-mono text-xs">${s.template_id}</span>` : '<span class="text-nature-400">—</span>')+
+        td(`<span class="tnum">${seriesDepartures(s.id).length}</span> generated`)+
+        td(btn('Generate departure','ghost',`onclick="genDeparture(&#39;${s.id}&#39;)"`),'text-right')
+      ))}</div>`)}
+  </div>`;
+};
+
+V['trip-new'] = () => {
+  const steps=['Basics','Itinerary','Pricing','Inclusions','Logistics','Media','Review'];
+  return `<div class="max-w-3xl">
+    ${card(`<div class="p-5">
+      <div class="flex items-center gap-1.5 mb-1">${steps.map((s,i)=>`<div class="flex-1"><div class="h-1.5 rounded-full ${i===0?'bg-forest-600':'bg-nature-200'}"></div><p class="mt-1.5 text-[11px] ${i===0?'text-forest-700 font-medium':'text-nature-400'}">${i+1}. ${s}</p></div>`).join('')}</div>
+      <h2 class="mt-5 font-semibold text-lg">Basics</h2>
+      <p class="text-sm text-nature-500">Name it the way a traveller would search for it.</p>
+      <div class="mt-4 grid gap-4">
+        <label class="block"><span class="text-sm font-medium">Trip title</span>
+          <input class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 outline-none focus:ring-2 focus:ring-forest-500" placeholder="Zanskar Traverse — Padum to Darcha"/></label>
+        <label class="block"><span class="text-sm font-medium">Description</span>
+          <textarea rows="4" class="mt-1 w-full rounded-md border border-nature-300 p-3 outline-none focus:ring-2 focus:ring-forest-500" placeholder="What makes this route different. Be specific."></textarea></label>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <label class="block"><span class="text-sm font-medium">Destination</span>
+            <input class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3" placeholder="Zanskar, Ladakh"/></label>
+          <label class="block"><span class="text-sm font-medium">Difficulty</span>
+            <select class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 bg-white"><option>Easy</option><option>Moderate</option><option selected>Demanding</option></select></label>
+          <label class="block"><span class="text-sm font-medium">Start date</span>
+            <input type="date" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3"/></label>
+          <label class="block"><span class="text-sm font-medium">Capacity</span>
+            <input type="number" value="8" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 tnum"/></label>
+        </div>
+        <div><span class="text-sm font-medium">Categories</span>
+          <div class="mt-2 flex flex-wrap gap-2">${['Mountain','Nature','Adventure','Cultural','Beach','Wildlife'].map((c,i)=>`<button class="px-3 h-8 rounded-full text-sm border ${i<3?'bg-forest-50 border-forest-300 text-forest-800':'border-nature-300 hover:bg-nature-100'}">${c}</button>`).join('')}</div></div>
+      </div>
+      <div class="mt-6 flex items-center justify-between border-t border-nature-200 pt-4">
+        ${btn('Save draft','ghost')}
+        <div class="flex gap-2">${btn('Back','ghost')}${btn('Next: Itinerary →','primary')}</div>
+      </div>
+    </div>`)}
+    <p class="text-xs text-nature-500 mt-3">Maps to <code class="font-mono">POST /trips</code> — the live app already has this as a seven-step wizard.</p>
+  </div>`;
+};
+
+V.bookings = () => card(`
+  <div class="p-4">${sectionHead('Bookings', `<div class="flex gap-2">${btn('Export CSV','ghost')}</div>`)}
+    <div class="flex flex-wrap gap-2">${['All','Verified','Pending','Refunded'].map((f,i)=>`<button class="px-3 h-8 rounded-md text-sm ${i===0?'bg-nature-900 text-white':'bg-nature-100 hover:bg-nature-200'}">${f}</button>`).join('')}</div></div>
+  ${table([{t:'Ref'},{t:'Traveller'},{t:'Trip'},{t:'Pax'},{t:'Amount'},{t:'Method'},{t:'Payment'},{t:'',right:true}], MOCK.bookings.map(b=>
+    td(`<span class="font-mono text-xs">${b.id}</span><div class="text-[11px] text-nature-500">${b.date}</div>`)+
+    td(`<span class="font-medium">${b.traveller}</span>`)+td(b.trip)+td(`<span class="tnum">${b.pax}</span>`)+
+    td(`<span class="tnum">${INR(b.amount)}</span>`)+td(b.method)+td(badge(b.pay))+
+    td(`<button onclick="openBooking('${b.id}')" class="px-2.5 h-8 rounded-md bg-nature-100 hover:bg-nature-200 text-xs">View</button>`,'text-right')
+  ))}`);
+
+V.payments = () => `
+  <div class="grid gap-4 sm:grid-cols-3 mb-5">
+    ${[['Awaiting verification','7','oldest 2 days'],['Verified today','12','₹4,80,000'],['Rejected (30d)','2','mismatch / duplicate']]
+      .map(([l,v,n])=>card(`<div class="p-4"><p class="text-xs text-nature-500">${l}</p><p class="mt-1 text-2xl font-semibold tnum">${v}</p><p class="text-xs text-nature-400 mt-1">${n}</p></div>`)).join('')}
+  </div>
+  ${card(`<div class="p-4">${sectionHead('Verification queue',`<span class="text-xs text-nature-500">UPI screenshot + transaction ID match</span>`)}</div>
+    ${table([{t:'Ref'},{t:'Traveller'},{t:'Claimed amount'},{t:'Txn ID'},{t:'Proof'},{t:'',right:true}],
+      MOCK.bookings.filter(b=>b.pay==='Pending').map(b=>
+        td(`<span class="font-mono text-xs">${b.id}</span>`)+td(b.traveller)+
+        td(`<span class="tnum">${INR(b.amount)}</span>`)+
+        td(`<span class="font-mono text-xs">4213${Math.floor(Math.random()*899999+100000)}</span>`)+
+        td(`<button class="text-xs text-forest-700 hover:underline">View screenshot</button>`)+
+        td(`<div class="flex gap-1.5 justify-end">${btn('Verify','primary','onclick="toast(&#39;Payment verified — receipt sent&#39;)"')}
+            <button onclick="toast('Marked for review')" class="px-2.5 h-9 rounded-md border border-nature-300 hover:bg-nature-100 text-xs">Reject</button></div>`,'text-right')
+      ))}`)}`;
+
+V.requests = () => card(`
+  <div class="p-4">${sectionHead('Custom trip requests',`<span class="text-xs text-nature-500">Send a proposal to convert</span>`)}</div>
+  ${table([{t:'Ref'},{t:'From'},{t:'Brief'},{t:'Budget'},{t:'Received'},{t:'Status'},{t:'',right:true}], MOCK.requests.map(r=>
+    td(`<span class="font-mono text-xs">${r.id}</span>`)+td(`<span class="font-medium">${r.who}</span>`)+
+    td(`<span class="text-sm text-nature-600">${r.want}</span>`)+td(`<span class="tnum">${INR(r.budget)}</span>`)+
+    td(r.when)+td(badge(r.state))+
+    td(`<button class="px-2.5 h-8 rounded-md bg-nature-100 hover:bg-nature-200 text-xs">${r.state==='Awaiting proposal'?'Send proposal':'View'}</button>`,'text-right')
+  ))}`);
+
+V.vendors = () => `
+  <div class="grid gap-4 sm:grid-cols-4 mb-5">
+    ${[['Total vendors','5'],['Verified','3'],['Missing documents','2'],['Categories used','5']]
+      .map(([l,v])=>card(`<div class="p-4"><p class="text-xs text-nature-500">${l}</p><p class="mt-1 text-2xl font-semibold tnum">${v}</p></div>`)).join('')}
+  </div>
+  ${card(`<div class="p-4">${sectionHead('Vendors', btn('+ Add vendor','primary','onclick="openVendor()"'))}
+    <div class="flex flex-wrap gap-2">${['All','Hotel','Transport','Guide','Equipment','Food','Photographer'].map((f,i)=>`<button class="px-3 h-8 rounded-md text-sm ${i===0?'bg-nature-900 text-white':'bg-nature-100 hover:bg-nature-200'}">${f}</button>`).join('')}</div></div>
+    ${table([{t:'Business'},{t:'Category'},{t:'Base'},{t:'Contact'},{t:'Documents'},{t:'Status'},{t:'',right:true}], MOCK.vendors.map(v=>
+      td(`<span class="font-medium">${v.name}</span>`)+td(badge(v.cat,'blue'))+td(v.place)+
+      td(`<span class="font-mono text-xs">${v.phone}</span>`)+
+      td(v.docs?`<span class="tnum">${v.docs}</span> on file`:`<span class="text-earth-700">none</span>`)+
+      td(badge(v.status))+
+      td(`<button class="px-2.5 h-8 rounded-md bg-nature-100 hover:bg-nature-200 text-xs">Manage</button>`,'text-right')
+    ))}`)}`;
+
+/* ---- G-06 · assignments, due dates, outstanding, overdue reminders ---- */
+V.assignments = () => {
+  const vps = vendorPayments();
+  const total = vps.reduce((s,v)=>s+v.total_amount,0);
+  const paid  = vps.reduce((s,v)=>s+paidAmount(v),0);
+  const over  = vps.filter(v=>vendorPayStatus(v)==='overdue');
+  const soon  = vps.filter(dueSoon);
+  const TONE_FOR = { paid:'green', partial:'amber', pending:'slate', overdue:'red' };
+
+  const alerts = (over.length || soon.length) ? `
+    <div class="rounded-xl border ${over.length?'border-red-200 bg-red-50':'border-earth-200 bg-earth-50'} p-4 mb-4">
+      <p class="font-medium ${over.length?'text-red-800':'text-earth-900'}">
+        ${over.length ? `${over.length} vendor payment${over.length>1?'s are':' is'} overdue` : `${soon.length} payment${soon.length>1?'s':''} due within ${DUE_SOON_DAYS} days`}
+      </p>
+      <ul class="mt-2 space-y-1 text-sm ${over.length?'text-red-800':'text-earth-900'}">
+        ${over.concat(soon.filter(s=>!over.includes(s))).slice(0,4).map(v=>`<li>· <strong>${v.vendor}</strong> — ${INR(outstanding(v))} outstanding on ${v.trip}, due ${dstr(v.due_date)}</li>`).join('')}
+      </ul>
+    </div>` : '';
+
+  return `
+    <div class="grid gap-4 sm:grid-cols-4 mb-4">
+      ${[['Committed',INR(total)],['Paid',INR(paid)],['Outstanding',INR(round2(total-paid))],['Overdue',over.length]]
+        .map(([l,v])=>card(`<div class="p-4"><p class="text-xs text-nature-500">${l}</p><p class="mt-1 text-2xl font-semibold tnum">${v}</p></div>`)).join('')}
+    </div>
+    ${alerts}
+    ${card(`<div class="p-4">${sectionHead('Vendor payments', `<div class="flex gap-2">${btn('Send due reminders','ghost','onclick="sendDueReminders()"')}${btn('+ Assign vendor','primary','onclick="toast(&#39;Assignment drawer — POST /vendor-assignments&#39;)"')}</div>`)}</div>
+      ${table([{t:'Departure'},{t:'Vendor'},{t:'Role'},{t:'Agreed'},{t:'Paid'},{t:'Outstanding'},{t:'Due'},{t:'Status'},{t:'',right:true}], vps.map(v=>{
+        const st = vendorPayStatus(v), pd = paidAmount(v);
+        return td(`<span class="font-medium">${v.trip}</span>`)+td(v.vendor)+td(`<span class="text-sm text-nature-600">${v.role}</span>`)+
+          td(`<span class="tnum">${INR(v.total_amount)}</span>`)+
+          td(`<span class="tnum">${INR(pd)}</span>${fillBar(Math.round(pd/v.total_amount*100))}`)+
+          td(`<span class="tnum ${outstanding(v)>0?'font-medium':''}">${INR(outstanding(v))}</span>`)+
+          td(`<span class="text-xs ${st==='overdue'?'text-red-600 font-medium':'text-nature-600'}">${dstr(v.due_date)}</span>`)+
+          td(badge(st.charAt(0).toUpperCase()+st.slice(1), TONE_FOR[st]))+
+          td(`<div class="flex gap-1.5 justify-end">
+              <button onclick="openPayHistory('${v.id}')" class="px-2.5 h-8 rounded-md bg-nature-100 hover:bg-nature-200 text-xs">History (${v.history.length})</button>
+              ${outstanding(v)>0?btn('Record','primary',`onclick="openRecordPayment(&#39;${v.id}&#39;)"`):''}</div>`,'text-right');
+      }))}
+      <div class="px-4 py-3 border-t border-nature-200 text-xs text-nature-500 space-y-1">
+        <p><code class="font-mono">paid</code> is the sum of the append-only history rows and <code class="font-mono">outstanding</code> is <code class="font-mono">total − paid</code> — neither is stored twice, matching the spec's generated column.</p>
+        <p><strong>Assumption flagged:</strong> the spec lists <code class="font-mono">partial</code> and <code class="font-mono">overdue</code> as separate statuses but does not say which wins when a part-paid payment is past due. This shows <code class="font-mono">overdue</code>, as the more actionable of the two.</p>
+      </div>`)}`;
+};
+
+/* ---- G-05 · outbox + communication log, all six triggers ---- */
+V.comms = () => {
+  const logs = vendorComms().slice().reverse(), box = vendorOutbox().slice().reverse();
+  const failed = logs.filter(l=>l.status==='failed').length;
+  return `
+    <div class="grid gap-4 sm:grid-cols-4 mb-5">
+      ${[['Messages sent', logs.filter(l=>l.status==='sent').length],['Failed', failed],
+         ['Outbox rows', box.length],['Unprocessed', box.filter(b=>!b.processed).length]]
+        .map(([l,v])=>card(`<div class="p-4"><p class="text-xs text-nature-500">${l}</p><p class="mt-1 text-2xl font-semibold tnum">${v}</p></div>`)).join('')}
+    </div>
+
+    ${card(`<div class="p-4">${sectionHead('Fire a lifecycle trigger', `<span class="text-xs text-nature-500">In production these fire from the trip/booking services — here you can raise them by hand to watch the pipeline run</span>`)}
+      <div class="flex flex-wrap items-end gap-3">
+        <label class="block"><span class="text-xs text-nature-500">Event</span>
+          <select id="feType" class="mt-1 h-10 rounded-md border border-nature-300 px-3 bg-white text-sm">
+            ${Object.entries(VENDOR_EVENTS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('')}</select></label>
+        <label class="block"><span class="text-xs text-nature-500">Departure</span>
+          <select id="feTrip" class="mt-1 h-10 rounded-md border border-nature-300 px-3 bg-white text-sm">
+            ${[...new Set(MOCK.assignments.map(a=>a.trip))].map(t=>`<option>${t}</option>`).join('')}</select></label>
+        ${btn('Fire event','primary','onclick="doFireEvent()"')}
+      </div>
+      <p class="text-xs text-nature-500 mt-2">One outbox row is written, then one log row fans out per assigned vendor — each with the message frozen at send time.</p>
+    </div>`)}
+
+    <div class="h-4"></div>
+    ${card(`<div class="p-4">${sectionHead('Communication log', failed?badge(failed+' failed','red'):'')}</div>
+      ${table([{t:'Recipient'},{t:'Departure'},{t:'Trigger'},{t:'Sent'},{t:'Delivery'},{t:'',right:true}], logs.map(l=>
+        td(`<span class="font-medium">${l.vendor}</span>`)+
+        td(`<span class="text-sm text-nature-600">${l.trip}</span>`)+
+        td(badge(VENDOR_EVENTS[l.event_type]?.label || l.event_type,'blue'))+
+        td(l.sent_at ? new Date(l.sent_at).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '<span class="text-nature-400">—</span>')+
+        td(badge(l.status==='sent'?'Delivered':l.status==='failed'?'Failed':'Pending'))+
+        td(`<div class="flex gap-1.5 justify-end">
+            <button onclick="viewComm('${l.id}')" class="px-2.5 h-8 rounded-md bg-nature-100 hover:bg-nature-200 text-xs">View sent copy</button>
+            ${l.status==='failed'?btn('Resend','primary',`onclick="resendComm(&#39;${l.id}&#39;)"`):''}</div>`,'text-right')
+      ))}
+      <p class="px-4 py-3 border-t border-nature-200 text-xs text-nature-500">A resend replays the stored <code class="font-mono">email_content_snapshot</code> — so the vendor receives exactly what was originally composed, even if the template has changed since.</p>`)}
+
+    <div class="h-4"></div>
+    ${card(`<div class="p-4">${sectionHead('Outbox', `<span class="text-xs text-nature-500">vendor_events — same pattern as the marketing outbox</span>`)}</div>
+      ${table([{t:'Event'},{t:'Departure'},{t:'Raised'},{t:'State'}], box.map(b=>
+        td(`<span class="font-mono text-xs">${b.event_type}</span>`)+
+        td(b.trip)+
+        td(new Date(b.created).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}))+
+        td(badge(b.processed?'Processed':'Awaiting'))
+      ))}`)}`;
+};
+
+V.finance = () => {
+  const total = MOCK.expenses.reduce((s,e)=>s+e.amt,0), rev = 284000;
+  return `<div class="grid gap-4 sm:grid-cols-4 mb-5">
+    ${[['Trip revenue',INR(rev)],['Vendor + ops cost',INR(total)],['Gross margin',INR(rev-total)],['Margin %',Math.round((rev-total)/rev*100)+'%']]
+      .map(([l,v])=>card(`<div class="p-4"><p class="text-xs text-nature-500">${l}</p><p class="mt-1 text-2xl font-semibold tnum">${v}</p></div>`)).join('')}
+  </div>
+  ${card(`<div class="p-4">${sectionHead('Expenses — Zanskar Traverse (14 Jun)', `<div class="flex gap-2">
+      <select class="h-9 rounded-md border border-nature-300 px-2 text-sm bg-white">${MOCK.trips.map(t=>`<option>${t.name}</option>`).join('')}</select>
+      ${btn('+ Add expense','primary','onclick="openExpense()"')}</div>`)}</div>
+    ${table([{t:'Category'},{t:'Paid to'},{t:'Date'},{t:'Amount',right:true},{t:'',right:true}], MOCK.expenses.map(e=>
+      td(badge(e.cat,'slate'))+td(e.vendor)+td(e.date)+
+      td(`<span class="tnum font-medium">${INR(e.amt)}</span>`,'text-right')+
+      td(`<button onclick="toast('Expense deleted')" class="text-xs text-red-600 hover:underline">Delete</button>`,'text-right')
+    ))}
+    <div class="flex justify-between px-4 py-3 border-t border-nature-200 bg-nature-50 text-sm font-medium">
+      <span>Total</span><span class="tnum">${INR(total)}</span></div>`)}`;
+};
+
+V.settlements = () => `
+  ${card(`<div class="p-4 flex flex-wrap items-center gap-4 justify-between">
+    <div><p class="text-xs text-nature-500">Payout account</p>
+      <p class="font-medium mt-0.5">HDFC ••••4412 · Razorpay Route linked</p></div>
+    <div class="flex items-center gap-4 text-sm">
+      <div><p class="text-xs text-nature-500">Split</p><p class="font-medium">60% on confirm · 40% post-trip</p></div>
+      <div><p class="text-xs text-nature-500">Commission</p><p class="font-medium">3%</p></div>
+      ${badge('Active','green')}</div></div>`)}
+  <div class="h-4"></div>
+  ${card(`<div class="p-4">${sectionHead('Settlements')}</div>
+    ${table([{t:'Ref'},{t:'Trip'},{t:'Gross'},{t:'Commission'},{t:'Net to you'},{t:'Payout date'},{t:'State'}], MOCK.settlements.map(s=>
+      td(`<span class="font-mono text-xs">${s.id}</span>`)+td(s.trip)+
+      td(`<span class="tnum">${INR(s.gross)}</span>`)+
+      td(`<span class="tnum text-nature-500">−${INR(s.comm)}</span>`)+
+      td(`<span class="tnum font-medium">${INR(s.net)}</span>`)+td(s.when)+td(badge(s.state))
+    ))}`)}`;
+
+V.leads = () => {
+  const cols = Object.entries(MOCK.leads);
+  return `<div class="flex items-center justify-between mb-4">
+      <div class="flex gap-2">${btn('Pipeline','primary')}${btn('Table','ghost')}${btn('Re-score with AI','ghost','onclick="toast(&#39;Leads re-scored&#39;)"')}</div>
+      ${btn('+ Add lead','primary','onclick="toast(&#39;Wire to POST /crm/leads&#39;)"')}
+    </div>
+    <div class="grid gap-3 md:grid-cols-5">
+      ${cols.map(([stage,items])=>`<div class="bg-nature-200/50 rounded-xl p-2.5">
+        <div class="flex items-center justify-between px-1 pb-2">
+          <span class="text-xs font-semibold uppercase tracking-wide text-nature-600">${stage}</span>
+          <span class="text-xs tnum text-nature-500">${items.length}</span></div>
+        <div class="space-y-2">
+          ${items.map(l=>`<div class="bg-white rounded-lg border border-nature-200 p-3 cursor-grab hover:shadow-sm">
+            <p class="font-medium text-sm">${l.n}</p>
+            <p class="text-xs text-nature-500 mt-0.5">${l.t}</p>
+            <div class="mt-2 flex items-center gap-1.5">
+              <div class="flex-1 h-1.5 rounded-full bg-nature-200 overflow-hidden"><div class="h-full ${l.s>=80?'bg-forest-600':l.s>=60?'bg-earth-500':'bg-nature-400'}" style="width:${l.s}%"></div></div>
+              <span class="text-[11px] tnum text-nature-500">${l.s}</span></div>
+          </div>`).join('') || `<p class="text-xs text-nature-400 px-1 py-3">Empty</p>`}
+        </div></div>`).join('')}
+    </div>
+    <p class="text-xs text-nature-500 mt-4">Drag-and-drop maps to <code class="font-mono">PATCH /crm/leads/:id/pipeline-stage</code>. Score comes from <code class="font-mono">POST /crm/leads/rescore</code>.</p>`;
+};
+
+V.tickets = () => `
+  <div class="grid gap-4 lg:grid-cols-5">
+    ${card(`<div class="divide-y divide-nature-100 lg:col-span-2">
+      <div class="p-4 font-semibold">Open tickets</div>
+      ${[['TK-88','Rajesh Kumar','Refund for cancelled departure','2h','open'],
+         ['TK-87','Neha Verma','Can I switch dates?','5h','open'],
+         ['TK-86','Amit Singh','Kit list question','1d','pending'],
+         ['TK-84','Priya Sharma','Invoice with GST','3d','resolved']]
+        .map(([id,who,sub,ago,st],i)=>`<button class="w-full text-left p-4 hover:bg-nature-50 ${i===0?'bg-forest-50/60':''}">
+          <div class="flex items-center justify-between"><span class="font-mono text-xs">${id}</span><span class="text-[11px] text-nature-400">${ago}</span></div>
+          <p class="font-medium text-sm mt-1">${who}</p>
+          <p class="text-xs text-nature-500 truncate">${sub}</p>
+          <div class="mt-1.5">${badge(st==='open'?'Open':st==='resolved'?'Resolved':'Awaiting')}</div></button>`).join('')}
+    </div>`,'lg:col-span-2')}
+    ${card(`<div class="lg:col-span-3 flex flex-col h-[520px]">
+      <div class="p-4 border-b border-nature-200 flex items-center justify-between">
+        <div><p class="font-semibold text-sm">Refund for cancelled departure</p>
+          <p class="text-xs text-nature-500">TK-88 · Rajesh Kumar · Zanskar Traverse</p></div>
+        <div class="flex gap-2">${btn('Assign','ghost')}${btn('Resolve','primary','onclick="toast(&#39;Ticket resolved&#39;)"')}</div>
+      </div>
+      <div class="flex-1 overflow-auto p-4 space-y-3 bg-nature-50">
+        <div class="max-w-[80%] bg-white border border-nature-200 rounded-lg p-3 text-sm">
+          <p>The June 14 departure was cancelled due to the permit issue. When does the refund land?</p>
+          <p class="text-[11px] text-nature-400 mt-1.5">Rajesh · 2h ago</p></div>
+        <div class="max-w-[80%] ml-auto bg-forest-600 text-white rounded-lg p-3 text-sm">
+          <p>Full refund was initiated on 2 Jun. Banks take 5–7 working days. Reference ST-1043.</p>
+          <p class="text-[11px] text-forest-100 mt-1.5">You · 1h ago</p></div>
+      </div>
+      <div class="p-3 border-t border-nature-200 flex gap-2">
+        <input class="flex-1 h-10 rounded-md border border-nature-300 px-3 outline-none focus:ring-2 focus:ring-forest-500" placeholder="Write a reply…"/>
+        ${btn('Send','primary','onclick="toast(&#39;Reply sent&#39;)"')}</div>
+    </div>`,'lg:col-span-3')}
+  </div>`;
+
+V.reviews = () => card(`
+  <div class="p-4">${sectionHead('Reviews',`<span class="text-xs text-nature-500">Unverified reviews are hidden from your public page</span>`)}</div>
+  <div class="divide-y divide-nature-100">
+    ${MOCK.reviews.map(r=>`<div class="p-4 flex flex-wrap gap-3 items-start">
+      <div class="flex-1 min-w-[240px]">
+        <div class="flex items-center gap-2">
+          <span class="font-medium">${r.who}</span>
+          <span class="text-earth-500 text-sm">${'★'.repeat(r.rating)}<span class="text-nature-300">${'★'.repeat(5-r.rating)}</span></span>
+          ${badge(r.v)}
+        </div>
+        <p class="text-xs text-nature-500 mt-0.5">${r.trip}</p>
+        <p class="text-sm mt-1.5">${r.txt}</p>
+      </div>
+      <div class="flex gap-2">${r.v==='Unverified'
+        ? btn('Verify','primary','onclick="toast(&#39;Review verified&#39;)"')+btn('Flag','ghost','onclick="toast(&#39;Flagged for admin&#39;)"')
+        : btn('Reply','ghost','onclick="toast(&#39;Reply box — wire to POST /reviews/:id/reply&#39;)"')}</div>
+    </div>`).join('')}
+  </div>`);
+
+V.billing = () => `
+  <div class="grid gap-4 lg:grid-cols-3 mb-5">
+    ${[['Starter','₹999','1 trip / month · No CRM',false],
+       ['Professional','₹2,999','13 trips / month · Full CRM · Vendor OS',true],
+       ['Studio','₹7,999','Unlimited trips · Team seats · API',false]]
+      .map(([n,p,f,cur])=>card(`<div class="p-5 ${cur?'ring-2 ring-forest-600':''}">
+        <div class="flex items-center justify-between"><h3 class="font-semibold">${n}</h3>${cur?badge('Current','green'):''}</div>
+        <p class="mt-2 text-3xl font-semibold tnum">${p}<span class="text-sm font-normal text-nature-500">/mo</span></p>
+        <p class="text-sm text-nature-600 mt-2">${f}</p>
+        <div class="mt-4">${cur?btn('Manage','ghost'):btn('Upgrade','primary','onclick="toast(&#39;Razorpay checkout — POST /subscriptions/create-order&#39;)"')}</div>
+      </div>`)).join('')}
+  </div>
+  ${card(`<div class="p-4">${sectionHead('Subscription receipts', `<a href="#invoices" class="text-sm text-forest-700 hover:underline">Looking for traveller GST invoices? →</a>`)}</div>
+    ${table([{t:'Receipt'},{t:'Plan'},{t:'Date'},{t:'Amount',right:true},{t:'Status'},{t:'',right:true}], MOCK.subscriptionInvoices.map(i=>
+      td(`<span class="font-mono text-xs">${i.id}</span>`)+td(i.plan)+td(i.when)+
+      td(`<span class="tnum">${INR(i.amt)}</span>`,'text-right')+td(badge(i.state))+
+      td(`<button class="text-xs text-forest-700 hover:underline">Download</button>`,'text-right')
+    ))}`)}`;
+
+V.settings = () => `
+  <div class="grid gap-4 lg:grid-cols-2">
+    ${card(`<div class="p-5">${sectionHead('Organizer profile')}
+      <div class="grid gap-3">
+        <label class="block"><span class="text-sm font-medium">Display name</span><input value="Demo Organizer" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3"/></label>
+        <label class="block"><span class="text-sm font-medium">Public URL</span>
+          <div class="mt-1 flex"><span class="h-10 px-3 grid place-items-center rounded-l-md border border-r-0 border-nature-300 bg-nature-100 text-sm text-nature-500">trektribe.in/u/</span>
+          <input value="demo-organizer" class="flex-1 h-10 rounded-r-md border border-nature-300 px-3"/></div></label>
+        <label class="block"><span class="text-sm font-medium">Bio</span><textarea rows="3" class="mt-1 w-full rounded-md border border-nature-300 p-3">Small-group Himalayan treks since 2019.</textarea></label>
+      </div>
+      <div class="mt-4">${btn('Save changes','primary','onclick="toast(&#39;Profile saved&#39;)"')}</div></div>`)}
+
+    ${card(`<div class="p-5">${sectionHead('Bank & payouts')}
+      <div class="grid gap-3">
+        <label class="block"><span class="text-sm font-medium">Account holder</span><input value="Demo Organizer" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3"/></label>
+        <div class="grid sm:grid-cols-2 gap-3">
+          <label class="block"><span class="text-sm font-medium">Account number</span><input value="••••••••4412" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 font-mono"/></label>
+          <label class="block"><span class="text-sm font-medium">IFSC</span><input value="HDFC0001234" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 font-mono"/></label>
+        </div>
+        <label class="flex items-center gap-2.5 mt-1"><input type="checkbox" checked class="w-4 h-4 accent-forest-600"/><span class="text-sm">Auto-pay vendors when a departure is settled</span></label>
+      </div>
+      <p class="text-xs text-nature-500 mt-3">Bank details are write-only. We never display the full number after saving.</p>
+      <div class="mt-4">${btn('Update payout account','primary','onclick="toast(&#39;Payout account updated&#39;)"')}</div></div>`)}
+
+    ${card(`<div class="p-5">${sectionHead('Notifications')}
+      <div class="space-y-2.5">
+        ${[['New booking confirmed',true],['Payment awaiting verification',true],['Vendor message failed',true],['New lead captured',true],['Weekly performance digest',false],['Marketing tips from TrekTribe',false]]
+          .map(([l,on])=>`<label class="flex items-center justify-between gap-3 py-1.5">
+            <span class="text-sm">${l}</span>
+            <input type="checkbox" ${on?'checked':''} class="w-4 h-4 accent-forest-600"/></label>`).join('')}
+      </div></div>`)}
+
+    ${card(`<div class="p-5">${sectionHead('Team', btn('+ Invite','ghost','onclick="toast(&#39;Studio plan feature&#39;)"'))}
+      <div class="space-y-2.5">
+        ${[['Demo Organizer','Owner','you@example.com'],['Tenzing N.','Trip lead','tenzing@example.com']]
+          .map(([n,r,e])=>`<div class="flex items-center gap-3 py-1.5">
+            <div class="w-8 h-8 rounded-full bg-nature-200 grid place-items-center text-xs font-semibold">${n.split(' ').map(x=>x[0]).join('')}</div>
+            <div class="flex-1 min-w-0"><p class="text-sm font-medium truncate">${n}</p><p class="text-xs text-nature-500 truncate">${e}</p></div>
+            ${badge(r,'slate')}</div>`).join('')}
+      </div>
+      <p class="text-xs text-nature-500 mt-3">Extra seats require the Studio plan.</p></div>`)}
+  </div>`;
+
+/* ============ PHASE 1 VIEWS ============ */
+
+/* ---- G-10 · GST profile (FR-11, NFR-1) ---- */
+V['gst-profile'] = () => {
+  const p = gstProfile();
+  const locked = !!p.short_code;   // short_code is assigned once and immutable
+  return `<div class="max-w-3xl">
+    ${card(`<div class="p-5">
+      ${sectionHead('GST profile', badge(p.gstin ? 'GSTIN on file' : 'No GSTIN', p.gstin ? 'green' : 'amber'))}
+      <p class="text-sm text-nature-600 -mt-1 mb-4">These values are snapshotted onto every invoice at the moment it is issued, so editing them later never rewrites an invoice you have already given a traveller.</p>
+      <div class="grid gap-4">
+        <label class="block"><span class="text-sm font-medium">Legal business name <span class="text-red-600">*</span></span>
+          <input id="gpName" value="${p.legal_business_name}" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3" placeholder="TrekTribe Expeditions Pvt Ltd"/></label>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <label class="block"><span class="text-sm font-medium">GSTIN <span class="text-nature-400">(optional)</span></span>
+            <input id="gpGstin" value="${p.gstin}" maxlength="15" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 font-mono uppercase" placeholder="02ABCDE1234F1Z5"/>
+            <span id="gpGstinMsg" class="text-xs text-nature-400">15 characters. Leave blank if unregistered.</span></label>
+          <label class="block"><span class="text-sm font-medium">Home state <span class="text-red-600">*</span></span>
+            <select id="gpState" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 bg-white">
+              ${STATES.map(s=>`<option ${s===p.home_state?'selected':''}>${s}</option>`).join('')}</select>
+            <span class="text-xs text-nature-400">Decides CGST+SGST vs IGST on each invoice.</span></label>
+        </div>
+        <label class="block"><span class="text-sm font-medium">Registered address <span class="text-red-600">*</span></span>
+          <textarea id="gpAddr" rows="2" class="mt-1 w-full rounded-md border border-nature-300 p-3" placeholder="Old Manali Road, Manali, HP 175131">${p.address}</textarea></label>
+        <div class="grid sm:grid-cols-3 gap-4">
+          <label class="block"><span class="text-sm font-medium">Invoice short code</span>
+            <input id="gpCode" value="${p.short_code}" maxlength="4" ${locked?'disabled':''} class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 font-mono uppercase ${locked?'bg-nature-100 text-nature-500':''}" placeholder="A1B2"/>
+            <span class="text-xs ${locked?'text-earth-700':'text-nature-400'}">${locked?'Locked — changing it would break invoice-number continuity.':'Up to 4 chars. Set once, then permanent.'}</span></label>
+          <label class="block"><span class="text-sm font-medium">Tax scheme <span class="text-red-600">*</span></span>
+            <select id="gpScheme" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 bg-white">
+              <option value="gross_5pct" ${p.tax_scheme==='gross_5pct'?'selected':''}>5% on gross (no ITC)</option>
+              <option value="margin_18pct" ${p.tax_scheme==='margin_18pct'?'selected':''}>18% on margin (Rule 33)</option>
+            </select></label>
+          <label class="block"><span class="text-sm font-medium">SAC code</span>
+            <select id="gpSac" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 bg-white">
+              <option ${p.default_sac_code==='9985'?'selected':''}>9985</option>
+              <option ${p.default_sac_code==='998555'?'selected':''}>998555</option>
+            </select></label>
+        </div>
+      </div>
+      <div class="mt-5 pt-4 border-t border-nature-200 flex items-center justify-between gap-3">
+        <p class="text-xs text-nature-500">Next invoice number will look like
+          <code class="font-mono">${(p.short_code||'A1B2')}/${financialYear(new Date())}/00001</code></p>
+        ${btn('Save profile','primary','onclick="saveGst()"')}
+      </div>
+    </div>`)}
+    <div class="mt-3 rounded-lg bg-earth-50 border border-earth-200 p-3 text-xs text-earth-900">
+      <strong>Compliance caveat carried from the spec:</strong> the GST rates, SAC codes and Rule-46 field list used here are
+      <em>secondary-sourced</em> (compliance blogs), not verified against gst.gov.in. Have a CA confirm before issuing real invoices.
+    </div>
+  </div>`;
+};
+
+/* ---- G-09 · GST invoices (FR-11, NFR-1, NFR-2) ---- */
+V.invoices = () => {
+  const p = gstProfile(), list = invoices(), cns = creditNotes();
+  if (!p.short_code || !p.legal_business_name){
+    return card(`<div class="p-4">${sectionHead('GST invoices')}</div>
+      ${emptyState('Set up your GST profile first','An invoice needs a legal name and a short code before it can be numbered under Rule 46(b).',
+        `<a href="#gst-profile" class="inline-flex items-center rounded-md px-3 h-9 text-sm font-medium bg-forest-600 text-white">Open GST profile</a>`)}`);
+  }
+  const issuedBookings = list.map(i=>i.bookingId);
+  const eligible = MOCK.bookings.filter(b => !issuedBookings.includes(b.id));
+  return `
+    <div class="grid gap-4 sm:grid-cols-4 mb-5">
+      ${[['Invoices issued', list.length],['Credit notes', cns.length],
+         ['Scheme', p.tax_scheme==='gross_5pct'?'5% gross':'18% margin'],['Financial year', financialYear(new Date())]]
+        .map(([l,v])=>card(`<div class="p-4"><p class="text-xs text-nature-500">${l}</p><p class="mt-1 text-2xl font-semibold tnum">${v}</p></div>`)).join('')}
+    </div>
+    ${card(`<div class="p-4">${sectionHead('Issued invoices',
+        eligible.length ? btn('+ Issue invoice','primary','onclick="openIssue()"') : `<span class="text-xs text-nature-500">Every booking already has an invoice</span>`)}</div>
+      ${list.length ? table([{t:'Invoice no.'},{t:'Date'},{t:'Buyer'},{t:'Place of supply'},{t:'Taxable'},{t:'Tax'},{t:'Total',right:true},{t:'',right:true}],
+        list.slice().reverse().map(i=>
+          td(`<span class="font-mono text-xs">${i.number}</span>${cns.some(c=>c.bookingId===i.bookingId)?'<div class="mt-1">'+badge('Credit note','red')+'</div>':''}`)+
+          td(i.date)+td(i.buyer_name)+td(`${i.place_of_supply} ${i.intra?badge('CGST+SGST','blue'):badge('IGST','blue')}`)+
+          td(`<span class="tnum">${INR(i.taxable)}</span>`)+
+          td(`<span class="tnum">${INR(i.tax)}</span><div class="text-[11px] text-nature-500">@ ${i.rate}%</div>`)+
+          td(`<span class="tnum font-medium">${INR(i.total)}</span>`,'text-right')+
+          td(`<button onclick="viewInvoice('${i.id}')" class="px-2.5 h-8 rounded-md bg-nature-100 hover:bg-nature-200 text-xs">Open</button>`,'text-right')
+        )) : emptyState('No invoices yet','Issue one against a confirmed booking to see Rule-46 numbering and the CGST/SGST vs IGST split in action.',
+              btn('+ Issue invoice','primary','onclick="openIssue()"'))}`)}`;
+};
+
+/* ---- G-08 · Reconciliation (FR-10, NFR-3) ---- */
+V.reconciliation = () => {
+  const flags = reconciliationFlags();
+  return `
+    <div class="grid gap-4 sm:grid-cols-3 mb-5">
+      ${[['Open flags', flags.length],['Stuck payments', flags.filter(f=>f.kind==='stuck').length],
+         ['Refunds without credit note', flags.filter(f=>f.kind==='no_credit_note').length]]
+        .map(([l,v])=>card(`<div class="p-4"><p class="text-xs text-nature-500">${l}</p><p class="mt-1 text-2xl font-semibold tnum">${v}</p></div>`)).join('')}
+    </div>
+    ${card(`<div class="p-4">${sectionHead('Reconciliation flags',
+      `<span class="text-xs text-nature-500">Computed live from payments, refunds and credit notes — no separate ledger</span>`)}</div>
+      ${flags.length ? table([{t:'Severity'},{t:'Ref'},{t:'Booking'},{t:'Amount'},{t:'Why it is flagged'},{t:'',right:true}], flags.map(f=>
+          td(badge(f.sev==='red'?'Compliance':'Ops', f.sev))+
+          td(`<span class="font-mono text-xs">${f.ref}</span>`)+
+          td(`<span class="font-mono text-xs">${f.booking}</span>`)+
+          td(`<span class="tnum">${INR(f.amount)}</span>`)+
+          td(`<span class="text-sm text-nature-600">${f.detail}</span>`)+
+          td(f.kind==='no_credit_note'
+              ? btn('Issue credit note','primary',`onclick="issueCreditNote(&#39;${f.booking}&#39;)"`)
+              : btn('Re-check gateway','ghost','onclick="toast(&#39;Would re-poll Razorpay for this payment&#39;)"'),'text-right')
+        )) : emptyState('Everything reconciles','No stuck payments and every completed refund has a matching credit note.')}`)}
+    <p class="text-xs text-nature-500 mt-3">Threshold for a “stuck” payment is 24h, per the spec default. Backed by <code class="font-mono">v_payment_reconciliation_flags</code>.</p>`;
+};
+
+/* ---- G-20 · Team & roles (FR-17, NFR-6) ---- */
+V.team = () => {
+  const rows = [
+    ['Team management (invite/edit/revoke)','team'],
+    ['Integrations settings','integrations'],
+    ['Trip create/edit/cancel, vendor assignment','trips'],
+    ['Trip leader assignment','leaderAssign'],
+    ['View own assigned trips only','ownTrips'],
+    ['Finance: payments, payouts, invoices, GST','finance'],
+    ['Vendor payment tracking','vendorPay'],
+    ['Marketing suite, CRM segmentation','marketing'],
+    ['Knowledge Hub (read)','knowledge'],
+  ];
+  return `
+    ${card(`<div class="p-4">${sectionHead('Staff accounts',
+      can('team') ? btn('+ Invite member','primary','onclick="toast(&#39;Invite flow — POST /api/team/members&#39;)"')
+                  : `<span class="text-xs text-earth-700">Only the owner can manage the team</span>`)}</div>
+      ${table([{t:'Member'},{t:'Email'},{t:'Role'},{t:'Scope'},{t:'',right:true}], MOCK.team.map(m=>
+        td(`<div class="flex items-center gap-2.5"><div class="w-8 h-8 rounded-full bg-nature-200 grid place-items-center text-xs font-semibold">${m.name.split(' ').map(x=>x[0]).join('')}</div><span class="font-medium">${m.name}</span></div>`)+
+        td(`<span class="text-nature-600">${m.email}</span>`)+
+        td(badge(ROLE_LABEL[m.role], m.role==='owner'?'green':'slate'))+
+        td(m.trips ? `<span class="text-xs text-nature-600">${m.trips.join(', ')}</span>` : `<span class="text-xs text-nature-400">All trips</span>`)+
+        td(can('team') && m.role!=='owner'
+            ? `<button onclick="toast(&#39;Revoke — DELETE /api/team/members/:id&#39;)" class="text-xs text-red-600 hover:underline">Revoke</button>`
+            : `<span class="text-xs text-nature-400">—</span>`,'text-right')
+      ))}`)}
+
+    <div class="h-4"></div>
+    ${card(`<div class="p-4">${sectionHead('Permission tiers',
+      `<span class="text-xs text-nature-500">Fixed tiers, not a configurable matrix — per spec decision</span>`)}</div>
+      ${table([{t:'Capability'}].concat(ROLES.map(r=>({t:ROLE_LABEL[r]}))), rows.map(([label,cap])=>
+        td(`<span class="text-sm">${label}</span>`) + ROLES.map(r=>{
+          const yes = (PERMS[cap]||[]).includes(r);
+          const scoped = cap==='ownTrips' && r==='trip_leader';
+          return td(yes
+            ? `<span class="text-forest-700 font-semibold">${scoped?'yes*':'yes'}</span>`
+            : `<span class="text-nature-300">no</span>`);
+        }).join('')
+      ))}
+      <div class="px-4 py-3 border-t border-nature-200 text-xs text-nature-500 space-y-1">
+        <p>* <code class="font-mono">trip_leader</code> is scoped per resource — without a <code class="font-mono">trip_leader_assignments</code> row for a trip, they see nothing about it.</p>
+        <p>The frontend only hides what the API would reject; enforcement lives in Express middleware, never in this UI.</p>
+        <p><strong>Assumption flagged:</strong> the spec matrix does not name a capability area for the Dashboard or Analytics screens. Dashboard is currently open to all roles and Analytics is gated as <code class="font-mono">finance</code> — both need a product decision.</p>
+      </div>`)}
+
+    <div class="mt-4 rounded-lg bg-forest-50 border border-forest-200 p-4">
+      <p class="text-sm font-medium text-forest-900">Try it</p>
+      <p class="text-sm text-forest-800 mt-1">Switch the <strong>Role</strong> selector in the top bar. The sidebar and every screen re-gate immediately — pick <em>Marketing</em> and the whole Money group disappears; pick <em>Trip leader</em> and only bookings remain. That is NFR-6 behaving.</p>
+    </div>`;
+};
+
+/* ============ P1 VIEWS — revenue ============ */
+
+/* ---- G-30 · marketing overview ---- */
+V.marketing = () => {
+  const active = MOCK.coupons.filter(c=>couponStatus(c)==='active').length;
+  const redeemed = MOCK.coupons.reduce((s,c)=>s+c.total_redeemed,0);
+  const pend = MOCK.marketingEvents.filter(e=>!e.processed).length;
+  const tiles = [
+    ['campaigns','Campaigns', MOCK.campaigns.length + ' total', 'send'],
+    ['coupons','Coupons', active + ' active of ' + MOCK.coupons.length, 'tag'],
+    ['discount-rules','Automatic discounts', MOCK.discountRules.filter(r=>r.status==='active').length + ' active rules', 'percent'],
+    ['referrals','Referrals', MOCK.referrals.filter(r=>r.status==='rewarded').length + ' rewarded', 'share'],
+  ];
+  return `
+    <div class="grid gap-4 sm:grid-cols-4 mb-5">
+      ${[['Active coupons',active],['Total redemptions',redeemed],['Campaigns sent',MOCK.campaigns.filter(c=>c.status==='sent').length],['Referrals completed',MOCK.referrals.filter(r=>['completed','rewarded'].includes(r.status)).length]]
+        .map(([l,v])=>card(`<div class="p-4"><p class="text-xs text-nature-500">${l}</p><p class="mt-1 text-2xl font-semibold tnum">${v}</p></div>`)).join('')}
+    </div>
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-5">
+      ${tiles.map(([id,label,meta,icon])=>`<a href="#${id}" class="block bg-white rounded-xl border border-nature-200 p-4 hover:border-forest-300 hover:shadow-sm transition">
+        <div class="w-9 h-9 rounded-lg bg-forest-50 text-forest-700 grid place-items-center">${ico(icon)}</div>
+        <p class="mt-3 font-medium">${label}</p><p class="text-xs text-nature-500 mt-0.5">${meta}</p></a>`).join('')}
+    </div>
+    ${card(`<div class="p-4">${sectionHead('Outbox', `<span class="text-xs text-nature-500">${pend} unprocessed — the transactional-outbox pattern shared with Vendor OS</span>`)}</div>
+      ${table([{t:'Event'},{t:'Raised'},{t:'State'}], MOCK.marketingEvents.map(e=>
+        td(`<span class="font-mono text-xs">${e.type}</span>`)+
+        td(new Date(e.when).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}))+
+        td(badge(e.processed?'Delivered':'Awaiting'))
+      ))}`)}`;
+};
+
+/* ---- G-12 · coupons ---- */
+V.coupons = () => {
+  const counts = ['active','inactive','expired','exhausted'].map(s=>[s, MOCK.coupons.filter(c=>couponStatus(c)===s).length]);
+  return `
+    <div class="grid gap-4 sm:grid-cols-4 mb-5">
+      ${counts.map(([s,n])=>card(`<div class="p-4"><p class="text-xs text-nature-500 capitalize">${s}</p><p class="mt-1 text-2xl font-semibold tnum">${n}</p></div>`)).join('')}
+    </div>
+    ${card(`<div class="p-4">${sectionHead('Coupons', `<div class="flex gap-2">${btn('Test against a booking','ghost','onclick="openCouponTest()"')}${btn('+ New coupon','primary','onclick="toast(&#39;Create form — POST /api/coupons&#39;)"')}</div>`)}</div>
+      ${table([{t:'Code'},{t:'Discount'},{t:'Applies to'},{t:'Conditions'},{t:'Redeemed'},{t:'Window'},{t:'Status'}], MOCK.coupons.map(c=>{
+        const st = couponStatus(c);
+        return td(`<span class="font-mono text-sm font-medium">${c.code}</span>${c.source==='referral_reward'?'<div class="mt-1">'+badge('Referral reward','blue')+'</div>':''}`)+
+          td(c.discount_type==='percentage'
+              ? `${c.value}%${c.max_discount_amount!=null?` <span class="text-xs text-nature-500">capped ${INR(c.max_discount_amount)}</span>`:''}`
+              : INR(c.value))+
+          td(c.trip_id ? c.trip_id : '<span class="text-nature-400">Any trip</span>')+
+          td(`<div class="text-xs text-nature-600 space-y-0.5">
+              ${c.min_booking_amount?`<div>Min ${INR(c.min_booking_amount)}</div>`:''}
+              ${c.first_booking_only?'<div>First booking only</div>':''}
+              <div>${c.max_redemptions_per_user}/user</div></div>`)+
+          td(`<span class="tnum">${c.total_redeemed}${c.max_total_redemptions!=null?' / '+c.max_total_redemptions:''}</span>
+              ${c.max_total_redemptions!=null?fillBar(Math.min(100,Math.round(c.total_redeemed/c.max_total_redemptions*100))):''}`)+
+          td(`<span class="text-xs text-nature-600">${dstr(c.starts_at)}<br/>→ ${dstr(c.ends_at)}</span>`)+
+          td(badge(st.charAt(0).toUpperCase()+st.slice(1), st==='active'?'green':st==='exhausted'?'red':'amber'));
+      }))}
+      <p class="px-4 py-3 border-t border-nature-200 text-xs text-nature-500">Status is <strong>derived on read</strong> from the dates and counts in this table — there is no stored status column to drift out of sync.</p>`)}`;
+};
+
+/* ---- G-13 · automatic discount rules ---- */
+V['discount-rules'] = () => `
+  ${card(`<div class="p-4">${sectionHead('Automatic discounts', `<div class="flex gap-2">${btn('Test a booking date','ghost','onclick="openRuleTest()"')}${btn('+ New rule','primary','onclick="toast(&#39;Create form — POST /api/discount-rules&#39;)"')}</div>`)}
+      <p class="text-sm text-nature-600 -mt-1">Applied automatically at checkout — no code for the traveller to enter.</p></div>
+    ${table([{t:'Type'},{t:'Applies to'},{t:'Trigger'},{t:'Discount'},{t:'Status'},{t:'',right:true}], MOCK.discountRules.map(r=>
+      td(badge(r.rule_type==='early_bird'?'Early bird':'Last minute','blue'))+
+      td(r.trip_id ? r.trip_id : '<span class="text-nature-400">All trips</span>')+
+      td(`<span class="text-sm">Booked ${r.rule_type==='early_bird'?'at least':'at most'} <strong class="tnum">${r.threshold_days}</strong> days before departure</span>`)+
+      td(r.discount_type==='percentage'
+          ? `${r.value}%${r.max_discount_amount!=null?` <span class="text-xs text-nature-500">capped ${INR(r.max_discount_amount)}</span>`:''}`
+          : INR(r.value))+
+      td(badge(r.status==='active'?'Active':'Inactive', r.status==='active'?'green':'slate'))+
+      td(`<button onclick="toast(&#39;Toggle — PATCH /api/discount-rules/:id&#39;)" class="px-2.5 h-8 rounded-md bg-nature-100 hover:bg-nature-200 text-xs">${r.status==='active'?'Disable':'Enable'}</button>`,'text-right')
+    ))}`)}`;
+
+/* ---- G-14 · referrals ---- */
+V.referrals = () => {
+  const byStatus = s => MOCK.referrals.filter(r=>r.status===s).length;
+  return `
+    ${card(`<div class="p-5 flex flex-wrap items-center justify-between gap-4">
+      <div><p class="text-xs text-nature-500">Your referral code</p>
+        <p class="mt-1 text-xl font-mono font-semibold">${MOCK.referralCode.code}</p>
+        <p class="text-xs text-nature-500 mt-1">One code per user, unique platform-wide.</p></div>
+      <div class="flex gap-2">${btn('Copy link','ghost','onclick="copyRef()"')}${btn('Share','primary','onclick="toast(&#39;Share sheet — records a pending referral&#39;)"')}</div>
+    </div>`)}
+    <div class="h-4"></div>
+    <div class="grid gap-4 sm:grid-cols-4 mb-4">
+      ${[['Pending',byStatus('pending')],['Signed up',byStatus('signed_up')],['Completed',byStatus('completed')],['Rewarded',byStatus('rewarded')]]
+        .map(([l,v])=>card(`<div class="p-4"><p class="text-xs text-nature-500">${l}</p><p class="mt-1 text-2xl font-semibold tnum">${v}</p></div>`)).join('')}
+    </div>
+    ${card(`<div class="p-4">${sectionHead('Referrals')}</div>
+      ${table([{t:'Invited'},{t:'Registered as'},{t:'First booking'},{t:'Reward coupon'},{t:'Shared'},{t:'Status'},{t:'',right:true}], MOCK.referrals.map(r=>
+        td(`<span class="text-sm">${r.referred_email}</span>`)+
+        td(r.referred_user ? r.referred_user : '<span class="text-nature-400">Not yet</span>')+
+        td(r.first_booking ? `<span class="font-mono text-xs">${r.first_booking}</span>` : '<span class="text-nature-400">—</span>')+
+        td(r.reward_coupon ? `<span class="font-mono text-xs">${r.reward_coupon}</span>` : '<span class="text-nature-400">—</span>')+
+        td(dstr(r.created))+
+        td(badge(r.status==='rewarded'?'Rewarded':r.status==='completed'?'Completed':r.status==='signed_up'?'Signed up':'Pending',
+                 r.status==='rewarded'?'green':r.status==='completed'?'blue':'amber'))+
+        td(r.status==='completed'
+            ? btn('Issue reward','primary','onclick="toast(&#39;Generates a referral_reward coupon and links it&#39;)"')
+            : '<span class="text-xs text-nature-400">—</span>','text-right')
+      ))}
+      <p class="px-4 py-3 border-t border-nature-200 text-xs text-nature-500">A referral reaches <em>completed</em> only when the referred user's first booking is paid — then a <code class="font-mono">referral_reward</code> coupon is issued and it becomes <em>rewarded</em>.</p>`)}`;
+};
+
+/* ---- G-15 · campaigns ---- */
+V.campaigns = () => card(`
+  <div class="p-4">${sectionHead('Campaigns', btn('+ New campaign','primary','onclick="toast(&#39;Composer — POST /api/campaigns&#39;)"'))}
+    <div class="flex flex-wrap gap-2">${['All','Draft','Scheduled','Sending','Sent','Failed'].map((f,i)=>`<button class="px-3 h-8 rounded-md text-sm ${i===0?'bg-nature-900 text-white':'bg-nature-100 hover:bg-nature-200'}">${f}</button>`).join('')}</div></div>
+  ${table([{t:'Campaign'},{t:'Channel'},{t:'Type'},{t:'Schedule'},{t:'Delivery'},{t:'Status'},{t:'',right:true}], MOCK.campaigns.map(c=>
+    td(`<span class="font-medium">${c.name}</span>${c.occasion_label?`<div class="text-xs text-nature-500">${c.occasion_label}</div>`:''}`)+
+    td(badge(c.channel==='email'?'Email':c.channel==='whatsapp'?'WhatsApp':'Push','blue'))+
+    td(`<span class="text-xs text-nature-600 font-mono">${c.campaign_type}</span>`)+
+    td(c.scheduled_at ? new Date(c.scheduled_at).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '<span class="text-nature-400">Not scheduled</span>')+
+    td(c.recipients
+        ? `<span class="tnum text-sm">${c.sent}/${c.recipients} sent</span>${fillBar(Math.round(c.sent/c.recipients*100))}
+           <div class="text-[11px] text-nature-500 mt-0.5">${c.failed} failed · ${c.optout} opted out</div>`
+        : '<span class="text-nature-400 text-sm">—</span>')+
+    td(badge(c.status.charAt(0).toUpperCase()+c.status.slice(1),
+             c.status==='sent'?'green':c.status==='failed'?'red':c.status==='sending'?'blue':c.status==='scheduled'?'amber':'slate'))+
+    td(c.status==='failed' ? btn('Retry','primary','onclick="toast(&#39;Re-queues failed recipients only&#39;)"')
+       : c.status==='draft' ? btn('Edit','ghost','onclick="toast(&#39;Open composer&#39;)"')
+       : c.status==='scheduled' ? btn('Cancel','ghost','onclick="toast(&#39;Campaign cancelled&#39;)"')
+       : `<button onclick="toast(&#39;Per-recipient log — campaign_recipients&#39;)" class="px-2.5 h-8 rounded-md bg-nature-100 hover:bg-nature-200 text-xs">Log</button>`,'text-right')
+  ))}
+  <p class="px-4 py-3 border-t border-nature-200 text-xs text-nature-500">WhatsApp sends reference a Meta-approved template by name; the body lives with the BSP, not here. Opt-outs are skipped, never counted as failures.</p>`);
+
+/* ---- G-07 · payouts ---- */
+V.payouts = () => {
+  const rows = allPayouts();
+  const sum = k => rows.reduce((s,r)=>s+r[k],0);
+  const byStatus = s => rows.filter(r=>r.status===s).length;
+  return `
+    <div class="grid gap-4 sm:grid-cols-4 mb-5">
+      ${[['Gross', INR(round2(sum('gross_amount')))],['Commission', '−'+INR(round2(sum('commission_amount')))],
+         ['Net to you', INR(round2(sum('net_amount')))],['Commission rate', commissionPct('demo-org')+'%']]
+        .map(([l,v])=>card(`<div class="p-4"><p class="text-xs text-nature-500">${l}</p><p class="mt-1 text-2xl font-semibold tnum">${v}</p></div>`)).join('')}
+    </div>
+    ${card(`<div class="p-4 flex flex-wrap gap-3 items-center justify-between">
+      <div class="flex flex-wrap gap-2 text-xs">
+        ${['pending','initiated','completed','failed','kyc_blocked','voided'].map(s=>
+          `<span class="inline-flex items-center gap-1.5 rounded-full bg-nature-100 px-2.5 py-1">${s.replace('_',' ')} <strong class="tnum">${byStatus(s)}</strong></span>`).join('')}
+      </div>
+      <span class="text-xs text-nature-500">Two tranches per booking · 60% advance, 40% balance</span>
+    </div>`)}
+    <div class="h-4"></div>
+    ${card(`<div class="p-4">${sectionHead('Payout tranches')}</div>
+      ${table([{t:'Booking'},{t:'Trip'},{t:'Tranche'},{t:'Gross'},{t:'Commission'},{t:'Net'},{t:'Due'},{t:'Status'}], rows.map(r=>
+        td(`<span class="font-mono text-xs">${r.booking_id}</span>`)+
+        td(`<span class="text-sm">${r.trip}</span>`)+
+        td(badge(r.tranche==='advance'?'Advance 60%':'Balance 40%','blue'))+
+        td(`<span class="tnum">${INR(r.gross_amount)}</span>`)+
+        td(`<span class="tnum text-nature-500">−${INR(r.commission_amount)}</span><div class="text-[11px] text-nature-400">@ ${r.commission_pct_applied}%</div>`)+
+        td(`<span class="tnum font-medium">${INR(r.net_amount)}</span>`)+
+        td(`<span class="text-xs">${dstr(r.due_at)}</span>`)+
+        td(badge(r.status==='completed'?'Paid out':r.status==='kyc_blocked'?'KYC blocked':r.status==='initiated'?'Initiated':r.status.charAt(0).toUpperCase()+r.status.slice(1),
+                 r.status==='completed'?'green':r.status==='kyc_blocked'?'red':r.status==='initiated'?'blue':'amber'))
+      ))}
+      <div class="px-4 py-3 border-t border-nature-200 text-xs text-nature-500 space-y-1">
+        <p>The balance tranche is the <strong>remainder</strong> (<code class="font-mono">total − advance</code>), not an independently computed 40% — so the two rows always sum to the booking total with no rounding drift. Commission splits the same way.</p>
+        <p><code class="font-mono">kyc_blocked</code> and <code class="font-mono">voided</code> exist so “can’t run yet” and “shouldn’t run” never get collapsed into a real transfer <code class="font-mono">failed</code>.</p>
+      </div>`)}`;
+};
+
+/* ---- G-11 · cash flow ---- */
+V['cash-flow'] = () => {
+  const cf = cashFlow(), maxV = Math.max(...cf.map(r=>Math.max(r.in,r.out)));
+  const totIn = cf.reduce((s,r)=>s+r.in,0), totOut = cf.reduce((s,r)=>s+r.out,0);
+  return `
+    <div class="grid gap-4 sm:grid-cols-3 mb-5">
+      ${[['Cash in (6 mo)',INR(totIn)],['Cash out (6 mo)',INR(totOut)],['Net',INR(round2(totIn-totOut))]]
+        .map(([l,v])=>card(`<div class="p-4"><p class="text-xs text-nature-500">${l}</p><p class="mt-1 text-2xl font-semibold tnum">${v}</p></div>`)).join('')}
+    </div>
+    ${card(`<div class="p-4">${sectionHead('Cash in vs cash out', `<span class="text-xs text-nature-500">Out = expenses + vendor payments actually paid</span>`)}
+      <div class="flex items-end gap-3 h-48 mt-2">
+        ${cf.map(r=>`<div class="flex-1 flex flex-col items-center gap-1">
+          <div class="w-full flex items-end justify-center gap-1 h-40">
+            <div class="w-1/2 bg-forest-500 rounded-t" style="height:${(r.in/maxV*100).toFixed(1)}%" title="In ${INR(r.in)}"></div>
+            <div class="w-1/2 bg-earth-400 rounded-t" style="height:${(r.out/maxV*100).toFixed(1)}%" title="Out ${INR(r.out)}"></div>
+          </div>
+          <span class="text-[11px] text-nature-500">${r.month}</span></div>`).join('')}
+      </div>
+      <div class="flex gap-4 mt-3 text-xs text-nature-600">
+        <span class="inline-flex items-center gap-1.5"><i class="w-3 h-3 rounded-sm bg-forest-500 inline-block"></i> Cash in</span>
+        <span class="inline-flex items-center gap-1.5"><i class="w-3 h-3 rounded-sm bg-earth-400 inline-block"></i> Cash out</span>
+      </div></div>`)}
+    <div class="h-4"></div>
+    ${card(table([{t:'Month'},{t:'Cash in',right:true},{t:'Cash out',right:true},{t:'Net',right:true}], cf.map(r=>
+      td(r.month)+
+      td(`<span class="tnum">${INR(r.in)}</span>`,'text-right')+
+      td(`<span class="tnum">${INR(r.out)}</span>`,'text-right')+
+      td(`<span class="tnum font-medium ${r.net<0?'text-red-600':''}">${INR(r.net)}</span>`,'text-right')
+    )))}`;
+};
+
+/* ---------------- router / shell ---------------- */
+function renderNav(active){
+  // only render groups that have at least one screen this role may see
+  document.getElementById('nav').innerHTML = NAV.map(g=>{
+    const items = g.items.filter(it => can(it.cap));
+    if (!items.length) return '';
+    return `<div>
+      <p class="px-2 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-nature-400">${g.group}</p>
+      <div class="space-y-0.5">
+        ${items.map(it=>`<a href="#${it.id}" class="flex items-center gap-2.5 px-2.5 h-9 rounded-md ${it.id===active?'bg-forest-50 text-forest-800 font-medium':'text-nature-600 hover:bg-nature-100'}">
+          ${ico(it.icon, it.id===active?'text-forest-700':'text-nature-400')}<span class="truncate">${it.label}</span></a>`).join('')}
+      </div></div>`;
+  }).join('');
+}
+const ALL = NAV.flatMap(g=>g.items);
+function route(){
+  const id = (location.hash.replace('#','') || 'dashboard');
+  let meta = ALL.find(i=>i.id===id) || ALL[0];
+  renderNav(meta.id);
+  document.getElementById('pageTitle').textContent = meta.label;
+  document.getElementById('pageSub').textContent = meta.sub;
+
+  // gate on direct hash access too — hiding the nav link alone is not authorization
+  const body = can(meta.cap)
+    ? (V[meta.id] || (()=>emptyState('Not built yet','This screen is part of the template scope.')))()
+    : card(`<div class="p-4">${emptyState('Not available for your role',
+        `“${meta.label}” needs the <strong>${(PERMS[meta.cap]||[]).map(r=>ROLE_LABEL[r]).join(' or ')}</strong> role. You are signed in as ${ROLE_LABEL[ROLE]}.`,
+        `<a href="#team" class="inline-flex items-center rounded-md px-3 h-9 text-sm font-medium bg-forest-600 text-white">See permission tiers</a>`)}</div>`);
+
+  document.getElementById('view').innerHTML = body;
+  window.scrollTo(0,0);
+  closeSidebar();
+  document.getElementById('modal').hidden = true; // never leave a dialog open across a route change
+}
+
+/* role switcher */
+const roleSel = document.getElementById('roleSel');
+roleSel.value = ROLE;
+roleSel.addEventListener('change', () => {
+  ROLE = roleSel.value; STORE.set('role', ROLE);
+  document.querySelector('#nav')?.scrollTo(0,0);
+  route();
+  toast('Now viewing as ' + ROLE_LABEL[ROLE]);
+});
+window.addEventListener('hashchange', route);
+
+/* sidebar (mobile) */
+const sb = document.getElementById('sidebar'), bd = document.getElementById('backdrop');
+function openSidebar(){ sb.classList.remove('-translate-x-full'); bd.hidden = false; }
+function closeSidebar(){ if (window.innerWidth < 1024){ sb.classList.add('-translate-x-full'); bd.hidden = true; } }
+document.getElementById('menuBtn').onclick = openSidebar;
+bd.onclick = closeSidebar;
+
+/* modal + toast */
+const modal = document.getElementById('modal');
+function openModal(title, body){
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = body;
+  modal.hidden = false;
+}
+modal.addEventListener('click', e => { if (e.target.hasAttribute('data-close')) modal.hidden = true; });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') modal.hidden = true; });
+
+let toastT;
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.hidden = false;
+  clearTimeout(toastT); toastT = setTimeout(()=>{ t.hidden = true; }, 2600);
+}
+window.toast = toast;
+
+/* ---- P2 · trip lifecycle, template and series actions ---- */
+window.doPublish = function(id){
+  publishTrip(id);
+  toast('Published — the departure is now visible and bookable.');
+  route();
+};
+window.doUnpublish = function(id){
+  unpublishTrip(id);
+  toast('Back to draft — removed from search and no longer bookable.');
+  route();
+};
+window.doSchedule = function(id){
+  const t = tripRows().find(x=>x.id===id);
+  openModal('Schedule publication — ' + t.name, `
+    <p class="text-sm text-nature-600">The trip stays a draft until this moment, then becomes published. The change is derived from the date on every read, so there is no job that can fail and leave it stuck.</p>
+    <label class="block mt-4"><span class="text-sm font-medium">Go live on</span>
+      <input id="schedWhen" type="date" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3"/></label>
+    <div class="mt-5 flex justify-end gap-2">
+      ${btn('Cancel','ghost','data-close')}
+      ${btn('Schedule','primary',`onclick="confirmSchedule(&#39;${id}&#39;)"`)}
+    </div>`);
+  const d = new Date(); d.setDate(d.getDate() + 7);
+  document.getElementById('schedWhen').value = d.toISOString().slice(0,10);
+};
+window.confirmSchedule = function(id){
+  const v = document.getElementById('schedWhen').value;
+  if (!v) { toast('Pick a date first.'); return; }
+  scheduleTrip(id, new Date(v + 'T00:00:00').getTime());
+  document.getElementById('modal').hidden = true;
+  toast('Scheduled for ' + DATE_IN(new Date(v + 'T00:00:00').getTime()) + '.');
+  route();
+};
+window.doDuplicate = function(id){
+  const copy = duplicateTrip(id);
+  if (!copy) return;
+  toast(copy.name + ' created as a draft — it did not inherit the original’s live state.');
+  route();
+};
+window.viewTemplate = function(tplId){
+  const t = templates().find(x=>x.id===tplId); if (!t) return;
+  openModal(t.name, `
+    <p class="text-sm text-nature-600">${t.description}</p>
+    <div class="mt-4 grid sm:grid-cols-2 gap-4">
+      <div><p class="text-xs font-medium uppercase tracking-wide text-nature-500 mb-1">Itinerary</p>
+        <ol class="text-sm space-y-1">${t.itinerary.map(d=>`<li><span class="tnum text-nature-400">Day ${d.day}</span> · ${d.t}</li>`).join('')}</ol></div>
+      <div>
+        <p class="text-xs font-medium uppercase tracking-wide text-nature-500 mb-1">Inclusions</p>
+        <ul class="text-sm list-disc pl-5 mb-3">${t.inclusions.map(i=>`<li>${i}</li>`).join('')}</ul>
+        <p class="text-xs font-medium uppercase tracking-wide text-nature-500 mb-1">Exclusions</p>
+        <ul class="text-sm list-disc pl-5">${t.exclusions.map(i=>`<li>${i}</li>`).join('')}</ul>
+      </div>
+    </div>
+    <p class="text-xs text-nature-500 mt-4">No dates, no seats, no price lock. This record can never be booked — only the trips created from it can.</p>`);
+};
+window.useTemplate = function(tplId){
+  const t = templates().find(x=>x.id===tplId); if (!t) return;
+  openModal('Create a trip from “' + t.name + '”', `
+    <p class="text-sm text-nature-600">This creates a real, bookable trip in <code class="font-mono">draft</code>, carrying <code class="font-mono">template_id = ${t.id}</code>. Editing the template afterwards does not change trips already created from it.</p>
+    <label class="block mt-4"><span class="text-sm font-medium">Departure date</span>
+      <input id="tplStart" type="date" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3"/></label>
+    <div class="mt-5 flex justify-end gap-2">
+      ${btn('Cancel','ghost','data-close')}
+      ${btn('Create draft trip','primary',`onclick="confirmUseTemplate(&#39;${t.id}&#39;)"`)}
+    </div>`);
+  const d = new Date(); d.setMonth(d.getMonth() + 2);
+  document.getElementById('tplStart').value = d.toISOString().slice(0,10);
+};
+window.confirmUseTemplate = function(tplId){
+  const v = document.getElementById('tplStart').value;
+  if (!v) { toast('Pick a departure date first.'); return; }
+  const row = tripFromTemplate(tplId, new Date(v + 'T00:00:00').getTime());
+  document.getElementById('modal').hidden = true;
+  toast(row.code + ' created as a draft departing ' + row.dep + '.');
+  location.hash = 'trips';
+};
+window.genDeparture = function(seriesId){
+  const s = seriesRows().find(x=>x.id===seriesId); if (!s) return;
+  openModal('Generate a departure — ' + s.series_name, `
+    <p class="text-sm text-nature-600">Each departure is an independent trip carrying <code class="font-mono">series_id = ${s.id}</code>. Cancelling one never affects the others.</p>
+    <label class="block mt-4"><span class="text-sm font-medium">Departure date</span>
+      <input id="serStart" type="date" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3"/></label>
+    <div class="mt-5 flex justify-end gap-2">
+      ${btn('Cancel','ghost','data-close')}
+      ${btn('Generate','primary',`onclick="confirmGenDeparture(&#39;${s.id}&#39;)"`)}
+    </div>`);
+  const d = new Date(); d.setMonth(d.getMonth() + 3);
+  document.getElementById('serStart').value = d.toISOString().slice(0,10);
+};
+window.confirmGenDeparture = function(seriesId){
+  const v = document.getElementById('serStart').value;
+  if (!v) { toast('Pick a departure date first.'); return; }
+  const row = departureFromSeries(seriesId, new Date(v + 'T00:00:00').getTime());
+  document.getElementById('modal').hidden = true;
+  toast(row.code + ' generated as a draft departing ' + row.dep + '.');
+  route();
+};
+
+window.openBooking = function(id){
+  const b = MOCK.bookings.find(x=>x.id===id);
+  const st = bookingStatusOf(b), pl = priceLock(b), tl = bookingTimeline(b);
+  openModal('Booking ' + b.id, `
+    <dl class="grid grid-cols-2 gap-y-3 text-sm">
+      <dt class="text-nature-500">Traveller</dt><dd class="font-medium">${b.traveller}</dd>
+      <dt class="text-nature-500">Trip</dt><dd>${b.trip}</dd>
+      <dt class="text-nature-500">Seats (num_travelers)</dt><dd class="tnum">${b.pax}</dd>
+      <dt class="text-nature-500">Total amount</dt><dd class="tnum font-medium">${INR(b.amount)}</dd>
+      <dt class="text-nature-500">Method</dt><dd>${b.method}</dd>
+      <dt class="text-nature-500">Status</dt><dd><span class="font-mono text-xs">${st}</span></dd>
+      <dt class="text-nature-500">Booked</dt><dd>${b.date}</dd>
+    </dl>
+
+    <div class="mt-4 rounded-md border ${pl.drifted?'border-earth-300 bg-earth-50':'border-nature-200 bg-nature-50'} p-3 text-sm">
+      <p class="font-medium">Price lock-in</p>
+      ${pl.drifted
+        ? `<p class="text-nature-700 mt-1">The trip now sells at <span class="tnum">${INR(pl.current)}</span> a seat — <span class="tnum">${INR(pl.atCurrent)}</span> for ${b.pax}. This booking stays at <span class="tnum font-medium">${INR(pl.locked)}</span>, the price snapshotted when it was made. Editing a trip's price never reprices a booking already taken.</p>`
+        : `<p class="text-nature-600 mt-1">Locked at <span class="tnum">${INR(pl.locked)}</span>, which still matches the current trip price. Change the trip price from the Trips screen and reopen this booking to see the two figures separate.</p>`}
+    </div>
+
+    <div class="mt-4">
+      <p class="text-xs font-medium uppercase tracking-wide text-nature-500 mb-2">Booking events</p>
+      <ol class="space-y-2">${tl.map(e=>`<li class="flex gap-3 text-sm">
+        <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-forest-600 shrink-0"></span>
+        <span><span class="font-mono text-xs text-nature-500">${e.type}</span><br>${e.note} <span class="text-nature-400">· ${e.when}</span></span></li>`).join('')}</ol>
+    </div>
+
+    <div class="mt-4 rounded-md border border-nature-300 border-dashed p-3 text-sm">
+      <p class="font-medium">Two things this screen deliberately does not show</p>
+      <ul class="mt-2 space-y-2 text-nature-700">
+        <li><strong>Per-participant roster and emergency contacts.</strong> The booking spec puts these explicitly out of scope — a booking is one traveller's reservation for N seats, and names, medical forms and room allocation belong to Operations Management, which will FK into <code class="font-mono">bookings.id</code>. There is no table to read them from yet, so nothing is invented here.</li>
+        <li><strong>Approve / reject.</strong> FR-2 asks for it, but <code class="font-mono">bookings.status</code> has no such transition — it runs pending_payment → confirmed on payment capture, with no organizer gate in between. Adding buttons would imply a workflow the backend cannot honour.</li>
+      </ul>
+    </div>
+
+    <div class="mt-5 pt-4 border-t border-nature-200 flex flex-wrap gap-2">
+      ${btn('Send receipt','ghost','onclick="toast(&#39;Receipt emailed&#39;)"')}
+      ${btn('WhatsApp traveller','ghost','onclick="toast(&#39;Opened WhatsApp thread&#39;)"')}
+      ${st==='pending_payment'?btn('Verify payment','primary','onclick="toast(&#39;Payment verified&#39;)"'):''}
+    </div>`);
+};
+
+/* Exists to make the price-lock invariant testable from the UI rather than
+   only assertable in prose. */
+window.changeTripPrice = function(id){
+  const t = tripRows().find(x=>x.id===id); if (!t) return;
+  openModal('Change price — ' + t.name, `
+    <p class="text-sm text-nature-600">Bookings already taken keep the amount they were snapshotted at. Only future bookings use the new price.</p>
+    <label class="block mt-4"><span class="text-sm font-medium">Price per seat</span>
+      <input id="newPrice" type="number" value="${t.price}" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 tnum"/></label>
+    <div class="mt-5 flex justify-end gap-2">
+      ${btn('Cancel','ghost','data-close')}
+      ${btn('Save price','primary',`onclick="confirmPrice(&#39;${id}&#39;)"`)}
+    </div>`);
+};
+window.confirmPrice = function(id){
+  const v = Number(document.getElementById('newPrice').value);
+  if (!v || v <= 0) { toast('Enter a price above zero.'); return; }
+  setTrips(tripRows().map(t => t.id===id ? {...t, price:v} : t));
+  document.getElementById('modal').hidden = true;
+  toast('Price updated — existing bookings keep their locked amount.');
+  route();
+};
+
+window.openVendor = function(){
+  openModal('Add vendor', `
+    <div class="grid gap-3">
+      <label class="block"><span class="text-sm font-medium">Business name</span><input class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3" placeholder="Hotel Snowview"/></label>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <label class="block"><span class="text-sm font-medium">Category</span>
+          <select class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 bg-white">${['Hotel','Transport','Guide','Equipment','Food','Photographer'].map(c=>`<option>${c}</option>`).join('')}</select></label>
+        <label class="block"><span class="text-sm font-medium">Base town</span><input class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3" placeholder="Manali"/></label>
+      </div>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <label class="block"><span class="text-sm font-medium">Phone</span><input class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 font-mono" placeholder="+91 …"/></label>
+        <label class="block"><span class="text-sm font-medium">Email</span><input type="email" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3"/></label>
+      </div>
+      <label class="block"><span class="text-sm font-medium">Notes</span><textarea rows="2" class="mt-1 w-full rounded-md border border-nature-300 p-3" placeholder="Rate card, cancellation terms…"></textarea></label>
+    </div>
+    <div class="mt-5 pt-4 border-t border-nature-200 flex justify-end gap-2">
+      ${btn('Cancel','ghost','data-close')}
+      ${btn('Save vendor','primary','onclick="document.getElementById(&#39;modal&#39;).hidden=true;toast(&#39;Vendor added&#39;)"')}
+    </div>`);
+};
+
+window.openExpense = function(){
+  openModal('Add expense', `
+    <div class="grid gap-3">
+      <div class="grid sm:grid-cols-2 gap-3">
+        <label class="block"><span class="text-sm font-medium">Category</span>
+          <select class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 bg-white">${['Transport','Food','Guides','Permits','Equipment','Stays','Other'].map(c=>`<option>${c}</option>`).join('')}</select></label>
+        <label class="block"><span class="text-sm font-medium">Amount</span><input type="number" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 tnum" placeholder="0"/></label>
+      </div>
+      <label class="block"><span class="text-sm font-medium">Paid to</span><input class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3" placeholder="Vendor or payee"/></label>
+      <label class="block"><span class="text-sm font-medium">Date</span><input type="date" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3"/></label>
+    </div>
+    <div class="mt-5 pt-4 border-t border-nature-200 flex justify-end gap-2">
+      ${btn('Cancel','ghost','data-close')}
+      ${btn('Add expense','primary','onclick="document.getElementById(&#39;modal&#39;).hidden=true;toast(&#39;Expense added&#39;)"')}
+    </div>`);
+};
+
+/* ============ PHASE 1 ACTIONS ============ */
+
+window.saveGst = function(){
+  const gstin = document.getElementById('gpGstin').value.trim().toUpperCase();
+  const name  = document.getElementById('gpName').value.trim();
+  const addr  = document.getElementById('gpAddr').value.trim();
+  const code  = document.getElementById('gpCode').value.trim().toUpperCase();
+  const existing = gstProfile();
+
+  if (!name){ toast('Legal business name is required'); return; }
+  if (!addr){ toast('Registered address is required'); return; }
+  if (gstin && !GSTIN_RE.test(gstin)){
+    document.getElementById('gpGstinMsg').innerHTML = '<span class="text-red-600">Not a valid GSTIN format (2 digits, 5 letters, 4 digits, letter, alphanumeric, Z, alphanumeric).</span>';
+    toast('GSTIN format is invalid'); return;
+  }
+  if (!existing.short_code && !/^[A-Z0-9]{1,4}$/.test(code)){
+    toast('Short code must be 1–4 letters or digits'); return;
+  }
+  STORE.set('gst', {
+    legal_business_name:name, gstin, address:addr,
+    home_state: document.getElementById('gpState').value,
+    short_code: existing.short_code || code,          // immutable once set
+    tax_scheme: document.getElementById('gpScheme').value,
+    default_sac_code: document.getElementById('gpSac').value,
+  });
+  toast('GST profile saved'); route();
+};
+
+window.openIssue = function(){
+  const p = gstProfile(), issued = invoices().map(i=>i.bookingId);
+  const eligible = MOCK.bookings.filter(b => !issued.includes(b.id));
+  openModal('Issue GST invoice', `
+    <div class="grid gap-3">
+      <label class="block"><span class="text-sm font-medium">Booking</span>
+        <select id="ivBooking" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 bg-white">
+          ${eligible.map(b=>`<option value="${b.id}">${b.id} · ${b.traveller} · ${INR(b.amount)}</option>`).join('')}
+        </select>
+        <span class="text-xs text-nature-400">One invoice per booking — already-invoiced bookings are not listed.</span></label>
+      <label class="block"><span class="text-sm font-medium">Place of supply</span>
+        <select id="ivPos" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 bg-white">
+          ${STATES.map(s=>`<option ${s===p.home_state?'selected':''}>${s}</option>`).join('')}</select>
+        <span class="text-xs text-nature-400">Same as your home state (${p.home_state}) → CGST+SGST. Different → IGST.</span></label>
+      <label class="block"><span class="text-sm font-medium">Buyer GSTIN <span class="text-nature-400">(optional, B2B only)</span></span>
+        <input id="ivGstin" maxlength="15" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 font-mono uppercase"/></label>
+      ${p.tax_scheme==='margin_18pct' ? `
+        <label class="block"><span class="text-sm font-medium">Your margin on this booking</span>
+          <input id="ivMargin" type="number" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 tnum" placeholder="e.g. 24000"/>
+          <span class="text-xs text-nature-400">Under Rule 33 the 18% applies to the margin only, not the gross package.</span></label>` : `
+        <div class="rounded-md bg-nature-100 p-3 text-xs text-nature-600">Scheme is <strong>5% on gross</strong>, so tax is computed on the full package price. No margin input needed.</div>`}
+    </div>
+    <div class="mt-5 pt-4 border-t border-nature-200 flex justify-end gap-2">
+      ${btn('Cancel','ghost','data-close')}
+      ${btn('Issue invoice','primary','onclick="confirmIssue()"')}
+    </div>`);
+};
+
+window.confirmIssue = function(){
+  const p = gstProfile();
+  const b = MOCK.bookings.find(x=>x.id===document.getElementById('ivBooking').value);
+  const pos = document.getElementById('ivPos').value;
+  const buyerGstin = document.getElementById('ivGstin').value.trim().toUpperCase();
+  if (buyerGstin && !GSTIN_RE.test(buyerGstin)){ toast('Buyer GSTIN format is invalid'); return; }
+
+  let margin = 0;
+  if (p.tax_scheme === 'margin_18pct'){
+    margin = Number(document.getElementById('ivMargin').value || 0);
+    if (!(margin > 0)){ toast('Enter the margin for this booking'); return; }
+    if (margin > b.amount){ toast('Margin cannot exceed the package price'); return; }
+  }
+
+  const t = computeTax({ scheme:p.tax_scheme, gross:b.amount, margin, placeOfSupply:pos, homeState:p.home_state });
+  const now = new Date(), fy = financialYear(now);
+  const inv = {
+    id:'GI-' + Date.now(), bookingId:b.id,
+    number: nextInvoiceNumber(p.short_code, fy), fy,
+    date: now.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }),
+    // seller values are SNAPSHOTTED here — later profile edits must not rewrite this invoice
+    seller_snapshot: { name:p.legal_business_name, gstin:p.gstin, address:p.address, state:p.home_state, scheme:p.tax_scheme, sac:p.default_sac_code },
+    buyer_name:b.traveller, buyer_gstin:buyerGstin || null,
+    place_of_supply:pos, gross:b.amount, margin,
+    taxable:t.taxable, rate:t.rate, cgst:t.cgst, sgst:t.sgst, igst:t.igst, tax:t.tax, total:t.total, intra:t.intra,
+    status:'issued', trip:b.trip,
+  };
+  STORE.set('invoices', invoices().concat(inv));
+  document.getElementById('modal').hidden = true;
+  toast('Invoice ' + inv.number + ' issued');
+  if (location.hash.replace('#','') !== 'invoices') location.hash = 'invoices'; else route();
+};
+
+window.viewInvoice = function(id){
+  const i = invoices().find(x=>x.id===id); if (!i) return;
+  const s = i.seller_snapshot;
+  const row = (k,v) => `<div class="flex justify-between gap-4 py-1.5 border-b border-nature-100 last:border-0"><span class="text-nature-500">${k}</span><span class="text-right font-medium">${v}</span></div>`;
+  openModal('Invoice ' + i.number, `
+    <div class="text-sm">
+      <div class="pb-3 mb-3 border-b border-nature-200">
+        <p class="font-semibold">${s.name}</p>
+        <p class="text-nature-600 text-xs whitespace-pre-line">${s.address}</p>
+        <p class="text-xs mt-1">GSTIN: <span class="font-mono">${s.gstin || 'Unregistered'}</span> · State: ${s.state}</p>
+      </div>
+      ${row('Invoice number', `<span class="font-mono">${i.number}</span>`)}
+      ${row('Invoice date', i.date)}
+      ${row('Financial year', i.fy)}
+      ${row('Buyer', i.buyer_name)}
+      ${row('Buyer GSTIN', i.buyer_gstin ? `<span class="font-mono">${i.buyer_gstin}</span>` : 'B2C — unregistered')}
+      ${row('Place of supply', i.place_of_supply)}
+      ${row('SAC code', `<span class="font-mono">${s.sac}</span>`)}
+      ${row('Description', 'Tour package — ' + i.trip)}
+      <div class="mt-3 pt-3 border-t border-nature-200">
+        ${row('Package value', `<span class="tnum">${INR(i.gross)}</span>`)}
+        ${i.margin ? row('Operator margin', `<span class="tnum">${INR(i.margin)}</span>`) : ''}
+        ${row('Taxable value', `<span class="tnum">${INR(i.taxable)}</span>`)}
+        ${row('Tax rate', i.rate + '%')}
+        ${i.intra
+          ? row('CGST + SGST', `<span class="tnum">${INR(i.cgst)} + ${INR(i.sgst)}</span>`)
+          : row('IGST', `<span class="tnum">${INR(i.igst)}</span>`)}
+        <div class="flex justify-between gap-4 pt-2.5 mt-1 border-t border-nature-300 text-base">
+          <span class="font-semibold">Total payable</span><span class="font-semibold tnum">${INR(i.total)}</span></div>
+      </div>
+      <p class="text-[11px] text-nature-400 mt-3">Signature (physical or digital) required on the issued document — Rule 46.</p>
+    </div>
+    <div class="mt-5 pt-4 border-t border-nature-200 flex justify-end gap-2">
+      ${btn('Print','ghost','onclick="window.print()"')}
+      ${btn('Close','primary','data-close')}
+    </div>`);
+};
+
+window.issueCreditNote = function(bookingId){
+  const inv = invoices().find(i=>i.bookingId===bookingId);
+  if (!inv){ toast('No invoice exists for ' + bookingId + ' — issue one before crediting it'); return; }
+  STORE.set('creditNotes', creditNotes().concat({
+    id:'CN-' + Date.now(), bookingId, against:inv.number,
+    amount:inv.total, date:new Date().toLocaleDateString('en-IN'),
+  }));
+  toast('Credit note raised against ' + inv.number);
+  route();   // the flag disappears from reconciliation on re-render
+};
+
+/* ---- P1 actions ---- */
+window.copyRef = function(){
+  const link = 'https://trektribe.in/r/' + MOCK.referralCode.code;
+  navigator.clipboard?.writeText(link).then(()=>toast('Link copied'), ()=>toast(link));
+};
+
+window.openCouponTest = function(){
+  openModal('Test a coupon', `
+    <div class="grid gap-3">
+      <label class="block"><span class="text-sm font-medium">Coupon</span>
+        <select id="ctCode" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 bg-white">
+          ${MOCK.coupons.map(c=>`<option value="${c.id}">${c.code} — ${couponStatus(c)}</option>`).join('')}</select></label>
+      <label class="block"><span class="text-sm font-medium">Against booking</span>
+        <select id="ctBooking" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 bg-white">
+          ${MOCK.bookings.map(b=>`<option value="${b.id}">${b.traveller} · ${b.trip} · ${INR(b.amount)}</option>`).join('')}</select></label>
+      <label class="flex items-center gap-2.5"><input type="checkbox" id="ctFirst" class="w-4 h-4 accent-forest-600"/><span class="text-sm">Treat as this traveller's first booking</span></label>
+    </div>
+    <div id="ctOut" class="mt-4"></div>
+    <div class="mt-5 pt-4 border-t border-nature-200 flex justify-end gap-2">
+      ${btn('Close','ghost','data-close')}${btn('Apply coupon','primary','onclick="runCouponTest()"')}
+    </div>`);
+};
+window.runCouponTest = function(){
+  const c = MOCK.coupons.find(x=>x.id===document.getElementById('ctCode').value);
+  const b = MOCK.bookings.find(x=>x.id===document.getElementById('ctBooking').value);
+  const res = applyCoupon(c, b, document.getElementById('ctFirst').checked);
+  document.getElementById('ctOut').innerHTML = res.ok
+    ? `<div class="rounded-lg bg-forest-50 border border-forest-200 p-3 text-sm">
+        <p class="font-medium text-forest-900">Applies — ${INR(res.discount)} off${res.capped?' (hit the cap)':''}</p>
+        <div class="mt-2 space-y-1 text-forest-800">
+          <div class="flex justify-between"><span>Booking</span><span class="tnum">${INR(b.amount)}</span></div>
+          <div class="flex justify-between"><span>Discount</span><span class="tnum">−${INR(res.discount)}</span></div>
+          <div class="flex justify-between font-semibold pt-1 border-t border-forest-200"><span>Payable</span><span class="tnum">${INR(res.payable)}</span></div>
+        </div></div>`
+    : `<div class="rounded-lg bg-earth-50 border border-earth-200 p-3 text-sm text-earth-900">
+        <p class="font-medium">Rejected</p><p class="mt-0.5">${res.reason}</p></div>`;
+};
+
+window.openRuleTest = function(){
+  openModal('Which automatic discount applies?', `
+    <div class="grid gap-3">
+      <label class="block"><span class="text-sm font-medium">Trip</span>
+        <select id="rtTrip" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 bg-white">
+          ${MOCK.trips.map(t=>`<option>${t.name}</option>`).join('')}</select></label>
+      <label class="block"><span class="text-sm font-medium">Days between booking and departure</span>
+        <input id="rtDays" type="number" value="75" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 tnum"/>
+        <span class="text-xs text-nature-400">Early-bird fires at or above its threshold; last-minute at or below.</span></label>
+    </div>
+    <div id="rtOut" class="mt-4"></div>
+    <div class="mt-5 pt-4 border-t border-nature-200 flex justify-end gap-2">
+      ${btn('Close','ghost','data-close')}${btn('Check','primary','onclick="runRuleTest()"')}
+    </div>`);
+};
+window.runRuleTest = function(){
+  const days = Number(document.getElementById('rtDays').value || 0);
+  const trip = document.getElementById('rtTrip').value;
+  const hits = matchingRules(days, trip);
+  document.getElementById('rtOut').innerHTML = hits.length
+    ? `<div class="rounded-lg bg-forest-50 border border-forest-200 p-3 text-sm text-forest-900">
+        <p class="font-medium">${hits.length} rule${hits.length>1?'s':''} match at ${days} days out</p>
+        <ul class="mt-2 space-y-1">${hits.map(r=>`<li>· ${r.rule_type==='early_bird'?'Early bird':'Last minute'} (${r.threshold_days}d) — ${r.discount_type==='percentage'?r.value+'%'+(r.max_discount_amount?' capped '+INR(r.max_discount_amount):''):INR(r.value)}${r.trip_id?' · '+r.trip_id+' only':''}</li>`).join('')}</ul>
+        ${hits.length>1?'<p class="mt-2 text-xs">More than one matches — the checkout must decide precedence. Not specified in the spec; flagging rather than guessing.</p>':''}
+       </div>`
+    : `<div class="rounded-lg bg-nature-100 border border-nature-200 p-3 text-sm text-nature-700">No automatic discount applies at ${days} days out.</div>`;
+};
+
+/* ---- P2 vendor actions ---- */
+window.doFireEvent = function(){
+  const res = fireVendorEvent(document.getElementById('feType').value, document.getElementById('feTrip').value);
+  if (!res.ok){ toast(res.reason); return; }
+  toast(`Sent to ${res.count} vendor${res.count>1?'s':''}: ${res.vendors.join(', ')}`);
+  route();
+};
+
+window.viewComm = function(id){
+  const c = vendorComms().find(x=>x.id===id); if (!c) return;
+  openModal('Sent copy — ' + c.vendor, `
+    <div class="text-sm space-y-3">
+      <div class="flex flex-wrap gap-2">
+        ${badge(VENDOR_EVENTS[c.event_type]?.label || c.event_type,'blue')}
+        ${badge(c.status==='sent'?'Delivered':c.status==='failed'?'Failed':'Pending')}
+      </div>
+      <dl class="grid grid-cols-2 gap-y-2 text-sm">
+        <dt class="text-nature-500">Departure</dt><dd>${c.trip}</dd>
+        <dt class="text-nature-500">Sent</dt><dd>${c.sent_at ? new Date(c.sent_at).toLocaleString('en-IN') : 'Never — delivery failed'}</dd>
+      </dl>
+      <div class="rounded-lg bg-nature-100 border border-nature-200 p-3">
+        <p class="text-[11px] uppercase tracking-wide text-nature-500 mb-1.5">Stored snapshot</p>
+        <p class="text-nature-800">${c.snapshot}</p>
+      </div>
+      <p class="text-xs text-nature-500">This exact text is what a resend would send — it is not re-rendered from the current template.</p>
+    </div>
+    <div class="mt-5 pt-4 border-t border-nature-200 flex justify-end gap-2">${btn('Close','primary','data-close')}</div>`);
+};
+
+window.resendComm = function(id){
+  const all = vendorComms();
+  const c = all.find(x=>x.id===id); if (!c) return;
+  all.push({ ...c, id:'vc'+Date.now(), sent_at:Date.now(), status:'sent' });   // replays the same snapshot
+  STORE.set('vendorComms', all);
+  toast('Resent to ' + c.vendor + ' using the stored copy');
+  route();
+};
+
+window.openRecordPayment = function(vpId){
+  const vp = vendorPayments().find(v=>v.id===vpId); if (!vp) return;
+  openModal('Record payment — ' + vp.vendor, `
+    <dl class="grid grid-cols-2 gap-y-2 text-sm mb-4">
+      <dt class="text-nature-500">Agreed</dt><dd class="tnum">${INR(vp.total_amount)}</dd>
+      <dt class="text-nature-500">Paid so far</dt><dd class="tnum">${INR(paidAmount(vp))}</dd>
+      <dt class="text-nature-500">Outstanding</dt><dd class="tnum font-medium">${INR(outstanding(vp))}</dd>
+      <dt class="text-nature-500">Due</dt><dd>${dstr(vp.due_date)}</dd>
+    </dl>
+    <div class="grid gap-3">
+      <label class="block"><span class="text-sm font-medium">Amount</span>
+        <input id="rpAmt" type="number" value="${outstanding(vp)}" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 tnum"/>
+        <span class="text-xs text-nature-400">Cannot exceed the outstanding ${INR(outstanding(vp))}.</span></label>
+      <label class="block"><span class="text-sm font-medium">Note</span>
+        <input id="rpNote" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3" placeholder="e.g. balance on departure"/></label>
+      <label class="flex items-center gap-2.5"><input type="checkbox" id="rpNotify" checked class="w-4 h-4 accent-forest-600"/>
+        <span class="text-sm">Notify the vendor (raises <code class="font-mono text-xs">vendor_payment_completed</code>)</span></label>
+    </div>
+    <div class="mt-5 pt-4 border-t border-nature-200 flex justify-end gap-2">
+      ${btn('Cancel','ghost','data-close')}${btn('Record payment','primary',`onclick="confirmRecordPayment(&#39;${vpId}&#39;)"`)}
+    </div>`);
+};
+
+window.confirmRecordPayment = function(vpId){
+  const all = vendorPayments();
+  const vp = all.find(v=>v.id===vpId);
+  const amt = Number(document.getElementById('rpAmt').value || 0);
+  if (!(amt > 0)){ toast('Enter an amount greater than zero'); return; }
+  if (amt > outstanding(vp)){ toast(`Cannot exceed the outstanding ${INR(outstanding(vp))}`); return; }
+
+  vp.history.push({ amount:round2(amt), paid_at:Date.now(), note:document.getElementById('rpNote').value.trim() || 'Payment recorded' });
+  STORE.set('vendorPayments', all);
+  const notify = document.getElementById('rpNotify').checked;
+  document.getElementById('modal').hidden = true;
+
+  if (notify){
+    const before = vendorComms().length;
+    fireVendorEvent('vendor_payment_completed', vp.trip);
+    const sent = vendorComms().length - before;
+    toast(`${INR(amt)} recorded · ${sent} vendor notification${sent===1?'':'s'} raised`);
+  } else {
+    toast(`${INR(amt)} recorded — ${INR(outstanding(vp))} still outstanding`);
+  }
+  route();
+};
+
+window.openPayHistory = function(vpId){
+  const vp = vendorPayments().find(v=>v.id===vpId); if (!vp) return;
+  openModal('Payment history — ' + vp.vendor, `
+    ${vp.history.length ? `<div class="divide-y divide-nature-100">
+      ${vp.history.slice().reverse().map(h=>`<div class="flex justify-between gap-4 py-2.5">
+        <div><p class="font-medium tnum">${INR(h.amount)}</p><p class="text-xs text-nature-500">${h.note}</p></div>
+        <span class="text-xs text-nature-500 whitespace-nowrap">${dstr(h.paid_at)}</span></div>`).join('')}
+      </div>
+      <div class="flex justify-between gap-4 pt-3 mt-2 border-t border-nature-300 text-sm">
+        <span class="font-semibold">Paid</span><span class="font-semibold tnum">${INR(paidAmount(vp))} of ${INR(vp.total_amount)}</span></div>`
+      : `<p class="text-sm text-nature-500 py-6 text-center">Nothing paid yet against this assignment.</p>`}
+    <p class="text-xs text-nature-500 mt-3">This table is append-only — corrections are new rows, never edits, so the paid total always reconciles.</p>
+    <div class="mt-5 pt-4 border-t border-nature-200 flex justify-end gap-2">${btn('Close','primary','data-close')}</div>`);
+};
+
+window.sendDueReminders = function(){
+  const due = vendorPayments().filter(v=>vendorPayStatus(v)==='overdue' || dueSoon(v));
+  if (!due.length){ toast('Nothing due — no reminders to send'); return; }
+  const trips = [...new Set(due.map(v=>v.trip))];
+  trips.forEach(t=>fireVendorEvent('pre_departure_reminder', t));
+  toast(`Reminders raised for ${due.length} payment${due.length>1?'s':''} across ${trips.length} departure${trips.length>1?'s':''}`);
+  route();
+};
+
+window.resetPhase1 = function(){ STORE.reset(); ROLE='owner'; roleSel.value='owner'; toast('Phase 1 demo data cleared'); route(); };
+
+route();
+</script>
+</body>
+</html>
