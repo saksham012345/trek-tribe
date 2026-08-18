@@ -178,6 +178,12 @@ const NAV = [
     { id:'banners', label:'Banners', icon:'megaphone', cap:'marketing', sub:'Promotional placements with run windows · FR-13' },
     { id:'review-requests', label:'Review requests', icon:'star', cap:'marketing', sub:'Ask travellers for a review after a departure ends · FR-18' },
   ]},
+  { group:'AI assistant', items:[
+    { id:'ai-studio', label:'AI studio', icon:'sparkle', cap:'ai', sub:'Itinerary, description and pricing drafts — advisory, never applied automatically · FR-14' },
+    { id:'ai-marketing', label:'AI marketing copy', icon:'sparkle', cap:'aiMarketing', sub:'Social and email drafts handed to Campaigns on accept · FR-14' },
+    { id:'ai-insights', label:'AI insights', icon:'sparkle', cap:'ai', sub:'Demand forecast, sales insight and upsell suggestions · FR-15' },
+    { id:'ai-usage', label:'AI usage & cost', icon:'chart', cap:'ai', sub:'Quota, cache hit rate and token spend per feature' },
+  ]},
   { group:'Growth', items:[
     { id:'leads', label:'Leads', icon:'users', cap:'marketing', sub:'Pipeline, scoring and conversions' },
     { id:'tickets', label:'Support tickets', icon:'help', cap:'marketing', sub:'Traveller queries assigned to you' },
@@ -221,6 +227,7 @@ const ICONS = {
   award:'<circle cx="12" cy="9" r="6"/><path d="m8.2 13.8-1.4 7 5.2-3 5.2 3-1.4-7"/>',
   book:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
   plug:'<path d="M9 2v6M15 2v6"/><path d="M6 8h12v3a6 6 0 0 1-12 0z"/><path d="M12 17v5"/>',
+  sparkle:'<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M18 16l.8 2.2L21 19l-2.2.8L18 22l-.8-2.2L15 19l2.2-.8z"/>',
   megaphone:'<path d="m3 11 15-6v14L3 13z"/><path d="M6 12v6a2 2 0 0 0 4 0v-5"/>',
   send:'<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/>',
   tag:'<path d="M20 13 13 20a2 2 0 0 1-3 0L4 14V4h10l6 6a2 2 0 0 1 0 3z"/><circle cx="8.5" cy="8.5" r="1.2"/>',
@@ -382,6 +389,11 @@ const PERMS = {
   vendorPay:   ['owner','operations','finance'],
   marketing:   ['owner','marketing'],                            // marketing suite + CRM segmentation
   crm:         ['owner','marketing'],                            // same matrix row as marketing suite
+  /* ASSUMED — the spec's permission matrix has no AI row at all. Business
+     Assistant outputs change prices and itineraries, so it is scoped to the
+     roles that already own trips; the marketing generator follows marketing. */
+  ai:          ['owner','operations'],
+  aiMarketing: ['owner','marketing'],
   knowledge:   ROLES,
   dashboard:   ROLES,                                            // ASSUMED — not in the spec matrix
 };
@@ -1727,6 +1739,208 @@ const seedWhatsappLog = () => ([
 ]);
 const whatsappLog = () => STORE.get('whatsappMessageLog', seedWhatsappLog());
 
+/* ==========================================================================
+   PHASE 2 · AI (G-16..G-19)
+   Spec: 2026-08-05-ai-assistant-traveler-ai-design.md
+
+   There is no LLM behind this template, and pretending otherwise would be the
+   one dishonest thing in it. What IS real here is everything the spec actually
+   makes load-bearing, and all of it is verifiable:
+
+     decision 5  synchronous generation, hard timeout
+     decision 6  deterministic cache key {feature}:{hash(scoped inputs)},
+                 two-tier, shareable vs per-user scoping
+     decision 7  outputs are ADVISORY — the AI never writes to `trips`;
+                 an explicit accept is what mutates the real record
+     decision 8  refund/cancellation/fraud/dispute/payment escalate to a
+                 human regardless of what the model decided
+     decision 4  the LLM never invents facts — real-world values arrive as
+                 structured context and it only phrases them
+     quotas      enforced BEFORE the call, so a rejected request never
+                 reaches (and never bills) the provider
+     audit       one `ai_generation_requests` row per call, cache hits too
+
+   The generator itself is a deterministic stub, marked LLM_STUB, standing
+   exactly where the `ai-service` call goes.
+   ========================================================================== */
+
+/* The spec's feature enum: fourteen roadmap items plus customer_support_chat. */
+const AI_FEATURES = [
+  'ai_itinerary','ai_pricing','demand_forecast','ai_marketing_content','ai_trip_description',
+  'customer_support_chat','sales_insight','ai_upsell',
+  'smart_recommendations','packing_assistant','weather_guidance','fitness_prep',
+  'destination_planning','budget_planner',
+];
+/* Five of the traveller features are traveller-facing surfaces. They share this
+   module's tables, so the usage ledger accounts for them, but their screens
+   belong to the traveller app, not the organizer console. */
+const TRAVELLER_ONLY_FEATURES = ['smart_recommendations','packing_assistant','weather_guidance','fitness_prep','destination_planning','budget_planner'];
+
+const AI_REQUEST_STATUS = ['pending','completed','failed','rate_limited','cache_hit'];
+
+/* Shareable outputs are cached once for everyone who asks the same question.
+   Personal ones are scoped per user — mixing the two would either leak one
+   traveller's packing list to another, or bill the provider twice for an
+   identical public answer. */
+const SHAREABLE_FEATURES = ['weather_guidance','destination_planning','ai_trip_description','demand_forecast','sales_insight'];
+
+/* djb2 — a hash, not a cipher. Enough to make the key deterministic. */
+function aiHash(str){
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+function aiCacheKey(feature, inputs, userId){
+  const scoped = SHAREABLE_FEATURES.includes(feature)
+    ? inputs                                   // same question → same key → one LLM call
+    : { ...inputs, _user:userId };              // personal output → never shared
+  return feature + ':' + aiHash(JSON.stringify(scoped));
+}
+
+/* TTLs by volatility, per decision 6. Null = held until the organizer
+   regenerates or the underlying trip fields change. */
+const AI_TTL = {
+  weather_guidance: 4*3600e3,
+  demand_forecast: 24*3600e3, sales_insight: 24*3600e3,
+  ai_trip_description: null, ai_itinerary: null,
+};
+const aiTtlFor = f => (f in AI_TTL) ? AI_TTL[f] : 6*3600e3;
+
+const aiRequests = () => STORE.get('aiGenerationRequests', []);
+const aiCache    = () => STORE.get('aiGenerationCache', []);
+
+function aiCacheGet(key){
+  const hit = aiCache().find(c => c.cache_key===key);
+  if (!hit) return null;
+  if (hit.expires_at && hit.expires_at < Date.now()) return null;   // stale = miss
+  return hit;
+}
+function aiCachePut(key, feature, output){
+  const rows = aiCache().filter(c => c.cache_key!==key);
+  const ttl = aiTtlFor(feature);
+  rows.push({ id:'ac'+Date.now()+Math.random().toString(36).slice(2,5), cache_key:key, feature,
+              output, created_at:Date.now(), expires_at: ttl ? Date.now()+ttl : null });
+  STORE.set('aiGenerationCache', rows);
+}
+/* A trip edit must invalidate anything generated from that trip, or an accepted
+   description keeps describing a trip that no longer exists as described. */
+function aiInvalidateTrip(tripId){
+  const rows = aiCache().filter(c => !(c.output && c.output._trip === tripId));
+  const dropped = aiCache().length - rows.length;
+  if (dropped) STORE.set('aiGenerationCache', rows);
+  return dropped;
+}
+
+/* Quotas are per role and per day, checked before the call. */
+const AI_QUOTA = { anonymous:10, traveler:30, organizer:100 };
+const aiQuotaFor = () => AI_QUOTA.organizer;          // this console is organizer-side
+function aiUsedToday(){
+  const dayStart = new Date(); dayStart.setHours(0,0,0,0);
+  return aiRequests().filter(r => r.created_at >= dayStart.getTime() && r.status !== 'rate_limited').length;
+}
+const aiQuotaLeft = () => Math.max(0, aiQuotaFor() - aiUsedToday());
+
+function logAiRequest(row){
+  STORE.set('aiGenerationRequests', aiRequests().concat({
+    id:'ar'+Date.now()+Math.random().toString(36).slice(2,5),
+    user_id:'u-owner', organizer_id:'demo-org', created_at:Date.now(), ...row }));
+}
+
+/* LLM_STUB — deterministic text where the ai-service call belongs. It is
+   labelled in the UI so nobody mistakes it for model output. */
+function llmStub(feature, inputs){
+  const t = inputs.trip_id ? tripRows().find(x=>x.id===inputs.trip_id) : null;
+  const name = t ? t.name : (inputs.destination || 'this route');
+  switch (feature) {
+    case 'ai_trip_description':
+      return { text:`${name} runs ${t?t.days:'several'} days through high country that rewards people who are honest about their fitness. Small group, one lead guide, all meals on the trail. You will be cold at least one night and you will not regret coming.`, _trip:inputs.trip_id };
+    case 'ai_itinerary':
+      return { days: Array.from({length: t ? t.days : 5}, (_,i)=>({
+        day:i+1, title: i===0?'Arrive and acclimatise' : i===(t?t.days:5)-1?'Descend and transfer out' : `Stage ${i}`,
+        detail:'Walking day with a gradual gain; camp set before dusk.' })), _trip:inputs.trip_id };
+    case 'ai_marketing_content':
+      return { text: inputs.channel==='email'
+        ? `Subject: ${name} — a few seats left\n\nWe run this one small on purpose. If you have been putting it off, this is the departure to take.`
+        : `${name}. Eight people, one guide, no crowds. Link in bio.`, _trip:inputs.trip_id };
+    case 'ai_pricing':
+      return { suggested: Math.round((t ? t.price : 50000) * 1.08 / 500) * 500, _trip:inputs.trip_id };
+    case 'demand_forecast':
+      return { text:'Bookings for the next 90 days are tracking ahead of the same window last year, concentrated in the two shoulder-season departures.', _trip:null };
+    case 'sales_insight':
+      return { text:'Your highest-margin route is also your least-marketed one. Two of the last five confirmed bookings came from the same referral code.', _trip:null };
+    case 'ai_upsell':
+      return { addon:'Pre-trek hotel night in the base city', _trip:inputs.trip_id };
+    default:
+      return { text:'Generated output.', _trip:inputs.trip_id || null };
+  }
+}
+
+/* THE call path. Quota → cache → (stub) generate → log. Every branch writes an
+   ai_generation_requests row, which is what makes token spend reconcilable
+   against the provider invoice later. */
+function aiGenerate(feature, inputs, opts){
+  const key = aiCacheKey(feature, inputs, (opts && opts.userId) || 'u-owner');
+
+  if (aiQuotaLeft() <= 0) {
+    logAiRequest({ feature, status:'rate_limited', cache_key:key,
+      llm_provider:null, llm_model:null, token_usage:null, latency_ms:0,
+      error_message:'Daily quota exhausted', completed_at:Date.now(),
+      input_context_summary:{ redacted:true, keys:Object.keys(inputs) } });
+    return { ok:false, reason:'rate_limited', retry_after:'tomorrow' };
+  }
+
+  const cached = aiCacheGet(key);
+  if (cached) {
+    /* Logged as a cache_hit with no token usage — no LLM call was made, and the
+       row still exists so the hit rate is measurable. */
+    logAiRequest({ feature, status:'cache_hit', cache_key:key,
+      llm_provider:null, llm_model:null, token_usage:null, latency_ms:3,
+      error_message:null, completed_at:Date.now(),
+      input_context_summary:{ redacted:true, keys:Object.keys(inputs) } });
+    return { ok:true, output:cached.output, cached:true };
+  }
+
+  const output = llmStub(feature, inputs);
+  aiCachePut(key, feature, output);
+  logAiRequest({ feature, status:'completed', cache_key:key,
+    llm_provider:'stub', llm_model:'LLM_STUB',
+    token_usage:{ prompt_tokens: 180 + Object.keys(inputs).length*20, completion_tokens: 120 },
+    latency_ms: 600 + Math.floor(Math.random()*900), error_message:null, completed_at:Date.now(),
+    input_context_summary:{ redacted:true, keys:Object.keys(inputs) } });
+  return { ok:true, output, cached:false };
+}
+
+/* ---- decision 7: advisory drafts. None of these touch `trips`. ---- */
+const DRAFT_STATUS = ['draft','accepted','discarded'];
+const itineraryDrafts   = () => STORE.get('aiItineraryDrafts', []);
+const descriptionDrafts = () => STORE.get('aiTripDescriptionDrafts', []);
+const pricingSuggestions= () => STORE.get('aiPricingSuggestions', []);
+const marketingDrafts   = () => STORE.get('aiMarketingContentDrafts', []);
+const upsellSuggestions = () => STORE.get('aiUpsellSuggestions', []);
+const advisoryOutputs   = () => STORE.get('aiAdvisoryOutputs', []);
+
+/* ---- decision 8: the deterministic safety net ----
+   These run BEFORE any model verdict is trusted. Today's code does this with
+   regex and it is the one genuinely load-bearing behaviour worth preserving. */
+const ALWAYS_ESCALATE = ['refund','cancel','cancellation','fraud','dispute','chargeback','payment problem','payment failed','money back'];
+function escalationCheck(text){
+  const lower = (text || '').toLowerCase();
+  const hits = ALWAYS_ESCALATE.filter(k => lower.includes(k));
+  return { escalate: hits.length > 0, matched: hits };
+}
+/* The model's own verdict is advisory. If the deterministic check fires, the
+   ticket goes to a human whatever the model said — and the UI shows the
+   override happening rather than quietly agreeing. */
+function classifyTicket(text, modelSaysHuman){
+  const det = escalationCheck(text);
+  return { requires_human: det.escalate || Boolean(modelSaysHuman),
+           deterministic: det.escalate, matched: det.matched,
+           model_said_human: Boolean(modelSaysHuman),
+           overrode_model: det.escalate && !modelSaysHuman };
+}
+
+const aiSuggestedReplies = () => STORE.get('aiSuggestedReplies', {});
+
 /* ---------------- ui helpers ---------------- */
 const TONE = {
   green:'bg-forest-100 text-forest-800 ring-forest-200',
@@ -1841,6 +2055,216 @@ V.analytics = () => `
           <div class="mt-1 h-2 rounded-full bg-nature-200 overflow-hidden"><div class="h-full bg-forest-600" style="width:${p}%"></div></div></div>`).join('')}
       </div></div>`)}
   </div>`;
+
+/* ---------- Phase 2 · AI screens ---------- */
+
+const aiStubNotice = card(`<div class="p-3 text-xs text-nature-600 flex items-start gap-2">
+  <span class="font-mono text-[10px] bg-nature-200 rounded px-1.5 py-0.5 shrink-0 mt-0.5">LLM_STUB</span>
+  <span>No language model is wired up in this template. The text below is deterministic filler standing exactly where the <code class="font-mono">ai-service</code> call goes. What <em>is</em> real and worth testing: the quota check, the cache key, the audit row, and the accept gate.</span>
+</div>`, 'border-dashed');
+
+const aiQuotaStrip = () => {
+  const left = aiQuotaLeft(), cap = aiQuotaFor(), used = cap - left;
+  return card(`<div class="p-3 flex flex-wrap items-center gap-3 text-sm">
+    <span class="text-nature-500">Daily quota</span>
+    <div class="flex-1 min-w-[140px] h-1.5 rounded-full bg-nature-200 overflow-hidden">
+      <div class="h-full ${left===0?'bg-red-500':'bg-forest-600'}" style="width:${Math.round(used/cap*100)}%"></div></div>
+    <span class="tnum ${left===0?'text-red-600 font-medium':'text-nature-600'}">${used} / ${cap}</span>
+    ${left===0?`<span class="text-xs text-red-700">Exhausted — further requests are refused before reaching the provider.</span>`:''}
+  </div>`);
+};
+
+/* ---- G-17 · AI studio: itinerary, description, pricing (per trip) ---- */
+V['ai-studio'] = () => {
+  const tid = STORE.get('aiTrip', 'TRIP.01');
+  const t = tripRows().find(x=>x.id===tid) || tripRows()[0];
+  const it = itineraryDrafts().filter(d=>d.trip_id===t.id).slice().reverse();
+  const de = descriptionDrafts().filter(d=>d.trip_id===t.id).slice().reverse();
+  const pr = pricingSuggestions().filter(d=>d.trip_id===t.id).slice().reverse();
+  const TONE = { draft:'amber', accepted:'green', discarded:'slate', suggested:'amber', dismissed:'slate' };
+
+  return `
+  ${aiStubNotice}
+  <div class="mt-3">${aiQuotaStrip()}</div>
+  <div class="mt-3">${card(`<div class="p-4 flex flex-wrap items-center justify-between gap-3">
+    <div><h2 class="font-semibold">${t.name}</h2>
+      <p class="text-sm text-nature-500">${t.code} · ${t.dep} · currently sells at <span class="tnum">${INR(t.price)}</span></p></div>
+    <label class="text-sm">Departure
+      <select class="ml-2 h-9 rounded-md border border-nature-300 px-2 bg-white" onchange="setAiTrip(this.value)">
+        ${tripRows().filter(x=>!hasDeparted(x)).map(x=>`<option value="${x.id}" ${x.id===t.id?'selected':''}>${x.name}</option>`).join('')}
+      </select></label>
+  </div>`)}</div>
+
+  <div class="mt-3">${card(`<div class="p-4 text-sm">
+    <p class="font-medium">Nothing here writes to the trip</p>
+    <p class="text-nature-700 mt-1">Suggested prices, descriptions and itineraries can change what a customer is shown or legally bound to, so they never touch <code class="font-mono">trips</code> directly. Generation writes a draft row; your explicit <strong>Accept</strong> is what copies it into the real record through the normal trip-update path. Watch the price above stay put until you accept.</p>
+  </div>`,'border-forest-300')}</div>
+
+  <div class="mt-4 grid gap-4 lg:grid-cols-2">
+    ${card(`<div class="p-4">${sectionHead('Trip description', `<span class="text-xs text-nature-500 font-mono">ai_trip_description_drafts</span>`)}
+      <div class="flex gap-2">${btn('Generate','primary',`onclick="genDescription(&#39;${t.id}&#39;)"`)}</div>
+      <div class="mt-3 space-y-3">${de.length?de.map(d=>`<div class="rounded-md border ${d.status==='accepted'?'border-forest-300 bg-forest-50':'border-nature-200'} p-3">
+        <div class="flex items-center justify-between gap-2 mb-1.5">${badge(d.status, TONE[d.status])}
+          <span class="text-xs text-nature-400">${new Date(d.created_at).toLocaleTimeString('en-IN')}${d.cached?' · from cache':''}</span></div>
+        <p class="text-sm text-nature-700">${d.generated_text}</p>
+        ${d.status==='draft'?`<div class="mt-2 flex gap-1.5">${btn('Accept','primary',`onclick="acceptDescription(&#39;${d.id}&#39;)"`)}${btn('Discard','ghost',`onclick="discardDraft(&#39;aiTripDescriptionDrafts&#39;,&#39;${d.id}&#39;)"`)}</div>`:''}
+      </div>`).join(''):'<p class="text-sm text-nature-400">No drafts yet.</p>'}</div>
+    </div>`)}
+
+    ${card(`<div class="p-4">${sectionHead('Pricing suggestion', `<span class="text-xs text-nature-500 font-mono">ai_pricing_suggestions</span>`)}
+      <div class="flex gap-2">${btn('Suggest a price','primary',`onclick="genPricing(&#39;${t.id}&#39;)"`)}</div>
+      <div class="mt-3 space-y-3">${pr.length?pr.map(d=>`<div class="rounded-md border ${d.status==='accepted'?'border-forest-300 bg-forest-50':'border-nature-200'} p-3">
+        <div class="flex items-center justify-between gap-2 mb-1.5">${badge(d.status, TONE[d.status])}
+          <span class="text-xs text-nature-400">${new Date(d.created_at).toLocaleTimeString('en-IN')}${d.cached?' · from cache':''}</span></div>
+        <p class="text-sm">Suggested <span class="tnum font-semibold">${INR(d.suggested_price)}</span>
+          <span class="text-nature-500">(now ${INR(d.based_on.current_price)})</span></p>
+        <p class="text-xs text-nature-600 mt-1">${d.rationale}</p>
+        <p class="text-[11px] text-nature-400 mt-1 font-mono">based_on: ${Object.entries(d.based_on).map(([k,v])=>k+'='+v).join(', ')}</p>
+        ${d.status==='suggested'?`<div class="mt-2 flex gap-1.5">${btn('Accept','primary',`onclick="acceptPricing(&#39;${d.id}&#39;)"`)}${btn('Dismiss','ghost',`onclick="dismissPricing(&#39;${d.id}&#39;)"`)}</div>`:''}
+      </div>`).join(''):'<p class="text-sm text-nature-400">No suggestions yet.</p>'}</div>
+    </div>`)}
+  </div>
+
+  <div class="mt-4">${card(`<div class="p-4">${sectionHead('Itinerary draft', `<span class="text-xs text-nature-500 font-mono">ai_itinerary_drafts</span>`)}
+    <p class="text-sm text-nature-600">The trip row is nullable here — an organizer may draft before the departure exists.</p>
+    <div class="mt-2 flex gap-2">${btn('Generate itinerary','primary',`onclick="genItinerary(&#39;${t.id}&#39;)"`)}</div>
+    <div class="mt-3 space-y-3">${it.length?it.map(d=>`<div class="rounded-md border ${d.status==='accepted'?'border-forest-300 bg-forest-50':'border-nature-200'} p-3">
+      <div class="flex items-center justify-between gap-2 mb-2">${badge(d.status, TONE[d.status])}
+        <span class="text-xs text-nature-400">${d.generated_content.days.length} days${d.cached?' · from cache':''}</span></div>
+      <ol class="text-sm space-y-1">${d.generated_content.days.map(x=>`<li><span class="tnum text-nature-400">Day ${x.day}</span> · <span class="font-medium">${x.title}</span> — <span class="text-nature-600">${x.detail}</span></li>`).join('')}</ol>
+      ${d.status==='draft'?`<div class="mt-2 flex gap-1.5">${btn('Accept','primary',`onclick="acceptItinerary(&#39;${d.id}&#39;)"`)}${btn('Discard','ghost',`onclick="discardDraft(&#39;aiItineraryDrafts&#39;,&#39;${d.id}&#39;)"`)}</div>`:''}
+    </div>`).join(''):'<p class="text-sm text-nature-400">No drafts yet.</p>'}</div>
+  </div>`)}</div>`;
+};
+
+/* ---- G-16 · AI marketing content ---- */
+V['ai-marketing'] = () => {
+  const rows = marketingDrafts().slice().reverse();
+  const TONE = { draft:'amber', accepted:'green', discarded:'slate' };
+  return `
+  ${aiStubNotice}
+  <div class="mt-3">${aiQuotaStrip()}</div>
+  <div class="mt-3">${card(`<div class="p-4">${sectionHead('Generate marketing copy', `<span class="text-xs text-nature-500 font-mono">ai_marketing_content_drafts</span>`)}
+    <p class="text-sm text-nature-600">Text-only channels, same reasoning as the vendor spec's channel decision. This module generates the draft; the Marketing Suite owns scheduling and sending it — accepting one hands it over rather than posting it.</p>
+    <div class="mt-3 flex flex-wrap items-end gap-2">
+      <label class="text-sm">Trip
+        <select id="amTrip" class="ml-2 h-9 rounded-md border border-nature-300 px-2 bg-white">
+          ${tripRows().filter(x=>!hasDeparted(x)).map(x=>`<option value="${x.id}">${x.name}</option>`).join('')}
+        </select></label>
+      <label class="text-sm">Channel
+        <select id="amChannel" class="ml-2 h-9 rounded-md border border-nature-300 px-2 bg-white">
+          <option value="social_post">social_post</option><option value="email">email</option>
+        </select></label>
+      ${btn('Generate','primary','onclick="genMarketing()"')}
+    </div>
+  </div>`)}</div>
+  <div class="mt-4 grid gap-4 lg:grid-cols-2">
+    ${rows.length?rows.map(d=>card(`<div class="p-4">
+      <div class="flex items-center justify-between gap-2 mb-2">
+        <div class="flex items-center gap-2">${badge(d.channel.replace('_',' '),'blue')}${badge(d.status, TONE[d.status])}</div>
+        <span class="text-xs text-nature-400">${d.trip_id||'no trip'}${d.cached?' · cache':''}</span>
+      </div>
+      <pre class="text-sm text-nature-700 whitespace-pre-wrap font-sans">${d.generated_text}</pre>
+      ${d.status==='draft'?`<div class="mt-3 flex gap-1.5">
+        ${btn('Accept → Campaigns','primary',`onclick="acceptMarketing(&#39;${d.id}&#39;)"`)}
+        ${btn('Discard','ghost',`onclick="discardDraft(&#39;aiMarketingContentDrafts&#39;,&#39;${d.id}&#39;)"`)}</div>`:''}
+    </div>`)).join(''):card(`<div class="p-4">${emptyState('No drafts yet','Generate a social post or an email above.')}</div>`)}
+  </div>`;
+};
+
+/* ---- G-18 · AI insights: demand forecast, sales insight, upsell ---- */
+V['ai-insights'] = () => {
+  const adv = advisoryOutputs().slice().reverse();
+  const ups = upsellSuggestions().slice().reverse();
+  const forecast = adv.find(a=>a.feature==='demand_forecast');
+  const insight  = adv.find(a=>a.feature==='sales_insight');
+  const TONE = { suggested:'amber', shown:'blue', accepted:'green', dismissed:'slate' };
+  return `
+  ${aiStubNotice}
+  <div class="mt-3">${aiQuotaStrip()}</div>
+  <div class="mt-4 grid gap-4 lg:grid-cols-2">
+    ${card(`<div class="p-4">${sectionHead('Demand forecast', `<span class="text-xs text-nature-500 font-mono">ai_advisory_outputs</span>`)}
+      <p class="text-xs text-nature-500 mb-2">Read-only — no accept/discard lifecycle, which is why the spec keeps all seven informational features in one table instead of seven near-identical ones. Cached 24h.</p>
+      ${forecast?`<p class="text-sm text-nature-700">${forecast.payload.text}</p>
+        <p class="text-xs text-nature-400 mt-2">Generated ${new Date(forecast.created_at).toLocaleString('en-IN')} · expires ${new Date(forecast.expires_at).toLocaleString('en-IN')}</p>`
+        :'<p class="text-sm text-nature-400">Not generated yet.</p>'}
+      <div class="mt-3">${btn(forecast?'Regenerate':'Generate','ghost','onclick="genAdvisory(&#39;demand_forecast&#39;)"')}</div>
+    </div>`)}
+    ${card(`<div class="p-4">${sectionHead('Sales insight', `<span class="text-xs text-nature-500 font-mono">ai_advisory_outputs</span>`)}
+      ${insight?`<p class="text-sm text-nature-700">${insight.payload.text}</p>
+        <p class="text-xs text-nature-400 mt-2">Generated ${new Date(insight.created_at).toLocaleString('en-IN')}</p>`
+        :'<p class="text-sm text-nature-400">Not generated yet.</p>'}
+      <div class="mt-3">${btn(insight?'Regenerate':'Generate','ghost','onclick="genAdvisory(&#39;sales_insight&#39;)"')}</div>
+    </div>`)}
+  </div>
+  <div class="mt-4">${card(`<div class="p-4">${sectionHead('Upsell suggestions', `<span class="text-xs text-nature-500 font-mono">ai_upsell_suggestions</span>`)}
+    <p class="text-sm text-nature-600">Same advisory gate: a suggestion is <code class="font-mono">suggested</code>, then <code class="font-mono">shown</code> to the traveller, then accepted or dismissed. Nothing is added to a booking automatically.</p>
+    <div class="mt-2">${btn('Suggest for confirmed bookings','primary','onclick="genUpsells()"')}</div>
+  </div>
+  ${ups.length?table([{t:'Booking'},{t:'Suggested add-on'},{t:'Rationale'},{t:'Status'},{t:'',right:true}], ups.map(u=>
+    td(`<span class="font-mono text-xs">${u.booking_id}</span>`)+
+    td(`<span class="font-medium">${u.suggested_addon}</span>`)+
+    td(`<span class="text-sm text-nature-600">${u.rationale}</span>`)+
+    td(badge(u.status, TONE[u.status]))+
+    td(u.status==='suggested'?btn('Mark shown','ghost',`onclick="showUpsell(&#39;${u.id}&#39;)"`)
+      :u.status==='shown'?`<div class="flex gap-1.5 justify-end">${btn('Accepted','primary',`onclick="resolveUpsell(&#39;${u.id}&#39;,&#39;accepted&#39;)"`)}${btn('Dismissed','ghost',`onclick="resolveUpsell(&#39;${u.id}&#39;,&#39;dismissed&#39;)"`)}</div>`
+      :'<span class="text-xs text-nature-400">—</span>','text-right')
+  )):`<div class="p-4">${emptyState('No suggestions','Generate them for confirmed bookings.')}</div>`}`)}</div>`;
+};
+
+/* ---- AI usage ledger — the FinOps hook ---- */
+V['ai-usage'] = () => {
+  const rows = aiRequests().slice().reverse();
+  const hits = rows.filter(r=>r.status==='cache_hit').length;
+  const calls = rows.filter(r=>r.status==='completed').length;
+  const limited = rows.filter(r=>r.status==='rate_limited').length;
+  const tokens = rows.reduce((s,r)=>s+(r.token_usage?r.token_usage.prompt_tokens+r.token_usage.completion_tokens:0),0);
+  const TONE = { completed:'green', cache_hit:'blue', rate_limited:'red', failed:'red', pending:'amber' };
+  const byFeature = {};
+  rows.forEach(r => { const f = byFeature[r.feature] || (byFeature[r.feature]={feature:r.feature,calls:0,hits:0,tokens:0});
+    if (r.status==='completed') f.calls++; if (r.status==='cache_hit') f.hits++;
+    if (r.token_usage) f.tokens += r.token_usage.prompt_tokens + r.token_usage.completion_tokens; });
+  return `
+  <div class="grid gap-4 sm:grid-cols-4 mb-5">
+    ${[['Provider calls',String(calls),'billed'],
+       ['Cache hits',String(hits), calls+hits ? Math.round(hits/(calls+hits)*100)+'% served free' : 'none yet'],
+       ['Refused on quota',String(limited),'never reached the provider'],
+       ['Tokens',tokens.toLocaleString('en-IN'),'reconcile against the invoice']]
+      .map(([l,v,n])=>card(`<div class="p-4"><p class="text-xs text-nature-500">${l}</p><p class="mt-1 text-2xl font-semibold tnum">${v}</p><p class="text-xs text-nature-400 mt-1">${n}</p></div>`)).join('')}
+  </div>
+  ${aiQuotaStrip()}
+  <div class="mt-4">${card(`<div class="p-4">${sectionHead('Per feature', `<span class="text-xs text-nature-500 font-mono">ai_generation_requests</span>`)}
+    <p class="text-sm text-nature-600">One row per call regardless of feature, cache hits included — a hit carries no token usage, which is exactly how the saving becomes measurable rather than assumed.</p></div>
+  ${Object.keys(byFeature).length?table([{t:'Feature'},{t:'Calls',right:true},{t:'Cache hits',right:true},{t:'Tokens',right:true}],
+    Object.values(byFeature).sort((a,b)=>b.tokens-a.tokens).map(f=>
+      td(`<span class="font-mono text-xs">${f.feature}</span>${TRAVELLER_ONLY_FEATURES.includes(f.feature)?'<div class="text-[11px] text-nature-400">traveller-facing surface</div>':''}`)+
+      td(`<span class="tnum">${f.calls}</span>`,'text-right')+
+      td(`<span class="tnum">${f.hits}</span>`,'text-right')+
+      td(`<span class="tnum">${f.tokens.toLocaleString('en-IN')}</span>`,'text-right')))
+    :`<div class="p-4">${emptyState('Nothing logged yet','Generate something from AI studio, marketing or insights.')}</div>`}`)}</div>
+
+  <div class="mt-4">${card(`<div class="p-4">${sectionHead('Cache', `<span class="text-xs text-nature-500 font-mono">ai_generation_cache</span>`)}
+    <p class="text-sm text-nature-600">Keys are <code class="font-mono">{feature}:{hash(scoped inputs)}</code>. Shareable outputs — weather, destination plans, trip descriptions, forecasts — use an unscoped key so everyone asking the same question hits one entry. Personal ones carry the user in the key.</p>
+    ${aiCache().length?`<ul class="mt-3 space-y-1.5">${aiCache().map(c=>`<li class="text-sm flex flex-wrap items-center justify-between gap-2">
+      <span class="font-mono text-xs">${c.cache_key}</span>
+      <span class="text-xs text-nature-500">${SHAREABLE_FEATURES.includes(c.feature)?'shareable':'per-user'} · ${c.expires_at?'expires '+new Date(c.expires_at).toLocaleString('en-IN'):'held until regenerated'}</span></li>`).join('')}</ul>`
+    :'<p class="text-sm text-nature-400 mt-2">Empty.</p>'}
+    <div class="mt-3 flex flex-wrap gap-2">
+      ${btn('Exhaust quota (test the refusal)','ghost','onclick="exhaustQuota()"')}
+      ${btn('Clear cache','ghost','onclick="clearAiCache()"')}
+    </div>
+  </div>`)}</div>
+
+  <div class="mt-4">${card(`<div class="p-4">${sectionHead('Request log')}</div>
+  ${rows.length?table([{t:'Feature'},{t:'Status'},{t:'Cache key'},{t:'Latency',right:true},{t:'Tokens',right:true},{t:'When'}], rows.slice(0,40).map(r=>
+    td(`<span class="font-mono text-xs">${r.feature}</span>`)+
+    td(badge(r.status.replace('_',' '), TONE[r.status]))+
+    td(`<span class="font-mono text-[11px] text-nature-500">${r.cache_key}</span>`)+
+    td(`<span class="tnum">${r.latency_ms}ms</span>`,'text-right')+
+    td(r.token_usage?`<span class="tnum">${r.token_usage.prompt_tokens+r.token_usage.completion_tokens}</span>`:'<span class="text-nature-400">—</span>','text-right')+
+    td(`<span class="text-xs text-nature-500">${new Date(r.created_at).toLocaleTimeString('en-IN')}</span>`)
+  )):''}`)}</div>`;
+};
 
 /* ---- G-21 · trip leader assignment ---- */
 V.leaders = () => {
@@ -2910,11 +3334,40 @@ V.tickets = () => `
           <p>Full refund was initiated on 2 Jun. Banks take 5–7 working days. Reference ST-1043.</p>
           <p class="text-[11px] text-forest-100 mt-1.5">You · 1h ago</p></div>
       </div>
+      ${(() => {
+        /* G-19 · AI auto-response, with decision 8's deterministic safety net.
+           The open ticket is a refund question, so the keyword check fires and
+           the AI is not allowed to answer it — whatever the model concluded. */
+        const body = 'The June 14 departure was cancelled due to the permit issue. When does the refund land?';
+        const c = classifyTicket(body, false);
+        const sug = aiSuggestedReplies()['TK-88'];
+        return `<div class="p-3 border-t border-nature-200 ${c.requires_human?'bg-red-50':'bg-forest-50'}">
+          <div class="flex flex-wrap items-center gap-2 text-xs">
+            <span class="font-mono text-[10px] bg-nature-200 rounded px-1.5 py-0.5">LLM_STUB</span>
+            ${c.requires_human
+              ? `<span class="font-medium text-red-700">Escalated to a human — AI reply blocked</span>`
+              : `<span class="font-medium text-forest-800">AI may draft a reply</span>`}
+          </div>
+          ${c.deterministic ? `<p class="text-xs text-nature-700 mt-1.5">Matched <code class="font-mono">${c.matched.join('</code>, <code class="font-mono">')}</code> in the deterministic escalation list. This check runs <strong>before</strong> any model verdict is trusted${c.overrode_model?` — the model returned <code class="font-mono">requires_human: false</code> and was overridden`:''}. Refund, cancellation, fraud, dispute and payment topics always reach a person.</p>` : ''}
+          ${!c.requires_human ? `<div class="mt-2">${btn('Draft a reply','ghost','onclick="draftTicketReply()"')}</div>` : ''}
+          ${sug ? `<div class="mt-2 rounded-md border border-nature-200 bg-white p-2 text-sm">${sug}</div>` : ''}
+        </div>`;
+      })()}
       <div class="p-3 border-t border-nature-200 flex gap-2">
         <input class="flex-1 h-10 rounded-md border border-nature-300 px-3 outline-none focus:ring-2 focus:ring-forest-500" placeholder="Write a reply…"/>
         ${btn('Send','primary','onclick="toast(&#39;Reply sent&#39;)"')}</div>
     </div>`,'lg:col-span-3')}
-  </div>`;
+  </div>
+  <div class="mt-4">${card(`<div class="p-4">${sectionHead('Escalation rules', `<span class="text-xs text-nature-500">decision 8</span>`)}
+    <p class="text-sm text-nature-600">Try any subject line against the check. The model's own verdict is advisory; these keywords are not.</p>
+    <div class="mt-3 flex flex-wrap items-center gap-2">
+      <input id="escTest" class="flex-1 min-w-[240px] h-10 rounded-md border border-nature-300 px-3" placeholder="e.g. Can I switch dates? / I want a refund"/>
+      <label class="text-sm flex items-center gap-1.5"><input id="escModel" type="checkbox" class="rounded"/> model says human</label>
+      ${btn('Check','primary','onclick="runEscalationCheck()"')}
+    </div>
+    <div id="escResult" class="mt-3"></div>
+    <p class="text-xs text-nature-500 mt-3">Keywords: ${ALWAYS_ESCALATE.map(k=>`<code class="font-mono">${k}</code>`).join(', ')}</p>
+  </div>`)}</div>`;
 
 V.reviews = () => card(`
   <div class="p-4">${sectionHead('Reviews',`<span class="text-xs text-nature-500">Unverified reviews are hidden from your public page</span>`)}</div>
@@ -3434,6 +3887,183 @@ function toast(msg){
   clearTimeout(toastT); toastT = setTimeout(()=>{ t.hidden = true; }, 2600);
 }
 window.toast = toast;
+
+/* ---- Phase 2 · AI actions ---- */
+window.setAiTrip = function(id){ STORE.set('aiTrip', id); route(); };
+
+/* Shared shape for every generator: refuse on quota, note a cache hit, and
+   never mutate the trip. */
+function aiRun(feature, inputs, onOutput){
+  const r = aiGenerate(feature, inputs);
+  if (!r.ok) { toast('Daily quota exhausted — the request was refused before reaching the provider.'); route(); return null; }
+  onOutput(r.output, r.cached);
+  toast(r.cached ? 'Served from cache — no provider call, no tokens billed.' : 'Draft generated. Nothing has changed on the trip yet.');
+  route();
+  return r;
+}
+
+window.genDescription = function(tripId){
+  aiRun('ai_trip_description', { trip_id:tripId }, (out, cached) => {
+    STORE.set('aiTripDescriptionDrafts', descriptionDrafts().concat({
+      id:'dd'+Date.now(), trip_id:tripId, organizer_id:'demo-org',
+      generated_text:out.text, status:'draft', created_at:Date.now(), accepted_at:null, cached }));
+  });
+};
+window.acceptDescription = function(id){
+  const rows = descriptionDrafts(); const d = rows.find(x=>x.id===id); if (!d) return;
+  d.status = 'accepted'; d.accepted_at = Date.now();
+  STORE.set('aiTripDescriptionDrafts', rows);
+  /* THIS is the only path that writes to the trip — the organizer's explicit
+     accept, going through the normal trip-update path. */
+  setTrips(tripRows().map(t => t.id===d.trip_id ? {...t, description:d.generated_text} : t));
+  toast('Accepted and copied into the trip record.'); route();
+};
+
+window.genItinerary = function(tripId){
+  aiRun('ai_itinerary', { trip_id:tripId }, (out, cached) => {
+    STORE.set('aiItineraryDrafts', itineraryDrafts().concat({
+      id:'id'+Date.now(), trip_id:tripId, organizer_id:'demo-org',
+      generated_content:out, status:'draft', created_at:Date.now(), accepted_at:null, cached }));
+  });
+};
+window.acceptItinerary = function(id){
+  const rows = itineraryDrafts(); const d = rows.find(x=>x.id===id); if (!d) return;
+  d.status = 'accepted'; d.accepted_at = Date.now();
+  STORE.set('aiItineraryDrafts', rows);
+  setTrips(tripRows().map(t => t.id===d.trip_id ? {...t, itinerary:d.generated_content.days} : t));
+  toast(`Accepted — ${d.generated_content.days.length} days written to the trip.`); route();
+};
+
+window.genPricing = function(tripId){
+  const t = tripRows().find(x=>x.id===tripId);
+  const occ = vOccupancyByTrip().find(o=>o.code===t.code) || {};
+  aiRun('ai_pricing', { trip_id:tripId, price:t.price, occupancy:occ.pct }, (out, cached) => {
+    STORE.set('aiPricingSuggestions', pricingSuggestions().concat({
+      id:'ps'+Date.now(), trip_id:tripId, organizer_id:'demo-org',
+      suggested_price:out.suggested,
+      rationale:'Comparable departures in the same destination clear at a higher price, and this one is filling faster than the season average.',
+      based_on:{ current_price:t.price, occupancy_pct:occ.pct==null?'unknown':occ.pct, destination:t.destination },
+      status:'suggested', created_at:Date.now(), resolved_at:null, cached }));
+  });
+};
+window.acceptPricing = function(id){
+  const rows = pricingSuggestions(); const d = rows.find(x=>x.id===id); if (!d) return;
+  const before = (tripRows().find(t=>t.id===d.trip_id)||{}).price;
+  d.status = 'accepted'; d.resolved_at = Date.now();
+  STORE.set('aiPricingSuggestions', rows);
+  setTrips(tripRows().map(t => t.id===d.trip_id ? {...t, price:d.suggested_price} : t));
+  /* Existing bookings keep their snapshotted amount — the price-lock invariant
+     is not weakened just because a price change came from a suggestion. */
+  toast(`Price ${INR(before)} → ${INR(d.suggested_price)}. Bookings already taken keep their locked amount.`);
+  route();
+};
+window.dismissPricing = function(id){
+  const rows = pricingSuggestions(); const d = rows.find(x=>x.id===id); if (!d) return;
+  d.status = 'dismissed'; d.resolved_at = Date.now();
+  STORE.set('aiPricingSuggestions', rows);
+  toast('Dismissed. The trip price is untouched.'); route();
+};
+
+window.genMarketing = function(){
+  const tripId = document.getElementById('amTrip').value;
+  const channel = document.getElementById('amChannel').value;
+  aiRun('ai_marketing_content', { trip_id:tripId, channel }, (out, cached) => {
+    STORE.set('aiMarketingContentDrafts', marketingDrafts().concat({
+      id:'md'+Date.now(), organizer_id:'demo-org', trip_id:tripId, channel,
+      generated_text:out.text, status:'draft', created_at:Date.now(), cached }));
+  });
+};
+window.acceptMarketing = function(id){
+  const rows = marketingDrafts(); const d = rows.find(x=>x.id===id); if (!d) return;
+  d.status = 'accepted';
+  STORE.set('aiMarketingContentDrafts', rows);
+  /* Handed to Marketing Suite, which owns scheduling and sending. Accepting
+     does not publish anything. */
+  toast('Accepted — available to Campaigns. Nothing has been sent.');
+  route();
+};
+
+window.genAdvisory = function(feature){
+  aiRun(feature, { scope:'organizer', window:'90d' }, (out, cached) => {
+    const rows = advisoryOutputs().filter(a => a.feature!==feature);
+    rows.push({ id:'ao'+Date.now(), feature, owner_type:'organizer', owner_id:'demo-org',
+      subject_id:null, payload:out, created_at:Date.now(),
+      expires_at: Date.now() + (aiTtlFor(feature) || 24*3600e3), cached });
+    STORE.set('aiAdvisoryOutputs', rows);
+  });
+};
+
+window.genUpsells = function(){
+  const confirmed = analyticsBookings().filter(b => b.status==='confirmed' && !hasDeparted(tripRows().find(t=>t.id===b.trip_id)||{start_date:0}));
+  const existing = new Set(upsellSuggestions().map(u=>u.booking_id));
+  const todo = confirmed.filter(b => !existing.has(b.id));
+  if (!todo.length) { toast('Every confirmed booking on a live departure already has a suggestion.'); return; }
+  const r = aiGenerate('ai_upsell', { bookings:todo.map(b=>b.id).sort().join(',') });
+  if (!r.ok) { toast('Daily quota exhausted — refused before reaching the provider.'); route(); return; }
+  STORE.set('aiUpsellSuggestions', upsellSuggestions().concat(todo.map(b => ({
+    id:'us'+Date.now()+Math.random().toString(36).slice(2,5), booking_id:b.id,
+    suggested_addon:'Pre-trek hotel night in the base city',
+    rationale:`${b.pax} traveller${b.pax===1?'':'s'} arriving the day before; no accommodation on the booking.`,
+    status:'suggested', created_at:Date.now() }))));
+  toast(`${todo.length} suggestion${todo.length===1?'':'s'} created. Nothing added to a booking.`);
+  route();
+};
+window.showUpsell = function(id){
+  const rows = upsellSuggestions(); const u = rows.find(x=>x.id===id); if (!u) return;
+  u.status = 'shown'; STORE.set('aiUpsellSuggestions', rows);
+  toast('Marked as shown to the traveller.'); route();
+};
+window.resolveUpsell = function(id, status){
+  const rows = upsellSuggestions(); const u = rows.find(x=>x.id===id); if (!u) return;
+  u.status = status; STORE.set('aiUpsellSuggestions', rows);
+  toast(status==='accepted' ? 'Accepted — the add-on goes through the normal booking-change path.' : 'Dismissed.');
+  route();
+};
+
+window.discardDraft = function(storeKey, id){
+  const rows = STORE.get(storeKey, []);
+  const d = rows.find(x=>x.id===id); if (!d) return;
+  d.status = 'discarded'; STORE.set(storeKey, rows);
+  toast('Discarded. The record stays for the audit trail.'); route();
+};
+
+window.exhaustQuota = function(){
+  const need = aiQuotaLeft();
+  for (let i = 0; i < need; i++)
+    logAiRequest({ feature:'demand_forecast', status:'completed', cache_key:'synthetic:'+i,
+      llm_provider:'stub', llm_model:'LLM_STUB', token_usage:{prompt_tokens:100,completion_tokens:50},
+      latency_ms:700, error_message:null, completed_at:Date.now(), input_context_summary:{synthetic:true} });
+  toast(`Quota filled with ${need} synthetic calls. The next generation will be refused.`);
+  route();
+};
+window.clearAiCache = function(){
+  STORE.set('aiGenerationCache', []);
+  toast('Cache cleared — the next identical request will call the provider again.');
+  route();
+};
+
+window.draftTicketReply = function(){
+  const r = aiGenerate('customer_support_chat', { ticket:'TK-88' });
+  if (!r.ok) { toast('Quota exhausted.'); return; }
+  const m = aiSuggestedReplies(); m['TK-88'] = r.output.text;
+  STORE.set('aiSuggestedReplies', m);
+  route();
+};
+window.runEscalationCheck = function(){
+  const txt = document.getElementById('escTest').value || '';
+  const modelSaysHuman = document.getElementById('escModel').checked;
+  const c = classifyTicket(txt, modelSaysHuman);
+  document.getElementById('escResult').innerHTML = `
+    <div class="rounded-md border ${c.requires_human?'border-red-300 bg-red-50':'border-forest-300 bg-forest-50'} p-3 text-sm">
+      <p class="font-medium">${c.requires_human ? 'Routed to a human' : 'AI may answer this'}</p>
+      <p class="text-nature-700 mt-1">
+        deterministic check: <code class="font-mono">${c.deterministic ? 'escalate ('+c.matched.join(', ')+')' : 'no match'}</code><br>
+        model verdict: <code class="font-mono">requires_human: ${c.model_said_human}</code>
+      </p>
+      ${c.overrode_model ? `<p class="text-red-700 mt-1.5">The model said no human was needed and was <strong>overridden</strong>. That is the point of the check.</p>` : ''}
+      ${!c.deterministic && c.model_said_human ? `<p class="text-nature-600 mt-1.5">No keyword matched; this one reaches a human only because the model asked for it.</p>` : ''}
+    </div>`;
+};
 
 /* ---- G-21 · team invites + leader assignment ---- */
 window.inviteMember = function(){
