@@ -175,6 +175,8 @@ const NAV = [
     { id:'coupons', label:'Coupons', icon:'tag', cap:'marketing', sub:'Codes, caps and redemption limits · FR-12' },
     { id:'discount-rules', label:'Automatic discounts', icon:'percent', cap:'marketing', sub:'Early-bird and last-minute rules · FR-12' },
     { id:'referrals', label:'Referrals', icon:'share', cap:'marketing', sub:'Referral codes and reward status · FR-12' },
+    { id:'banners', label:'Banners', icon:'megaphone', cap:'marketing', sub:'Promotional placements with run windows · FR-13' },
+    { id:'review-requests', label:'Review requests', icon:'star', cap:'marketing', sub:'Ask travellers for a review after a departure ends · FR-18' },
   ]},
   { group:'Growth', items:[
     { id:'leads', label:'Leads', icon:'users', cap:'marketing', sub:'Pipeline, scoring and conversions' },
@@ -183,7 +185,9 @@ const NAV = [
     { id:'crm', label:'Customers (CRM)', icon:'users', cap:'crm', sub:'Contacts, tags, notes and emergency contacts' },
   ]},
   { group:'Account', items:[
-    { id:'team', label:'Team & roles', icon:'shieldUser', cap:'team', sub:'Staff accounts and fixed permission tiers · FR-17' },
+    { id:'team', label:'Team & roles', icon:'shieldUser', cap:'team', sub:'Staff accounts, invites and fixed permission tiers · FR-17' },
+    { id:'leaders', label:'Trip leaders', icon:'link', cap:'leaderAssign', sub:'Which leader runs which departure · FR-17' },
+    { id:'integrations', label:'Integrations', icon:'plug', cap:'integrations', sub:'Calendar, storage, WhatsApp and platform services' },
     { id:'settings', label:'Settings', icon:'cog', cap:'team', sub:'Profile, bank details, notifications' },
     { id:'business-profile', label:'Business profile', icon:'building', cap:'team', sub:'Description, covers, portfolio, verification and KYC' },
     { id:'certifications', label:'My certifications', icon:'award', cap:'team', sub:'Your own credentials and their expiry' },
@@ -216,6 +220,7 @@ const ICONS = {
   building:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 8h.01M15 8h.01M9 12h.01M15 12h.01M10 21v-4h4v4"/>',
   award:'<circle cx="12" cy="9" r="6"/><path d="m8.2 13.8-1.4 7 5.2-3 5.2 3-1.4-7"/>',
   book:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+  plug:'<path d="M9 2v6M15 2v6"/><path d="M6 8h12v3a6 6 0 0 1-12 0z"/><path d="M12 17v5"/>',
   megaphone:'<path d="m3 11 15-6v14L3 13z"/><path d="M6 12v6a2 2 0 0 0 4 0v-5"/>',
   send:'<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/>',
   tag:'<path d="M20 13 13 20a2 2 0 0 1-3 0L4 14V4h10l6 6a2 2 0 0 1 0 3z"/><circle cx="8.5" cy="8.5" r="1.2"/>',
@@ -311,6 +316,12 @@ const MOCK = {
     { who:'Priya Sharma', trip:'Kashmir Great Lakes', rating:5, txt:'Guide knew every stream crossing. Food was better than expected.', v:'Verified' },
     { who:'Amit Singh', trip:'Goecha La', rating:4, txt:'Hard days, well paced. Tents could be newer.', v:'Verified' },
     { who:'Unknown user', trip:'Zanskar Traverse', rating:5, txt:'Best trip ever!!!', v:'Unverified' },
+    /* These two correspond to real confirmed bookings on departures that have
+       ended, so the review-request relay has something to match back. Without
+       them every review in the seed belonged to a trip nobody was requested
+       for, and the relay looked broken when it was merely idle. */
+    { who:'Rajesh Kumar', trip:'Markha Valley', rating:5, txt:'Third trip with them. Same guide, same standard.', v:'Verified' },
+    { who:'Dev Patel', trip:'Kashmir Great Lakes', rating:4, txt:'Lakes were worth every step. Long day four.', v:'Verified' },
   ],
   // your TrekTribe subscription receipts — NOT the GST invoices you issue to travellers
   subscriptionInvoices: [
@@ -1492,6 +1503,230 @@ const seedOrgProfile = () => ({
 const orgProfile = () => STORE.get('organizerProfile', seedOrgProfile());
 const COVER_IMAGE_CAP = 5;   // API-layer cap from the spec
 
+/* ==========================================================================
+   G-21 · Team invites + trip leader assignment
+   Spec: 2026-08-05-enterprise-integrations-knowledge-design.md
+     `organization_members`      — status invited/active/revoked, invite_token
+                                   cleared on acceptance, invite_expires_at,
+                                   partial UNIQUE(user_id) WHERE status='active'
+     `trip_leader_assignments`   — UNIQUE(trip_id, organization_member_id),
+                                   several rows per trip allowed (co-leaders)
+   ========================================================================== */
+
+const MEMBER_STATUS = ['invited','active','revoked'];
+const INVITE_TTL_DAYS = 7;
+const seedMembers = () => ([
+  { id:'om1', owning_organizer_id:'demo-org', user_id:'u-owner', permission_role:'owner',
+    status:'active', invited_email:'you@example.com', name:'Demo Organizer',
+    invite_token:null, invite_expires_at:null, invited_by:null, created_at:Date.now()-400*DAY },
+  { id:'om2', owning_organizer_id:'demo-org', user_id:'u-tenzing', permission_role:'trip_leader',
+    status:'active', invited_email:'tenzing@example.com', name:'Tenzing N.',
+    invite_token:null, invite_expires_at:null, invited_by:'u-owner', created_at:Date.now()-120*DAY },
+  { id:'om3', owning_organizer_id:'demo-org', user_id:'u-asha', permission_role:'finance',
+    status:'active', invited_email:'asha@example.com', name:'Asha R.',
+    invite_token:null, invite_expires_at:null, invited_by:'u-owner', created_at:Date.now()-90*DAY },
+  { id:'om4', owning_organizer_id:'demo-org', user_id:'u-kabir', permission_role:'operations',
+    status:'active', invited_email:'kabir@example.com', name:'Kabir S.',
+    invite_token:null, invite_expires_at:null, invited_by:'u-owner', created_at:Date.now()-60*DAY },
+  { id:'om5', owning_organizer_id:'demo-org', user_id:null, permission_role:'marketing',
+    status:'invited', invited_email:'nisha@example.com', name:null,
+    invite_token:'tok_live_9f2a', invite_expires_at:Date.now()+3*DAY, invited_by:'u-owner', created_at:Date.now()-4*DAY },
+  { id:'om6', owning_organizer_id:'demo-org', user_id:null, permission_role:'trip_leader',
+    status:'invited', invited_email:'dorje@example.com', name:null,
+    invite_token:'tok_dead_11b7', invite_expires_at:Date.now()-2*DAY, invited_by:'u-owner', created_at:Date.now()-10*DAY },
+]);
+const members = () => STORE.get('organizationMembers', seedMembers());
+const memberById = id => members().find(m => m.id===id) || null;
+
+/* An invite past its expiry is dead whatever the stored status says — derived,
+   so a token cannot quietly stay usable because no job ran to expire it. */
+const inviteExpired = m => m.status==='invited' && m.invite_expires_at && m.invite_expires_at < Date.now();
+const memberStatus  = m => inviteExpired(m) ? 'expired' : m.status;
+const activeMembers = () => members().filter(m => m.status==='active');
+
+const seedLeaderAssignments = () => ([
+  { id:'tla1', trip_id:'TRIP.01', organization_member_id:'om2', assigned_by:'u-owner', assigned_at:Date.now()-20*DAY },
+]);
+const leaderAssignments = () => STORE.get('tripLeaderAssignments', seedLeaderAssignments());
+const leadersFor = tripId => leaderAssignments()
+  .filter(a => a.trip_id===tripId).map(a => memberById(a.organization_member_id)).filter(Boolean);
+
+/* Which member the demo is "signed in as" for the currently selected role.
+   trip_leader is the only role scoped per resource, so it needs an identity. */
+const currentMember = () => activeMembers().find(m => m.permission_role===ROLE) || activeMembers()[0];
+
+/* THE point of trip_leader_assignments: a trip leader with no row for a trip
+   sees nothing about that trip. Without this the role is just a permission bit
+   and the whole table is pointless. */
+function visibleTrips(){
+  const all = tripRows();
+  if (ROLE !== 'trip_leader') return all;
+  const me = currentMember();
+  if (!me) return [];
+  const mine = new Set(leaderAssignments().filter(a => a.organization_member_id===me.id).map(a => a.trip_id));
+  return all.filter(t => mine.has(t.id));
+}
+
+/* ==========================================================================
+   G-28 · Banners — 2026-08-05-marketing-suite-design.md
+   ========================================================================== */
+
+const BANNER_PLACEMENTS = ['home_hero','organizer_profile','trip_detail'];
+const seedBanners = () => ([
+  { id:'bn1', organizer_id:'demo-org', trip_id:null, image_url:'banner-monsoon.jpg',
+    link_url:'/trips', headline:'Monsoon departures are open', subtext:'Six routes, small groups, September onwards.',
+    placement:'home_hero', starts_at:Date.now()-10*DAY, ends_at:Date.now()+40*DAY, status:'active', created_at:Date.now()-12*DAY },
+  { id:'bn2', organizer_id:'demo-org', trip_id:'TRIP.01', image_url:'banner-zanskar.jpg',
+    link_url:'/trips/TRIP.01', headline:'Zanskar Traverse — last seats', subtext:null,
+    placement:'trip_detail', starts_at:Date.now()-30*DAY, ends_at:Date.now()-3*DAY, status:'active', created_at:Date.now()-32*DAY },
+  { id:'bn3', organizer_id:'demo-org', trip_id:null, image_url:'banner-winter.jpg',
+    link_url:null, headline:'Winter programme', subtext:'Announced in October.',
+    placement:'organizer_profile', starts_at:Date.now()+30*DAY, ends_at:Date.now()+120*DAY, status:'draft', created_at:Date.now()-2*DAY },
+]);
+const banners = () => STORE.get('banners', seedBanners());
+
+/* Same treatment as coupons and permits: a window is the source of truth, and
+   the stored status is only the organizer's INTENT to run it. A banner marked
+   active whose window has closed is expired, not active. */
+function bannerStatus(b){
+  if (b.status === 'draft') return 'draft';
+  const now = Date.now();
+  if (b.ends_at   && b.ends_at   < now) return 'expired';
+  if (b.starts_at && b.starts_at > now) return 'scheduled';
+  return 'active';
+}
+const liveBanners = placement => banners().filter(b => bannerStatus(b)==='active' && b.placement===placement);
+
+/* ==========================================================================
+   G-29 · Review requests — 2026-08-05-marketing-suite-design.md
+   scheduled_at = trip end_date + N days (N configurable, default 2).
+   `review_submitted` is set by the relay READING the reviews table by
+   booking_id — a cross-module read, not an event subscription.
+   ========================================================================== */
+
+const REVIEW_REQUEST_STATUS = ['pending','sent','review_submitted','skipped'];
+const reviewDelayDays = () => STORE.get('reviewDelayDays', 2);
+const reviewRequests  = () => STORE.get('reviewRequests', []);
+
+const tripEndDate = t => t.start_date + (t.days || 1) * DAY;
+
+/* Only a departure that has actually ended can be reviewed. Generating for a
+   trip still running would schedule a request for a trip nobody has finished. */
+function eligibleForReviewRequests(){
+  const existing = new Set(reviewRequests().map(r => r.booking_id));
+  const out = [];
+  tripRows().filter(t => tripEndDate(t) < Date.now()).forEach(t => {
+    analyticsBookings()
+      .filter(b => b.trip_id===t.id && b.status==='confirmed' && !existing.has(b.id))
+      .forEach(b => out.push({ trip:t, booking:b }));
+  });
+  return out;
+}
+function generateReviewRequests(){
+  const rows = reviewRequests();
+  const made = eligibleForReviewRequests().map(({trip, booking}) => ({
+    id:'rr'+Date.now()+Math.random().toString(36).slice(2,6),
+    booking_id:booking.id, trip_id:trip.id, user_id:booking.traveler,
+    scheduled_at: tripEndDate(trip) + reviewDelayDays()*DAY,
+    campaign_recipient_id:null, status:'pending', created_at:Date.now(),
+  }));
+  STORE.set('reviewRequests', rows.concat(made));
+  return made.length;
+}
+/* The relay's cross-module read: has a review landed for this booking? The
+   seeded reviews carry traveller + trip rather than a booking id, so they are
+   matched back the same way the relay would join. */
+function reviewExistsFor(req){
+  const b = analyticsBookings().find(x => x.id===req.booking_id);
+  if (!b) return false;
+  return MOCK.reviews.some(r => r.who === b.traveler && r.trip === b.trip);
+}
+const reviewRequestDue = r => r.status==='pending' && r.scheduled_at <= Date.now();
+
+/* ==========================================================================
+   G-31 · Integrations — 2026-08-05-enterprise-integrations-knowledge-design.md
+   ========================================================================== */
+
+const PROVIDERS = ['google_calendar','google_maps','whatsapp_business','razorpay','fcm','email_smtp','sms_gateway','accounting_software','cloud_storage'];
+const PROVIDER_LABEL = {
+  google_calendar:'Google Calendar', google_maps:'Google Maps', whatsapp_business:'WhatsApp Business',
+  razorpay:'Razorpay', fcm:'Firebase Cloud Messaging', email_smtp:'Email (SMTP)',
+  sms_gateway:'SMS gateway', accounting_software:'Accounting software', cloud_storage:'Cloud storage',
+};
+/* Only these two use per-organizer OAuth. The rest are PLATFORM credentials
+   living in environment variables — they must never appear as something an
+   organizer can connect or disconnect, or the screen implies a control that
+   does not exist. */
+const OAUTH_PROVIDERS = ['google_calendar','cloud_storage'];
+const PLATFORM_PROVIDERS = ['whatsapp_business','razorpay','fcm'];
+
+const seedConnections = () => ([
+  { id:'ic1', organizer_id:'demo-org', provider:'google_calendar', status:'connected',
+    external_account_id:'ops@trektribe.in', config:{ calendar:'Departures' },
+    connected_by:'u-owner', connected_at:Date.now()-70*DAY, last_synced_at:Date.now()-2*DAY, last_error:null },
+  { id:'ic2', organizer_id:'demo-org', provider:'cloud_storage', status:'error',
+    external_account_id:'dropbox:trektribe-ops', config:{ folder:'/TrekTribe/permits' },
+    connected_by:'u-owner', connected_at:Date.now()-140*DAY, last_synced_at:Date.now()-21*DAY,
+    last_error:'Refresh token rejected (401). Reconnect required.' },
+  { id:'ic3', organizer_id:'demo-org', provider:'accounting_software', status:'not_connected',
+    external_account_id:null, config:{}, connected_by:null, connected_at:null, last_synced_at:null, last_error:null },
+  { id:'ic4', organizer_id:null, provider:'whatsapp_business', status:'connected',
+    external_account_id:'platform', config:{}, connected_by:null, connected_at:Date.now()-500*DAY, last_synced_at:null, last_error:null },
+  { id:'ic5', organizer_id:null, provider:'razorpay', status:'connected',
+    external_account_id:'platform', config:{}, connected_by:null, connected_at:Date.now()-500*DAY, last_synced_at:null, last_error:null },
+  { id:'ic6', organizer_id:null, provider:'fcm', status:'connected',
+    external_account_id:'platform', config:{}, connected_by:null, connected_at:Date.now()-500*DAY, last_synced_at:null, last_error:null },
+]);
+const connections = () => STORE.get('integrationConnections', seedConnections());
+const connectionFor = provider => connections().find(c => c.provider===provider) || null;
+const isPlatformConnection = c => c.organizer_id === null;
+
+/* oauth_credentials exists only for the two per-organizer OAuth providers. */
+const oauthCredentials = () => connections()
+  .filter(c => OAUTH_PROVIDERS.includes(c.provider) && c.status==='connected')
+  .map(c => ({ integration_connection_id:c.id, scopes: c.provider==='google_calendar'
+      ? ['calendar.events','calendar.readonly'] : ['files.write','files.read'],
+    token_expires_at: Date.now() + 45*60*1000 }));
+
+const calendarSyncEvents = () => STORE.get('calendarSyncEvents', []);
+/* UNIQUE(trip_id, integration_connection_id) is what makes a second push an
+   UPDATE instead of a duplicate calendar entry. */
+function pushTripToCalendar(tripId){
+  const conn = connectionFor('google_calendar');
+  if (!conn || conn.status !== 'connected') return { ok:false, reason:'not connected' };
+  const rows = calendarSyncEvents();
+  const hit = rows.find(e => e.trip_id===tripId && e.integration_connection_id===conn.id);
+  if (hit) { hit.last_synced_at = Date.now(); STORE.set('calendarSyncEvents', rows);
+             return { ok:true, mode:'updated', external_event_id:hit.external_event_id }; }
+  const ext = 'gcal_' + Math.random().toString(36).slice(2,10);
+  rows.push({ id:'cse'+Date.now(), trip_id:tripId, integration_connection_id:conn.id,
+              external_event_id:ext, last_synced_at:Date.now() });
+  STORE.set('calendarSyncEvents', rows);
+  return { ok:true, mode:'created', external_event_id:ext };
+}
+
+const INTEGRATION_EVENTS = ['trip_created','trip_updated','trip_cancelled','trip_leader_assigned','booking_confirmed','payment_completed'];
+const integrationEvents = () => STORE.get('integrationEvents', []);
+function emitIntegrationEvent(event_type, payload){
+  STORE.set('integrationEvents', integrationEvents().concat({
+    id:'ie'+Date.now()+Math.random().toString(36).slice(2,5), organizer_id:'demo-org',
+    event_type, payload, created_at:Date.now(), processed_at:Date.now(), attempts:1, last_error:null }));
+}
+
+const WA_CATEGORIES = ['utility','authentication','marketing','service'];
+const seedWhatsappLog = () => ([
+  { id:'wa1', trip_id:'TRIP.01', booking_id:'BK-2291', recipient_phone:'+91 98110 44521',
+    template_name:'booking_confirmed_v3', category:'utility', status:'delivered',
+    provider_message_id:'wamid.HBgL', sent_at:Date.now()-9*DAY, error_detail:null },
+  { id:'wa2', trip_id:'TRIP.01', booking_id:'BK-2286', recipient_phone:'+91 99300 77812',
+    template_name:'pre_departure_reminder_v2', category:'utility', status:'sent',
+    provider_message_id:'wamid.HBgM', sent_at:Date.now()-2*DAY, error_detail:null },
+  { id:'wa3', trip_id:'TRIP.02', booking_id:'BK-2288', recipient_phone:'+91 98200 33110',
+    template_name:'payment_reminder_v1', category:'utility', status:'failed',
+    provider_message_id:null, sent_at:null, error_detail:'Recipient has not opted in to this template category.' },
+]);
+const whatsappLog = () => STORE.get('whatsappMessageLog', seedWhatsappLog());
+
 /* ---------------- ui helpers ---------------- */
 const TONE = {
   green:'bg-forest-100 text-forest-800 ring-forest-200',
@@ -1607,13 +1842,209 @@ V.analytics = () => `
       </div></div>`)}
   </div>`;
 
+/* ---- G-21 · trip leader assignment ---- */
+V.leaders = () => {
+  const leaderMembers = activeMembers().filter(m => m.permission_role==='trip_leader');
+  const trips = tripRows().filter(t => !hasDeparted(t));
+  return `
+  ${card(`<div class="p-4">${sectionHead('Trip leaders', `<span class="text-xs text-nature-500 font-mono">trip_leader_assignments</span>`)}
+    <p class="text-sm text-nature-600">A trip leader with no row for a departure sees <strong>nothing</strong> about it — that scoping is the reason this is a table and not a permission bit. Several leaders per trip is allowed; the same leader twice on one trip is not.</p>
+    ${leaderMembers.length ? '' : `<p class="text-sm text-earth-800 mt-2">No active trip leaders on the team yet. Invite one from Team &amp; roles first.</p>`}
+  </div>`)}
+  <div class="mt-4">${card(`
+  ${table([{t:'Departure'},{t:'Assigned leaders'},{t:'',right:true}], trips.map(t=>{
+    const on = leadersFor(t.id);
+    const free = leaderMembers.filter(m => !on.some(x => x.id===m.id));
+    return td(`<span class="font-medium">${t.name}</span><div class="text-xs text-nature-500">${t.code} · ${t.dep}</div>`)+
+      td(on.length
+          ? on.map(m=>`<span class="inline-flex items-center gap-1 text-xs bg-nature-100 rounded px-2 py-1 mr-1 mb-1">${m.name}
+              <button class="text-nature-500 hover:text-red-600" onclick="unassignLeader(&#39;${t.id}&#39;,&#39;${m.id}&#39;)">×</button></span>`).join('')
+          : '<span class="text-sm text-earth-800">Nobody assigned</span>')+
+      td(free.length
+          ? `<select class="h-8 rounded-md border border-nature-300 px-2 bg-white text-xs" onchange="assignLeader(&#39;${t.id}&#39;,this.value)">
+              <option value="">+ Assign leader…</option>
+              ${free.map(m=>`<option value="${m.id}">${m.name}</option>`).join('')}</select>`
+          : '<span class="text-xs text-nature-400">all assigned</span>','text-right');
+  }))}`)}</div>
+  <div class="mt-4">${card(`<div class="p-4 text-sm">
+    <p class="font-medium">Try the scoping</p>
+    <p class="text-nature-700 mt-1">Switch the role selector to <strong>Trip leader</strong>. The Trips and Trip operations screens will show only the departures assigned above — remove the assignment and they go blank, which is what the spec means by "scoped per resource".</p>
+  </div>`)}</div>`;
+};
+
+/* ---- G-28 · banners ---- */
+V.banners = () => {
+  const rows = banners();
+  const TONE = { active:'green', scheduled:'blue', draft:'slate', expired:'red' };
+  return `
+  ${card(`<div class="p-4">${sectionHead('Banners', btn('+ New banner','primary','onclick="newBanner()"'))}
+    <p class="text-sm text-nature-600">Status is derived from the run window: the stored value records the intent to run, the dates decide whether it is actually live. A banner marked active whose window has closed reads <code class="font-mono">expired</code>.</p>
+  </div>`)}
+  <div class="mt-4">${card(`
+  ${rows.length ? table([{t:'Banner'},{t:'Placement'},{t:'Window'},{t:'Status'},{t:'',right:true}], rows.map(b=>{
+    const st = bannerStatus(b), drifted = st !== b.status && b.status !== 'draft';
+    return td(`<div class="flex items-start gap-3">
+        <div class="w-16 h-11 rounded bg-nature-100 border border-nature-200 grid place-items-center text-[9px] text-nature-500 text-center px-1 shrink-0">${b.image_url}</div>
+        <div><span class="font-medium">${b.headline}</span>
+          ${b.subtext?`<div class="text-xs text-nature-500">${b.subtext}</div>`:''}
+          ${b.trip_id?`<div class="text-[11px] text-nature-400">scoped to ${b.trip_id}</div>`:''}
+          ${b.link_url?`<div class="text-[11px] text-nature-400 font-mono">${b.link_url}</div>`:''}</div>
+      </div>`)+
+      td(`<span class="font-mono text-xs">${b.placement}</span>`)+
+      td(`<span class="text-xs">${DATE_IN(b.starts_at)} → ${DATE_IN(b.ends_at)}</span>`)+
+      td(badge(st, TONE[st]) + (drifted?`<div class="text-[11px] text-nature-500 mt-0.5">stored as ${b.status}</div>`:''))+
+      td(`<div class="flex gap-1.5 justify-end">
+        ${b.status==='draft' ? btn('Publish','ghost',`onclick="publishBanner(&#39;${b.id}&#39;)"`) : btn('Unpublish','ghost',`onclick="draftBanner(&#39;${b.id}&#39;)"`)}
+        ${st==='expired' ? btn('Extend 30d','ghost',`onclick="extendBanner(&#39;${b.id}&#39;)"`) : ''}
+      </div>`,'text-right');
+  })) : `<div class="p-4">${emptyState('No banners','Promote a departure on your profile or the home page.')}</div>`}`)}</div>
+  <div class="mt-4">${card(`<div class="p-4">${sectionHead('What a visitor would see right now')}
+    <p class="text-sm text-nature-600 mb-3">Only banners whose window is currently open are served, per placement.</p>
+    <div class="grid gap-3 sm:grid-cols-3">
+      ${BANNER_PLACEMENTS.map(pl=>{
+        const live = liveBanners(pl);
+        return `<div class="rounded-md border border-nature-200 p-3">
+          <p class="font-mono text-xs text-nature-500 mb-2">${pl}</p>
+          ${live.length ? live.map(b=>`<div class="rounded bg-forest-50 border border-forest-200 p-2">
+            <p class="text-sm font-medium">${b.headline}</p>${b.subtext?`<p class="text-xs text-nature-600">${b.subtext}</p>`:''}</div>`).join('')
+            : '<p class="text-sm text-nature-400">Nothing live</p>'}
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`)}</div>`;
+};
+
+/* ---- G-29 · review requests ---- */
+V['review-requests'] = () => {
+  const rows = reviewRequests();
+  const eligible = eligibleForReviewRequests();
+  const TONE = { pending:'amber', sent:'blue', review_submitted:'green', skipped:'slate' };
+  const submitted = rows.filter(r => r.status==='review_submitted').length;
+  const sent = rows.filter(r => r.status==='sent').length;
+  return `
+  <div class="grid gap-4 sm:grid-cols-4 mb-5">
+    ${[['Requests',String(rows.length),'across ended departures'],
+       ['Due now',String(rows.filter(reviewRequestDue).length),'scheduled date reached'],
+       ['Sent',String(sent),'awaiting a review'],
+       ['Reviews landed',String(submitted), sent+submitted ? Math.round(submitted/(sent+submitted)*100)+'% of sent' : '—']]
+      .map(([l,v,n])=>card(`<div class="p-4"><p class="text-xs text-nature-500">${l}</p><p class="mt-1 text-2xl font-semibold tnum">${v}</p><p class="text-xs text-nature-400 mt-1">${n}</p></div>`)).join('')}
+  </div>
+  ${card(`<div class="p-4">${sectionHead('Review requests', `<div class="flex items-center gap-2">
+      <label class="text-xs text-nature-500">Send <input id="rrDelay" type="number" min="0" value="${reviewDelayDays()}" class="w-14 h-8 rounded border border-nature-300 px-2 tnum text-center mx-1"/> days after a trip ends</label>
+      ${btn('Save','ghost','onclick="saveReviewDelay()"')}
+    </div>`)}
+    <p class="text-sm text-nature-600">Scheduled at <code class="font-mono">trip end_date + N days</code>. Only departures that have actually ended are eligible — you cannot ask someone to review a trip they are still on.</p>
+    <div class="mt-3 flex flex-wrap items-center gap-2">
+      ${eligible.length
+        ? btn(`Generate ${eligible.length} request${eligible.length===1?'':'s'}`,'primary','onclick="doGenerateRequests()"')
+        : `<span class="text-sm text-nature-500">No un-requested bookings on ended departures.</span>`}
+      ${rows.some(reviewRequestDue) ? btn('Send all due','ghost','onclick="sendDueRequests()"') : ''}
+      ${rows.length ? btn('Run relay (check for new reviews)','ghost','onclick="runReviewRelay()"') : ''}
+    </div>
+  </div>`)}
+  <div class="mt-4">${card(
+  rows.length ? table([{t:'Traveller'},{t:'Trip'},{t:'Scheduled'},{t:'Status'},{t:'',right:true}], rows
+    .slice().sort((a,b)=>a.scheduled_at-b.scheduled_at).map(r=>{
+      const due = reviewRequestDue(r);
+      const t = tripRows().find(x=>x.id===r.trip_id);
+      return td(`<span class="font-medium">${r.user_id}</span><div class="text-xs text-nature-500">${r.booking_id}</div>`)+
+        td(t?`${t.name}<div class="text-xs text-nature-500">ended ${DATE_IN(tripEndDate(t))}</div>`:r.trip_id)+
+        td(`<span class="text-xs">${DATE_IN(r.scheduled_at)}</span>${due?'<div class="text-[11px] text-earth-800">due now</div>':''}`)+
+        td(badge(r.status.replace(/_/g,' '), TONE[r.status]))+
+        td(r.status==='pending'
+            ? `<div class="flex gap-1.5 justify-end">${btn('Send','ghost',`onclick="sendReviewRequest(&#39;${r.id}&#39;)"`)}${btn('Skip','ghost',`onclick="skipReviewRequest(&#39;${r.id}&#39;)"`)}</div>`
+            : '<span class="text-xs text-nature-400">—</span>','text-right');
+    }))
+  : `<div class="p-4">${emptyState('No review requests yet','Generate them for departures that have ended.')}</div>`)}</div>`;
+};
+
+/* ---- G-31 · integrations ---- */
+V.integrations = () => {
+  const TONE = { connected:'green', pending:'amber', error:'red', revoked:'slate', not_connected:'slate' };
+  const perOrg = connections().filter(c => !isPlatformConnection(c));
+  const platform = connections().filter(isPlatformConnection);
+  const unlisted = PROVIDERS.filter(p => !connections().some(c => c.provider===p));
+  const syncs = calendarSyncEvents();
+  return `
+  ${card(`<div class="p-4">${sectionHead('Your connections', `<span class="text-xs text-nature-500 font-mono">integration_connections</span>`)}
+    <p class="text-sm text-nature-600">Only Google Calendar and cloud storage use per-organizer OAuth, so only these hold rows in <code class="font-mono">oauth_credentials</code>. Tokens are encrypted at rest and never rendered.</p>
+    <div class="mt-4 grid gap-3 sm:grid-cols-2">
+      ${perOrg.map(c=>`<div class="rounded-md border ${c.status==='error'?'border-red-300 bg-red-50':'border-nature-200'} p-3">
+        <div class="flex items-start justify-between gap-2">
+          <div><p class="font-medium">${PROVIDER_LABEL[c.provider]}</p>
+            <p class="text-xs text-nature-500">${c.external_account_id || 'not linked'}</p></div>
+          ${badge(c.status.replace(/_/g,' '), TONE[c.status])}
+        </div>
+        ${c.last_error?`<p class="text-xs text-red-700 mt-2">${c.last_error}</p>`:''}
+        ${c.last_synced_at?`<p class="text-xs text-nature-400 mt-1">Last synced ${DATE_IN(c.last_synced_at)}</p>`:''}
+        ${OAUTH_PROVIDERS.includes(c.provider) && c.status==='connected'
+          ? `<p class="text-[11px] text-nature-400 mt-1 font-mono">scopes: ${(oauthCredentials().find(o=>o.integration_connection_id===c.id)||{scopes:[]}).scopes.join(', ')}</p>` : ''}
+        <div class="mt-3 flex gap-1.5">
+          ${c.status==='connected'
+            ? btn('Disconnect','ghost',`onclick="disconnectProvider(&#39;${c.provider}&#39;)"`)
+            : btn('Connect','primary',`onclick="connectProvider(&#39;${c.provider}&#39;)"`)}
+          ${c.provider==='google_calendar' && c.status==='connected' ? btn('Push departures','ghost','onclick="pushAllTrips()"') : ''}
+        </div>
+      </div>`).join('')}
+      ${unlisted.map(p=>`<div class="rounded-md border border-dashed border-nature-300 p-3">
+        <div class="flex items-start justify-between gap-2">
+          <p class="font-medium">${PROVIDER_LABEL[p]}</p>${badge('not connected','slate')}
+        </div>
+        <div class="mt-3">${btn('Connect','ghost',`onclick="connectProvider(&#39;${p}&#39;)"`)}</div>
+      </div>`).join('')}
+    </div>
+  </div>`)}
+
+  <div class="mt-4">${card(`<div class="p-4">${sectionHead('Platform services')}
+    <p class="text-sm text-nature-600">These run on platform credentials held in environment variables, not in <code class="font-mono">oauth_credentials</code>, and are shared by every organizer. There is deliberately no connect or disconnect control — offering one would imply a switch that does not exist.</p>
+    <div class="mt-3 flex flex-wrap gap-2">
+      ${platform.map(c=>`<span class="inline-flex items-center gap-2 rounded-md border border-nature-200 px-3 py-2 text-sm">
+        ${PROVIDER_LABEL[c.provider]} ${badge(c.status, TONE[c.status])}</span>`).join('')}
+    </div>
+  </div>`)}</div>
+
+  <div class="mt-4 grid gap-4 lg:grid-cols-2">
+    ${card(`<div class="p-4">${sectionHead('Calendar sync map', `<span class="text-xs text-nature-500 font-mono">calendar_sync_events</span>`)}
+      <p class="text-sm text-nature-600">One row per (trip, connection) — which is what makes a second push an <strong>update</strong> rather than a duplicate calendar entry.</p>
+      ${syncs.length?`<ul class="mt-3 space-y-1.5">${syncs.map(s=>{
+        const t = tripRows().find(x=>x.id===s.trip_id);
+        return `<li class="text-sm flex justify-between gap-2"><span>${t?t.name:s.trip_id}</span>
+          <span class="font-mono text-xs text-nature-500">${s.external_event_id}</span></li>`;
+      }).join('')}</ul>`:'<p class="text-sm text-nature-400 mt-3">Nothing pushed yet.</p>'}
+    </div>`)}
+    ${card(`<div class="p-4">${sectionHead('Integration outbox', `<span class="text-xs text-nature-500 font-mono">integration_events</span>`)}
+      ${integrationEvents().length?`<ul class="mt-1 space-y-2">${integrationEvents().slice().reverse().slice(0,8).map(e=>`<li class="text-sm border-l-2 border-forest-500 pl-3">
+        <span class="font-mono text-xs">${e.event_type}</span>
+        <div class="text-xs text-nature-400">${new Date(e.created_at).toLocaleString('en-IN')} · ${e.processed_at?'processed':'queued'}</div></li>`).join('')}</ul>`
+      :'<p class="text-sm text-nature-400">No events yet. Assign a trip leader or push a departure to raise one.</p>'}
+    </div>`)}
+  </div>
+
+  <div class="mt-4">${card(`<div class="p-4">${sectionHead('WhatsApp message log', `<span class="text-xs text-nature-500 font-mono">whatsapp_message_log</span>`)}
+    <p class="text-sm text-nature-600">Bodies are not stored here — a WhatsApp template lives with the BSP and is referenced by name, so this log records which template went out, not what it said.</p></div>
+  ${table([{t:'Template'},{t:'Category'},{t:'Recipient'},{t:'Status'},{t:'Sent'}], whatsappLog().map(w=>
+    td(`<span class="font-mono text-xs">${w.template_name}</span>${w.error_detail?`<div class="text-xs text-red-700">${w.error_detail}</div>`:''}`)+
+    td(badge(w.category,'slate'))+
+    td(`<span class="text-sm">${w.recipient_phone}</span>`)+
+    td(badge(w.status, w.status==='delivered'?'green':w.status==='failed'?'red':'blue'))+
+    td(w.sent_at?`<span class="text-xs">${DATE_IN(w.sent_at)}</span>`:'<span class="text-nature-400">—</span>')
+  ))}`)}</div>`;
+};
+
 /* ---- P3 · trip operations workspace ---- */
 const OPS_TAB_LABEL = { checklist:'Checklist', rooms:'Rooms', transport:'Transport',
   equipment:'Equipment', attendance:'Attendance', permits:'Permits', emergency:'Emergency' };
 
 V.ops = () => {
-  const tid = opsTrip(), tab = opsTab();
-  const t = tripRows().find(x => x.id===tid) || tripRows()[0];
+  const tab = opsTab();
+  const allowed = visibleTrips();
+  if (!allowed.length) {
+    return card(`<div class="p-4">${emptyState('No departures assigned to you',
+      'Trip operations is scoped per departure. Without a trip_leader_assignments row you see nothing here.',
+      `<a href="#leaders" class="inline-flex items-center rounded-md px-3 h-9 text-sm font-medium bg-forest-600 text-white">See leader assignments</a>`)}</div>`);
+  }
+  /* Never let a stored selection outlive the permission to see it. */
+  const t = allowed.find(x => x.id===opsTrip()) || allowed[0];
   const roster = opsRoster(t.id), rdy = readiness(t.id), blockers = permitBlockers(t.id);
   const live = ['checklist','rooms','transport','equipment','attendance','permits','emergency'];
 
@@ -1627,7 +2058,7 @@ V.ops = () => {
       </div>
       <label class="text-sm">Departure
         <select class="ml-2 h-9 rounded-md border border-nature-300 px-2 bg-white" onchange="setOpsTrip(this.value)">
-          ${tripRows().filter(x=>!hasDeparted(x)).map(x=>`<option value="${x.id}" ${x.id===t.id?'selected':''}>${x.name} — ${x.dep}</option>`).join('')}
+          ${allowed.filter(x=>!hasDeparted(x) || x.id===t.id).map(x=>`<option value="${x.id}" ${x.id===t.id?'selected':''}>${x.name} — ${x.dep}</option>`).join('')}
         </select></label>
     </div>
     <div class="mt-4 grid gap-3 sm:grid-cols-3">
@@ -2135,8 +2566,13 @@ V['an-marketing'] = () => {
 };
 
 V.trips = () => {
-  const rows = tripRows();
-  const originName = id => (rows.find(t=>t.id===id)||{}).name || id;
+  const rows = visibleTrips();
+  const originName = id => (tripRows().find(t=>t.id===id)||{}).name || id;
+  if (ROLE === 'trip_leader' && !rows.length) {
+    return card(`<div class="p-4">${emptyState('No departures assigned to you',
+      'A trip leader sees only the departures they have a trip_leader_assignments row for. You have none.',
+      `<a href="#leaders" class="inline-flex items-center rounded-md px-3 h-9 text-sm font-medium bg-forest-600 text-white">See leader assignments</a>`)}</div>`);
+  }
   return card(`
   <div class="p-4">${sectionHead('Trips', `<div class="flex gap-2">
       ${btn('Templates','ghost','onclick="location.hash=&#39;trip-templates&#39;"')}
@@ -2683,17 +3119,32 @@ V.team = () => {
   ];
   return `
     ${card(`<div class="p-4">${sectionHead('Staff accounts',
-      can('team') ? btn('+ Invite member','primary','onclick="toast(&#39;Invite flow — POST /api/team/members&#39;)"')
-                  : `<span class="text-xs text-earth-700">Only the owner can manage the team</span>`)}</div>
-      ${table([{t:'Member'},{t:'Email'},{t:'Role'},{t:'Scope'},{t:'',right:true}], MOCK.team.map(m=>
-        td(`<div class="flex items-center gap-2.5"><div class="w-8 h-8 rounded-full bg-nature-200 grid place-items-center text-xs font-semibold">${m.name.split(' ').map(x=>x[0]).join('')}</div><span class="font-medium">${m.name}</span></div>`)+
-        td(`<span class="text-nature-600">${m.email}</span>`)+
-        td(badge(ROLE_LABEL[m.role], m.role==='owner'?'green':'slate'))+
-        td(m.trips ? `<span class="text-xs text-nature-600">${m.trips.join(', ')}</span>` : `<span class="text-xs text-nature-400">All trips</span>`)+
-        td(can('team') && m.role!=='owner'
-            ? `<button onclick="toast(&#39;Revoke — DELETE /api/team/members/:id&#39;)" class="text-xs text-red-600 hover:underline">Revoke</button>`
-            : `<span class="text-xs text-nature-400">—</span>`,'text-right')
-      ))}`)}
+      can('team') ? btn('+ Invite member','primary','onclick="inviteMember()"')
+                  : `<span class="text-xs text-earth-700">Only the owner can manage the team</span>`)}
+      <p class="text-sm text-nature-600">An invite carries a token that dies after ${INVITE_TTL_DAYS} days. Expiry is derived from the date, so a token cannot stay usable merely because no job ran to kill it.</p></div>
+      ${table([{t:'Member'},{t:'Email'},{t:'Role'},{t:'Scope'},{t:'Status'},{t:'',right:true}], members().map(m=>{
+        const st = memberStatus(m);
+        const led = leaderAssignments().filter(a=>a.organization_member_id===m.id)
+          .map(a=>(tripRows().find(t=>t.id===a.trip_id)||{}).name).filter(Boolean);
+        return td(`<div class="flex items-center gap-2.5"><div class="w-8 h-8 rounded-full bg-nature-200 grid place-items-center text-xs font-semibold">${(m.name||m.invited_email)[0].toUpperCase()}</div><span class="font-medium">${m.name || '<span class="text-nature-400 font-normal">not accepted yet</span>'}</span></div>`)+
+        td(`<span class="text-nature-600">${m.invited_email}</span>`)+
+        td(badge(ROLE_LABEL[m.permission_role], m.permission_role==='owner'?'green':'slate'))+
+        td(m.permission_role==='trip_leader'
+            ? (led.length ? `<span class="text-xs text-nature-600">${led.join(', ')}</span>` : `<span class="text-xs text-earth-800">No trips assigned</span>`)
+            : `<span class="text-xs text-nature-400">All trips</span>`)+
+        td(badge(st, st==='active'?'green':st==='invited'?'amber':st==='expired'?'red':'slate') +
+           (st==='invited'?`<div class="text-[11px] text-nature-400 mt-0.5">expires ${DATE_IN(m.invite_expires_at)}</div>`:'') +
+           (st==='expired'?`<div class="text-[11px] text-red-700 mt-0.5">token dead</div>`:''))+
+        td(!can('team') || m.permission_role==='owner'
+            ? `<span class="text-xs text-nature-400">—</span>`
+            : `<div class="flex gap-1.5 justify-end flex-wrap">
+                ${st==='invited' ? btn('Accept','ghost',`onclick="acceptInvite(&#39;${m.id}&#39;)"`) : ''}
+                ${st==='expired' ? btn('Resend','ghost',`onclick="resendInvite(&#39;${m.id}&#39;)"`) : ''}
+                ${st==='revoked'
+                  ? '<span class="text-xs text-nature-400">revoked</span>'
+                  : `<button onclick="revokeMember(&#39;${m.id}&#39;)" class="text-xs text-red-600 hover:underline px-2">Revoke</button>`}
+              </div>`,'text-right');
+      }))}`)}
 
     <div class="h-4"></div>
     ${card(`<div class="p-4">${sectionHead('Permission tiers',
@@ -2983,6 +3434,238 @@ function toast(msg){
   clearTimeout(toastT); toastT = setTimeout(()=>{ t.hidden = true; }, 2600);
 }
 window.toast = toast;
+
+/* ---- G-21 · team invites + leader assignment ---- */
+window.inviteMember = function(){
+  openModal('Invite a team member', `
+    <p class="text-sm text-nature-600">The invite is created with a token valid for ${INVITE_TTL_DAYS} days. The member row exists immediately with <code class="font-mono">user_id = null</code> — it is filled in when they accept.</p>
+    <label class="block mt-4"><span class="text-sm font-medium">Email</span>
+      <input id="invEmail" type="email" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3" placeholder="name@example.com"/></label>
+    <label class="block mt-3"><span class="text-sm font-medium">Permission tier</span>
+      <select id="invRole" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 bg-white">
+        ${ROLES.filter(r=>r!=='owner').map(r=>`<option value="${r}">${ROLE_LABEL[r]}</option>`).join('')}
+      </select></label>
+    <p class="text-xs text-nature-500 mt-2">Tiers are fixed, not configurable — see the matrix below the table.</p>
+    <div class="mt-5 flex justify-end gap-2">${btn('Cancel','ghost','data-close')}${btn('Send invite','primary','onclick="confirmInvite()"')}</div>`);
+};
+window.confirmInvite = function(){
+  const email = (document.getElementById('invEmail').value || '').trim().toLowerCase();
+  const role  = document.getElementById('invRole').value;
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast('Enter a valid email address.'); return; }
+  const rows = members();
+  const live = rows.find(m => m.invited_email===email && m.status!=='revoked' && !inviteExpired(m));
+  if (live) { toast(`${email} already has a ${memberStatus(live)} membership.`); return; }
+  rows.push({ id:'om'+Date.now(), owning_organizer_id:'demo-org', user_id:null, permission_role:role,
+    status:'invited', invited_email:email, name:null,
+    invite_token:'tok_'+Math.random().toString(36).slice(2,10),
+    invite_expires_at:Date.now()+INVITE_TTL_DAYS*DAY, invited_by:'u-owner', created_at:Date.now() });
+  STORE.set('organizationMembers', rows);
+  document.getElementById('modal').hidden = true;
+  toast(`Invite sent to ${email}, valid ${INVITE_TTL_DAYS} days.`);
+  route();
+};
+window.acceptInvite = function(id){
+  const rows = members();
+  const m = rows.find(x=>x.id===id); if (!m) return;
+  if (inviteExpired(m)) { toast('That token expired — resend the invite instead.'); return; }
+  /* Partial UNIQUE(user_id) WHERE status='active': one active membership per
+     staff user. Simulated here by the email, which is the identity we have. */
+  const clash = rows.find(x => x.status==='active' && x.invited_email===m.invited_email);
+  if (clash) { toast('That person already has an active membership.'); return; }
+  m.status = 'active';
+  m.user_id = 'u-' + m.invited_email.split('@')[0];
+  m.name = m.invited_email.split('@')[0].replace(/^./, c=>c.toUpperCase()) + '.';
+  m.invite_token = null;                 // cleared on acceptance, per the spec
+  m.invite_expires_at = null;
+  STORE.set('organizationMembers', rows);
+  toast(`${m.name} joined as ${ROLE_LABEL[m.permission_role]}. Token cleared.`);
+  route();
+};
+window.resendInvite = function(id){
+  const rows = members();
+  const m = rows.find(x=>x.id===id); if (!m) return;
+  m.invite_token = 'tok_'+Math.random().toString(36).slice(2,10);
+  m.invite_expires_at = Date.now() + INVITE_TTL_DAYS*DAY;
+  m.status = 'invited';
+  STORE.set('organizationMembers', rows);
+  toast('New token issued — the old one stays dead.');
+  route();
+};
+window.revokeMember = function(id){
+  const rows = members();
+  const m = rows.find(x=>x.id===id); if (!m) return;
+  m.status = 'revoked'; m.invite_token = null;
+  STORE.set('organizationMembers', rows);
+  /* Revoking a leader must drop their assignments, or a revoked account keeps
+     appearing as the person responsible for a departure. */
+  const dropped = leaderAssignments().filter(a => a.organization_member_id===id).length;
+  if (dropped) STORE.set('tripLeaderAssignments', leaderAssignments().filter(a => a.organization_member_id!==id));
+  toast(dropped ? `Revoked, and removed from ${dropped} departure${dropped===1?'':'s'}.` : 'Access revoked.');
+  route();
+};
+window.assignLeader = function(tripId, memberId){
+  if (!memberId) return;
+  const rows = leaderAssignments();
+  if (rows.find(a => a.trip_id===tripId && a.organization_member_id===memberId)) {
+    toast('Already leading that departure.'); return;      // UNIQUE(trip_id, member)
+  }
+  rows.push({ id:'tla'+Date.now(), trip_id:tripId, organization_member_id:memberId,
+              assigned_by:'u-owner', assigned_at:Date.now() });
+  STORE.set('tripLeaderAssignments', rows);
+  emitIntegrationEvent('trip_leader_assigned', { trip_id:tripId, member_id:memberId });
+  const m = memberById(memberId);
+  toast(`${m.name} assigned. They can now see this departure.`);
+  route();
+};
+window.unassignLeader = function(tripId, memberId){
+  STORE.set('tripLeaderAssignments',
+    leaderAssignments().filter(a => !(a.trip_id===tripId && a.organization_member_id===memberId)));
+  toast('Removed — this departure is now invisible to them.');
+  route();
+};
+
+/* ---- G-28 · banner actions ---- */
+window.newBanner = function(){
+  openModal('New banner', `
+    <label class="block"><span class="text-sm font-medium">Headline</span>
+      <input id="bnHead" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3" placeholder="Monsoon departures are open"/></label>
+    <label class="block mt-3"><span class="text-sm font-medium">Subtext <span class="text-nature-400 font-normal">(optional)</span></span>
+      <input id="bnSub" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3"/></label>
+    <label class="block mt-3"><span class="text-sm font-medium">Placement</span>
+      <select id="bnPlace" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 bg-white">
+        ${BANNER_PLACEMENTS.map(p=>`<option value="${p}">${p}</option>`).join('')}</select></label>
+    <div class="grid grid-cols-2 gap-3 mt-3">
+      <label class="block"><span class="text-sm font-medium">Starts</span>
+        <input id="bnStart" type="date" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3"/></label>
+      <label class="block"><span class="text-sm font-medium">Ends</span>
+        <input id="bnEnd" type="date" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3"/></label>
+    </div>
+    <p class="text-xs text-nature-500 mt-2">Created as a draft. It only goes live once published <em>and</em> inside its window.</p>
+    <div class="mt-5 flex justify-end gap-2">${btn('Cancel','ghost','data-close')}${btn('Create draft','primary','onclick="confirmBanner()"')}</div>`);
+  const s = new Date(), e = new Date(); e.setDate(e.getDate()+30);
+  document.getElementById('bnStart').value = s.toISOString().slice(0,10);
+  document.getElementById('bnEnd').value   = e.toISOString().slice(0,10);
+};
+window.confirmBanner = function(){
+  const head = (document.getElementById('bnHead').value||'').trim();
+  const starts = document.getElementById('bnStart').value;
+  const ends   = document.getElementById('bnEnd').value;
+  if (!head) { toast('A banner needs a headline.'); return; }
+  if (!starts || !ends) { toast('Set both dates.'); return; }
+  const s = new Date(starts+'T00:00:00').getTime(), e = new Date(ends+'T00:00:00').getTime();
+  if (e <= s) { toast('The end date must be after the start date.'); return; }
+  STORE.set('banners', banners().concat({
+    id:'bn'+Date.now(), organizer_id:'demo-org', trip_id:null,
+    image_url:'banner-'+Date.now().toString(36)+'.jpg',
+    link_url:null, headline:head, subtext:(document.getElementById('bnSub').value||'').trim() || null,
+    placement:document.getElementById('bnPlace').value,
+    starts_at:s, ends_at:e, status:'draft', created_at:Date.now() }));
+  document.getElementById('modal').hidden = true;
+  toast('Draft created. Publish it to go live.');
+  route();
+};
+window.publishBanner = function(id){
+  const rows = banners(); const b = rows.find(x=>x.id===id); if (!b) return;
+  b.status = 'active'; STORE.set('banners', rows);
+  const st = bannerStatus(b);
+  toast(st==='active' ? 'Live now.'
+      : st==='scheduled' ? `Published — goes live ${DATE_IN(b.starts_at)}.`
+      : 'Published, but the window has already closed, so it reads expired.');
+  route();
+};
+window.draftBanner = function(id){
+  const rows = banners(); const b = rows.find(x=>x.id===id); if (!b) return;
+  b.status = 'draft'; STORE.set('banners', rows); toast('Back to draft.'); route();
+};
+window.extendBanner = function(id){
+  const rows = banners(); const b = rows.find(x=>x.id===id); if (!b) return;
+  b.ends_at = Date.now() + 30*DAY; STORE.set('banners', rows);
+  toast('Window extended 30 days — it reads active again.'); route();
+};
+
+/* ---- G-29 · review request actions ---- */
+window.saveReviewDelay = function(){
+  const v = Number(document.getElementById('rrDelay').value);
+  if (!Number.isFinite(v) || v < 0) { toast('Days must be zero or more.'); return; }
+  STORE.set('reviewDelayDays', v);
+  toast(`Requests will schedule ${v} day${v===1?'':'s'} after a trip ends.`);
+  route();
+};
+window.doGenerateRequests = function(){
+  const n = generateReviewRequests();
+  toast(n ? `${n} request${n===1?'':'s'} scheduled.` : 'Nothing eligible.');
+  route();
+};
+window.sendReviewRequest = function(id){
+  const rows = reviewRequests(); const r = rows.find(x=>x.id===id); if (!r) return;
+  if (!reviewRequestDue(r)) { toast(`Not due until ${DATE_IN(r.scheduled_at)}.`); return; }
+  r.status = 'sent'; r.campaign_recipient_id = 'cr'+Date.now();
+  STORE.set('reviewRequests', rows);
+  toast('Sent through the campaign pipeline.'); route();
+};
+window.skipReviewRequest = function(id){
+  const rows = reviewRequests(); const r = rows.find(x=>x.id===id); if (!r) return;
+  r.status = 'skipped'; STORE.set('reviewRequests', rows);
+  toast('Skipped — it will not be sent.'); route();
+};
+window.sendDueRequests = function(){
+  const rows = reviewRequests();
+  let n = 0;
+  rows.filter(reviewRequestDue).forEach(r => { r.status='sent'; r.campaign_recipient_id='cr'+Date.now()+n; n++; });
+  STORE.set('reviewRequests', rows);
+  toast(n ? `${n} request${n===1?'':'s'} sent.` : 'Nothing due.');
+  route();
+};
+window.runReviewRelay = function(){
+  /* The relay reads the reviews table by booking_id — a cross-module query,
+     not an event subscription, since that spec publishes no event contract. */
+  const rows = reviewRequests();
+  let n = 0;
+  rows.filter(r => r.status==='sent').forEach(r => { if (reviewExistsFor(r)) { r.status='review_submitted'; n++; } });
+  STORE.set('reviewRequests', rows);
+  toast(n ? `${n} review${n===1?'':'s'} matched back to a request.` : 'No new reviews found for sent requests.');
+  route();
+};
+
+/* ---- G-31 · integration actions ---- */
+window.connectProvider = function(provider){
+  if (PLATFORM_PROVIDERS.includes(provider)) { toast('That runs on platform credentials — there is nothing for you to connect.'); return; }
+  const rows = connections();
+  let c = rows.find(x => x.provider===provider);
+  if (!c) { c = { id:'ic'+Date.now(), organizer_id:'demo-org', provider, config:{} }; rows.push(c); }
+  c.status = 'connected';
+  c.external_account_id = c.external_account_id || 'ops@trektribe.in';
+  c.connected_by = 'u-owner'; c.connected_at = Date.now(); c.last_error = null;
+  STORE.set('integrationConnections', rows);
+  toast(OAUTH_PROVIDERS.includes(provider)
+    ? `${PROVIDER_LABEL[provider]} connected — tokens stored encrypted in oauth_credentials.`
+    : `${PROVIDER_LABEL[provider]} connected.`);
+  route();
+};
+window.disconnectProvider = function(provider){
+  const rows = connections();
+  const c = rows.find(x => x.provider===provider); if (!c) return;
+  c.status = 'not_connected'; c.connected_at = null; c.last_synced_at = null; c.last_error = null;
+  STORE.set('integrationConnections', rows);
+  /* Dropping the connection must drop its sync map too, or a later reconnect
+     would try to update calendar events that are no longer ours. */
+  if (provider === 'google_calendar') {
+    const n = calendarSyncEvents().filter(e => e.integration_connection_id===c.id).length;
+    STORE.set('calendarSyncEvents', calendarSyncEvents().filter(e => e.integration_connection_id!==c.id));
+    toast(n ? `Disconnected, and ${n} sync mapping${n===1?'':'s'} cleared.` : 'Disconnected.');
+  } else toast('Disconnected. Stored tokens discarded.');
+  route();
+};
+window.pushAllTrips = function(){
+  let created = 0, updated = 0;
+  tripRows().filter(t => !hasDeparted(t)).forEach(t => {
+    const r = pushTripToCalendar(t.id);
+    if (r.ok) (r.mode === 'created' ? created++ : updated++);
+  });
+  emitIntegrationEvent('trip_updated', { pushed:created+updated });
+  toast(`${created} created, ${updated} updated — a repeat push never duplicates.`);
+  route();
+};
 
 /* ---- P3 · operations actions ---- */
 window.gotoRoster = function(tripName){
