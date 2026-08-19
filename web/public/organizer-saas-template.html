@@ -196,6 +196,7 @@ const NAV = [
     { id:'integrations', label:'Integrations', icon:'plug', cap:'integrations', sub:'Calendar, storage, WhatsApp and platform services' },
     { id:'settings', label:'Settings', icon:'cog', cap:'team', sub:'Profile, bank details, notifications' },
     { id:'business-profile', label:'Business profile', icon:'building', cap:'team', sub:'Description, covers, portfolio, verification and KYC' },
+    { id:'public-page', label:'Your public page', icon:'globe', cap:'dashboard', sub:'The branded page travellers see — /organizers/:id and the trip listing' },
     { id:'certifications', label:'My certifications', icon:'award', cap:'team', sub:'Your own credentials and their expiry' },
     { id:'knowledge', label:'Knowledge Hub', icon:'book', cap:'knowledge', sub:'Platform guides, templates and checklists — readable by every role' },
   ]},
@@ -228,6 +229,7 @@ const ICONS = {
   book:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
   plug:'<path d="M9 2v6M15 2v6"/><path d="M6 8h12v3a6 6 0 0 1-12 0z"/><path d="M12 17v5"/>',
   sparkle:'<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M18 16l.8 2.2L21 19l-2.2.8L18 22l-.8-2.2L15 19l2.2-.8z"/>',
+  globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18z"/>',
   megaphone:'<path d="m3 11 15-6v14L3 13z"/><path d="M6 12v6a2 2 0 0 0 4 0v-5"/>',
   send:'<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/>',
   tag:'<path d="M20 13 13 20a2 2 0 0 1-3 0L4 14V4h10l6 6a2 2 0 0 1 0 3z"/><circle cx="8.5" cy="8.5" r="1.2"/>',
@@ -1941,6 +1943,73 @@ function classifyTicket(text, modelSaysHuman){
 
 const aiSuggestedReplies = () => STORE.get('aiSuggestedReplies', {});
 
+/* ==========================================================================
+   Branded public pages — `/organizers/:id`, `/trips`, `/trips/:id`
+   Specs: core-platform-organizer-auth (public organizer profile),
+          core-platform-traveler-booking (browse + detail)
+
+   This is the organizer's own branded page as a traveller sees it, rendered
+   from the same rows the console manages. It is a preview inside the console,
+   not the traveller app — but the visibility rules are real, and several of
+   them were claims elsewhere in this template that nothing had yet enforced:
+
+     · only effectively-published, not-yet-departed trips are listed
+     · templates are not trips and can never appear
+     · only Verified reviews are shown — the reviews screen has always said
+       "unverified reviews are hidden from your public page"; here that
+       sentence finally does something
+     · banners appear only inside their run window, and only in their placement
+     · only verified, in-date certifications are shown as credentials
+   ========================================================================== */
+
+/* One place that decides what the public can see. Every public surface reads
+   this rather than filtering trips its own way, because three slightly
+   different filters is how a draft eventually leaks onto a live page. */
+function publicTrips(){
+  return tripRows().filter(t =>
+    effectiveStatus(t) === 'published' &&      // draft and scheduled stay private
+    !hasDeparted(t)                            // a trip that already left is not on sale
+  ).sort((a,b) => a.start_date - b.start_date);
+}
+
+/* Why a given trip is NOT public. Shown to the organizer so the absence is
+   explained rather than looking like a bug. */
+function publicExclusionReason(t){
+  const eff = effectiveStatus(t);
+  if (hasDeparted(t)) return 'already departed';
+  if (eff === 'draft') return 'still a draft';
+  if (eff === 'scheduled') return 'scheduled to go live ' + (t.publish_at ? DATE_IN(t.publish_at) : 'later');
+  return null;
+}
+
+const publicReviews = tripName => MOCK.reviews.filter(r => r.v === 'Verified' && (!tripName || r.trip === tripName));
+const hiddenReviews = () => MOCK.reviews.filter(r => r.v !== 'Verified');
+function avgRating(tripName){
+  const rs = publicReviews(tripName);
+  if (!rs.length) return null;
+  return Math.round(rs.reduce((s,r)=>s+r.rating,0) / rs.length * 10) / 10;
+}
+
+/* Certifications are a trust signal, so an expired or unverified one must not
+   be displayed as if it still vouched for anything. */
+const publicCertifications = () => documents().filter(d =>
+  d.category === 'organizer_certification' &&
+  d.verification_status === 'verified' &&
+  docExpiry(d).state !== 'expired');
+
+/* Seats shown to a traveller are live, not a stored number. */
+const seatsLeft = t => t.max_participants == null ? null : Math.max(0, t.max_participants - confirmedSeats(t.id));
+
+/* A preview counts as a view — which closes the loop with the funnel screen,
+   where trip_daily_views had until now only ever been seeded. */
+function recordTripView(tripId){
+  const t = tripRows().find(x => x.id===tripId); if (!t) return;
+  const rows = tripViews();
+  const hit = rows.find(v => v.trip === t.name);
+  if (hit) hit.views += 1; else rows.push({ trip:t.name, views:1, enquiries:0 });
+  STORE.set('tripDailyViews', rows);
+}
+
 /* ---------------- ui helpers ---------------- */
 const TONE = {
   green:'bg-forest-100 text-forest-800 ring-forest-200',
@@ -2055,6 +2124,198 @@ V.analytics = () => `
           <div class="mt-1 h-2 rounded-full bg-nature-200 overflow-hidden"><div class="h-full bg-forest-600" style="width:${p}%"></div></div></div>`).join('')}
       </div></div>`)}
   </div>`;
+
+/* ---------- Branded public pages ---------- */
+
+const stars = n => `<span class="text-earth-500">${'★'.repeat(Math.round(n))}<span class="text-nature-300">${'★'.repeat(5-Math.round(n))}</span></span>`;
+
+V['public-page'] = () => {
+  const sub = STORE.get('publicSub', 'profile');
+  const tid = STORE.get('publicTrip', null);
+  const p = orgProfile();
+  const live = publicTrips();
+  const hiddenTrips = tripRows().filter(t => publicExclusionReason(t));
+  const hiddenRev = hiddenReviews();
+
+  const switcher = card(`<div class="p-4">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h2 class="font-semibold">Your public page</h2>
+        <p class="text-sm text-nature-500">Exactly what a traveller sees at <code class="font-mono">/organizers/demo-org</code>. Rendered from the same rows you manage here.</p>
+      </div>
+      <div class="flex gap-1.5">
+        ${['profile','browse'].map(k=>`<button class="px-3 h-8 rounded-md text-sm ${k===sub&&!tid?'bg-nature-900 text-white':'bg-nature-100 hover:bg-nature-200'}" onclick="setPublicSub(&#39;${k}&#39;)">${k==='profile'?'Organizer page':'Trip listing'}</button>`).join('')}
+      </div>
+    </div>
+  </div>`);
+
+  const visibility = card(`<div class="p-4">${sectionHead('What is and is not public')}
+    <div class="grid gap-3 sm:grid-cols-2">
+      <div class="rounded-md border border-forest-200 bg-forest-50 p-3">
+        <p class="text-sm font-medium">${live.length} trip${live.length===1?'':'s'} listed</p>
+        <p class="text-xs text-nature-600 mt-1">${live.map(t=>t.name).join(', ') || '—'}</p>
+      </div>
+      <div class="rounded-md border ${hiddenTrips.length?'border-earth-300 bg-earth-50':'border-nature-200'} p-3">
+        <p class="text-sm font-medium">${hiddenTrips.length} not listed</p>
+        <ul class="text-xs text-nature-600 mt-1 space-y-0.5">${hiddenTrips.map(t=>`<li>${t.name} <span class="text-nature-400">— ${publicExclusionReason(t)}</span></li>`).join('') || '<li>—</li>'}</ul>
+      </div>
+    </div>
+    <p class="text-sm text-nature-600 mt-3">Templates never appear here at all — a template is a shape, not a departure, so it is not in the list to be filtered out of. ${hiddenRev.length?`<strong>${hiddenRev.length} review${hiddenRev.length===1?' is':'s are'}</strong> withheld pending verification.`:''}</p>
+  </div>`);
+
+  if (tid) return switcher + `<div class="mt-4">${publicTripDetail(tid)}</div>`;
+
+  const body = sub === 'browse' ? publicBrowse() : publicProfile(p, live);
+  return switcher + `<div class="mt-4">${visibility}</div><div class="mt-4">${body}</div>`;
+};
+
+function publicProfile(p, live){
+  const certs = publicCertifications();
+  const bans = liveBanners('organizer_profile');
+  const links = Object.entries(p.social_links).filter(([,v])=>v);
+  const rating = avgRating(null);
+  const revs = publicReviews(null);
+  return `
+  <div class="rounded-xl overflow-hidden border border-nature-200 bg-white">
+    <!-- cover strip -->
+    <div class="grid grid-cols-3 gap-0.5 bg-nature-200">
+      ${(p.cover_image_urls.slice(0,3)).map(u=>`<div class="h-28 sm:h-40 bg-gradient-to-br from-forest-200 to-nature-300 grid place-items-center text-[10px] text-forest-900/60 px-2 text-center">${u}</div>`).join('') || '<div class="h-28 col-span-3 bg-nature-100"></div>'}
+    </div>
+
+    <div class="p-5">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <h1 class="text-xl font-semibold">TrekTribe Expeditions</h1>
+            ${p.verification_status==='verified'
+              ? `<span class="inline-flex items-center gap-1 rounded-full bg-forest-100 text-forest-800 ring-1 ring-inset ring-forest-200 px-2 py-0.5 text-[11px] font-medium">${ico('shield')} Verified operator</span>`
+              : badge(p.verification_status,'slate')}
+          </div>
+          ${rating!==null?`<p class="text-sm mt-1">${stars(rating)} <span class="tnum font-medium">${rating}</span> <span class="text-nature-500">· ${revs.length} review${revs.length===1?'':'s'}</span></p>`:'<p class="text-sm text-nature-400 mt-1">No reviews yet</p>'}
+        </div>
+        <div class="flex flex-wrap gap-1.5">
+          ${/* capitalize the label only — applying it to the value mangles URLs into Https://Trektribe.In */''
+          }${links.map(([k,v])=>`<span class="text-xs bg-nature-100 rounded px-2 py-1"><span class="capitalize text-nature-500">${k}</span> ${v}</span>`).join('')}
+        </div>
+      </div>
+
+      <p class="text-sm text-nature-700 mt-3 max-w-2xl leading-relaxed">${p.business_description}</p>
+
+      ${bans.length?`<div class="mt-4 space-y-2">${bans.map(b=>`<div class="rounded-lg bg-forest-600 text-white p-4">
+        <p class="font-medium">${b.headline}</p>${b.subtext?`<p class="text-sm text-forest-50/90 mt-0.5">${b.subtext}</p>`:''}</div>`).join('')}</div>`:''}
+
+      ${certs.length?`<div class="mt-4">
+        <p class="text-xs font-medium uppercase tracking-wide text-nature-500 mb-1.5">Credentials</p>
+        <div class="flex flex-wrap gap-1.5">${certs.map(c=>`<span class="inline-flex items-center gap-1 text-xs bg-nature-100 rounded px-2 py-1">${ico('award')} ${c.file_name.replace(/\.pdf$/,'').replace(/-/g,' ')}</span>`).join('')}</div>
+      </div>`:''}
+    </div>
+
+    <div class="border-t border-nature-200 p-5">
+      <h2 class="font-semibold mb-3">Upcoming departures</h2>
+      ${live.length?`<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">${live.map(t=>publicTripCard(t)).join('')}</div>`
+        :`<p class="text-sm text-nature-500">No departures are on sale right now.</p>`}
+    </div>
+
+    ${p.company_portfolio.length?`<div class="border-t border-nature-200 p-5">
+      <h2 class="font-semibold mb-3">Past work</h2>
+      <div class="grid gap-3 sm:grid-cols-2">${p.company_portfolio.map(w=>`<div class="rounded-md border border-nature-200 p-3">
+        <div class="flex items-center justify-between gap-2"><p class="font-medium text-sm">${w.title}</p><span class="text-xs text-nature-500 tnum">${w.completed_year}</span></div>
+        <p class="text-sm text-nature-600 mt-1">${w.description}</p></div>`).join('')}</div>
+    </div>`:''}
+
+    ${revs.length?`<div class="border-t border-nature-200 p-5">
+      <h2 class="font-semibold mb-3">What travellers say</h2>
+      <div class="space-y-3">${revs.map(r=>`<div class="rounded-md border border-nature-200 p-3">
+        <div class="flex items-center gap-2"><span class="font-medium text-sm">${r.who}</span>${stars(r.rating)}
+          <span class="text-xs text-nature-400">· ${r.trip}</span></div>
+        <p class="text-sm text-nature-700 mt-1">${r.txt}</p></div>`).join('')}</div>
+    </div>`:''}
+  </div>`;
+}
+
+function publicTripCard(t){
+  const left = seatsLeft(t), rating = avgRating(t.name);
+  return `<button class="text-left rounded-lg border border-nature-200 hover:border-forest-400 hover:shadow-sm transition-all bg-white overflow-hidden" onclick="openPublicTrip(&#39;${t.id}&#39;)">
+    <div class="h-24 bg-gradient-to-br from-forest-300 to-nature-400"></div>
+    <div class="p-3">
+      <p class="font-medium text-sm">${t.name}</p>
+      <p class="text-xs text-nature-500">${t.destination} · ${t.days} days</p>
+      <p class="text-xs text-nature-500 mt-0.5">Departs ${t.dep}</p>
+      <div class="flex items-center justify-between mt-2">
+        <span class="tnum font-semibold text-sm">${INR(t.price)}</span>
+        ${left===null?'<span class="text-[11px] text-nature-400">seats on request</span>'
+          :left===0?'<span class="text-[11px] text-red-600 font-medium">Sold out</span>'
+          :`<span class="text-[11px] ${left<=2?'text-earth-800 font-medium':'text-nature-500'}">${left} seat${left===1?'':'s'} left</span>`}
+      </div>
+      ${rating!==null?`<p class="text-xs mt-1">${stars(rating)} <span class="text-nature-500 tnum">${rating}</span></p>`:''}
+    </div>
+  </button>`;
+}
+
+function publicBrowse(){
+  const live = publicTrips();
+  return card(`<div class="p-5">
+    <h2 class="font-semibold">All departures</h2>
+    <p class="text-sm text-nature-500">The <code class="font-mono">/trips</code> browse view, filtered to this organizer.</p>
+    ${live.length?`<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mt-4">${live.map(t=>publicTripCard(t)).join('')}</div>`
+      :`<div class="mt-4">${emptyState('Nothing on sale','Publish a departure and it appears here.')}</div>`}
+  </div>`);
+}
+
+function publicTripDetail(tid){
+  const t = tripRows().find(x=>x.id===tid);
+  if (!t) return card(`<div class="p-4">${emptyState('Trip not found','')}</div>`);
+  const reason = publicExclusionReason(t);
+  const left = seatsLeft(t), rating = avgRating(t.name), revs = publicReviews(t.name);
+  const bans = liveBanners('trip_detail').filter(b => !b.trip_id || b.trip_id===t.id);
+  const views = (tripViews().find(v=>v.trip===t.name)||{}).views || 0;
+  return `
+  ${reason?card(`<div class="p-3 text-sm text-earth-900">This departure is <strong>not publicly visible</strong> — ${reason}. You are seeing it because you own it.</div>`,'border-earth-300 bg-earth-50'):''}
+  <div class="rounded-xl overflow-hidden border border-nature-200 bg-white ${reason?'mt-3':''}">
+    <div class="h-40 bg-gradient-to-br from-forest-300 to-nature-400"></div>
+    <div class="p-5">
+      <button class="text-xs text-nature-500 hover:text-forest-700 mb-2" onclick="closePublicTrip()">← back to the listing</button>
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 class="text-xl font-semibold">${t.name}</h1>
+          <p class="text-sm text-nature-500">${t.destination} · ${t.days} days · departs ${t.dep}</p>
+          ${rating!==null?`<p class="text-sm mt-1">${stars(rating)} <span class="tnum font-medium">${rating}</span> <span class="text-nature-500">· ${revs.length} review${revs.length===1?'':'s'}</span></p>`:''}
+        </div>
+        <div class="text-right">
+          <p class="text-2xl font-semibold tnum">${INR(t.price)}</p>
+          <p class="text-xs text-nature-500">per person</p>
+        </div>
+      </div>
+
+      ${bans.length?`<div class="mt-4">${bans.map(b=>`<div class="rounded-lg bg-forest-600 text-white p-3">
+        <p class="font-medium text-sm">${b.headline}</p>${b.subtext?`<p class="text-xs text-forest-50/90">${b.subtext}</p>`:''}</div>`).join('')}</div>`:''}
+
+      <div class="mt-4 flex flex-wrap items-center gap-3">
+        ${left===null?'<span class="text-sm text-nature-500">Seats on request</span>'
+          :left===0?`<span class="text-sm text-red-600 font-medium">Sold out</span> ${btn('Join the waitlist','ghost','onclick="toast(&#39;Waitlist is a traveller-app surface&#39;)"')}`
+          :`<span class="text-sm ${left<=2?'text-earth-800 font-medium':'text-nature-600'}">${left} of ${t.max_participants} seats left</span>
+            ${btn('Book this trip','primary','onclick="toast(&#39;Booking flow is a traveller-app surface, not built here&#39;)"')}`}
+        ${btn('Share','ghost','onclick="toast(&#39;Share sheet — no dedicated route, per the booking spec&#39;)"')}
+      </div>
+
+      ${t.description?`<p class="text-sm text-nature-700 mt-4 leading-relaxed max-w-2xl">${t.description}</p>`
+        :`<p class="text-sm text-nature-400 mt-4">No description yet — generate one in AI studio and accept it.</p>`}
+
+      ${t.itinerary?`<div class="mt-5">
+        <h2 class="font-semibold text-sm mb-2">Itinerary</h2>
+        <ol class="space-y-1 text-sm">${t.itinerary.map(d=>`<li><span class="tnum text-nature-400">Day ${d.day}</span> · <span class="font-medium">${d.title}</span> — <span class="text-nature-600">${d.detail}</span></li>`).join('')}</ol>
+      </div>`:''}
+
+      ${revs.length?`<div class="mt-5 border-t border-nature-200 pt-4">
+        <h2 class="font-semibold text-sm mb-2">Reviews</h2>
+        <div class="space-y-2">${revs.map(r=>`<div class="rounded-md border border-nature-200 p-3">
+          <div class="flex items-center gap-2"><span class="font-medium text-sm">${r.who}</span>${stars(r.rating)}</div>
+          <p class="text-sm text-nature-700 mt-1">${r.txt}</p></div>`).join('')}</div>
+      </div>`:''}
+    </div>
+  </div>
+  ${card(`<div class="p-3 text-xs text-nature-500">Viewing this preview counted as a page view — this trip now has <span class="tnum font-medium">${views}</span> in <code class="font-mono">trip_daily_views</code>, which is what the Traffic &amp; funnel screen reads.</div>`,'mt-3')}`;
+}
 
 /* ---------- Phase 2 · AI screens ---------- */
 
@@ -3887,6 +4148,15 @@ function toast(msg){
   clearTimeout(toastT); toastT = setTimeout(()=>{ t.hidden = true; }, 2600);
 }
 window.toast = toast;
+
+/* ---- Branded public page actions ---- */
+window.setPublicSub = function(k){ STORE.set('publicSub', k); STORE.set('publicTrip', null); route(); };
+window.openPublicTrip = function(id){
+  recordTripView(id);          // a real visit would too — this is what feeds the funnel
+  STORE.set('publicTrip', id);
+  route();
+};
+window.closePublicTrip = function(){ STORE.set('publicTrip', null); route(); };
 
 /* ---- Phase 2 · AI actions ---- */
 window.setAiTrip = function(id){ STORE.set('aiTrip', id); route(); };
