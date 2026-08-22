@@ -213,3 +213,48 @@ model Wishlist {
   @@index([userId, priority, createdAt])
   @@map("wishlists")
 }
+
+enum UserActivityActorType {
+  user
+  organizer
+
+  @@map("user_activity_actor_type")
+}
+
+enum UserActivityType {
+  trip_view
+  trip_created
+  booking_made
+  chat_initiated
+  ticket_created
+  payment_made
+  profile_updated
+  document_uploaded
+  login
+  logout
+
+  @@map("user_activity_type")
+}
+
+// Migrated from the Mongoose UserActivity model (D10/D11, wave 2).
+// userId holds a Mongo ObjectId as a string - no FK until User lands in wave 9.
+// The Mongoose schema had no updatedAt, and this table keeps it that way: an
+// activity record is an append-only fact about something that already happened.
+model UserActivity {
+  id           String                @id @default(uuid())
+  userId       String                @map("user_id")
+  userType     UserActivityActorType @map("user_type")
+  activityType UserActivityType      @map("activity_type")
+  description  String
+  // Was a nested Mongoose sub-document of mixed types (tripId, bookingId,
+  // ticketId, paymentId, amount, ipAddress, userAgent, location). Kept as JSON
+  // rather than flattened into columns: nothing queries inside it today, and
+  // inventing eight nullable columns for that would be worse than honest JSON.
+  metadata     Json                  @default("{}")
+  createdAt    DateTime              @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@index([activityType])
+  @@index([createdAt])
+  @@map("user_activities")
+}

@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/roleCheck';
 import Lead from '../models/Lead';
-import UserActivity from '../models/UserActivity';
+import { prisma } from '../lib/prisma';
 import notificationService from '../services/notificationService';
 
 class LeadController {
@@ -51,12 +51,15 @@ class LeadController {
 
       // Track activity
       if (userId) {
-        await UserActivity.create({
-          userId,
-          userType: 'user',
-          activityType: 'trip_view',
-          description: `Viewed trip and created lead`,
-          metadata: { tripId, leadId: lead._id },
+        await prisma.userActivity.create({
+          data: {
+            userId: String(userId),
+            userType: 'user',
+            activityType: 'trip_view',
+            description: 'Viewed trip and created lead',
+            // ObjectIds have to be strings to survive a JSON column.
+            metadata: { tripId: String(tripId), leadId: String(lead._id) },
+          },
         });
       }
 

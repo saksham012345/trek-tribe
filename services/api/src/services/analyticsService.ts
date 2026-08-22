@@ -1,6 +1,6 @@
 import Lead from '../models/Lead';
 import Ticket from '../models/Ticket';
-import UserActivity from '../models/UserActivity';
+import { prisma } from '../lib/prisma';
 import TripVerification from '../models/TripVerification';
 import CRMSubscription from '../models/CRMSubscription';
 import mongoose from 'mongoose';
@@ -42,12 +42,16 @@ class AnalyticsService {
       });
 
       // Get user activity
-      const activities = await UserActivity.find({
-        userId: organizerId,
-        ...dateFilter,
-      })
-        .sort({ createdAt: -1 })
-        .limit(10);
+      // dateFilter stays Mongo-shaped for the Mongo queries around this one,
+      // so the Prisma range is built separately rather than reusing it.
+      const activities = await prisma.userActivity.findMany({
+        where: {
+          userId: organizerId,
+          ...(dateRange ? { createdAt: { gte: dateRange.start, lte: dateRange.end } } : {}),
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      });
 
       // Get subscription info
       const subscription = await CRMSubscription.findOne({
@@ -108,9 +112,11 @@ class AnalyticsService {
       });
 
       // Get recent activities
-      const activities = await UserActivity.find({ userId })
-        .sort({ createdAt: -1 })
-        .limit(10);
+      const activities = await prisma.userActivity.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      });
 
       // Get leads (if user showed interest in trips)
       const leads = await Lead.find({ userId }).sort({ createdAt: -1 }).limit(5);

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import Lead from '../models/Lead';
-import UserActivity from '../models/UserActivity';
+import { prisma } from '../lib/prisma';
 import { Trip } from '../models/Trip';
 import { logger } from '../utils/logger';
 
@@ -70,14 +70,16 @@ export const trackTripView = async (req: Request, res: Response, next: NextFunct
     }
 
     // Log activity
-    await UserActivity.create({
-      userId,
-      userType: 'user',
-      activityType: 'trip_view',
-      description: `Viewed trip (${viewData.viewCount} times)`,
-      metadata: {
-        tripId,
-        viewCount: viewData.viewCount,
+    await prisma.userActivity.create({
+      data: {
+        userId: String(userId),
+        userType: 'user',
+        activityType: 'trip_view',
+        description: `Viewed trip (${viewData.viewCount} times)`,
+        metadata: {
+          tripId: String(tripId),
+          viewCount: viewData.viewCount,
+        },
       },
     });
 

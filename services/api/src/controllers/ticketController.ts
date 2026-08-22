@@ -2,7 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/roleCheck';
 import Ticket from '../models/Ticket';
 import notificationService from '../services/notificationService';
-import UserActivity from '../models/UserActivity';
+import { prisma } from '../lib/prisma';
 
 class TicketController {
   /**
@@ -43,12 +43,14 @@ class TicketController {
       await ticket.save();
 
       // Track activity
-      await UserActivity.create({
-        userId: req.user.id,
-        userType: req.user.role === 'organizer' ? 'organizer' : 'user',
-        activityType: 'ticket_created',
-        description: `Created support ticket: ${subject}`,
-        metadata: { ticketId: ticket._id },
+      await prisma.userActivity.create({
+        data: {
+          userId: String(req.user.id),
+          userType: req.user.role === 'organizer' ? 'organizer' : 'user',
+          activityType: 'ticket_created',
+          description: `Created support ticket: ${subject}`,
+          metadata: { ticketId: String(ticket._id) },
+        },
       });
 
       // Notify admins about new ticket
