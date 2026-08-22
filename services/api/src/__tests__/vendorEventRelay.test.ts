@@ -79,7 +79,7 @@ describe('Vendor event relay', () => {
       _id: departingTripId,
       title: 'Reminder Test Trip',
       description: 'Test trip',
-      organizerId: 'organizer-reminder-test',
+      organizerId: '507f1f77bcf86cd799439012',
       destination: 'Manali',
       startDate: threeDaysOut,
       endDate: threeDaysOut,
@@ -91,7 +91,7 @@ describe('Vendor event relay', () => {
     });
 
     const vendor = await prisma.vendor.create({
-      data: { organizerId: 'organizer-reminder-test', businessName: 'Reminder Vendor', category: 'guide' }
+      data: { organizerId: '507f1f77bcf86cd799439012', businessName: 'Reminder Vendor', category: 'guide' }
     });
     await prisma.tripVendorAssignment.create({
       data: { tripId: departingTripId, vendorId: vendor.id, category: 'guide' }

@@ -58,7 +58,7 @@ export async function processUnprocessedVendorEvents() {
       await vendorNotificationQueue.add(
         'send-vendor-notification',
         { eventId: event.id, vendorId, eventType: event.eventType, payload },
-        { jobId: `${event.id}:${vendorId}` }
+        { jobId: `${event.id}_${vendorId}` }
       );
       enqueuedJobCount++;
     }
