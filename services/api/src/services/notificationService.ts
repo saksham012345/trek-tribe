@@ -1,4 +1,4 @@
-import Notification from '../models/Notification';
+import { prisma } from '../lib/prisma';
 import mongoose from 'mongoose';
 
 interface CreateNotificationParams {
@@ -23,20 +23,24 @@ class NotificationService {
    */
   async createNotification(params: CreateNotificationParams) {
     try {
-      const notification = new Notification({
-        userId: params.userId,
-        type: params.type,
-        title: params.title,
-        message: params.message,
-        priority: params.priority || 'medium',
-        actionUrl: params.actionUrl,
-        actionType: params.actionType,
-        relatedTo: params.relatedTo,
-        metadata: params.metadata,
-        emailSent: false,
+      // relatedTo was a nested { type, id }; it is two columns now, so a query
+      // like "unread booking notifications" reads a column instead of digging
+      // through JSON.
+      const notification = await prisma.notification.create({
+        data: {
+          userId: String(params.userId),
+          type: params.type,
+          title: params.title,
+          message: params.message,
+          priority: params.priority || 'medium',
+          actionUrl: params.actionUrl,
+          actionType: params.actionType,
+          relatedToType: params.relatedTo?.type,
+          relatedToId: params.relatedTo ? String(params.relatedTo.id) : undefined,
+          metadata: params.metadata ?? undefined,
+          emailSent: false,
+        }
       });
-
-      await notification.save();
 
       // Send email if requested
       if (params.sendEmail) {
@@ -63,9 +67,10 @@ class NotificationService {
         message: notification.message,
       });
 
-      notification.emailSent = true;
-      notification.emailSentAt = new Date();
-      await notification.save();
+      await prisma.notification.update({
+        where: { id: notification.id },
+        data: { emailSent: true, emailSentAt: new Date() }
+      });
     } catch (error) {
       console.error('Error sending email notification:', error);
     }
@@ -80,21 +85,21 @@ class NotificationService {
     unreadOnly?: boolean;
   } = {}) {
     try {
-      const query: any = { userId };
-      
+      const where: any = { userId };
+
       if (options.unreadOnly) {
-        query.isRead = false;
+        where.isRead = false;
       }
 
-      const notifications = await Notification.find(query)
-        .sort({ createdAt: -1 })
-        .limit(options.limit || 50)
-        .skip(options.skip || 0);
-
-      const unreadCount = await Notification.countDocuments({
-        userId,
-        isRead: false,
-      });
+      const [notifications, unreadCount] = await Promise.all([
+        prisma.notification.findMany({
+          where,
+          orderBy: { createdAt: 'desc' },
+          take: options.limit || 50,
+          skip: options.skip || 0
+        }),
+        prisma.notification.count({ where: { userId, isRead: false } })
+      ]);
 
       return {
         notifications,
@@ -111,14 +116,10 @@ class NotificationService {
    */
   async markAsRead(notificationId: string) {
     try {
-      const notification = await Notification.findByIdAndUpdate(
-        notificationId,
-        {
-          isRead: true,
-          readAt: new Date(),
-        },
-        { new: true }
-      );
+      const notification = await prisma.notification.update({
+        where: { id: notificationId },
+        data: { isRead: true, readAt: new Date() }
+      });
 
       return notification;
     } catch (error) {
@@ -132,13 +133,10 @@ class NotificationService {
    */
   async markAllAsRead(userId: string) {
     try {
-      await Notification.updateMany(
-        { userId, isRead: false },
-        {
-          isRead: true,
-          readAt: new Date(),
-        }
-      );
+      await prisma.notification.updateMany({
+        where: { userId, isRead: false },
+        data: { isRead: true, readAt: new Date() }
+      });
 
       return { success: true };
     } catch (error) {
@@ -155,12 +153,11 @@ class NotificationService {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
-      const result = await Notification.deleteMany({
-        createdAt: { $lt: cutoffDate },
-        isRead: true,
+      const result = await prisma.notification.deleteMany({
+        where: { createdAt: { lt: cutoffDate }, isRead: true }
       });
 
-      return result.deletedCount;
+      return result.count;
     } catch (error) {
       console.error('Error deleting old notifications:', error);
       throw error;

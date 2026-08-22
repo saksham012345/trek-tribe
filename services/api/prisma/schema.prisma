@@ -464,3 +464,234 @@ model ReviewFlag {
   @@index([reviewId])
   @@map("review_flags")
 }
+
+// ─── Wave 3: operational leaves (D10/D11) ────────────────────────────────────
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  VERIFY
+  PAYMENT
+  SUSPEND
+  APPROVE
+  REJECT
+  payment_captured
+  payment_failed
+  subscription_activated
+  subscription_charged
+  subscription_cancelled
+  subscription_paused
+  order_paid
+
+  @@map("audit_action")
+}
+
+enum AuditResource {
+  Trip
+  User
+  Payment
+  Subscription
+  Ticket
+  Lead
+  Review
+  Booking
+  Auth
+  MarketplaceOrder
+  MarketplaceTransfer
+  MarketplaceRefund
+
+  @@map("audit_resource")
+}
+
+enum AuditStatus {
+  SUCCESS
+  FAILURE
+  PENDING
+
+  @@map("audit_status")
+}
+
+// The Mongoose schema carried a TTL index dropping rows after 90 days:
+//   auditLogSchema.index({ timestamp: 1 }, { expireAfterSeconds: 7776000 })
+// Postgres has no TTL. Deleting the index silently would let this table grow
+// without bound, so the retention is a scheduled job instead -
+// scripts/prune-audit-logs.ts, which must actually be scheduled to run.
+model AuditLog {
+  id           String        @id @default(uuid())
+  userId       String        @map("user_id")
+  userEmail    String?       @map("user_email")
+  action       AuditAction
+  resource     AuditResource
+  resourceId   String?       @map("resource_id")
+  changesBefore Json?        @map("changes_before")
+  changesAfter  Json?        @map("changes_after")
+  metadata     Json          @default("{}")
+  timestamp    DateTime      @default(now())
+  status       AuditStatus   @default(SUCCESS)
+  errorMessage String?       @map("error_message")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  @@index([userId, timestamp])
+  @@index([resource, action, timestamp])
+  @@index([timestamp])
+  @@map("audit_logs")
+}
+
+enum NotificationType {
+  ticket
+  chat
+  verification
+  payment
+  booking
+  lead
+  system
+  reminder
+
+  @@map("notification_type")
+}
+
+enum NotificationPriority {
+  low
+  medium
+  high
+
+  @@map("notification_priority")
+}
+
+enum NotificationActionType {
+  view_ticket
+  view_trip
+  make_payment
+  verify_trip
+  respond_chat
+  view_lead
+
+  @@map("notification_action_type")
+}
+
+enum NotificationRelatedType {
+  ticket
+  trip
+  booking
+  payment
+  lead
+  chat
+
+  @@map("notification_related_type")
+}
+
+model Notification {
+  id            String                   @id @default(uuid())
+  userId        String                   @map("user_id")
+  type          NotificationType
+  title         String
+  message       String
+  priority      NotificationPriority     @default(medium)
+  isRead        Boolean                  @default(false) @map("is_read")
+  readAt        DateTime?                @map("read_at")
+  actionUrl     String?                  @map("action_url")
+  actionType    NotificationActionType?  @map("action_type")
+  // relatedTo was a nested { type, id } pair. Two columns rather than JSON, so
+  // "every unread booking notification" stays a query rather than a scan.
+  relatedToType NotificationRelatedType? @map("related_to_type")
+  relatedToId   String?                  @map("related_to_id")
+  metadata      Json?
+  emailSent     Boolean                  @default(false) @map("email_sent")
+  emailSentAt   DateTime?                @map("email_sent_at")
+  createdAt     DateTime                 @default(now()) @map("created_at")
+  updatedAt     DateTime                 @updatedAt @map("updated_at")
+
+  @@index([userId, createdAt])
+  @@index([isRead])
+  @@index([type])
+  @@map("notifications")
+}
+
+enum RetryJobStatus {
+  pending
+  in_progress
+  failed
+  completed
+  cancelled
+
+  @@map("retry_job_status")
+}
+
+model RetryJob {
+  id          String         @id @default(uuid())
+  jobType     String         @map("job_type")
+  referenceId String         @map("reference_id")
+  payload     Json?
+  retryCount  Int            @default(0) @map("retry_count")
+  maxRetries  Int            @default(5) @map("max_retries")
+  lastAttempt DateTime?      @map("last_attempt")
+  nextRetryAt DateTime       @default(now()) @map("next_retry_at")
+  status      RetryJobStatus @default(pending)
+  lastError   String?        @map("last_error")
+  lastResult  String?        @map("last_result")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  @@index([referenceId])
+  @@index([nextRetryAt, status])
+  @@map("retry_jobs")
+}
+
+// eventId is unique so a webhook replayed by the provider is recorded once.
+// That was already `unique: true` in Mongoose - one of the few invariants in
+// this codebase that was a real index rather than a hook.
+model WebhookEvent {
+  id          String    @id @default(uuid())
+  eventId     String    @unique @map("event_id")
+  source      String
+  processedAt DateTime? @map("processed_at")
+  rawPayload  Json?     @map("raw_payload")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@map("webhook_events")
+}
+
+enum SiteOverlayStyle {
+  light
+  dark
+
+  @@map("site_overlay_style")
+}
+
+// A singleton. `key` is unique and only ever holds 'global', which is how the
+// Mongoose model expressed it too - kept so upsert-by-key still works.
+model SiteSettings {
+  id  String @id @default(uuid())
+  key String @unique @default("global")
+
+  homeHeroImages            String[]         @default([]) @map("home_hero_images")
+  homeOverlayStyle          SiteOverlayStyle @default(light) @map("home_overlay_style")
+  homeFontFamily            String           @default("system-ui, -apple-system, Segoe UI, Roboto, sans-serif") @map("home_font_family")
+  homeDiscoverColumnsDesktop Int             @default(3) @map("home_discover_columns_desktop")
+  homeDiscoverColumnsMobile  Int             @default(2) @map("home_discover_columns_mobile")
+
+  contactSupportEmail String @default("support@trektribe.com") @map("contact_support_email")
+  contactOtpFromEmail String @default("support@trektribe.com") @map("contact_otp_from_email")
+  contactBookingFromEmail String @default("support@trektribe.com") @map("contact_booking_from_email")
+
+  notificationsEmailEnabled        Boolean @default(true) @map("notifications_email_enabled")
+  notificationsSmsEnabled          Boolean @default(false) @map("notifications_sms_enabled")
+  notificationsSendFollowerAlerts  Boolean @default(true) @map("notifications_send_follower_alerts")
+  notificationsTripReminderHours   Int     @default(24) @map("notifications_trip_reminder_hours")
+
+  integrationsPaymentProvider String  @default("razorpay") @map("integrations_payment_provider")
+  integrationsEmailProvider   String  @default("sendgrid") @map("integrations_email_provider")
+  integrationsSmsProvider     String  @default("disabled") @map("integrations_sms_provider")
+  integrationsTwilioFromNumber String  @default("") @map("integrations_twilio_from_number")
+
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("site_settings")
+}

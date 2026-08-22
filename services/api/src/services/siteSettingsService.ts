@@ -1,5 +1,17 @@
-import { SiteSettings } from '../models/SiteSettings';
+import { prisma } from '../lib/prisma';
 import { logger } from '../utils/logger';
+
+/**
+ * Site settings live in Postgres (D10/D11, wave 3), as one row keyed 'global'.
+ *
+ * The Mongoose document was nested - settings.home.heroImages,
+ * settings.notifications.tripReminderHours - and callers all over the codebase
+ * read it that way. The table is flat columns instead, so that a query like
+ * "is SMS on" is a column read rather than a JSON dig.
+ *
+ * The nested shape is this module's API, so it is rebuilt on the way out and
+ * flattened on the way in. Nothing outside this file changes.
+ */
 
 const DEFAULT_SITE_SETTINGS = {
   key: 'global' as const,
@@ -56,14 +68,83 @@ function deepMerge(target: any, patch: any): any {
   return result;
 }
 
-async function ensureSiteSettingsDoc() {
-  let doc = await SiteSettings.findOne({ key: 'global' });
-  if (!doc) {
-    doc = new SiteSettings(DEFAULT_SITE_SETTINGS);
-    await doc.save();
-    logger.info('Created default site settings');
-  }
-  return doc;
+/** Flat row -> the nested shape every caller expects. */
+function toNested(row: any) {
+  return {
+    key: row.key,
+    home: {
+      heroImages: row.homeHeroImages,
+      overlayStyle: row.homeOverlayStyle,
+      fontFamily: row.homeFontFamily,
+      discoverColumnsDesktop: row.homeDiscoverColumnsDesktop,
+      discoverColumnsMobile: row.homeDiscoverColumnsMobile
+    },
+    contact: {
+      supportEmail: row.contactSupportEmail,
+      otpFromEmail: row.contactOtpFromEmail,
+      bookingFromEmail: row.contactBookingFromEmail
+    },
+    notifications: {
+      emailEnabled: row.notificationsEmailEnabled,
+      smsEnabled: row.notificationsSmsEnabled,
+      sendFollowerTripAlerts: row.notificationsSendFollowerAlerts,
+      tripReminderHours: row.notificationsTripReminderHours
+    },
+    integrations: {
+      paymentProvider: row.integrationsPaymentProvider,
+      emailProvider: row.integrationsEmailProvider,
+      smsProvider: row.integrationsSmsProvider,
+      twilioFromNumber: row.integrationsTwilioFromNumber
+    },
+    updatedBy: row.updatedBy ?? undefined,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt
+  };
+}
+
+/** Nested shape -> the flat columns. Only keys actually present are returned. */
+function toColumns(nested: any) {
+  const out: Record<string, any> = {};
+  const set = (col: string, value: any) => {
+    if (value !== undefined) out[col] = value;
+  };
+
+  set('homeHeroImages', nested.home?.heroImages);
+  set('homeOverlayStyle', nested.home?.overlayStyle);
+  set('homeFontFamily', nested.home?.fontFamily);
+  set('homeDiscoverColumnsDesktop', nested.home?.discoverColumnsDesktop);
+  set('homeDiscoverColumnsMobile', nested.home?.discoverColumnsMobile);
+
+  set('contactSupportEmail', nested.contact?.supportEmail);
+  set('contactOtpFromEmail', nested.contact?.otpFromEmail);
+  set('contactBookingFromEmail', nested.contact?.bookingFromEmail);
+
+  set('notificationsEmailEnabled', nested.notifications?.emailEnabled);
+  set('notificationsSmsEnabled', nested.notifications?.smsEnabled);
+  set('notificationsSendFollowerAlerts', nested.notifications?.sendFollowerTripAlerts);
+  set('notificationsTripReminderHours', nested.notifications?.tripReminderHours);
+
+  set('integrationsPaymentProvider', nested.integrations?.paymentProvider);
+  set('integrationsEmailProvider', nested.integrations?.emailProvider);
+  set('integrationsSmsProvider', nested.integrations?.smsProvider);
+  set('integrationsTwilioFromNumber', nested.integrations?.twilioFromNumber);
+
+  return out;
+}
+
+async function ensureSiteSettingsRow() {
+  // `key` is unique, so two callers racing to create the first row cannot both
+  // win - the second gets the row the first made.
+  const existing = await prisma.siteSettings.findUnique({ where: { key: 'global' } });
+  if (existing) return existing;
+
+  const created = await prisma.siteSettings.upsert({
+    where: { key: 'global' },
+    create: { key: 'global', ...toColumns(DEFAULT_SITE_SETTINGS) },
+    update: {}
+  });
+  logger.info('Created default site settings');
+  return created;
 }
 
 export async function getSiteSettings(forceRefresh = false) {
@@ -72,34 +153,36 @@ export async function getSiteSettings(forceRefresh = false) {
     return cachedSettings;
   }
 
-  const doc = await ensureSiteSettingsDoc();
-  const settings = doc.toObject();
+  const row = await ensureSiteSettingsRow();
+  const settings = toNested(row);
   cachedSettings = settings;
   cacheUpdatedAt = now;
   return settings;
 }
 
 export async function updateSiteSettings(patch: Record<string, any>, updatedBy?: string) {
-  const doc = await ensureSiteSettingsDoc();
-  const merged = deepMerge(doc.toObject(), patch);
-  doc.set(merged);
-  if (updatedBy) {
-    (doc as any).updatedBy = updatedBy;
-  }
-  await doc.save();
-  cachedSettings = doc.toObject();
+  const row = await ensureSiteSettingsRow();
+  const merged = deepMerge(toNested(row), patch);
+
+  const updated = await prisma.siteSettings.update({
+    where: { key: 'global' },
+    data: { ...toColumns(merged), ...(updatedBy ? { updatedBy } : {}) }
+  });
+
+  cachedSettings = toNested(updated);
   cacheUpdatedAt = Date.now();
   return cachedSettings;
 }
 
 export async function resetSiteSettings(updatedBy?: string) {
-  const doc = await ensureSiteSettingsDoc();
-  doc.set(DEFAULT_SITE_SETTINGS as any);
-  if (updatedBy) {
-    (doc as any).updatedBy = updatedBy;
-  }
-  await doc.save();
-  cachedSettings = doc.toObject();
+  await ensureSiteSettingsRow();
+
+  const updated = await prisma.siteSettings.update({
+    where: { key: 'global' },
+    data: { ...toColumns(DEFAULT_SITE_SETTINGS), ...(updatedBy ? { updatedBy } : {}) }
+  });
+
+  cachedSettings = toNested(updated);
   cacheUpdatedAt = Date.now();
   return cachedSettings;
 }
@@ -117,4 +200,3 @@ export function getPublicSiteSettings(settings: any) {
 }
 
 export { DEFAULT_SITE_SETTINGS };
-

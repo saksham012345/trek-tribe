@@ -2,7 +2,6 @@ import { retryQueueService } from './retryQueueService';
 import { paymentsRetryAttempts, paymentsFailedTotal, paymentsSuccessTotal } from '../middleware/metrics';
 import { logger } from '../utils/logger';
 import Razorpay from 'razorpay';
-import RetryJob from '../models/RetryJob';
 import { razorpayService } from './razorpayService';
 import CRMSubscription from '../models/CRMSubscription';
 
@@ -28,11 +27,13 @@ class ChargeRetryWorker {
 
     for (const job of jobs) {
       try {
-        await retryQueueService.markInProgress(job._id.toString());
+        await retryQueueService.markInProgress(job.id);
         paymentsRetryAttempts.inc();
 
         if (job.jobType === 'charge') {
-          const payload = job.payload || {};
+          // payload is a JSON column, so its shape is asserted here rather
+          // than being implied by a Mixed field.
+          const payload = (job.payload || {}) as Record<string, any>;
           // Payload expected: { organizerId, subscriptionId, razorpayCustomerId, paymentMethodId, amount, orderId }
           const { organizerId, subscriptionId, razorpayCustomerId, paymentMethodId, amount, orderId } = payload;
 
@@ -46,7 +47,7 @@ class ChargeRetryWorker {
 
             // Update subscription and mark job complete
             paymentsSuccessTotal.inc();
-            await retryQueueService.complete(job._id.toString());
+            await retryQueueService.complete(job.id);
 
             // Persist attempt to subscription
             if (subscriptionId) {
@@ -69,17 +70,17 @@ class ChargeRetryWorker {
 
           } catch (err: any) {
             paymentsFailedTotal.inc();
-            const nextRetry = await retryQueueService.fail(job._id.toString(), err.message || String(err), job.retryCount + 1, job.maxRetries);
+            const nextRetry = await retryQueueService.fail(job.id, err.message || String(err), job.retryCount + 1, job.maxRetries);
             const nextRetryAt = (nextRetry as any)?.nextRetryAt;
-            logger.warn('ChargeRetryWorker: charge failed, scheduled retry', { jobId: job._id.toString(), nextRetryAt });
+            logger.warn('ChargeRetryWorker: charge failed, scheduled retry', { jobId: job.id, nextRetryAt });
           }
         } else {
           // Unknown job type - cancel
-          await retryQueueService.cancel(job._id.toString());
-          logger.warn('ChargeRetryWorker: unknown job type, cancelled', { jobType: job.jobType, jobId: job._id.toString() });
+          await retryQueueService.cancel(job.id);
+          logger.warn('ChargeRetryWorker: unknown job type, cancelled', { jobType: job.jobType, jobId: job.id });
         }
       } catch (error: any) {
-        logger.error('ChargeRetryWorker error processing job', { error: error.message, jobId: job._id?.toString() });
+        logger.error('ChargeRetryWorker error processing job', { error: error.message, jobId: job.id });
       }
     }
   }

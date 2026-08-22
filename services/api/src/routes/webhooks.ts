@@ -9,7 +9,7 @@ import { emailService } from '../services/emailService';
 import { emailTemplates } from '../templates/emailTemplates';
 import { logger } from '../utils/logger';
 import { auditLogService } from '../services/auditLogService';
-import WebhookEvent from '../models/WebhookEvent';
+import { prisma } from '../lib/prisma';
 import { MarketplaceOrder } from '../models/MarketplaceOrder';
 import { MarketplaceTransfer } from '../models/MarketplaceTransfer';
 import { MarketplaceRefund } from '../models/MarketplaceRefund';
@@ -89,7 +89,7 @@ router.post('/razorpay', async (req: Request, res: Response) => {
     }
 
     // If this event was already processed, acknowledge quickly
-    const existingEvent = await WebhookEvent.findOne({ eventId, source: 'razorpay' });
+    const existingEvent = await prisma.webhookEvent.findUnique({ where: { eventId } });
     if (existingEvent) {
       logger.info('Duplicate webhook ignored (already processed)', { eventId, event });
       return res.status(200).json({ status: 'already_processed' });
@@ -139,7 +139,15 @@ router.post('/razorpay', async (req: Request, res: Response) => {
 
     // Mark event processed for idempotency
     try {
-      await WebhookEvent.create({ eventId, source: 'razorpay', processedAt: new Date(), rawPayload: req.body });
+      // eventId is unique, so a webhook the provider replays while the first
+      // call is still in flight collides here instead of being processed twice.
+      try {
+        await prisma.webhookEvent.create({
+          data: { eventId, source: 'razorpay', processedAt: new Date(), rawPayload: req.body }
+        });
+      } catch (err: any) {
+        if (err?.code !== 'P2002') throw err;
+      }
     } catch (dbErr: any) {
       logger.warn('Failed to persist webhook event for idempotency', { error: dbErr.message, eventId });
     }

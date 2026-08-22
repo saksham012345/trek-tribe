@@ -16,7 +16,7 @@ import { SupportTicket } from '../../models/SupportTicket';
 import { VerificationRequest } from '../../models/VerificationRequest';
 import { logger } from '../../utils/logger';
 import { emailService } from '../../services/emailService';
-import RetryJob from '../../models/RetryJob';
+
 import TrustScoreService from '../../services/trustScoreService';
 import { emailQueue } from '../../services/emailQueueService';
 
@@ -880,25 +880,29 @@ export async function verifyOrganizer(adminId: string, userId: string, status: '
 
 export async function listRetryJobs(page: number, limit: number) {
   const skip = (page - 1) * limit;
-  const jobs = await RetryJob.find({}).sort({ createdAt: -1 }).limit(limit).skip(skip).lean();
-  const total = await RetryJob.countDocuments({});
+  const [jobs, total] = await Promise.all([
+    prisma.retryJob.findMany({ orderBy: { createdAt: 'desc' }, take: limit, skip }),
+    prisma.retryJob.count()
+  ]);
   return { data: jobs, pagination: { page, limit, total } };
 }
 
 export async function retryJob(jobId: string) {
-  const job = await RetryJob.findById(jobId);
+  const job = await prisma.retryJob.findUnique({ where: { id: jobId } });
   if (!job) throw Object.assign(new Error('Retry job not found'), { status: 404 });
-  job.status = 'pending';
-  job.nextRetryAt = new Date();
-  job.retryCount = 0;
-  await job.save();
-  return { success: true, job };
+  const updated = await prisma.retryJob.update({
+    where: { id: jobId },
+    data: { status: 'pending', nextRetryAt: new Date(), retryCount: 0 }
+  });
+  return { success: true, job: updated };
 }
 
 export async function cancelJob(jobId: string) {
-  const job = await RetryJob.findById(jobId);
+  const job = await prisma.retryJob.findUnique({ where: { id: jobId } });
   if (!job) throw Object.assign(new Error('Retry job not found'), { status: 404 });
-  job.status = 'cancelled';
-  await job.save();
-  return { success: true, job };
+  const updated = await prisma.retryJob.update({
+    where: { id: jobId },
+    data: { status: 'cancelled' }
+  });
+  return { success: true, job: updated };
 }

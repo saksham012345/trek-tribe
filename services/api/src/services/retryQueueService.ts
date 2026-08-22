@@ -1,4 +1,5 @@
-import RetryJob, { IRetryJob } from '../models/RetryJob';
+import { RetryJob as RetryJobRow } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import { logger } from '../utils/logger';
 import { paymentsRetriesTotal } from '../middleware/metrics';
 
@@ -10,12 +11,14 @@ import { paymentsRetriesTotal } from '../middleware/metrics';
  */
 class RetryQueueService {
   // Add a new job
-  async enqueue(jobType: string, referenceId: string, payload: any, delayMs = 0, maxRetries = 5): Promise<IRetryJob> {
+  async enqueue(jobType: string, referenceId: string, payload: any, delayMs = 0, maxRetries = 5): Promise<RetryJobRow> {
     try {
       const nextRetryAt = delayMs > 0 ? new Date(Date.now() + delayMs) : new Date();
-      const job = await RetryJob.create({ jobType, referenceId, payload, nextRetryAt, status: 'pending', maxRetries });
+      const job = await prisma.retryJob.create({
+        data: { jobType, referenceId, payload, nextRetryAt, status: 'pending', maxRetries }
+      });
       paymentsRetriesTotal.inc();
-      logger.info('Enqueued retry job', { jobId: job._id, jobType, referenceId });
+      logger.info('Enqueued retry job', { jobId: job.id, jobType, referenceId });
       return job;
     } catch (err: any) {
       logger.error('Failed to enqueue retry job', { error: err.message });
@@ -24,33 +27,37 @@ class RetryQueueService {
   }
 
   // Get due jobs up to limit
-  async getDueJobs(limit = 10): Promise<IRetryJob[]> {
+  async getDueJobs(limit = 10): Promise<RetryJobRow[]> {
     const now = new Date();
-    const results = await RetryJob.find({ status: 'pending', nextRetryAt: { $lte: now } })
-      .sort({ nextRetryAt: 1 })
-      .limit(limit)
-      .lean();
-    return results as unknown as IRetryJob[];
+    return await prisma.retryJob.findMany({
+      where: { status: 'pending', nextRetryAt: { lte: now } },
+      orderBy: { nextRetryAt: 'asc' },
+      take: limit
+    });
   }
 
   async markInProgress(jobId: string): Promise<void> {
-    await RetryJob.findByIdAndUpdate(jobId, { status: 'in_progress', lastAttempt: new Date() });
+    await prisma.retryJob.update({ where: { id: jobId }, data: { status: 'in_progress', lastAttempt: new Date() } });
   }
 
   async complete(jobId: string): Promise<void> {
-    await RetryJob.findByIdAndUpdate(jobId, { status: 'completed' });
+    await prisma.retryJob.update({ where: { id: jobId }, data: { status: 'completed' } });
   }
 
   // (Original fail implementation removed — unified fail handled below to provide
   // backward-compatible signatures used by worker code.)
 
   async cancelJob(jobId: string): Promise<void> {
-    await RetryJob.findByIdAndUpdate(jobId, { status: 'cancelled' });
+    await prisma.retryJob.update({ where: { id: jobId }, data: { status: 'cancelled' } });
   }
 
   async list(filter: any = {}, limit = 50, skip = 0) {
-    const query = RetryJob.find(filter).sort({ createdAt: -1 }).limit(limit).skip(skip);
-    return query;
+    return await prisma.retryJob.findMany({
+      where: filter,
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      skip
+    });
   }
 
   calculateBackoffMs(retryCount: number) {
@@ -61,7 +68,7 @@ class RetryQueueService {
   }
 
   // Compatibility aliases used by workers
-  async dequeueDue(limit = 10): Promise<IRetryJob[]> {
+  async dequeueDue(limit = 10): Promise<RetryJobRow[]> {
     return this.getDueJobs(limit);
   }
 
@@ -92,20 +99,23 @@ class RetryQueueService {
       return existing.call(this, jobId, errMsg, retryDelayMs);
     }
     // fallback: update job directly
-    const job = await RetryJob.findById(jobId);
+    const job = await prisma.retryJob.findUnique({ where: { id: jobId } });
     if (!job) return;
-    job.retryCount = (job.retryCount || 0) + 1;
-    job.lastError = errMsg;
-    job.lastAttempt = new Date();
-    if (typeof retryDelayMs === 'number' && retryDelayMs > 0 && job.retryCount < (job.maxRetries || 5)) {
-      job.nextRetryAt = new Date(Date.now() + retryDelayMs);
-      job.status = 'pending';
-    } else if (job.retryCount >= (job.maxRetries || 5)) {
-      job.status = 'failed';
-    } else {
-      job.status = 'failed';
-    }
-    await job.save();
+    const retryCount = (job.retryCount || 0) + 1;
+    const maxRetries = job.maxRetries || 5;
+    const willRetry =
+      typeof retryDelayMs === 'number' && retryDelayMs > 0 && retryCount < maxRetries;
+
+    await prisma.retryJob.update({
+      where: { id: jobId },
+      data: {
+        retryCount,
+        lastError: errMsg,
+        lastAttempt: new Date(),
+        status: willRetry ? 'pending' : 'failed',
+        ...(willRetry ? { nextRetryAt: new Date(Date.now() + retryDelayMs) } : {})
+      }
+    });
   }
 
   async cancel(jobId: string): Promise<void> {
