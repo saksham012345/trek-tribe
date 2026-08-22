@@ -258,3 +258,93 @@ model UserActivity {
   @@index([createdAt])
   @@map("user_activities")
 }
+
+enum PostType {
+  trip_memory
+  general_post
+  link_share
+  experience
+
+  @@map("post_type")
+}
+
+// Migrated from the Mongoose Post model (D10/D11, wave 2).
+// Post and Comment moved together: Comment.postId points at Post and Post held a
+// comments array pointing back, so neither could be split from the other.
+model Post {
+  id        String   @id @default(uuid())
+  authorId  String   @map("author_id")
+  type      PostType
+  title     String   @db.VarChar(200)
+  content   String   @db.VarChar(2000)
+  images    String[] @default([])
+  // Arrays of objects in the Mongoose schema. Nothing queries inside them, so
+  // they stay JSON rather than becoming child tables nobody joins to.
+  links     Json     @default("[]")
+  tripData  Json?    @map("trip_data")
+  tags      String[] @default([]) @db.VarChar(30)
+  isPublic  Boolean  @default(true) @map("is_public")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // The Mongoose Post carried a `comments: ObjectId[]` alongside Comment.postId -
+  // the same fact written twice, which is what DoD-3 warns about. The array is
+  // gone; this relation is the single source of truth.
+  comments Comment[]
+  likes    PostLike[]
+
+  @@index([authorId])
+  @@index([type])
+  @@index([isPublic])
+  @@map("posts")
+}
+
+// Was `likes: ObjectId[]` on the post. As an array, "one like per user" could
+// only ever be a check in application code. Here it is a unique constraint.
+model PostLike {
+  id        String   @id @default(uuid())
+  postId    String   @map("post_id")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([userId])
+  @@map("post_likes")
+}
+
+// Migrated from the Mongoose Comment model (D10/D11, wave 2).
+model Comment {
+  id              String   @id @default(uuid())
+  postId          String   @map("post_id")
+  authorId        String   @map("author_id")
+  content         String   @db.VarChar(500)
+  parentCommentId String?  @map("parent_comment_id")
+  isEdited        Boolean  @default(false) @map("is_edited")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  post          Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parentComment Comment?      @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies       Comment[]     @relation("CommentReplies")
+  likes         CommentLike[]
+
+  @@index([postId])
+  @@index([authorId])
+  @@index([parentCommentId])
+  @@map("comments")
+}
+
+model CommentLike {
+  id        String   @id @default(uuid())
+  commentId String   @map("comment_id")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId])
+  @@index([userId])
+  @@map("comment_likes")
+}
