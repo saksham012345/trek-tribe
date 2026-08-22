@@ -186,3 +186,30 @@ model Follow {
   @@index([followingId])
   @@map("follows")
 }
+
+enum WishlistPriority {
+  low
+  medium
+  high
+
+  @@map("wishlist_priority")
+}
+
+// Migrated from the Mongoose Wishlist model (D10/D11, wave 2).
+// userId/tripId hold Mongo ObjectIds as strings - no FK until User and Trip land.
+model Wishlist {
+  id        String           @id @default(uuid())
+  userId    String           @map("user_id")
+  tripId    String           @map("trip_id")
+  notes     String?
+  priority  WishlistPriority @default(medium)
+  tags      String[]         @default([]) @db.VarChar(50)
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  @@unique([userId, tripId])
+  @@index([userId])
+  @@index([tripId])
+  @@index([userId, priority, createdAt])
+  @@map("wishlists")
+}

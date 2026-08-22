@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
 import { User } from '../models/User';
 import { Trip } from '../models/Trip';
-import { Wishlist } from '../models/Wishlist';
+import { prisma } from '../lib/prisma';
 import Lead from '../models/Lead';
 import { logger } from '../utils/logger';
 
@@ -122,7 +122,24 @@ router.get('/:uniqueUrl', async (req, res) => {
       try {
         // Wishlist (joins trip info)
         // Ensure we pass an ObjectId to the wishlist static method to satisfy typings
-        wishlistData = await Wishlist.getUserWishlistWithTrips(new mongoose.Types.ObjectId(String(user._id)), { limit: 20 });
+        // Was Wishlist.getUserWishlistWithTrips, a $lookup aggregation. The rows
+        // are in Postgres and the trips are in Mongo, so this is two reads now.
+        const rows = await prisma.wishlist.findMany({
+          where: { userId: String(user._id) },
+          orderBy: { createdAt: 'desc' },
+          take: 20
+        });
+        const trips = rows.length
+          ? await Trip.find({ _id: { $in: rows.map(r => r.tripId) }, status: 'active' })
+              .select('title description destination price startDate endDate capacity images coverImage categories')
+              .lean()
+          : [];
+        const tripById = new Map(trips.map((t: any) => [t._id.toString(), t]));
+        wishlistData = {
+          items: rows
+            .map(r => ({ ...r, trip: tripById.get(r.tripId) }))
+            .filter(x => x.trip !== undefined)
+        };
       } catch (e) {
         logger.warn('Failed to load wishlist for owner view', { userId: user._id, err: e });
       }

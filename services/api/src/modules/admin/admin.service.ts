@@ -7,8 +7,9 @@
 
 import { User } from '../../models/User';
 import { Trip } from '../../models/Trip';
+import { prisma } from '../../lib/prisma';
 import { Review } from '../../models/Review';
-import { Wishlist } from '../../models/Wishlist';
+
 import CRMSubscription from '../../models/CRMSubscription';
 import { OrganizerSubscription } from '../../models/OrganizerSubscription';
 import { SupportTicket } from '../../models/SupportTicket';
@@ -27,7 +28,7 @@ export async function getDashboardStats() {
       User.countDocuments(),
       Trip.countDocuments(),
       Review.countDocuments(),
-      Wishlist.countDocuments(),
+      prisma.wishlist.count(),
       SupportTicket.countDocuments(),
       CRMSubscription.countDocuments({ status: 'active' }),
     ]);
@@ -262,7 +263,7 @@ export async function deleteUser(adminId: string, userId: string) {
 
   await Promise.all([
     Review.deleteMany({ reviewerId: userId }),
-    Wishlist.deleteMany({ userId }),
+    prisma.wishlist.deleteMany({ where: { userId: String(userId) } }),
     Trip.updateMany({ participants: userId }, { $pull: { participants: userId } }),
   ]);
   await User.findByIdAndDelete(userId);
@@ -383,7 +384,7 @@ export async function deleteTrip(adminId: string, tripId: string) {
 
   await Promise.all([
     Review.deleteMany({ targetId: tripId, reviewType: 'trip' }),
-    Wishlist.deleteMany({ tripId }),
+    prisma.wishlist.deleteMany({ where: { tripId: String(tripId) } }),
   ]);
   await Trip.findByIdAndDelete(tripId);
 
@@ -407,9 +408,11 @@ export async function performCleanup(adminId: string) {
   const orphanedReviewsResult = await Review.deleteMany({
     $or: [{ reviewerId: { $exists: false } }, { targetId: { $exists: false } }],
   });
-  const orphanedWishlistsResult = await Wishlist.deleteMany({
-    $or: [{ userId: { $exists: false } }, { tripId: { $exists: false } }],
-  });
+  // Wishlists moved to Postgres (D10/D11 wave 2), where user_id and trip_id are
+  // NOT NULL - so the orphan this used to sweep up can no longer be created.
+  // Rows pointing at a *deleted* Mongo user or trip are a different problem and
+  // are deliberately not swept here: that would be new behaviour, not a port.
+  const orphanedWishlistsResult = { deletedCount: 0 };
   const expiredTripsResult = await Trip.updateMany(
     { endDate: { $lt: new Date() }, status: 'active' },
     { status: 'completed' }
