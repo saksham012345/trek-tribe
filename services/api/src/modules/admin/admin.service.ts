@@ -8,7 +8,7 @@
 import { User } from '../../models/User';
 import { Trip } from '../../models/Trip';
 import { prisma } from '../../lib/prisma';
-import { Review } from '../../models/Review';
+
 
 import CRMSubscription from '../../models/CRMSubscription';
 import { OrganizerSubscription } from '../../models/OrganizerSubscription';
@@ -27,7 +27,7 @@ export async function getDashboardStats() {
     await Promise.all([
       User.countDocuments(),
       Trip.countDocuments(),
-      Review.countDocuments(),
+      prisma.review.count(),
       prisma.wishlist.count(),
       SupportTicket.countDocuments(),
       CRMSubscription.countDocuments({ status: 'active' }),
@@ -262,7 +262,7 @@ export async function deleteUser(adminId: string, userId: string) {
   if (!user) throw Object.assign(new Error('User not found'), { status: 404 });
 
   await Promise.all([
-    Review.deleteMany({ reviewerId: userId }),
+    prisma.review.deleteMany({ where: { reviewerId: String(userId) } }),
     prisma.wishlist.deleteMany({ where: { userId: String(userId) } }),
     Trip.updateMany({ participants: userId }, { $pull: { participants: userId } }),
   ]);
@@ -383,7 +383,7 @@ export async function deleteTrip(adminId: string, tripId: string) {
   if (!trip) throw Object.assign(new Error('Trip not found'), { status: 404 });
 
   await Promise.all([
-    Review.deleteMany({ targetId: tripId, reviewType: 'trip' }),
+    prisma.review.deleteMany({ where: { targetId: String(tripId), reviewType: 'trip' } }),
     prisma.wishlist.deleteMany({ where: { tripId: String(tripId) } }),
   ]);
   await Trip.findByIdAndDelete(tripId);
@@ -405,9 +405,9 @@ export async function getEmailHealth() {
 }
 
 export async function performCleanup(adminId: string) {
-  const orphanedReviewsResult = await Review.deleteMany({
-    $or: [{ reviewerId: { $exists: false } }, { targetId: { $exists: false } }],
-  });
+  // Reviews moved to Postgres (D10/D11 wave 2), where reviewer_id and target_id
+  // are NOT NULL, so the orphan this swept up can no longer be created.
+  const orphanedReviewsResult = { deletedCount: 0 };
   // Wishlists moved to Postgres (D10/D11 wave 2), where user_id and trip_id are
   // NOT NULL - so the orphan this used to sweep up can no longer be created.
   // Rows pointing at a *deleted* Mongo user or trip are a different problem and

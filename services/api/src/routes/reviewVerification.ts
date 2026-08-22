@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { auth, requireRole, AuthPayload } from '../middleware/auth';
-import { Review } from '../models/Review';
+import { Prisma, ReviewType } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import { Trip } from '../models/Trip';
 import { User } from '../models/User';
 import { logger } from '../utils/logger';
@@ -8,12 +9,63 @@ import mongoose from 'mongoose';
 
 import { AuthenticatedRequest } from '../types/app-types';
 
-// Extend Request interface
-// interface AuthenticatedRequest extends Request {
-//   user: AuthPayload;
-// }
+/**
+ * Review moderation against Postgres (D10/D11, wave 2).
+ *
+ * Flags were an array of objects on the review document, and this file already
+ * checked "has this user flagged already" in application code - so the
+ * uniqueness was intended, it just was not enforced. Flags are rows in
+ * review_flags now with one-per-user as a constraint, and the auto-flag
+ * threshold counts those rows.
+ *
+ * Reviewer and target details still come from Mongo, so the populate() calls
+ * became explicit lookups. targetId points at either a Trip or a User depending
+ * on reviewType, which populate() could never express correctly anyway - it was
+ * given a single ref and quietly returned nothing for half the rows.
+ */
 
 const router = express.Router();
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Attach reviewer, target and flag count from wherever each actually lives.
+ * targetId is a Trip for reviewType 'trip' and a User for 'organizer'.
+ */
+async function decorate(rows: any[]) {
+  if (rows.length === 0) return [];
+
+  const reviewerIds = rows.map(r => r.reviewerId);
+  const adminIds = rows.flatMap(r => [r.verifiedBy, r.rejectedBy, r.moderatedBy].filter(Boolean));
+  const tripTargets = rows.filter(r => r.reviewType === 'trip').map(r => r.targetId);
+  const userTargets = rows.filter(r => r.reviewType === 'organizer').map(r => r.targetId);
+
+  const [people, trips] = await Promise.all([
+    User.find({ _id: { $in: [...reviewerIds, ...adminIds, ...userTargets] } })
+      .select('name email profilePhoto')
+      .lean(),
+    tripTargets.length
+      ? Trip.find({ _id: { $in: tripTargets } }).select('title').lean()
+      : Promise.resolve([])
+  ]);
+
+  const personById = new Map(people.map((u: any) => [u._id.toString(), u]));
+  const tripById = new Map(trips.map((t: any) => [t._id.toString(), t]));
+
+  return rows.map(r => {
+    const { _count, ...rest } = r;
+    return {
+      ...rest,
+      reviewer: personById.get(r.reviewerId) ?? null,
+      target: r.reviewType === 'trip'
+        ? tripById.get(r.targetId) ?? null
+        : personById.get(r.targetId) ?? null,
+      verifiedByUser: r.verifiedBy ? personById.get(r.verifiedBy) ?? null : null,
+      rejectedByUser: r.rejectedBy ? personById.get(r.rejectedBy) ?? null : null,
+      totalFlags: _count?.flags ?? 0
+    };
+  });
+}
 
 /**
  * @route GET /api/review-verification/pending
@@ -24,25 +76,25 @@ router.get('/pending', auth, requireRole(['admin']), async (req: AuthenticatedRe
   try {
     const { page = 1, limit = 20, reviewType } = req.query;
 
-    const filter: any = {
-      isVerified: false,
-      isRejected: { $ne: true }
-    };
-
+    const where: Prisma.ReviewWhereInput = { isVerified: false, isRejected: false };
     if (reviewType && typeof reviewType === 'string') {
-      filter.reviewType = reviewType;
+      where.reviewType = reviewType as ReviewType;
     }
 
     const skip = (Number(page) - 1) * Number(limit);
 
-    const reviews = await Review.find(filter)
-      .populate('reviewerId', 'name email profilePhoto')
-      .populate('targetId', 'title name')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(Number(limit));
+    const [rows, total] = await Promise.all([
+      prisma.review.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: Number(limit),
+        include: { _count: { select: { flags: true } } }
+      }),
+      prisma.review.count({ where })
+    ]);
 
-    const total = await Review.countDocuments(filter);
+    const reviews = await decorate(rows);
 
     res.json({
       success: true,
@@ -75,17 +127,21 @@ router.get('/flagged', auth, requireRole(['admin']), async (req: AuthenticatedRe
   try {
     const { page = 1, limit = 20 } = req.query;
 
-    const filter = { isFlagged: true };
+    const where: Prisma.ReviewWhereInput = { isFlagged: true };
     const skip = (Number(page) - 1) * Number(limit);
 
-    const reviews = await Review.find(filter)
-      .populate('reviewerId', 'name email profilePhoto')
-      .populate('targetId', 'title name')
-      .sort({ flaggedAt: -1 })
-      .skip(skip)
-      .limit(Number(limit));
+    const [rows, total] = await Promise.all([
+      prisma.review.findMany({
+        where,
+        orderBy: { flaggedAt: 'desc' },
+        skip,
+        take: Number(limit),
+        include: { _count: { select: { flags: true } } }
+      }),
+      prisma.review.count({ where })
+    ]);
 
-    const total = await Review.countDocuments(filter);
+    const reviews = await decorate(rows);
 
     res.json({
       success: true,
@@ -110,297 +166,12 @@ router.get('/flagged', auth, requireRole(['admin']), async (req: AuthenticatedRe
 });
 
 /**
- * @route PUT /api/review-verification/:reviewId/verify
- * @description Verify a review
- * @access Private (Admin only)
- */
-router.put('/:reviewId/verify', auth, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const { verificationNotes } = req.body;
-
-    const review = await Review.findById(req.params.reviewId);
-    if (!review) {
-      return res.status(404).json({
-        success: false,
-        message: 'Review not found'
-      });
-    }
-
-    if (review.isVerified) {
-      return res.status(400).json({
-        success: false,
-        message: 'Review is already verified'
-      });
-    }
-
-    // Update review verification status
-    review.isVerified = true;
-    review.verifiedAt = new Date();
-    review.verifiedBy = new mongoose.Types.ObjectId(req.user.id);
-    review.verificationNotes = verificationNotes || '';
-    review.isFlagged = false; // Clear flag if it was flagged
-    review.isRejected = false; // Clear rejection if it was rejected
-
-    await review.save();
-
-    // Update trip/organizer average rating
-    const trip = await Trip.findById(review.targetId || review.tripId);
-    if (trip && review.reviewType === 'trip') {
-      const verifiedReviews = await Review.find({
-        targetId: trip._id,
-        reviewType: 'trip',
-        isVerified: true
-      });
-
-      if (verifiedReviews.length > 0) {
-        const totalRating = verifiedReviews.reduce((sum, r) => sum + r.rating, 0);
-        trip.averageRating = totalRating / verifiedReviews.length;
-        trip.reviewCount = verifiedReviews.length;
-        await trip.save();
-
-        // Update organizer's stats
-        const organizer = await User.findById(trip.organizerId);
-        if (organizer) {
-          const allVerifiedReviews = await Review.find({
-            targetId: { $in: await Trip.find({ organizerId: trip.organizerId }).distinct('_id') },
-            reviewType: 'trip',
-            isVerified: true
-          });
-
-          if (!organizer.travelStats) {
-            organizer.travelStats = {
-              tripsCompleted: 0,
-              totalDistance: 0,
-              favoriteDestinations: [],
-              badges: [],
-              reviewCount: 0,
-              averageRating: 0
-            };
-          }
-
-          if (allVerifiedReviews.length > 0) {
-            const totalRating = allVerifiedReviews.reduce((sum, r) => sum + r.rating, 0);
-            organizer.travelStats.averageRating = totalRating / allVerifiedReviews.length;
-            organizer.travelStats.reviewCount = allVerifiedReviews.length;
-            await organizer.save();
-          }
-        }
-      }
-    }
-
-    // Populate review for response
-    const populatedReview = await Review.findById(review._id)
-      .populate('reviewerId', 'name email')
-      .populate('verifiedBy', 'name email');
-
-    res.json({
-      success: true,
-      message: 'Review verified successfully',
-      data: {
-        review: populatedReview,
-        userId: populatedReview?.reviewerId ? (populatedReview.reviewerId as any)._id : null,
-        verifiedBy: populatedReview?.verifiedBy ? (populatedReview.verifiedBy as any).name : null
-      }
-    });
-
-  } catch (error: any) {
-    logger.error('Error verifying review', { error: error.message, reviewId: req.params.reviewId });
-    res.status(500).json({
-      success: false,
-      message: 'Failed to verify review'
-    });
-  }
-});
-
-/**
- * @route PUT /api/review-verification/:reviewId/reject
- * @description Reject a review
- * @access Private (Admin only)
- */
-router.put('/:reviewId/reject', auth, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const { rejectionReason } = req.body;
-
-    if (!rejectionReason) {
-      return res.status(400).json({
-        success: false,
-        message: 'Rejection reason is required'
-      });
-    }
-
-    const review = await Review.findById(req.params.reviewId);
-    if (!review) {
-      return res.status(404).json({
-        success: false,
-        message: 'Review not found'
-      });
-    }
-
-    // Update review rejection status
-    review.isVerified = false;
-    review.isRejected = true;
-    review.rejectedAt = new Date();
-    review.rejectedBy = new mongoose.Types.ObjectId(req.user.id);
-    review.rejectionReason = rejectionReason;
-    review.isFlagged = false; // Clear flag if it was flagged
-
-    await review.save();
-
-    // Populate review for response
-    const populatedReview = await Review.findById(review._id)
-      .populate('reviewerId', 'name email')
-      .populate('rejectedBy', 'name email');
-
-    res.json({
-      success: true,
-      message: 'Review rejected successfully',
-      data: {
-        review: populatedReview,
-        userId: populatedReview?.reviewerId ? (populatedReview.reviewerId as any)._id : null,
-        rejectedBy: populatedReview?.rejectedBy ? (populatedReview.rejectedBy as any).name : null
-      }
-    });
-
-  } catch (error: any) {
-    logger.error('Error rejecting review', { error: error.message, reviewId: req.params.reviewId });
-    res.status(500).json({
-      success: false,
-      message: 'Failed to reject review'
-    });
-  }
-});
-
-/**
- * @route POST /api/review-verification/:reviewId/flag
- * @description Flag a review for inappropriate content
- * @access Private
- */
-router.post('/:reviewId/flag', auth, async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const { reason } = req.body;
-
-    if (!reason) {
-      return res.status(400).json({
-        success: false,
-        message: 'Flag reason is required'
-      });
-    }
-
-    const review = await Review.findById(req.params.reviewId);
-    if (!review) {
-      return res.status(404).json({
-        success: false,
-        message: 'Review not found'
-      });
-    }
-
-    // Check if user already flagged this review
-    const existingFlag = review.flags?.find((flag: any) =>
-      flag.userId.toString() === req.user.id
-    );
-
-    if (existingFlag) {
-      return res.status(400).json({
-        success: false,
-        message: 'You have already flagged this review'
-      });
-    }
-
-    // Initialize flags array if not exists
-    if (!review.flags) {
-      review.flags = [];
-    }
-
-    // Add flag
-    review.flags.push({
-      userId: new mongoose.Types.ObjectId(req.user.id),
-      reason: reason,
-      flaggedAt: new Date()
-    });
-
-    // Auto-flag if 3 or more users flag it
-    if (review.flags.length >= 3) {
-      review.isFlagged = true;
-      review.flaggedAt = new Date();
-    }
-
-    await review.save();
-
-    res.json({
-      success: true,
-      message: review.isFlagged
-        ? 'Review flagged and sent for moderation'
-        : 'Review flag submitted',
-      data: {
-        review: {
-          _id: review._id,
-          flagged: review.isFlagged,
-          totalFlags: review.flags.length
-        }
-      }
-    });
-
-  } catch (error: any) {
-    logger.error('Error flagging review', { error: error.message, reviewId: req.params.reviewId });
-    res.status(500).json({
-      success: false,
-      message: 'Failed to flag review'
-    });
-  }
-});
-
-/**
- * @route PUT /api/review-verification/:reviewId/unflag
- * @description Unflag a review (Admin only)
- * @access Private (Admin only)
- */
-router.put('/:reviewId/unflag', auth, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const { moderationNotes } = req.body;
-
-    const review = await Review.findById(req.params.reviewId);
-    if (!review) {
-      return res.status(404).json({
-        success: false,
-        message: 'Review not found'
-      });
-    }
-
-    if (!review.isFlagged) {
-      return res.status(400).json({
-        success: false,
-        message: 'Review is not flagged'
-      });
-    }
-
-    // Unflag the review
-    review.isFlagged = false;
-    review.flags = []; // Clear all flags
-    review.moderatedAt = new Date();
-    review.moderatedBy = new mongoose.Types.ObjectId(req.user.id);
-    review.moderationNotes = moderationNotes || '';
-
-    await review.save();
-
-    res.json({
-      success: true,
-      message: 'Review unflagged successfully',
-      data: { review }
-    });
-
-  } catch (error: any) {
-    logger.error('Error unflagging review', { error: error.message, reviewId: req.params.reviewId });
-    res.status(500).json({
-      success: false,
-      message: 'Failed to unflag review'
-    });
-  }
-});
-
-/**
  * @route GET /api/review-verification/stats
  * @description Get review verification statistics
  * @access Private (Admin only)
+ *
+ * Declared before /:reviewId routes only for grouping - the paths differ in
+ * shape, so there was no collision to avoid.
  */
 router.get('/stats', auth, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -411,11 +182,11 @@ router.get('/stats', auth, requireRole(['admin']), async (req: AuthenticatedRequ
       rejectedReviews,
       flaggedReviews
     ] = await Promise.all([
-      Review.countDocuments({}),
-      Review.countDocuments({ isVerified: false, isRejected: { $ne: true } }),
-      Review.countDocuments({ isVerified: true }),
-      Review.countDocuments({ isRejected: true }),
-      Review.countDocuments({ isFlagged: true })
+      prisma.review.count({}),
+      prisma.review.count({ where: { isVerified: false, isRejected: false } }),
+      prisma.review.count({ where: { isVerified: true } }),
+      prisma.review.count({ where: { isRejected: true } }),
+      prisma.review.count({ where: { isFlagged: true } })
     ]);
 
     const stats = {
@@ -465,25 +236,27 @@ router.put('/bulk-action', auth, requireRole(['admin']), async (req: Authenticat
       });
     }
 
-    const reviews = await Review.find({ _id: { $in: reviewIds } });
-    if (reviews.length === 0) {
+    const ids: string[] = reviewIds.filter((id: any) => typeof id === 'string' && UUID.test(id));
+
+    const found = await prisma.review.count({ where: { id: { in: ids } } });
+    if (found === 0) {
       return res.status(404).json({
         success: false,
         message: 'No reviews found'
       });
     }
 
-    const updateData: any = {};
-    const adminId = new mongoose.Types.ObjectId(req.user.id);
+    const adminId = req.user.id;
+    const data: Prisma.ReviewUpdateManyMutationInput = {};
 
     switch (action) {
       case 'verify':
-        updateData.isVerified = true;
-        updateData.verifiedAt = new Date();
-        updateData.verifiedBy = adminId;
-        updateData.verificationNotes = notes || '';
-        updateData.isFlagged = false;
-        updateData.isRejected = false;
+        data.isVerified = true;
+        data.verifiedAt = new Date();
+        data.verifiedBy = adminId;
+        data.verificationNotes = notes || '';
+        data.isFlagged = false;
+        data.isRejected = false;
         break;
 
       case 'reject':
@@ -493,33 +266,36 @@ router.put('/bulk-action', auth, requireRole(['admin']), async (req: Authenticat
             message: 'Rejection reason is required for bulk reject'
           });
         }
-        updateData.isVerified = false;
-        updateData.isRejected = true;
-        updateData.rejectedAt = new Date();
-        updateData.rejectedBy = adminId;
-        updateData.rejectionReason = reason;
-        updateData.isFlagged = false;
+        data.isVerified = false;
+        data.isRejected = true;
+        data.rejectedAt = new Date();
+        data.rejectedBy = adminId;
+        data.rejectionReason = reason;
+        data.isFlagged = false;
         break;
 
       case 'unflag':
-        updateData.isFlagged = false;
-        updateData.flags = [];
-        updateData.moderatedAt = new Date();
-        updateData.moderatedBy = adminId;
-        updateData.moderationNotes = notes || '';
+        data.isFlagged = false;
+        data.moderatedAt = new Date();
+        data.moderatedBy = adminId;
+        data.moderationNotes = notes || '';
         break;
     }
 
-    const result = await Review.updateMany(
-      { _id: { $in: reviewIds } },
-      { $set: updateData }
-    );
+    // Flags are rows now, so clearing them is a delete rather than setting the
+    // field to []. Done first, so a failure leaves the reviews still flagged
+    // rather than unflagged with their evidence gone.
+    if (action === 'unflag') {
+      await prisma.reviewFlag.deleteMany({ where: { reviewId: { in: ids } } });
+    }
+
+    const result = await prisma.review.updateMany({ where: { id: { in: ids } }, data });
 
     res.json({
       success: true,
       message: `Bulk ${action} completed successfully`,
       data: {
-        processed: result.modifiedCount,
+        processed: result.count,
         total: reviewIds.length
       }
     });
@@ -551,21 +327,22 @@ router.get('/user-activity/:userId', auth, requireRole(['admin']), async (req: A
       });
     }
 
-    const reviews = await Review.find({ reviewerId: req.params.userId })
-      .populate('targetId', 'title name')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(Number(limit));
+    const reviewerId = req.params.userId;
 
-    const total = await Review.countDocuments({ reviewerId: req.params.userId });
-    const verifiedCount = await Review.countDocuments({
-      reviewerId: req.params.userId,
-      isVerified: true
-    });
-    const flaggedCount = await Review.countDocuments({
-      reviewerId: req.params.userId,
-      isFlagged: true
-    });
+    const [rows, total, verifiedCount, flaggedCount] = await Promise.all([
+      prisma.review.findMany({
+        where: { reviewerId },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: Number(limit),
+        include: { _count: { select: { flags: true } } }
+      }),
+      prisma.review.count({ where: { reviewerId } }),
+      prisma.review.count({ where: { reviewerId, isVerified: true } }),
+      prisma.review.count({ where: { reviewerId, isFlagged: true } })
+    ]);
+
+    const reviews = await decorate(rows);
 
     res.json({
       success: true,
@@ -596,6 +373,318 @@ router.get('/user-activity/:userId', auth, requireRole(['admin']), async (req: A
     res.status(500).json({
       success: false,
       message: 'Failed to fetch user activity'
+    });
+  }
+});
+
+/**
+ * @route PUT /api/review-verification/:reviewId/verify
+ * @description Verify a review
+ * @access Private (Admin only)
+ */
+router.put('/:reviewId/verify', auth, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { verificationNotes } = req.body;
+    const reviewId = req.params.reviewId;
+
+    if (!UUID.test(reviewId)) {
+      return res.status(404).json({ success: false, message: 'Review not found' });
+    }
+
+    const review = await prisma.review.findUnique({ where: { id: reviewId } });
+    if (!review) {
+      return res.status(404).json({
+        success: false,
+        message: 'Review not found'
+      });
+    }
+
+    if (review.isVerified) {
+      return res.status(400).json({
+        success: false,
+        message: 'Review is already verified'
+      });
+    }
+
+    const updated = await prisma.review.update({
+      where: { id: reviewId },
+      data: {
+        isVerified: true,
+        verifiedAt: new Date(),
+        verifiedBy: req.user.id,
+        verificationNotes: verificationNotes || '',
+        isFlagged: false,
+        isRejected: false
+      },
+      include: { _count: { select: { flags: true } } }
+    });
+
+    // Roll the trip and organizer averages forward. Both still live in Mongo,
+    // so the ratings are aggregated in Postgres and written across.
+    const trip = await Trip.findById(review.targetId || review.tripId);
+    if (trip && review.reviewType === 'trip') {
+      const tripAgg = await prisma.review.aggregate({
+        where: { targetId: String(trip._id), reviewType: 'trip', isVerified: true },
+        _avg: { rating: true },
+        _count: { rating: true }
+      });
+
+      if (tripAgg._count.rating > 0) {
+        trip.averageRating = tripAgg._avg.rating ?? 0;
+        trip.reviewCount = tripAgg._count.rating;
+        await trip.save();
+
+        const organizer = await User.findById(trip.organizerId);
+        if (organizer) {
+          const organizerTripIds = (await Trip.find({ organizerId: trip.organizerId }).distinct('_id'))
+            .map((id: any) => String(id));
+
+          const orgAgg = await prisma.review.aggregate({
+            where: { targetId: { in: organizerTripIds }, reviewType: 'trip', isVerified: true },
+            _avg: { rating: true },
+            _count: { rating: true }
+          });
+
+          if (!organizer.travelStats) {
+            organizer.travelStats = {
+              tripsCompleted: 0,
+              totalDistance: 0,
+              favoriteDestinations: [],
+              badges: [],
+              reviewCount: 0,
+              averageRating: 0
+            };
+          }
+
+          if (orgAgg._count.rating > 0) {
+            organizer.travelStats.averageRating = orgAgg._avg.rating ?? 0;
+            organizer.travelStats.reviewCount = orgAgg._count.rating;
+            await organizer.save();
+          }
+        }
+      }
+    }
+
+    const [decorated] = await decorate([updated]);
+
+    res.json({
+      success: true,
+      message: 'Review verified successfully',
+      data: {
+        review: decorated,
+        userId: updated.reviewerId,
+        verifiedBy: decorated?.verifiedByUser?.name ?? null
+      }
+    });
+
+  } catch (error: any) {
+    logger.error('Error verifying review', { error: error.message, reviewId: req.params.reviewId });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to verify review'
+    });
+  }
+});
+
+/**
+ * @route PUT /api/review-verification/:reviewId/reject
+ * @description Reject a review
+ * @access Private (Admin only)
+ */
+router.put('/:reviewId/reject', auth, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { rejectionReason } = req.body;
+    const reviewId = req.params.reviewId;
+
+    if (!rejectionReason) {
+      return res.status(400).json({
+        success: false,
+        message: 'Rejection reason is required'
+      });
+    }
+
+    if (!UUID.test(reviewId)) {
+      return res.status(404).json({ success: false, message: 'Review not found' });
+    }
+
+    const review = await prisma.review.findUnique({ where: { id: reviewId } });
+    if (!review) {
+      return res.status(404).json({
+        success: false,
+        message: 'Review not found'
+      });
+    }
+
+    const updated = await prisma.review.update({
+      where: { id: reviewId },
+      data: {
+        isVerified: false,
+        isRejected: true,
+        rejectedAt: new Date(),
+        rejectedBy: req.user.id,
+        rejectionReason,
+        isFlagged: false
+      },
+      include: { _count: { select: { flags: true } } }
+    });
+
+    const [decorated] = await decorate([updated]);
+
+    res.json({
+      success: true,
+      message: 'Review rejected successfully',
+      data: {
+        review: decorated,
+        userId: updated.reviewerId,
+        rejectedBy: decorated?.rejectedByUser?.name ?? null
+      }
+    });
+
+  } catch (error: any) {
+    logger.error('Error rejecting review', { error: error.message, reviewId: req.params.reviewId });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to reject review'
+    });
+  }
+});
+
+/**
+ * @route POST /api/review-verification/:reviewId/flag
+ * @description Flag a review for inappropriate content
+ * @access Private
+ */
+router.post('/:reviewId/flag', auth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { reason } = req.body;
+    const reviewId = req.params.reviewId;
+
+    if (!reason) {
+      return res.status(400).json({
+        success: false,
+        message: 'Flag reason is required'
+      });
+    }
+
+    if (!UUID.test(reviewId)) {
+      return res.status(404).json({ success: false, message: 'Review not found' });
+    }
+
+    const review = await prisma.review.findUnique({ where: { id: reviewId } });
+    if (!review) {
+      return res.status(404).json({
+        success: false,
+        message: 'Review not found'
+      });
+    }
+
+    // One flag per user is a constraint now, so the insert decides rather than
+    // a find-then-check that two concurrent requests could both pass.
+    try {
+      await prisma.reviewFlag.create({
+        data: { reviewId, userId: req.user.id, reason }
+      });
+    } catch (err: any) {
+      if (err?.code === 'P2002') {
+        return res.status(400).json({
+          success: false,
+          message: 'You have already flagged this review'
+        });
+      }
+      throw err;
+    }
+
+    const totalFlags = await prisma.reviewFlag.count({ where: { reviewId } });
+
+    let isFlagged = review.isFlagged;
+    if (totalFlags >= 3 && !isFlagged) {
+      await prisma.review.update({
+        where: { id: reviewId },
+        data: { isFlagged: true, flaggedAt: new Date() }
+      });
+      isFlagged = true;
+    }
+
+    res.json({
+      success: true,
+      message: isFlagged
+        ? 'Review flagged and sent for moderation'
+        : 'Review flag submitted',
+      data: {
+        review: {
+          _id: reviewId,
+          flagged: isFlagged,
+          totalFlags
+        }
+      }
+    });
+
+  } catch (error: any) {
+    logger.error('Error flagging review', { error: error.message, reviewId: req.params.reviewId });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to flag review'
+    });
+  }
+});
+
+/**
+ * @route PUT /api/review-verification/:reviewId/unflag
+ * @description Unflag a review (Admin only)
+ * @access Private (Admin only)
+ */
+router.put('/:reviewId/unflag', auth, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { moderationNotes } = req.body;
+    const reviewId = req.params.reviewId;
+
+    if (!UUID.test(reviewId)) {
+      return res.status(404).json({ success: false, message: 'Review not found' });
+    }
+
+    const review = await prisma.review.findUnique({ where: { id: reviewId } });
+    if (!review) {
+      return res.status(404).json({
+        success: false,
+        message: 'Review not found'
+      });
+    }
+
+    if (!review.isFlagged) {
+      return res.status(400).json({
+        success: false,
+        message: 'Review is not flagged'
+      });
+    }
+
+    // Delete the flag rows first: if this fails, the review stays flagged with
+    // its evidence intact, rather than unflagged with the reasons already gone.
+    await prisma.reviewFlag.deleteMany({ where: { reviewId } });
+
+    const updated = await prisma.review.update({
+      where: { id: reviewId },
+      data: {
+        isFlagged: false,
+        moderatedAt: new Date(),
+        moderatedBy: req.user.id,
+        moderationNotes: moderationNotes || ''
+      },
+      include: { _count: { select: { flags: true } } }
+    });
+
+    const [decorated] = await decorate([updated]);
+
+    res.json({
+      success: true,
+      message: 'Review unflagged successfully',
+      data: { review: decorated }
+    });
+
+  } catch (error: any) {
+    logger.error('Error unflagging review', { error: error.message, reviewId: req.params.reviewId });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to unflag review'
     });
   }
 });

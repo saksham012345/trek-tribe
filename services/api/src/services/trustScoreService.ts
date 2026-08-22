@@ -5,7 +5,7 @@
 
 import { User } from '../models/User';
 import { Trip } from '../models/Trip';
-import { Review } from '../models/Review';
+import { prisma } from '../lib/prisma';
 import { logger } from '../utils/logger';
 import chatService from './chatService'; // Correct default import
 
@@ -95,8 +95,9 @@ export class TrustScoreService {
       }
 
       // 5. User Reviews & Ratings (0-15 points)
-      const reviews = await Review.find({
-        tripId: { $in: trips.map(t => t._id) }
+      const reviews = await prisma.review.findMany({
+        where: { tripId: { in: trips.map(t => String(t._id)) } },
+        select: { rating: true }
       });
 
       if (reviews.length > 0) {

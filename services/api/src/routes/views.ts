@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { User } from '../models/User';
 import { Trip } from '../models/Trip';
-import { Review } from '../models/Review';
+import { prisma } from '../lib/prisma';
 
 const router = Router();
 
@@ -36,7 +36,7 @@ router.get('/stats', async (req, res) => {
     const [totalUsers, totalTrips, totalReviews] = await Promise.all([
       User.countDocuments(),
       Trip.countDocuments(),
-      Review.countDocuments()
+      prisma.review.count()
     ]);
 
     // Get users by role

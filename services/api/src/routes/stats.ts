@@ -2,7 +2,7 @@ import express from 'express';
 import { User } from '../models/User';
 import { Trip } from '../models/Trip';
 import { GroupBooking } from '../models/GroupBooking';
-import { Review } from '../models/Review';
+import { prisma } from '../lib/prisma';
 import { logger } from '../utils/logger';
 
 const router = express.Router();
@@ -21,7 +21,7 @@ router.get('/', async (req, res) => {
       User.countDocuments({ role: 'organizer' }),
       Trip.countDocuments({ status: 'active' }),
       GroupBooking.countDocuments({ status: 'confirmed' }),
-      Review.countDocuments()
+      prisma.review.count()
     ]);
 
     // Get recent activity (last 30 days)

@@ -7,7 +7,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { User } from '../models/User';
 import { Trip } from '../models/Trip';
-import { Review } from '../models/Review';
+
 import { prisma } from '../lib/prisma';
 import { fileHandler } from '../utils/fileHandler';
 import { logger } from '../utils/logger';
@@ -130,7 +130,7 @@ async function deleteUser(email: string, options: any) {
     }
 
     // Clean up related data
-    await Review.deleteMany({ reviewerId: user._id });
+    await prisma.review.deleteMany({ where: { reviewerId: String(user._id) } });
     await prisma.wishlist.deleteMany({ where: { userId: String(user._id) } });
     await Trip.updateMany(
       { participants: user._id },
@@ -199,7 +199,7 @@ async function showStats() {
     ] = await Promise.all([
       User.countDocuments(),
       Trip.countDocuments(),
-      Review.countDocuments(),
+      prisma.review.count(),
       prisma.wishlist.count(),
       User.aggregate([
         { $group: { _id: '$role', count: { $sum: 1 } } }
@@ -207,9 +207,7 @@ async function showStats() {
       Trip.aggregate([
         { $group: { _id: '$status', count: { $sum: 1 } } }
       ]),
-      Review.aggregate([
-        { $group: { _id: null, avgRating: { $avg: '$rating' } } }
-      ]),
+      prisma.review.aggregate({ _avg: { rating: true } }),
       fileHandler.getStorageStats()
     ]);
 
@@ -227,8 +225,8 @@ async function showStats() {
     });
     
     colorLog('cyan', `\n⭐ Total Reviews: ${totalReviews}`);
-    if (avgRating.length > 0) {
-      console.log(`   Average Rating: ${avgRating[0].avgRating.toFixed(1)}/5`);
+    if (avgRating._avg.rating !== null) {
+      console.log(`   Average Rating: ${avgRating._avg.rating.toFixed(1)}/5`);
     }
     
     colorLog('cyan', `\n❤️  Wishlist Items: ${totalWishlistItems}`);
@@ -265,7 +263,7 @@ async function backupData(outputPath: string) {
     const [users, trips, reviews, wishlists] = await Promise.all([
       User.find().select('-passwordHash').lean(),
       Trip.find().lean(),
-      Review.find().lean(),
+      prisma.review.findMany(),
       prisma.wishlist.findMany()
     ]);
 
@@ -323,7 +321,7 @@ async function restoreData(inputPath: string, options: any) {
     await Promise.all([
       User.deleteMany({}),
       Trip.deleteMany({}),
-      Review.deleteMany({}),
+      prisma.review.deleteMany({}),
       prisma.wishlist.deleteMany({})
     ]);
     
@@ -331,7 +329,7 @@ async function restoreData(inputPath: string, options: any) {
     const results = await Promise.all([
       User.insertMany(collections.users),
       Trip.insertMany(collections.trips),
-      Review.insertMany(collections.reviews),
+      prisma.review.createMany({ data: collections.reviews, skipDuplicates: true }),
       prisma.wishlist.createMany({ data: collections.wishlists, skipDuplicates: true })
     ]);
     
@@ -340,7 +338,7 @@ async function restoreData(inputPath: string, options: any) {
     console.log('\n📋 Restoration Summary:');
     console.log(`   Users: ${results[0].length}`);
     console.log(`   Trips: ${results[1].length}`);
-    console.log(`   Reviews: ${results[2].length}`);
+    console.log(`   Reviews: ${results[2].count}`);
     console.log(`   Wishlist Items: ${results[3].count}`);
     
   } catch (error) {
@@ -357,20 +355,9 @@ async function cleanupSystem() {
   try {
     colorLog('yellow', '🧹 Starting system cleanup...');
     
-    // Cleanup orphaned reviews
-    const orphanedReviews = await Review.find({
-      $or: [
-        { reviewerId: { $exists: false } },
-        { targetId: { $exists: false } }
-      ]
-    });
-    
-    if (orphanedReviews.length > 0) {
-      await Review.deleteMany({
-        _id: { $in: orphanedReviews.map(r => r._id) }
-      });
-      colorLog('green', `🗑️  Removed ${orphanedReviews.length} orphaned reviews`);
-    }
+    // Reviews moved to Postgres (D10/D11 wave 2), where reviewer_id and
+    // target_id are NOT NULL, so a row missing either cannot exist.
+    colorLog('cyan', '   Reviews: nothing to clean (columns are NOT NULL)');
     
     // Wishlists moved to Postgres (D10/D11 wave 2), where user_id and trip_id
     // are NOT NULL, so a row missing either one cannot exist to be cleaned up.

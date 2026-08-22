@@ -4,7 +4,7 @@ import { authenticateToken } from '../middleware/auth';
 import { Trip } from '../models/Trip';
 import { User } from '../models/User';
 import { GroupBooking } from '../models/GroupBooking';
-import { Review } from '../models/Review';
+import { prisma } from '../lib/prisma';
 import { aiConfig, getScaledScore, isHighConfidence } from '../config/ai';
 import { aiCacheService } from '../services/aiCacheService';
 import { aiMetricsService, aiMetricsMiddleware } from '../services/aiMetricsService';
@@ -231,7 +231,13 @@ class TrekTribeAI {
 
     const user = await User.findById(userId);
     const userBookings = await GroupBooking.find({ mainBookerId: userId }).populate('tripId');
-    const userReviews = await Review.find({ user: userId });
+    // Was Review.find({ user: userId }). Review has no `user` field - the
+    // author is reviewerId - so this matched nothing and averageRating was
+    // always 0.
+    const userReviews = await prisma.review.findMany({
+      where: { reviewerId: String(userId) },
+      select: { rating: true }
+    });
 
     if (!user) {
       throw new Error('User not found');

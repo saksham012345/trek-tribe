@@ -348,3 +348,119 @@ model CommentLike {
   @@index([userId])
   @@map("comment_likes")
 }
+
+enum ReviewType {
+  trip
+  organizer
+
+  @@map("review_type")
+}
+
+enum ReviewTag {
+  safety
+  value_for_money
+  organization
+  communication
+  accommodation
+  food
+  activities
+  guide_quality
+  group_size
+  timing
+  location
+  equipment
+
+  @@map("review_tag")
+}
+
+// Migrated from the Mongoose Review model (D10/D11, wave 2). The largest domain
+// in this wave: 9 consumer files.
+//
+// The duplicate-review rule was a pre-save hook doing findOne-then-throw. That is
+// a race between two concurrent requests, and it is skipped entirely by any write
+// that does not go through .save(). It is @@unique here.
+model Review {
+  id         String     @id @default(uuid())
+  reviewerId String     @map("reviewer_id")
+  targetId   String     @map("target_id")
+  reviewType ReviewType @map("review_type")
+  rating     Int
+  title      String     @db.VarChar(100)
+  comment    String     @db.VarChar(1000)
+  images     String[]   @default([])
+  // The Mongoose tags were a closed list, so they are an enum rather than free
+  // text: a typo used to be stored happily and silently never matched a filter.
+  tags       ReviewTag[] @default([])
+  isVerified Boolean    @default(false) @map("is_verified")
+
+  // organizerResponse was a nested object of a fixed shape, so it is two columns
+  // rather than JSON - both are queryable and neither can drift from the other.
+  organizerResponseMessage     String?   @map("organizer_response_message") @db.VarChar(500)
+  organizerResponseRespondedAt DateTime? @map("organizer_response_responded_at")
+
+  tripDate DateTime? @map("trip_date")
+  userId   String?   @map("user_id")
+  tripId   String?   @map("trip_id")
+
+  verifiedAt        DateTime? @map("verified_at")
+  verifiedBy        String?   @map("verified_by")
+  verificationNotes String?   @map("verification_notes")
+
+  isRejected      Boolean   @default(false) @map("is_rejected")
+  rejectedAt      DateTime? @map("rejected_at")
+  rejectedBy      String?   @map("rejected_by")
+  rejectionReason String?   @map("rejection_reason")
+
+  isFlagged Boolean   @default(false) @map("is_flagged")
+  flaggedAt DateTime? @map("flagged_at")
+
+  moderatedAt     DateTime? @map("moderated_at")
+  moderatedBy     String?   @map("moderated_by")
+  moderationNotes String?   @map("moderation_notes")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  helpfulVotes ReviewHelpfulVote[]
+  flags        ReviewFlag[]
+
+  @@unique([reviewerId, targetId, reviewType])
+  @@index([targetId, reviewType, rating])
+  @@index([reviewerId, createdAt])
+  @@index([reviewType, isVerified, createdAt])
+  @@map("reviews")
+}
+
+// Was `helpfulVoters: ObjectId[]` plus a `helpfulVotes: number` kept in step by
+// hand in markAsHelpful. Two records of one fact, which is what DoD-3 warns
+// about. The count is derived from these rows now, and one vote per user is a
+// constraint rather than an includes() check.
+model ReviewHelpfulVote {
+  id        String   @id @default(uuid())
+  reviewId  String   @map("review_id")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, userId])
+  @@index([userId])
+  @@map("review_helpful_votes")
+}
+
+// Was an array of objects on the review. reviewVerification.ts already checked
+// "has this user flagged already" in application code, so the uniqueness was
+// intended - it just was not enforced.
+model ReviewFlag {
+  id        String   @id @default(uuid())
+  reviewId  String   @map("review_id")
+  userId    String   @map("user_id")
+  reason    String
+  flaggedAt DateTime @default(now()) @map("flagged_at")
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, userId])
+  @@index([reviewId])
+  @@map("review_flags")
+}

@@ -4,7 +4,7 @@ import { User } from '../models/User';
 import { SupportTicket } from '../models/SupportTicket';
 import { sanitizeText } from '../utils/sanitize';
 import { GroupBooking } from '../models/GroupBooking';
-import { Review } from '../models/Review';
+import { prisma } from '../lib/prisma';
 import mongoose from 'mongoose';
 
 // RAG integration - lazy import to avoid circular dependencies
@@ -793,7 +793,13 @@ class TrekTribeAI {
 
       // Get organizer stats
       const totalTrips = await Trip.countDocuments({ organizerId });
-      const reviews = await Review.find({ organizerId }).select('rating');
+      // Was Review.find({ organizerId }). Review has no organizerId field, so
+      // that query matched nothing and every organizer scored 0 reviews and a
+      // 0 average. Organizer reviews are targetId + reviewType 'organizer'.
+      const reviews = await prisma.review.findMany({
+        where: { targetId: String(organizerId), reviewType: 'organizer' },
+        select: { rating: true }
+      });
       const totalReviews = reviews.length;
       const avgRating = totalReviews > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews : 0;
 
