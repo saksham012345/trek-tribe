@@ -506,6 +506,18 @@ MOCK.coupons = [
     trip_id:null, min_booking_amount:null, first_booking_only:false,
     starts_at:Date.now()+7*DAY, ends_at:Date.now()+120*DAY,          // → inactive (not started)
     max_total_redemptions:1, max_redemptions_per_user:1, total_redeemed:0, source:'referral_reward' },
+  /* Two coupons that deliberately overlap on one trip, so D6's stacking is
+     reproducible rather than theoretical. On Goecha La at ₹1,09,000 these are the
+     exact figures the decision was taken on: 15% capped at ₹18,000 comes to
+     ₹16,350, plus ₹8,000 fixed, = ₹24,350 off, net ₹84,650. */
+  { id:'c6', code:'ALLTRIPS15', discount_type:'percentage', value:15, max_discount_amount:18000,
+    trip_id:null, min_booking_amount:null, first_booking_only:false,
+    starts_at:Date.now()-30*DAY, ends_at:Date.now()+90*DAY,
+    max_total_redemptions:null, max_redemptions_per_user:1, total_redeemed:4, source:'organizer_created' },
+  { id:'c7', code:'GOECHA8K', discount_type:'fixed_amount', value:8000, max_discount_amount:null,
+    trip_id:'Goecha La', min_booking_amount:null, first_booking_only:false,
+    starts_at:Date.now()-10*DAY, ends_at:Date.now()+60*DAY,
+    max_total_redemptions:50, max_redemptions_per_user:1, total_redeemed:11, source:'organizer_created' },
 ];
 
 /* status is DERIVED on read from dates + counts — the spec is explicit that it
@@ -536,6 +548,50 @@ function applyCoupon(c, booking, isFirstBooking){
   return { ok:true, discount:round2(d), payable:round2(booking.amount - d), capped };
 }
 
+/* Decision D6 (2026-08-22): coupons STACK. An all-trips coupon and a trip-specific
+   coupon that both match one booking both apply, and their discounts add.
+
+   Every percentage is taken off the ORIGINAL amount, not off the running balance.
+   Two 15% coupons therefore come to 30%, not 27.75%. Compounding off a shrinking
+   base is defensible arithmetic, but it is not what "both apply" means to the
+   person who set the coupons up, and the difference stays invisible until someone
+   reconciles a payout.
+
+   Guards are not re-implemented here — each code goes through applyCoupon, so
+   expiry, trip scope, minimum amount and first-booking rules stay in exactly one
+   place and cannot drift between the single and stacked paths.
+
+   NOTE: there is deliberately no cap on the total. A floor is a pricing decision
+   (O1) and nobody has set one. `pct` is returned so the UI can show how far the
+   stack has gone rather than letting it be discovered later. */
+function applyCoupons(codes, booking, isFirstBooking){
+  const seen = new Set();
+  const lines = (codes || []).map(code => {
+    const c = MOCK.coupons.find(x => x.code === code);
+    if (!c)            return { code, ok:false, reason:'No such code' };
+    if (seen.has(code)) return { code, ok:false, reason:'Already applied' };
+    seen.add(code);
+    const r = applyCoupon(c, booking, isFirstBooking);
+    return { code, scope: c.trip_id ? c.trip_id : 'All trips', ...r };
+  });
+
+  const raw = lines.filter(l => l.ok).reduce((s,l) => s + l.discount, 0);
+  /* Never return a negative price, however many codes are thrown at it. */
+  const totalDiscount = round2(Math.min(raw, booking.amount));
+  /* `floored` means the traveller pays nothing because the discounts met or
+     exceeded the booking — NOT `raw > amount`. applyCoupon already clamps each
+     individual discount to the booking value, so a single oversized coupon
+     arrives here already reduced and `raw > amount` would never fire for it.
+     Caught by the Sprint 2 suite. */
+  return {
+    lines,
+    totalDiscount,
+    net: round2(booking.amount - totalDiscount),
+    floored: booking.amount > 0 && totalDiscount >= booking.amount,
+    pct: booking.amount ? Math.round(totalDiscount / booking.amount * 1000) / 10 : 0,
+  };
+}
+
 /* ---- G-13 · automatic discount rules ---- */
 MOCK.discountRules = [
   { id:'r1', trip_id:null, rule_type:'early_bird',  threshold_days:60, discount_type:'percentage',   value:15, max_discount_amount:18000, status:'active' },
@@ -545,7 +601,22 @@ MOCK.discountRules = [
 ];
 /* early_bird: booked at least threshold_days before departure.
    last_minute: booked at most threshold_days before departure. */
+/* Decision D5 (2026-08-22): discounts are coupon-code only. The rules and their
+   screen stay in place, but none of them fire — a discount now requires the
+   traveller to enter a code.
+
+   One flag, checked inside the evaluator rather than at each call site, so every
+   caller is switched off by the same line and none can be missed. Flipping it back
+   on is a one-line change rather than an archaeology exercise.
+
+   This also dissolves the overlapping-precedence blocker instead of answering it:
+   at 95 days on Goecha La an all-trips early_bird(60) and a trip-specific
+   early_bird(90) both matched, and no spec said which won. Nothing fires now, so
+   there is nothing left to rank. */
+const AUTOMATIC_DISCOUNTS_ENABLED = false;
+
 function matchingRules(daysBefore, tripName){
+  if (!AUTOMATIC_DISCOUNTS_ENABLED) return [];
   return MOCK.discountRules.filter(r =>
     r.status === 'active' &&
     (!r.trip_id || r.trip_id === tripName) &&
@@ -3742,8 +3813,14 @@ V['gst-profile'] = () => {
           <label class="block"><span class="text-sm font-medium">Tax scheme <span class="text-red-600">*</span></span>
             <select id="gpScheme" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 bg-white">
               <option value="gross_5pct" ${p.tax_scheme==='gross_5pct'?'selected':''}>5% on gross (no ITC)</option>
-              <option value="margin_18pct" ${p.tax_scheme==='margin_18pct'?'selected':''}>18% on margin (Rule 33)</option>
-            </select></label>
+              <option value="margin_18pct" disabled ${p.tax_scheme==='margin_18pct'?'selected':''}>18% on margin (Rule 33) — needs CA sign-off</option>
+            </select>
+            <div class="mt-2 rounded-md border border-earth-300 bg-earth-50 p-3 text-sm">
+              <p class="font-medium">Why the 18% margin scheme is switched off</p>
+              <p class="text-nature-700 mt-1">Rule 33 is a rule for <em>pure agents</em> — where the traveller pays the hotel directly and you charge only your own fee. It stops applying the moment you add a margin to something you bought. You buy vendor services, mark them up and sell one package price, so you are supplying a package, not acting as a pure agent.</p>
+              <p class="text-nature-700 mt-2">Choosing it would tax a smaller base than you owe, on every invoice, until someone asks. It stays off until a CA confirms in writing which scheme this business is on.</p>
+              <p class="text-xs text-nature-500 mt-2">Verified 2026-08-21. <strong>5% on gross with no ITC under SAC 9985 is current</strong> — it survived the 22 Sep 2025 GST 2.0 reform. Four related facts remain unverified; see the GST verification record.</p>
+            </div></label>
           <label class="block"><span class="text-sm font-medium">SAC code</span>
             <select id="gpSac" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 bg-white">
               <option ${p.default_sac_code==='9985'?'selected':''}>9985</option>
@@ -3945,7 +4022,10 @@ V.coupons = () => {
 /* ---- G-13 · automatic discount rules ---- */
 V['discount-rules'] = () => `
   ${card(`<div class="p-4">${sectionHead('Automatic discounts', `<div class="flex gap-2">${btn('Test a booking date','ghost','onclick="openRuleTest()"')}${btn('+ New rule','primary','onclick="toast(&#39;Create form — POST /api/discount-rules&#39;)"')}</div>`)}
-      <p class="text-sm text-nature-600 -mt-1">Applied automatically at checkout — no code for the traveller to enter.</p></div>
+      <div class="rounded-md border border-earth-300 bg-earth-50 p-3 text-sm -mt-1">
+        <p class="font-medium">Automatic discounts are switched off</p>
+        <p class="text-nature-700 mt-1">Discounts apply through <strong>coupon codes only</strong> — a traveller has to enter one. These rules are kept so they can be switched back on, but <strong>none of them fire today</strong>. Nothing below affects a real booking.</p>
+      </div></div>
     ${table([{t:'Type'},{t:'Applies to'},{t:'Trigger'},{t:'Discount'},{t:'Status'},{t:'',right:true}], MOCK.discountRules.map(r=>
       td(badge(r.rule_type==='early_bird'?'Early bird':'Last minute','blue'))+
       td(r.trip_id ? r.trip_id : '<span class="text-nature-400">All trips</span>')+
@@ -5010,11 +5090,26 @@ window.saveGst = function(){
   if (!existing.short_code && !/^[A-Z0-9]{1,4}$/.test(code)){
     toast('Short code must be 1–4 letters or digits'); return;
   }
+  /* Decision D7 (2026-08-22). Guard the handler, not only the dropdown — a
+     disabled <option> stops a click, it does not stop a saved value arriving from
+     a restored form, a script, or a future code path.
+
+     Rule 33 is pure-agent VALUATION and stops applying the moment a margin is
+     added to a procured item. An operator who buys vendor services, marks them up
+     and sells one package price is not a pure agent, so the scheme does not apply
+     to them — and selecting it would tax a smaller base than owed on every
+     invoice, quietly, until someone asks.
+     See docs/research/2026-08-21-gst-verification.md. */
+  const scheme = document.getElementById('gpScheme').value;
+  if (scheme === 'margin_18pct' && !STORE.get('marginSchemeApproved', false)){
+    toast('The 18% margin scheme needs written CA sign-off before it can be selected');
+    return;
+  }
   STORE.set('gst', {
     legal_business_name:name, gstin, address:addr,
     home_state: document.getElementById('gpState').value,
     short_code: existing.short_code || code,          // immutable once set
-    tax_scheme: document.getElementById('gpScheme').value,
+    tax_scheme: scheme,
     default_sac_code: document.getElementById('gpSac').value,
   });
   toast('GST profile saved'); route();
@@ -5139,9 +5234,9 @@ window.copyRef = function(){
 window.openCouponTest = function(){
   openModal('Test a coupon', `
     <div class="grid gap-3">
-      <label class="block"><span class="text-sm font-medium">Coupon</span>
-        <select id="ctCode" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 bg-white">
-          ${MOCK.coupons.map(c=>`<option value="${c.id}">${c.code} — ${couponStatus(c)}</option>`).join('')}</select></label>
+      <label class="block"><span class="text-sm font-medium">Coupons <span class="font-normal text-nature-500">— ctrl/cmd-click to apply several</span></span>
+        <select id="ctCode" multiple size="7" class="mt-1 w-full rounded-md border border-nature-300 px-3 py-2 bg-white">
+          ${MOCK.coupons.map(c=>`<option value="${c.code}">${c.code} — ${couponStatus(c)}${c.trip_id?' · '+c.trip_id+' only':' · all trips'}</option>`).join('')}</select></label>
       <label class="block"><span class="text-sm font-medium">Against booking</span>
         <select id="ctBooking" class="mt-1 w-full h-10 rounded-md border border-nature-300 px-3 bg-white">
           ${MOCK.bookings.map(b=>`<option value="${b.id}">${b.traveller} · ${b.trip} · ${INR(b.amount)}</option>`).join('')}</select></label>
@@ -5153,19 +5248,37 @@ window.openCouponTest = function(){
     </div>`);
 };
 window.runCouponTest = function(){
-  const c = MOCK.coupons.find(x=>x.id===document.getElementById('ctCode').value);
+  const codes = [...document.getElementById('ctCode').selectedOptions].map(o=>o.value);
+  if (!codes.length){ toast('Pick at least one coupon'); return; }
   const b = MOCK.bookings.find(x=>x.id===document.getElementById('ctBooking').value);
-  const res = applyCoupon(c, b, document.getElementById('ctFirst').checked);
-  document.getElementById('ctOut').innerHTML = res.ok
-    ? `<div class="rounded-lg bg-forest-50 border border-forest-200 p-3 text-sm">
-        <p class="font-medium text-forest-900">Applies — ${INR(res.discount)} off${res.capped?' (hit the cap)':''}</p>
-        <div class="mt-2 space-y-1 text-forest-800">
-          <div class="flex justify-between"><span>Booking</span><span class="tnum">${INR(b.amount)}</span></div>
-          <div class="flex justify-between"><span>Discount</span><span class="tnum">−${INR(res.discount)}</span></div>
-          <div class="flex justify-between font-semibold pt-1 border-t border-forest-200"><span>Payable</span><span class="tnum">${INR(res.payable)}</span></div>
-        </div></div>`
-    : `<div class="rounded-lg bg-earth-50 border border-earth-200 p-3 text-sm text-earth-900">
-        <p class="font-medium">Rejected</p><p class="mt-0.5">${res.reason}</p></div>`;
+  const r = applyCoupons(codes, b, document.getElementById('ctFirst').checked);
+
+  /* D6: stacking has no cap (O1 is unanswered). Showing the total only in rupees
+     hides how far it has gone — ₹24,350 does not read as alarming, 22.3% does. */
+  const HIGH = 25;
+  const applied = r.lines.filter(l=>l.ok), rejected = r.lines.filter(l=>!l.ok);
+
+  document.getElementById('ctOut').innerHTML = `
+    ${applied.length ? `<div class="rounded-lg bg-forest-50 border border-forest-200 p-3 text-sm">
+      <p class="font-medium text-forest-900">${applied.length} coupon${applied.length===1?'':'s'} applied</p>
+      <div class="mt-2 space-y-1 text-forest-800">
+        <div class="flex justify-between"><span>Booking</span><span class="tnum">${INR(b.amount)}</span></div>
+        ${applied.map(l=>`<div class="flex justify-between">
+          <span>${l.code} <span class="text-forest-700/70">· ${l.scope}${l.capped?' · hit the cap':''}</span></span>
+          <span class="tnum">−${INR(l.discount)}</span></div>`).join('')}
+        <div class="flex justify-between pt-1 border-t border-forest-200">
+          <span>Total discount</span>
+          <span class="tnum font-medium">−${INR(r.totalDiscount)}
+            <span class="${r.pct>=HIGH?'text-red-600 font-semibold':'text-forest-700/70'}">· ${r.pct}%</span></span></div>
+        <div class="flex justify-between font-semibold"><span>Payable</span><span class="tnum">${INR(r.net)}</span></div>
+      </div>
+      ${r.pct>=HIGH?`<p class="text-xs text-red-700 mt-2">Over ${HIGH}% off. <strong>There is no cap on stacked coupons yet</strong> — this is what the total reached, not a limit being enforced.</p>`:''}
+      ${r.floored?`<p class="text-xs text-red-700 mt-2">The coupons exceeded the booking value. Payable floored at ₹0.</p>`:''}
+    </div>` : ''}
+    ${rejected.length ? `<div class="rounded-lg bg-earth-50 border border-earth-200 p-3 text-sm text-earth-900 ${applied.length?'mt-2':''}">
+      <p class="font-medium">${rejected.length} rejected</p>
+      <ul class="mt-1 space-y-0.5">${rejected.map(l=>`<li>${l.code} — ${l.reason}</li>`).join('')}</ul>
+    </div>` : ''}`;
 };
 
 window.openRuleTest = function(){
