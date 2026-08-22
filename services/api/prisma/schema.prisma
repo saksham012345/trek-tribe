@@ -170,3 +170,19 @@ model VendorCommunicationLog {
   @@index([assignmentId])
   @@map("vendor_communication_log")
 }
+
+// Migrated from the Mongoose Follow model (D10/D11, wave 1 pilot).
+// followerId/followingId hold Mongo ObjectIds as strings. They cannot be foreign
+// keys until User lands in wave 9, at which point they become real FKs.
+model Follow {
+  id          String   @id @default(uuid())
+  followerId  String   @map("follower_id")
+  followingId String   @map("following_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+  @@map("follows")
+}

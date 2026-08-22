@@ -1,4 +1,4 @@
-import { Follow } from '../models/Follow';
+import { prisma } from '../lib/prisma';
 import { User } from '../models/User';
 import { emailService } from './emailService';
 import { smsService } from './smsService';
@@ -20,14 +20,17 @@ export async function notifyFollowersOnNewTrip(params: {
 
     const [organizer, follows] = await Promise.all([
       User.findById(params.organizerId).select('name').lean(),
-      Follow.find({ followingId: params.organizerId }).select('followerId').lean()
+      prisma.follow.findMany({
+        where: { followingId: params.organizerId },
+        select: { followerId: true }
+      })
     ]);
 
     if (!organizer || follows.length === 0) {
       return;
     }
 
-    const followerIds = follows.map((f: any) => f.followerId);
+    const followerIds = follows.map(f => f.followerId);
     const followers = await User.find({ _id: { $in: followerIds } })
       .select('name email phone preferences')
       .lean();
