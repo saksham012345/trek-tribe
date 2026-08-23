@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 import { User } from '../models/User';
 import { Trip } from '../models/Trip';
 import { prisma } from '../lib/prisma';
-import Lead from '../models/Lead';
+
 import { logger } from '../utils/logger';
 
 const router = express.Router();
@@ -161,10 +161,12 @@ router.get('/:uniqueUrl', async (req, res) => {
 
       try {
         // Interested leads associated with this user
-        interestedLeads = await Lead.find({ userId: user._id, status: 'interested' })
-          .populate('tripId', 'title destination startDate endDate')
-          .limit(50)
-          .lean();
+        // populate('tripId') is gone - Trip is still a Mongo document, and
+        // nothing on this screen reads the trip fields it used to pull in.
+        interestedLeads = await prisma.lead.findMany({
+          where: { userId: String(user._id), status: 'interested' },
+          take: 50
+        });
       } catch (e) {
         logger.warn('Failed to load interested leads for owner view', { userId: user._id, err: e });
       }

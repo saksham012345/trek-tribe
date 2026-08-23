@@ -1,7 +1,8 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/roleCheck';
-import Lead from '../models/Lead';
+
 import { prisma } from '../lib/prisma';
+import { withMongoId, withMongoIds } from '../lib/apiShape';
 import notificationService from '../services/notificationService';
 
 class LeadController {
@@ -22,31 +23,49 @@ class LeadController {
     try {
       const { userId, tripId, email, phone, name, source, metadata } = req.body;
 
-      // Check if lead already exists
-      let lead = await Lead.findOne({ email, tripId });
+      // The email column is lowercase-only (a CHECK), so normalise before the
+      // lookup as well as the insert - otherwise a capitalised address would
+      // miss its own duplicate and then be refused by the constraint.
+      const normalisedEmail = String(email).toLowerCase().trim();
+
+      // metadata is no longer one blob: the parts that get filtered are columns.
+      const m = metadata ?? {};
+
+      let lead = await prisma.lead.findFirst({ where: { email: normalisedEmail, tripId } });
 
       if (lead) {
-        // Update existing lead
-        lead.metadata = { ...lead.metadata, ...metadata };
-        if (lead.metadata.tripViewCount !== undefined) {
-          lead.metadata.tripViewCount += 1;
-        }
-        lead.metadata.lastVisitedAt = new Date();
-        await lead.save();
-      } else {
-        // Create new lead
-        lead = new Lead({
-          userId,
-          tripId,
-          email,
-          phone,
-          name,
-          source,
-          metadata,
-          status: 'new',
-          leadScore: this.calculateLeadScore(source, metadata),
+        lead = await prisma.lead.update({
+          where: { id: lead.id },
+          data: {
+            tripViewCount: lead.tripViewCount + 1,
+            lastVisitedAt: new Date(),
+            ...(m.inquiryMessage !== undefined ? { inquiryMessage: m.inquiryMessage } : {}),
+            ...(m.notes !== undefined ? { notes: m.notes } : {}),
+            ...(m.tags !== undefined ? { tags: m.tags } : {}),
+            ...(m.partialFormData !== undefined ? { partialFormData: m.partialFormData } : {}),
+            ...(m.travelerDetails !== undefined ? { travelerDetails: m.travelerDetails } : {}),
+          },
         });
-        await lead.save();
+      } else {
+        lead = await prisma.lead.create({
+          data: {
+            userId,
+            tripId,
+            email: normalisedEmail,
+            phone,
+            name,
+            source,
+            status: 'new',
+            leadScore: this.calculateLeadScore(source, m),
+            tripViewCount: m.tripViewCount ?? 0,
+            lastVisitedAt: m.lastVisitedAt ?? null,
+            inquiryMessage: m.inquiryMessage ?? null,
+            notes: m.notes ?? null,
+            tags: m.tags ?? [],
+            partialFormData: m.partialFormData ?? undefined,
+            travelerDetails: m.travelerDetails ?? undefined,
+          },
+        });
       }
 
       // Track activity
@@ -58,7 +77,7 @@ class LeadController {
             activityType: 'trip_view',
             description: 'Viewed trip and created lead',
             // ObjectIds have to be strings to survive a JSON column.
-            metadata: { tripId: String(tripId), leadId: String(lead._id) },
+            metadata: { tripId: String(tripId), leadId: lead.id },
           },
         });
       }
@@ -66,7 +85,7 @@ class LeadController {
       res.status(201).json({
         success: true,
         message: 'Lead created successfully',
-        data: lead,
+        data: withMongoId(lead),
       });
     } catch (error: any) {
       console.error('Create lead error:', error);
@@ -97,27 +116,29 @@ class LeadController {
 
       // Text search across common lead fields
       if (q) {
-        const re = new RegExp(String(q), 'i');
-        query.$or = [
-          { name: { $regex: re } },
-          { email: { $regex: re } },
-          { phone: { $regex: re } },
+        const term = String(q);
+        query.OR = [
+          { name: { contains: term, mode: 'insensitive' } },
+          { email: { contains: term, mode: 'insensitive' } },
+          { phone: { contains: term, mode: 'insensitive' } },
         ];
       }
 
-      const leads = await Lead.find(query)
-        .populate('userId', 'name email')
-        .populate('tripId', 'title destination')
-        .populate('assignedTo', 'name email')
-        .sort({ createdAt: -1 })
-        .limit(Number(limit))
-        .skip((Number(page) - 1) * Number(limit));
-
-      const total = await Lead.countDocuments(query);
+      // The three populate() calls are gone - User and Trip are still Mongo
+      // documents. Nothing in this response body read the populated fields.
+      const [leads, total] = await Promise.all([
+        prisma.lead.findMany({
+          where: query,
+          orderBy: { createdAt: 'desc' },
+          take: Number(limit),
+          skip: (Number(page) - 1) * Number(limit),
+        }),
+        prisma.lead.count({ where: query }),
+      ]);
 
       res.json({
         success: true,
-        data: leads,
+        data: withMongoIds(leads),
         pagination: {
           page: Number(page),
           limit: Number(limit),
@@ -142,10 +163,10 @@ class LeadController {
     try {
       const { id } = req.params;
 
-      const lead = await Lead.findById(id)
-        .populate('userId', 'name email phone')
-        .populate('tripId')
-        .populate('assignedTo', 'name email');
+      const lead = await prisma.lead.findUnique({
+        where: { id },
+        include: { interactions: { orderBy: { timestamp: 'desc' } } },
+      });
 
       if (!lead) {
         return res.status(404).json({
@@ -156,7 +177,7 @@ class LeadController {
 
       res.json({
         success: true,
-        data: lead,
+        data: lead ? withMongoId(lead) : lead,
       });
     } catch (error: any) {
       console.error('Get lead error:', error);
@@ -176,7 +197,15 @@ class LeadController {
       const { id } = req.params;
       const updates = req.body;
 
-      const lead = await Lead.findByIdAndUpdate(id, updates, { new: true });
+      const existing = await prisma.lead.findUnique({ where: { id } });
+      if (!existing) {
+        return res.status(404).json({
+          success: false,
+          message: 'Lead not found',
+        });
+      }
+
+      const lead = await prisma.lead.update({ where: { id }, data: updates });
 
       if (!lead) {
         return res.status(404).json({
@@ -188,7 +217,7 @@ class LeadController {
       res.json({
         success: true,
         message: 'Lead updated successfully',
-        data: lead,
+        data: lead ? withMongoId(lead) : lead,
       });
     } catch (error: any) {
       console.error('Update lead error:', error);
@@ -208,28 +237,30 @@ class LeadController {
       const { id } = req.params;
       const { type, description } = req.body;
 
-      const lead = await Lead.findById(id);
+      const existing = await prisma.lead.findUnique({ where: { id } });
 
-      if (!lead) {
+      if (!existing) {
         return res.status(404).json({
           success: false,
           message: 'Lead not found',
         });
       }
 
-      lead.interactions.push({
-        type,
-        description,
-        timestamp: new Date(),
-        performedBy: req.user?.id as any,
+      // interactions are rows now, so adding one is an insert rather than a
+      // rewrite of the whole lead document.
+      await prisma.leadInteraction.create({
+        data: { leadId: id, type, description, performedBy: req.user?.id ?? null },
       });
 
-      await lead.save();
+      const lead = await prisma.lead.findUnique({
+        where: { id },
+        include: { interactions: { orderBy: { timestamp: 'desc' } } },
+      });
 
       res.json({
         success: true,
         message: 'Interaction added successfully',
-        data: lead,
+        data: lead ? withMongoId(lead) : lead,
       });
     } catch (error: any) {
       console.error('Add interaction error:', error);
@@ -248,21 +279,18 @@ class LeadController {
     try {
       const { id } = req.params;
 
-      const lead = await Lead.findByIdAndUpdate(
-        id,
-        {
-          status: 'converted',
-          convertedAt: new Date(),
-        },
-        { new: true }
-      );
-
-      if (!lead) {
+      const existing = await prisma.lead.findUnique({ where: { id } });
+      if (!existing) {
         return res.status(404).json({
           success: false,
           message: 'Lead not found',
         });
       }
+
+      const lead = await prisma.lead.update({
+        where: { id },
+        data: { status: 'converted', convertedAt: new Date() },
+      });
 
       // Send notification to assigned organizer
       if (lead.assignedTo) {
@@ -271,16 +299,16 @@ class LeadController {
           type: 'lead',
           title: 'Lead Converted!',
           message: `Lead ${lead.email} has been converted to a booking`,
-          actionUrl: `/crm/leads/${lead._id}`,
+          actionUrl: `/crm/leads/${lead.id}`,
           actionType: 'view_lead',
-          relatedTo: { type: 'lead', id: lead._id.toString() },
+          relatedTo: { type: 'lead', id: lead.id },
         });
       }
 
       res.json({
         success: true,
         message: 'Lead converted successfully',
-        data: lead,
+        data: lead ? withMongoId(lead) : lead,
       });
     } catch (error: any) {
       console.error('Convert lead error:', error);

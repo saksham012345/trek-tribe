@@ -1,4 +1,7 @@
-import { ILead } from '../models/Lead';
+import { Lead as LeadRow, LeadInteraction } from '@prisma/client';
+
+/** A lead plus whatever interactions the caller chose to load. */
+export type ScorableLead = Partial<LeadRow> & { interactions?: Pick<LeadInteraction, 'type'>[] };
 
 type ScoringMode = 'RULE_BASED' | 'ML_MODEL';
 
@@ -20,28 +23,30 @@ class LeadScoringService {
     this.mode = mode;
   }
 
-  computeScore(lead: Partial<ILead>, bookingAbandonedCount = 0): number {
+  computeScore(lead: ScorableLead, bookingAbandonedCount = 0): number {
     if (this.mode === 'ML_MODEL') {
       return this.mlScore(lead, bookingAbandonedCount);
     }
     return this.ruleBasedScore(lead, bookingAbandonedCount);
   }
 
-  private ruleBasedScore(lead: Partial<ILead>, bookingAbandonedCount = 0): number {
+  // tripViewCount and inquiryMessage are columns now, not metadata.*, and
+  // interactions is a relation the caller has to load. The signature says so.
+  private ruleBasedScore(lead: ScorableLead, bookingAbandonedCount = 0): number {
     let score = BASE_SCORES[lead.source ?? 'other'] ?? 10;
 
     // +10 if tripViewCount > 1
-    if ((lead.metadata?.tripViewCount ?? 0) > 1) score += 10;
+    if ((lead.tripViewCount ?? 0) > 1) score += 10;
 
     // +15 if inquiryMessage present
-    if (lead.metadata?.inquiryMessage) score += 15;
+    if (lead.inquiryMessage) score += 15;
 
     // +5 per chat interaction
     const chatCount = (lead.interactions ?? []).filter(i => i.type === 'chat').length;
     score += chatCount * 5;
 
     // +10 if returned to same trip page multiple times (tripViewCount > 3)
-    if ((lead.metadata?.tripViewCount ?? 0) > 3) score += 10;
+    if ((lead.tripViewCount ?? 0) > 3) score += 10;
 
     // +20 if clicked "Book Now" but did not finish payment
     if (bookingAbandonedCount > 0) score += 20;
@@ -57,7 +62,7 @@ class LeadScoringService {
   }
 
   // Stub for future ML model integration
-  private mlScore(lead: Partial<ILead>, bookingAbandonedCount = 0): number {
+  private mlScore(lead: ScorableLead, bookingAbandonedCount = 0): number {
     // TODO: load trained model and run inference
     return this.ruleBasedScore(lead, bookingAbandonedCount);
   }

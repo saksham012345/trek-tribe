@@ -5,8 +5,10 @@
  * No req/res objects — pure data in, data out.
  */
 
-import Lead from '../../models/Lead';
-import { LeadActivity } from '../../models/LeadActivity';
+
+
+import { prisma } from '../../lib/prisma';
+import { withMongoId, withMongoIds } from '../../lib/apiShape';
 import { leadScoringService } from '../../services/leadScoringService';
 import { Trip } from '../../models/Trip';
 import { GroupBooking } from '../../models/GroupBooking';
@@ -65,7 +67,7 @@ export async function getCrmStats(userId: string, isAdmin: boolean): Promise<Crm
     bookingQuery.tripId = { $in: organizerTripIds };
   }
 
-  const leads = await Lead.find(leadQuery).lean();
+  const leads = await prisma.lead.findMany({ where: leadQuery });
   const trips = await Trip.find(tripQuery).select('_id price participants status').lean();
 
   bookingQuery.paymentStatus = { $in: ['completed', 'partial'] };
@@ -228,24 +230,31 @@ export async function getLeadSources(userId: string, isAdmin: boolean): Promise<
   const leadQuery: any = {};
   if (!isAdmin && userId) leadQuery.assignedTo = userId;
 
-  const leads = await Lead.aggregate([
-    { $match: leadQuery },
-    {
-      $group: {
-        _id: '$source',
-        count: { $sum: 1 },
-        converted: { $sum: { $cond: [{ $eq: ['$status', 'converted'] }, 1, 0] } },
-      },
-    },
-    { $sort: { count: -1 } },
+  // One $group counted totals and conversions together with a $cond. groupBy
+  // cannot express a conditional sum, so it is two grouped counts joined here.
+  const [totals, convertedTotals] = await Promise.all([
+    prisma.lead.groupBy({ by: ['source'], where: leadQuery, _count: { source: true } }),
+    prisma.lead.groupBy({
+      by: ['source'],
+      where: { ...leadQuery, status: 'converted' },
+      _count: { source: true }
+    })
   ]);
 
-  return leads.map(l => ({
-    source: l._id || 'other',
-    count: l.count,
-    converted: l.converted,
-    conversionRate: l.count > 0 ? ((l.converted / l.count) * 100).toFixed(2) : '0.00',
-  }));
+  const convertedBySource = new Map(convertedTotals.map(c => [c.source, c._count.source]));
+
+  return totals
+    .map(t => {
+      const count = t._count.source;
+      const converted = convertedBySource.get(t.source) ?? 0;
+      return {
+        source: t.source || 'other',
+        count,
+        converted,
+        conversionRate: count > 0 ? ((converted / count) * 100).toFixed(2) : '0.00',
+      };
+    })
+    .sort((a, b) => b.count - a.count);
 }
 
 // ─── Lead import / export ─────────────────────────────────────────────────────
@@ -279,11 +288,20 @@ export async function exportLeadsToCsv(
 
   const query: any = {};
   if (!isAdmin) query.assignedTo = userId;
-  data = await Lead.find(query).populate('tripId', 'title').lean();
+  data = await prisma.lead.findMany({ where: query });
+
+  // populate('tripId') is gone - trips are still Mongo documents - so the titles
+  // are fetched in one query and looked up, rather than one round trip per row.
+  const tripIds = Array.from(new Set(data.map((l: any) => l.tripId).filter(Boolean)));
+  const trips = tripIds.length
+    ? await Trip.find({ _id: { $in: tripIds } }).select('title').lean()
+    : [];
+  const tripTitleById = new Map(trips.map((t: any) => [t._id.toString(), t.title]));
+
   const rows = data
     .map(
       (l: any) =>
-        `"${l.name || ''}","${l.email || ''}","${l.phone || ''}","${l.tripId?.title || 'N/A'}","${l.status}","${l.source}","${l.createdAt}"`
+        `"${l.name || ''}","${l.email || ''}","${l.phone || ''}","${(l.tripId && tripTitleById.get(l.tripId)) || 'N/A'}","${l.status}","${l.source}","${l.createdAt}"`
     )
     .join('\n');
   return { csv: 'Name,Email,Phone,Trip,Status,Source,Created At\n' + rows, filename: `leads-export-${date}.csv` };
@@ -297,9 +315,14 @@ export async function updatePipelineStage(leadId: string, pipelineStage: string)
   if (!VALID_STAGES.includes(pipelineStage as PipelineStage)) {
     throw Object.assign(new Error(`Invalid pipelineStage. Must be one of: ${VALID_STAGES.join(', ')}`), { status: 400 });
   }
-  const lead = await Lead.findByIdAndUpdate(leadId, { $set: { pipelineStage } }, { new: true });
-  if (!lead) throw Object.assign(new Error('Lead not found'), { status: 404 });
-  return lead;
+  const existing = await prisma.lead.findUnique({ where: { id: leadId } });
+  if (!existing) throw Object.assign(new Error('Lead not found'), { status: 404 });
+
+  const updated = await prisma.lead.update({
+    where: { id: leadId },
+    data: { pipelineStage: pipelineStage as any }
+  });
+  return withMongoId(updated);
 }
 
 // ─── Activities ───────────────────────────────────────────────────────────────
@@ -309,36 +332,58 @@ export async function recordActivity(leadId: string, eventType: string, metadata
     throw Object.assign(new Error('leadId and eventType are required'), { status: 400 });
   }
 
-  const activity = await LeadActivity.create({ leadId, eventType, metadata, timestamp: new Date() });
+  // leadId is a real foreign key now, so an activity for a lead that does not
+  // exist is refused here rather than stored and orphaned.
+  const activity = await prisma.leadActivity.create({
+    data: { leadId, eventType: eventType as any, metadata, timestamp: new Date() }
+  });
 
   if (eventType === 'booking_abandoned') {
-    const lead = await Lead.findById(leadId);
+    const lead = await prisma.lead.findUnique({
+      where: { id: leadId },
+      include: { interactions: { select: { type: true } } }
+    });
     if (lead) {
-      const abandonedCount = await LeadActivity.countDocuments({ leadId, eventType: 'booking_abandoned' });
-      lead.leadScore = leadScoringService.computeScore(lead, abandonedCount);
-      await lead.save();
+      const abandonedCount = await prisma.leadActivity.count({
+        where: { leadId, eventType: 'booking_abandoned' }
+      });
+      await prisma.lead.update({
+        where: { id: leadId },
+        data: { leadScore: leadScoringService.computeScore(lead, abandonedCount) }
+      });
     }
   }
 
-  return activity;
+  return withMongoId(activity);
 }
 
 export async function getActivitiesForLead(leadId: string) {
-  return LeadActivity.find({ leadId }).sort({ timestamp: -1 }).limit(50).lean();
+  const activities = await prisma.leadActivity.findMany({
+    where: { leadId },
+    orderBy: { timestamp: 'desc' },
+    take: 50
+  });
+  return withMongoIds(activities);
 }
 
 // ─── Rescore ──────────────────────────────────────────────────────────────────
 
 export async function rescoreLeads(organizerId: string): Promise<{ total: number; updated: number }> {
-  const leads = await Lead.find({ assignedTo: organizerId });
+  // interactions are a relation now, and the score reads them, so they are
+  // loaded with the lead instead of being one more query per row.
+  const leads = await prisma.lead.findMany({
+    where: { assignedTo: organizerId },
+    include: { interactions: { select: { type: true } } }
+  });
   let updated = 0;
 
   for (const lead of leads) {
-    const abandonedCount = await LeadActivity.countDocuments({ leadId: lead._id, eventType: 'booking_abandoned' });
+    const abandonedCount = await prisma.leadActivity.count({
+      where: { leadId: lead.id, eventType: 'booking_abandoned' }
+    });
     const newScore = leadScoringService.computeScore(lead, abandonedCount);
     if (newScore !== lead.leadScore) {
-      lead.leadScore = newScore;
-      await lead.save();
+      await prisma.lead.update({ where: { id: lead.id }, data: { leadScore: newScore } });
       updated++;
     }
   }

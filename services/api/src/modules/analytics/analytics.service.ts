@@ -9,7 +9,8 @@ import { SupportTicket } from '../../models/SupportTicket';
 import { Trip } from '../../models/Trip';
 import { User } from '../../models/User';
 import { OrganizerSubscription } from '../../models/OrganizerSubscription';
-import Lead from '../../models/Lead';
+import { Prisma } from '@prisma/client';
+import { prisma } from '../../lib/prisma';
 import Ticket from '../../models/Ticket';
 import TripVerification from '../../models/TripVerification';
 import { GroupBooking } from '../../models/GroupBooking';
@@ -47,8 +48,8 @@ export async function getAdminDashboard() {
       { $group: { _id: null, total: { $sum: '$amount' } } },
     ]),
     TripVerification.countDocuments({ status: 'pending' }),
-    Lead.countDocuments(),
-    Lead.countDocuments({ status: 'converted' }),
+    prisma.lead.count(),
+    prisma.lead.count({ where: { status: 'converted' } }),
     Ticket.countDocuments({ status: { $in: ['open', 'in_progress'] } }),
     Trip.aggregate([
       { $group: { _id: '$destination', count: { $sum: 1 } } },
@@ -119,8 +120,8 @@ export async function getOrganizerDashboard(userId: string) {
   ] = await Promise.all([
     Trip.countDocuments({ organizer: userId }),
     Trip.countDocuments({ organizer: userId, isActive: true }),
-    Lead.countDocuments({ assignedTo: userId }),
-    Lead.countDocuments({ assignedTo: userId, status: 'converted' }),
+    prisma.lead.count({ where: { assignedTo: userId } }),
+    prisma.lead.count({ where: { assignedTo: userId, status: 'converted' } }),
     Ticket.countDocuments({ userId }),
     OrganizerSubscription.aggregate([
       { $match: { organizerId: userId, 'payments.status': 'completed' } },
@@ -306,32 +307,31 @@ export async function getUserGrowthAnalytics() {
 // ─── Leads ────────────────────────────────────────────────────────────────────
 
 export async function getLeadAnalytics(userId: string, userRole: string) {
-  const organizerFilter = userRole === 'organizer' ? { organizerId: userId } : {};
+  // Was { organizerId: userId }. Lead has no organizerId - the column is
+  // assignedTo - so this matched nothing and an organizer saw empty analytics.
+  const organizerFilter: Prisma.LeadWhereInput =
+    userRole === 'organizer' ? { assignedTo: userId } : {};
 
   const [totalLeads, byStatus, bySource, conversionFunnel] = await Promise.all([
-    Lead.countDocuments(organizerFilter),
-    Lead.aggregate([
-      { $match: organizerFilter },
-      { $group: { _id: '$status', count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-    ]),
-    Lead.aggregate([
-      { $match: organizerFilter },
-      { $group: { _id: '$source', count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-    ]),
-    Lead.aggregate([
-      { $match: organizerFilter },
-      { $group: { _id: '$score', count: { $sum: 1 } } },
-      { $sort: { _id: 1 } },
-    ]),
+    prisma.lead.count({ where: organizerFilter }),
+    prisma.lead.groupBy({ by: ['status'], where: organizerFilter, _count: { status: true } }),
+    prisma.lead.groupBy({ by: ['source'], where: organizerFilter, _count: { source: true } }),
+    // Was grouped by '$score'. Lead has no such field - it is leadScore - so this
+    // put every lead in one null bucket and the funnel rendered a single bar.
+    prisma.lead.groupBy({ by: ['leadScore'], where: organizerFilter, _count: { leadScore: true } }),
   ]);
 
   return {
     totalLeads,
-    byStatus: byStatus.map((s: any) => ({ name: s._id, count: s.count })),
-    bySource: bySource.map((s: any) => ({ name: s._id || 'Direct', count: s.count })),
-    conversionFunnel: conversionFunnel.map((stage: any) => ({ score: stage._id, count: stage.count })),
+    byStatus: byStatus
+      .map((s: any) => ({ name: s.status, count: s._count.status }))
+      .sort((a: any, b: any) => b.count - a.count),
+    bySource: bySource
+      .map((s: any) => ({ name: s.source || 'Direct', count: s._count.source }))
+      .sort((a: any, b: any) => b.count - a.count),
+    conversionFunnel: conversionFunnel
+      .map((stage: any) => ({ score: stage.leadScore, count: stage._count.leadScore }))
+      .sort((a: any, b: any) => a.score - b.score),
   };
 }
 

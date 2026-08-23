@@ -5,6 +5,7 @@ import { prisma } from '../lib/prisma';
 import { Trip } from '../models/Trip';
 import { User } from '../models/User';
 import { authenticateJwt } from '../middleware/auth';
+import { withMongoId, asPopulated } from '../lib/apiShape';
 
 /**
  * Wishlist rows live in Postgres (D10/D11, wave 2). Trip and User are still in
@@ -139,13 +140,12 @@ router.get('/',
     const organizerById = new Map(organizers.map((o: any) => [o._id.toString(), o]));
 
     res.json({
+      // Shaped the way Mongoose used to answer: _id present, and the trip under
+      // tripId as a populated object - Wishlist.tsx reads item.tripId.title and
+      // keys its list on item._id.
       items: pageRows.map(({ row, trip }) => ({
-        id: row.id,
-        notes: row.notes,
-        priority: row.priority,
-        tags: row.tags,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
+        ...withMongoId(row),
+        tripId: asPopulated(trip),
         trip,
         organizer: organizerById.get(String((trip as any).organizerId)) ?? null
       })),
@@ -220,7 +220,7 @@ router.post('/',
 
       res.status(201).json({
         message: 'Trip added to wishlist successfully',
-        wishlistItem: { ...wishlistItem, trip }
+        wishlistItem: { ...withMongoId(wishlistItem), tripId: asPopulated(trip), trip }
       });
     } catch (error: any) {
       if (error?.code === 'P2002') {
@@ -256,7 +256,7 @@ router.put('/:id',
 
     res.json({
       message: 'Wishlist item updated successfully',
-      wishlistItem: { ...wishlistItem, trip }
+      wishlistItem: { ...withMongoId(wishlistItem), tripId: asPopulated(trip), trip }
     });
   })
 );
@@ -387,7 +387,7 @@ router.get('/check/:tripId',
       where: { userId_tripId: { userId, tripId } }
     });
 
-    res.json({ isInWishlist: !!item, wishlistItemId: item?.id ?? null });
+    res.json({ isInWishlist: !!item, wishlistItemId: item?.id ?? null, _id: item?.id ?? null });
   })
 );
 

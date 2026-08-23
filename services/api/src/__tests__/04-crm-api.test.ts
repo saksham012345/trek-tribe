@@ -9,7 +9,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import authRoutes from '../routes/auth';
 import crmRoutes from '../routes/crm';
-import Lead from '../models/Lead';
+import { prisma } from '../lib/prisma';
 import { LeadActivity } from '../models/LeadActivity';
 import { User } from '../models/User';
 
@@ -25,7 +25,7 @@ let leadId: string;
 
 beforeAll(async () => {
   await User.deleteMany({ email: { $in: ['crm-org@test.com', 'crm-traveler@test.com'] } });
-  await Lead.deleteMany({});
+  await prisma.lead.deleteMany({});
   await LeadActivity.deleteMany({});
 
   const orgRes = await request(app).post('/auth/register').send({
@@ -212,7 +212,7 @@ describe('POST /api/crm/leads/activities', () => {
   });
 
   it('rescores lead on booking_abandoned event', async () => {
-    const leadBefore = await Lead.findById(leadId);
+    const leadBefore = await prisma.lead.findUnique({ where: { id: leadId } });
     const scoreBefore = leadBefore?.leadScore ?? 0;
 
     await request(app)
@@ -221,7 +221,7 @@ describe('POST /api/crm/leads/activities', () => {
       .send({ leadId, eventType: 'booking_abandoned' })
       .expect(201);
 
-    const leadAfter = await Lead.findById(leadId);
+    const leadAfter = await prisma.lead.findUnique({ where: { id: leadId } });
     // Score should be >= scoreBefore since booking_abandoned adds +20
     expect(leadAfter?.leadScore).toBeGreaterThanOrEqual(scoreBefore);
   });

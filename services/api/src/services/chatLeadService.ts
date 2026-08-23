@@ -1,4 +1,4 @@
-import Lead from '../models/Lead';
+import { prisma } from '../lib/prisma';
 import { logger } from '../utils/logger';
 import notificationService from './notificationService';
 import { emailQueue } from './emailQueueService';
@@ -56,65 +56,66 @@ class ChatLeadService {
       if (!user) return;
 
       // Check if lead already exists
-      let lead = await Lead.findOne({ 
-        userId, 
-        tripId: tripId || undefined,
-        source: 'chat' 
+      let lead = await prisma.lead.findFirst({
+        where: { userId, tripId: tripId || undefined, source: 'chat' }
       });
 
       if (lead) {
-        // Update existing lead
-        lead.leadScore = Math.min(lead.leadScore + intentScore, 100);
-        lead.metadata.lastVisitedAt = new Date();
-        lead.metadata.notes = (lead.metadata.notes || '') + 
-          `\n[${new Date().toISOString()}] Chat interaction - Intent score: ${intentScore}`;
-        
-        lead.interactions.push({
-          type: 'chat',
-          description: this.summarizeChatIntent(messages),
-          timestamp: new Date(),
-          performedBy: undefined,
-        } as any);
+        // The interaction is an insert now rather than a push onto the document,
+        // so two chats landing at once both get recorded instead of one
+        // overwriting the other's array.
+        await prisma.leadInteraction.create({
+          data: {
+            leadId: lead.id,
+            type: 'chat',
+            description: this.summarizeChatIntent(messages)
+          }
+        });
 
-        await lead.save();
-        
-        logger.info('Updated lead from chat interaction', { 
-          leadId: lead._id,
+        lead = await prisma.lead.update({
+          where: { id: lead.id },
+          data: {
+            leadScore: Math.min(lead.leadScore + intentScore, 100),
+            lastVisitedAt: new Date(),
+            notes: (lead.notes || '') +
+              `\n[${new Date().toISOString()}] Chat interaction - Intent score: ${intentScore}`
+          }
+        });
+
+        logger.info('Updated lead from chat interaction', {
+          leadId: lead.id,
           userId,
-          intentScore 
+          intentScore
         });
       } else {
         // Create new lead
-        lead = new Lead({
-          userId,
-          tripId,
-          email: user.email,
-          phone: user.phone,
-          name: user.name,
-          source: 'chat',
-          status: 'new',
-          leadScore: 50 + Math.min(intentScore, 30), // Base 50 + intent bonus
-          metadata: {
+        // The first interaction is created with the lead, so a chat lead never
+        // exists for a moment without the chat that produced it.
+        lead = await prisma.lead.create({
+          data: {
+            userId,
+            tripId,
+            email: user.email.toLowerCase(),
+            phone: user.phone,
+            name: user.name,
+            source: 'chat',
+            status: 'new',
+            leadScore: 50 + Math.min(intentScore, 30), // Base 50 + intent bonus
             lastVisitedAt: new Date(),
             inquiryMessage: this.summarizeChatIntent(messages),
             tags: ['auto-generated', 'chat-lead', `intent-score-${intentScore}`],
             notes: `Lead generated from chat conversation. User showed ${intentScore >= 50 ? 'high' : 'moderate'} interest.`,
-          },
-          interactions: [{
-            type: 'chat',
-            description: this.summarizeChatIntent(messages),
-            timestamp: new Date(),
-            performedBy: undefined,
-          }] as any,
+            interactions: {
+              create: [{ type: 'chat', description: this.summarizeChatIntent(messages) }]
+            }
+          }
         });
 
-        await lead.save();
-        
-        logger.info('Auto-created lead from chat', { 
-          leadId: lead._id,
+        logger.info('Auto-created lead from chat', {
+          leadId: lead.id,
           userId,
           intentScore,
-          score: lead.leadScore 
+          score: lead.leadScore
         });
 
         // Notify organizer if trip-specific
@@ -125,7 +126,7 @@ class ChatLeadService {
 
       // If high intent, trigger immediate follow-up using queue
       if (intentScore >= 60) {
-        this.scheduleChatFollowUp(lead._id.toString(), 2 * 60 * 60 * 1000); // 2 hours
+        this.scheduleChatFollowUp(lead.id, 2 * 60 * 60 * 1000); // 2 hours
       }
 
     } catch (error: any) {
@@ -197,14 +198,14 @@ class ChatLeadService {
         type: 'lead',
         title: 'New Lead from Chat',
         message: `${lead.name || lead.email} showed interest in "${trip.title}" during chat conversation`,
-        actionUrl: `/crm/leads/${lead._id}`,
+        actionUrl: `/crm/leads/${lead.id}`,
         actionType: 'view_lead',
-        relatedTo: { type: 'lead', id: lead._id.toString() },
+        relatedTo: { type: 'lead', id: lead.id },
       });
 
       logger.info('Notified organizer of chat lead', { 
         organizerId: trip.organizerId,
-        leadId: lead._id 
+        leadId: lead.id 
       });
     } catch (error: any) {
       logger.error('Error notifying organizer', { error: error.message });
@@ -216,17 +217,20 @@ class ChatLeadService {
    */
   private async scheduleChatFollowUp(leadId: string, delayMs: number): Promise<void> {
     try {
-      const lead = await Lead.findById(leadId).populate('tripId');
+      const lead = await prisma.lead.findUnique({ where: { id: leadId } });
       if (!lead || lead.status === 'converted' || !lead.email) return;
 
-      const trip = (lead.tripId as any);
+      // tripId used to arrive populated. It is a foreign-key string now, so the
+      // trip is fetched from Mongo where it still lives.
+      const { Trip } = require('../models/Trip');
+      const trip = lead.tripId ? await Trip.findById(lead.tripId).lean() : null;
       const { emailTemplates } = require('../templates/emailTemplates');
       
       const emailHtml = emailTemplates.chatFollowUp({
         userName: lead.name || 'Traveler',
         tripTitle: trip?.title || 'our adventure trips',
         tripUrl: trip ? `${process.env.FRONTEND_URL}/trips/${trip._id}` : `${process.env.FRONTEND_URL}/trips`,
-        chatSummary: lead.metadata.inquiryMessage || 'You recently chatted with us',
+        chatSummary: lead.inquiryMessage || 'You recently chatted with us',
       });
 
       await emailQueue.scheduleEmail({
@@ -234,7 +238,7 @@ class ChatLeadService {
         to: lead.email,
         subject: `Following up on your interest in ${trip?.title || 'Trek-Tribe'}`,
         html: emailHtml,
-        leadId: lead._id.toString(),
+        leadId: lead.id,
         tripId: trip?._id?.toString(),
       }, delayMs);
 
@@ -249,7 +253,7 @@ class ChatLeadService {
    */
   private async sendChatFollowUp(leadId: string): Promise<void> {
     try {
-      const lead = await Lead.findById(leadId).populate('tripId');
+      const lead = await prisma.lead.findUnique({ where: { id: leadId } });
       
       if (!lead || lead.status === 'converted') return;
 
@@ -263,7 +267,7 @@ class ChatLeadService {
           userName: lead.name || 'Traveler',
           tripTitle: trip?.title || 'our adventure trips',
           tripUrl: trip ? `${process.env.FRONTEND_URL}/trips/${trip._id}` : `${process.env.FRONTEND_URL}/trips`,
-          chatSummary: lead.metadata.inquiryMessage || 'You recently chatted with us',
+          chatSummary: lead.inquiryMessage || 'You recently chatted with us',
         });
 
         await emailService.sendEmail({
@@ -274,13 +278,15 @@ class ChatLeadService {
 
         logger.info('Sent chat follow-up email', { leadId, email: lead.email });
 
-        lead.interactions.push({
-          type: 'email',
-          description: 'Sent follow-up email after chat interaction',
-          timestamp: new Date(),
-          performedBy: undefined,
-        } as any);
-        await lead.save();
+        // An insert rather than a push-and-save, so recording the email cannot
+        // overwrite an interaction added between the read and the write.
+        await prisma.leadInteraction.create({
+          data: {
+            leadId: lead.id,
+            type: 'email',
+            description: 'Sent follow-up email after chat interaction'
+          }
+        });
       }
     } catch (error: any) {
       logger.error('Error sending chat follow-up', { error: error.message });

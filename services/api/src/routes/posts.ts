@@ -4,6 +4,7 @@ import { authenticateJwt } from '../middleware/auth';
 import { prisma } from '../lib/prisma';
 import { User } from '../models/User';
 import { logger } from '../utils/logger';
+import { withMongoId, asPopulated } from '../lib/apiShape';
 
 /**
  * Posts and Comments live in Postgres (D10/D11, wave 2). They moved together
@@ -73,15 +74,44 @@ async function authorsById(ids: string[], fields = 'name profilePhoto role') {
   return new Map(users.map((u: any) => [u._id.toString(), u]));
 }
 
-/** Shape a post row the way the API used to, with the author joined from Mongo. */
-function shapePost(post: any, author: any) {
-  const { likes, comments, ...rest } = post;
+/**
+ * Shape a post the way the API used to answer, because PostCard.tsx is the
+ * contract and it was written against Mongoose. It reads post._id, calls
+ * post.likes.length, iterates post.likes looking for like._id, and reads
+ * post.authorId as a populated object. A response carrying id / likesCount /
+ * author instead does not merely look different - post.likes.length throws
+ * during render, and the component never mounts.
+ *
+ * So likes stays an array, of { _id } for the users who liked. That is exactly
+ * what the "have I liked this" check needs and nothing more.
+ */
+function shapePost(post: any, author: any, likerIds: string[] = []) {
+  const { likes, comments, _count, ...rest } = post;
   return {
-    ...rest,
+    ...withMongoId(rest),
+    authorId: asPopulated(author),
     author,
-    likesCount: post._count?.likes ?? (likes ? likes.length : 0),
-    commentsCount: post._count?.comments ?? (comments ? comments.length : 0)
+    likes: likerIds.map(id => ({ _id: id, id })),
+    comments: Array.isArray(comments) ? comments.map(withMongoId) : [],
+    likesCount: _count?.likes ?? likerIds.length,
+    commentsCount: _count?.comments ?? (Array.isArray(comments) ? comments.length : 0)
   };
+}
+
+/** Who liked each of these posts, so a list can answer "have I liked it". */
+async function likersByPost(postIds: string[]) {
+  if (postIds.length === 0) return new Map<string, string[]>();
+  const rows = await prisma.postLike.findMany({
+    where: { postId: { in: postIds } },
+    select: { postId: true, userId: true }
+  });
+  const byPost = new Map<string, string[]>();
+  for (const r of rows) {
+    const list = byPost.get(r.postId) ?? [];
+    list.push(r.userId);
+    byPost.set(r.postId, list);
+  }
+  return byPost;
 }
 
 // Create a new post
@@ -131,7 +161,7 @@ router.post('/', authenticateJwt, async (req, res) => {
 
     res.status(201).json({
       message: 'Post created successfully',
-      post: shapePost(post, authors.get(userId) ?? null)
+      post: shapePost(post, authors.get(userId) ?? null, [])
     });
   } catch (error: any) {
     logger.error('Error creating post', { error: error.message });
@@ -163,10 +193,13 @@ router.get('/', async (req, res) => {
       prisma.post.count({ where })
     ]);
 
-    const authors = await authorsById(posts.map(p => p.authorId));
+    const [authors, likers] = await Promise.all([
+      authorsById(posts.map(p => p.authorId)),
+      likersByPost(posts.map(p => p.id))
+    ]);
 
     res.json({
-      posts: posts.map(p => shapePost(p, authors.get(p.authorId) ?? null)),
+      posts: posts.map(p => shapePost(p, authors.get(p.authorId) ?? null, likers.get(p.id) ?? [])),
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(totalPosts / limit),
@@ -220,12 +253,15 @@ router.get('/feed/following', authenticateJwt, async (req, res) => {
       prisma.post.count({ where })
     ]);
 
-    const authors = await authorsById(posts.map(p => p.authorId));
+    const [authors, likers] = await Promise.all([
+      authorsById(posts.map(p => p.authorId)),
+      likersByPost(posts.map(p => p.id))
+    ]);
 
     logger.info('Follow feed fetched', { userId, postsCount: posts.length });
 
     res.json({
-      posts: posts.map(p => shapePost(p, authors.get(p.authorId) ?? null)),
+      posts: posts.map(p => shapePost(p, authors.get(p.authorId) ?? null, likers.get(p.id) ?? [])),
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(totalPosts / limit),
@@ -369,15 +405,19 @@ router.get('/:postId', async (req, res) => {
       return res.status(404).json({ error: 'Post not found' });
     }
 
-    const authors = await authorsById([
-      post.authorId,
-      ...post.comments.map(c => c.authorId)
+    const [authors, likers] = await Promise.all([
+      authorsById([post.authorId, ...post.comments.map(c => c.authorId)]),
+      likersByPost([post.id])
     ]);
 
     res.json({
       post: {
-        ...shapePost(post, authors.get(post.authorId) ?? null),
-        comments: post.comments.map(c => ({ ...c, author: authors.get(c.authorId) ?? null }))
+        ...shapePost(post, authors.get(post.authorId) ?? null, likers.get(post.id) ?? []),
+        comments: post.comments.map(c => ({
+          ...withMongoId(c),
+          authorId: asPopulated(authors.get(c.authorId)),
+          author: authors.get(c.authorId) ?? null
+        }))
       }
     });
   } catch (error: any) {
@@ -474,7 +514,11 @@ router.post('/:postId/comments', authenticateJwt, async (req, res) => {
 
     res.status(201).json({
       message: 'Comment added successfully',
-      comment: { ...comment, author: authors.get(userId) ?? null }
+      comment: {
+        ...withMongoId(comment),
+        authorId: asPopulated(authors.get(userId)),
+        author: authors.get(userId) ?? null
+      }
     });
   } catch (error: any) {
     logger.error('Error adding comment', { error: error.message });
@@ -510,7 +554,11 @@ router.get('/:postId/comments', async (req, res) => {
     const authors = await authorsById(comments.map(c => c.authorId), 'name profilePhoto');
 
     res.json({
-      comments: comments.map(c => ({ ...c, author: authors.get(c.authorId) ?? null })),
+      comments: comments.map(c => ({
+        ...withMongoId(c),
+        authorId: asPopulated(authors.get(c.authorId)),
+        author: authors.get(c.authorId) ?? null
+      })),
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(totalComments / limit),

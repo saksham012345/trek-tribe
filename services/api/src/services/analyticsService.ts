@@ -1,4 +1,4 @@
-import Lead from '../models/Lead';
+
 import Ticket from '../models/Ticket';
 import { prisma } from '../lib/prisma';
 import TripVerification from '../models/TripVerification';
@@ -20,11 +20,14 @@ class AnalyticsService {
       // const verifiedTrips = await TripVerification.countDocuments({ organizerId, status: 'verified', ...dateFilter });
 
       // Get leads
-      const totalLeads = await Lead.countDocuments({ assignedTo: organizerId, ...dateFilter });
-      const convertedLeads = await Lead.countDocuments({
-        assignedTo: organizerId,
-        status: 'converted',
-        ...dateFilter,
+      const leadRange = dateRange
+        ? { createdAt: { gte: dateRange.start, lte: dateRange.end } }
+        : {};
+      const totalLeads = await prisma.lead.count({
+        where: { assignedTo: organizerId, ...leadRange }
+      });
+      const convertedLeads = await prisma.lead.count({
+        where: { assignedTo: organizerId, status: 'converted', ...leadRange }
       });
       const conversionRate = totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
 
@@ -119,7 +122,11 @@ class AnalyticsService {
       });
 
       // Get leads (if user showed interest in trips)
-      const leads = await Lead.find({ userId }).sort({ createdAt: -1 }).limit(5);
+      const leads = await prisma.lead.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        take: 5
+      });
 
       return {
         // bookings: {
@@ -148,8 +155,11 @@ class AnalyticsService {
         : {};
 
       // Total leads
-      const totalLeads = await Lead.countDocuments(dateFilter);
-      const newLeads = await Lead.countDocuments({ status: 'new', ...dateFilter });
+      const adminLeadRange = dateRange
+        ? { createdAt: { gte: dateRange.start, lte: dateRange.end } }
+        : {};
+      const totalLeads = await prisma.lead.count({ where: adminLeadRange });
+      const newLeads = await prisma.lead.count({ where: { status: 'new', ...adminLeadRange } });
 
       // Tickets
       const totalTickets = await Ticket.countDocuments(dateFilter);
@@ -251,18 +261,10 @@ class AnalyticsService {
    */
   async getLeadSourcesBreakdown() {
     try {
-      const sources = await Lead.aggregate([
-        {
-          $group: {
-            _id: '$source',
-            count: { $sum: 1 },
-          },
-        },
-        {
-          $sort: { count: -1 },
-        },
-      ]);
-
+      const grouped = await prisma.lead.groupBy({ by: ['source'], _count: { source: true } });
+      const sources = grouped
+        .map(g => ({ _id: g.source, count: g._count.source }))
+        .sort((a, b) => b.count - a.count);
       return sources;
     } catch (error) {
       console.error('Error getting lead sources:', error);

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import Lead from '../models/Lead';
+
 import { prisma } from '../lib/prisma';
 import { Trip } from '../models/Trip';
 import { logger } from '../utils/logger';
@@ -110,67 +110,72 @@ async function autoCreateLeadFromViews(userId: string, tripId: string, viewCount
     if (!user) return;
 
     // Check if lead already exists
-    const existingLead = await Lead.findOne({ 
-      userId, 
-      tripId,
-      source: 'trip_view' 
+    const existingLead = await prisma.lead.findFirst({
+      where: { userId, tripId, source: 'trip_view' }
     });
 
     if (existingLead) {
-      // Update existing lead
-      existingLead.metadata.tripViewCount = viewCount;
-      existingLead.metadata.lastVisitedAt = new Date();
-      existingLead.leadScore = Math.min(existingLead.leadScore + 10, 100);
-      await existingLead.save();
-      
-      logger.info('Updated existing lead from trip views', { 
-        leadId: existingLead._id,
+      // The score cap is a CHECK constraint now as well as this Math.min, so a
+      // score above 100 is refused rather than stored.
+      const updated = await prisma.lead.update({
+        where: { id: existingLead.id },
+        data: {
+          tripViewCount: viewCount,
+          lastVisitedAt: new Date(),
+          leadScore: Math.min(existingLead.leadScore + 10, 100)
+        }
+      });
+
+      logger.info('Updated existing lead from trip views', {
+        leadId: updated.id,
         userId,
         tripId,
-        viewCount 
+        viewCount
       });
     } else {
       // Get trip details
       const trip = await Trip.findById(tripId).lean();
-      
-      // Create new lead with traveler information
-      const lead = new Lead({
-        userId,
-        tripId,
-        email: user.email,
-        phone: user.phone,
-        name: user.name,
-        source: 'trip_view',
-        status: 'new',
-        leadScore: 20 + (viewCount > 2 ? 10 : 0), // Bonus for more views
-        metadata: {
+
+      // metadata was one nested blob. The parts that get filtered and reported
+      // on are columns now; travelerDetails stays JSON because nothing queries
+      // inside it.
+      const lead = await prisma.lead.create({
+        data: {
+          userId,
+          tripId,
+          email: user.email.toLowerCase(),
+          phone: user.phone,
+          name: user.name,
+          source: 'trip_view',
+          status: 'new',
+          leadScore: 20 + (viewCount > 2 ? 10 : 0), // Bonus for more views
           tripViewCount: viewCount,
           lastVisitedAt: new Date(),
           tags: ['auto-generated', 'high-interest'],
-          travelerInfo: {
+          travelerDetails: {
             name: user.name,
             email: user.email,
             phone: user.phone,
             profileComplete: !!(user.bio && user.location),
             kycStatus: user.kycStatus || 'not_started',
-            idVerificationStatus: user.idVerificationStatus || 'not_verified'
-          },
-          tripDetails: trip ? {
-            title: trip.title,
-            destination: trip.destination,
-            startDate: trip.startDate,
-            price: trip.price
-          } : null
-        },
+            idVerificationStatus: user.idVerificationStatus || 'not_verified',
+            trip: trip
+              ? {
+                  title: (trip as any).title,
+                  destination: (trip as any).destination,
+                  startDate: (trip as any).startDate?.toISOString(),
+                  price: (trip as any).price
+                }
+              : null
+          }
+        }
       });
 
-      await lead.save();
-      
-      logger.info('Auto-created lead from trip views', { 
-        leadId: lead._id,
+      logger.info('Auto-created lead from trip views', {
+        leadId: lead.id,
         userId,
         tripId,
-        viewCount 
+        viewCount
       });
 
       // Send notification to organizer
@@ -183,9 +188,9 @@ async function autoCreateLeadFromViews(userId: string, tripId: string, viewCount
           type: 'lead',
           title: 'New Lead Generated',
           message: `${user.name || user.email} has viewed your trip "${tripForNotification.title}" ${viewCount} times`,
-          actionUrl: `/crm/leads/${lead._id}`,
+          actionUrl: `/crm/leads/${lead.id}`,
           actionType: 'view_lead',
-          relatedTo: { type: 'lead', id: lead._id.toString() },
+          relatedTo: { type: 'lead', id: lead.id },
         });
       }
     }

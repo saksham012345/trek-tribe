@@ -8,7 +8,7 @@
  * - NEVER interfering with existing lead creation logic
  */
 
-import Lead from '../models/Lead';
+import { prisma } from '../lib/prisma';
 import { User } from '../models/User';
 import { Trip } from '../models/Trip';
 import mongoose from 'mongoose';
@@ -38,52 +38,59 @@ class LeadGenerationService {
       // Find or create lead
       const leadQuery: any = { assignedTo: event.organizerId };
       if (event.userId) {
-        leadQuery.userId = new mongoose.Types.ObjectId(event.userId);
+        leadQuery.userId = event.userId;
       }
       if (event.email) {
         leadQuery.email = event.email.toLowerCase();
       }
 
-      let lead = await Lead.findOne(leadQuery);
+      const lead = await prisma.lead.findFirst({ where: leadQuery });
 
       if (!lead) {
         // Create new lead only if none exists (safe mode)
-        lead = new Lead({
-          userId: event.userId ? new mongoose.Types.ObjectId(event.userId) : undefined,
-          tripId: event.tripId ? new mongoose.Types.ObjectId(event.tripId) : undefined,
-          email: event.email?.toLowerCase() || '',
-          phone: event.phone || '',
-          name: event.metadata?.name || '',
-          source: this.mapEventToSource(event.type),
-          status: 'new',
-          leadScore: this.calculateInitialScore(event.type),
-          assignedTo: new mongoose.Types.ObjectId(event.organizerId),
-          metadata: {
+        await prisma.lead.create({
+          data: {
+            userId: event.userId,
+            tripId: event.tripId,
+            email: event.email?.toLowerCase() || '',
+            phone: event.phone || '',
+            name: event.metadata?.name || '',
+            source: this.mapEventToSource(event.type),
+            status: 'new',
+            leadScore: this.calculateInitialScore(event.type),
+            assignedTo: event.organizerId,
             tripViewCount: event.type === 'trip_view' ? 1 : 0,
             lastVisitedAt: new Date(),
-            ...event.metadata,
+            // What used to be spread into metadata is a JSON column; the fields
+            // the pipeline filters on have their own columns above.
+            travelerDetails: event.metadata ?? undefined,
           },
         });
       } else {
         // Enhance existing lead (append activity, don't overwrite)
         const newScore = this.calculateScoreIncrement(event.type);
-        lead.leadScore = Math.min(100, (lead.leadScore || 0) + newScore);
-        
-        // Update metadata
-        if (event.type === 'trip_view') {
-          lead.metadata.tripViewCount = (lead.metadata.tripViewCount || 0) + 1;
-        }
-        lead.metadata.lastVisitedAt = new Date();
-        
-        // Add interaction
-        lead.interactions.push({
-          type: this.mapEventToInteractionType(event.type),
-          description: this.getEventDescription(event.type),
-          timestamp: new Date(),
+
+        // An insert, not a push onto an array, so two events arriving together
+        // both get recorded rather than one overwriting the other.
+        await prisma.leadInteraction.create({
+          data: {
+            leadId: lead.id,
+            type: this.mapEventToInteractionType(event.type) as any,
+            description: this.getEventDescription(event.type),
+          },
+        });
+
+        await prisma.lead.update({
+          where: { id: lead.id },
+          data: {
+            leadScore: Math.min(100, (lead.leadScore || 0) + newScore),
+            lastVisitedAt: new Date(),
+            ...(event.type === 'trip_view'
+              ? { tripViewCount: (lead.tripViewCount || 0) + 1 }
+              : {}),
+          },
         });
       }
-
-      await lead.save();
     } catch (error: any) {
       // Fail gracefully - don't break existing flows
       console.error('Lead generation service error (non-critical):', error.message);
@@ -191,7 +198,7 @@ class LeadGenerationService {
       if (phone) query.phone = phone;
       if (userId) query.userId = new mongoose.Types.ObjectId(userId);
 
-      return await Lead.findOne(query);
+      return await prisma.lead.findFirst({ where: query });
     } catch (error) {
       return null; // Fail gracefully
     }

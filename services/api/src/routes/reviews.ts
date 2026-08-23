@@ -6,6 +6,7 @@ import { prisma } from '../lib/prisma';
 import { Trip } from '../models/Trip';
 import { User } from '../models/User';
 import { authenticateJwt } from '../middleware/auth';
+import { withMongoId, asPopulated } from '../lib/apiShape';
 
 /**
  * Reviews live in Postgres (D10/D11, wave 2). Trip and User are still in Mongo,
@@ -121,12 +122,17 @@ async function shapeReviews(rows: any[]) {
     .lean();
   const byId = new Map(reviewers.map((u: any) => [u._id.toString(), u]));
 
+  // ReviewsList.tsx reads review._id and review.reviewerId.name, so the
+  // response keeps both: _id beside id, and the reviewer populated under the
+  // key it used to arrive on.
   return rows.map(r => {
     const { _count, ...rest } = r;
+    const reviewer = byId.get(r.reviewerId) ?? null;
     return {
-      ...rest,
+      ...withMongoId(rest),
       tags: (r.tags ?? []).map(fromTag),
-      reviewer: byId.get(r.reviewerId) ?? null,
+      reviewerId: asPopulated(reviewer),
+      reviewer,
       helpfulVotes: _count?.helpfulVotes ?? 0,
       organizerResponse: r.organizerResponseMessage
         ? { message: r.organizerResponseMessage, respondedAt: r.organizerResponseRespondedAt }

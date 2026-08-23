@@ -695,3 +695,206 @@ model SiteSettings {
 
   @@map("site_settings")
 }
+
+// ─── Wave 4: CRM (D10/D11) ───────────────────────────────────────────────────
+
+enum LeadSource {
+  trip_view
+  inquiry
+  partial_booking
+  chat
+  form
+  other
+
+  @@map("lead_source")
+}
+
+enum LeadStatus {
+  new
+  contacted
+  interested
+  not_interested
+  converted
+  lost
+
+  @@map("lead_status")
+}
+
+enum LeadPipelineStage {
+  new
+  contacted
+  interested
+  negotiating
+  booked
+  lost
+
+  @@map("lead_pipeline_stage")
+}
+
+enum LeadKycStatus {
+  pending
+  verified
+  rejected
+  not_required
+
+  @@map("lead_kyc_status")
+}
+
+// Migrated from the Mongoose Lead model (D10/D11, wave 4).
+//
+// The Mongoose schema declared `index({ email: 1, assignedTo: 1 })` with the
+// comment "compound for dedup" - but the index was not unique. The actual dedup
+// was databaseImportService.checkDuplicate(), a findOne before an insert, run in
+// a loop by the import worker. Two imports racing each other produced duplicates
+// that nothing rejected. It is a unique constraint here.
+//
+// Postgres treats NULLs as distinct in a unique index, which is what this needs:
+// leads with no assignedTo are unassigned, and two unassigned leads sharing an
+// email are not duplicates of each other.
+model Lead {
+  id            String            @id @default(uuid())
+  userId        String?           @map("user_id")
+  tripId        String?           @map("trip_id")
+  email         String
+  phone         String?
+  name          String?
+  source        LeadSource
+  status        LeadStatus        @default(new)
+  leadScore     Int               @default(0) @map("lead_score")
+  pipelineStage LeadPipelineStage @default(new) @map("pipeline_stage")
+
+  // Flat columns for the parts that are queried or reported on...
+  tripViewCount  Int       @default(0) @map("trip_view_count")
+  lastVisitedAt  DateTime? @map("last_visited_at")
+  inquiryMessage String?   @map("inquiry_message")
+  tags           String[]  @default([])
+  notes          String?
+  kycStatus      LeadKycStatus @default(pending) @map("kyc_status")
+
+  // ...and JSON for the parts that are only ever read back whole. Splitting
+  // travelerDetails into six nullable columns nothing filters on would be
+  // ceremony, not clarity.
+  partialFormData Json? @map("partial_form_data")
+  travelerDetails Json? @map("traveler_details")
+  kycDetails      Json? @map("kyc_details")
+
+  // interactions was an array of { type, description, timestamp } on the
+  // document. It is a child table so an interaction can be inserted without
+  // rewriting the lead, which is what an append-only log wants.
+  interactions LeadInteraction[]
+  activities   LeadActivity[]
+
+  assignedTo  String?   @map("assigned_to")
+  convertedAt DateTime? @map("converted_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@unique([email, assignedTo])
+  @@index([email])
+  @@index([status])
+  @@index([tripId])
+  @@index([assignedTo])
+  @@index([leadScore])
+  @@index([source])
+  @@index([pipelineStage])
+  @@index([createdAt])
+  @@map("leads")
+}
+
+enum LeadInteractionType {
+  email
+  call
+  chat
+  message
+  visit
+
+  @@map("lead_interaction_type")
+}
+
+model LeadInteraction {
+  id          String              @id @default(uuid())
+  leadId      String              @map("lead_id")
+  type        LeadInteractionType
+  description String
+  // The user who logged it. A Mongo ObjectId string, so no foreign key until
+  // User lands in wave 9.
+  performedBy String?             @map("performed_by")
+  timestamp   DateTime            @default(now())
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId, timestamp])
+  @@map("lead_interactions")
+}
+
+enum LeadEventType {
+  trip_viewed
+  chat_message
+  inquiry_submitted
+  email_opened
+  booking_started
+  booking_abandoned
+
+  @@map("lead_event_type")
+}
+
+// leadId is a real foreign key now. In Mongo it was a ref with nothing behind
+// it, so an activity could outlive the lead it described.
+model LeadActivity {
+  id        String        @id @default(uuid())
+  leadId    String        @map("lead_id")
+  eventType LeadEventType @map("event_type")
+  metadata  Json          @default("{}")
+  timestamp DateTime      @default(now())
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId, timestamp])
+  @@index([eventType])
+  @@map("lead_activities")
+}
+
+enum ImportFileType {
+  csv
+  xlsx
+  json
+
+  @@map("import_file_type")
+}
+
+enum ImportStatus {
+  pending
+  processing
+  completed
+  failed
+  partially_completed
+
+  @@map("import_status")
+}
+
+model ImportedDatabase {
+  id          String         @id @default(uuid())
+  organizerId String         @map("organizer_id")
+  fileName    String         @map("file_name")
+  fileSize    Int            @map("file_size")
+  fileType    ImportFileType @map("file_type")
+  uploadedAt  DateTime       @default(now()) @map("uploaded_at")
+  status      ImportStatus   @default(pending)
+
+  statsTotalRecords     Int @default(0) @map("stats_total_records")
+  statsSuccessfulImports Int @default(0) @map("stats_successful_imports")
+  statsFailedImports    Int @default(0) @map("stats_failed_imports")
+  statsDuplicatesSkipped Int @default(0) @map("stats_duplicates_skipped")
+
+  // Both are variable-shaped lists read back whole by the UI.
+  fieldMapping Json @default("[]") @map("field_mapping")
+  importConfig Json @default("{}") @map("import_config")
+  errors       Json @default("[]")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([organizerId])
+  @@index([status])
+  @@map("imported_databases")
+}
