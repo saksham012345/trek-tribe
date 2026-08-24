@@ -1,9 +1,23 @@
 import express, { Request, Response } from 'express';
 import { z } from 'zod';
 import { authenticateToken } from '../middleware/auth';
-import { Group } from '../models/Group';
+import { prisma } from '../lib/prisma';
+import { withMongoId, withMongoIds, asPopulated } from '../lib/apiShape';
 import { User } from '../models/User';
 import { logger } from '../utils/logger';
+
+/**
+ * Load the Mongo users behind a set of ids, keyed for lookup. The populate()
+ * calls this replaces cannot work across two databases.
+ */
+async function loadUsers(ids: string[]) {
+  const unique = Array.from(new Set(ids.filter(Boolean)));
+  if (unique.length === 0) return new Map<string, any>();
+  const users = await User.find({ _id: { $in: unique } })
+    .select('name profilePhoto location')
+    .lean();
+  return new Map(users.map((u: any) => [u._id.toString(), u]));
+}
 
 const router = express.Router();
 
@@ -35,22 +49,30 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       });
     }
 
-    const group = new Group({
-      ...parsed.data,
-      creatorId: userId,
-      admins: [userId],
-      members: [userId],
-      memberCount: 1
+    // The creator's membership is created with the group, so a group never
+    // exists for a moment with nobody in it. admins[] and members[] were two
+    // arrays with the creator in both; it is one row with role 'admin' now.
+    const group = await prisma.group.create({
+      data: {
+        name: parsed.data.name,
+        description: parsed.data.description,
+        category: parsed.data.category,
+        coverImage: parsed.data.coverImage,
+        isPublic: parsed.data.isPublic ?? true,
+        tags: parsed.data.tags ?? [],
+        rules: parsed.data.rules,
+        location: parsed.data.location,
+        creatorId: userId,
+        members: { create: [{ userId, role: 'admin' }] }
+      }
     });
-
-    await group.save();
 
     // Award reputation points for creating a group
     await User.findByIdAndUpdate(userId, {
       $inc: { 'reputation.points': 50 }
     });
 
-    logger.info('Group created', { groupId: group._id, userId });
+    logger.info('Group created', { groupId: group.id, userId });
 
     res.status(201).json({
       success: true,
@@ -78,20 +100,34 @@ router.get('/', async (req: Request, res: Response) => {
     const filter: any = { isPublic: true };
     if (category) filter.category = category;
     if (search) {
-      filter.$text = { $search: search };
+      filter.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } }
+      ];
     }
 
-    const groups = await Group.find(filter)
-      .populate('creatorId', 'name profilePhoto')
-      .sort({ memberCount: -1, createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+    // memberCount is no longer a column; the sort orders by the relation count,
+    // so it cannot disagree with the members it is counting.
+    const [groups, totalGroups] = await Promise.all([
+      prisma.group.findMany({
+        where: filter,
+        orderBy: [{ members: { _count: 'desc' } }, { createdAt: 'desc' }],
+        skip,
+        take: limit,
+        include: { _count: { select: { members: true } } }
+      }),
+      prisma.group.count({ where: filter })
+    ]);
 
-    const totalGroups = await Group.countDocuments(filter);
+    const creators = await loadUsers(groups.map(g => g.creatorId));
 
     res.json({
       success: true,
-      groups,
+      groups: groups.map(g => ({
+        ...withMongoId(g),
+        creatorId: asPopulated(creators.get(g.creatorId)),
+        memberCount: g._count.members
+      })),
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(totalGroups / limit),
@@ -112,16 +148,31 @@ router.get('/', async (req: Request, res: Response) => {
  */
 router.get('/:groupId', async (req: Request, res: Response) => {
   try {
-    const group = await Group.findById(req.params.groupId)
-      .populate('creatorId', 'name profilePhoto')
-      .populate('admins', 'name profilePhoto')
-      .populate('members', 'name profilePhoto location');
+    const group = await prisma.group.findUnique({
+      where: { id: req.params.groupId },
+      include: { members: true }
+    });
 
     if (!group) {
       return res.status(404).json({ error: 'Group not found' });
     }
 
-    res.json({ success: true, group });
+    // The three populate() calls become one lookup - User is still in Mongo -
+    // and admins/members are rebuilt from the membership rows so the response
+    // keeps the shape the page reads.
+    const users = await loadUsers([group.creatorId, ...group.members.map(m => m.userId)]);
+    const asUser = (id: string) => asPopulated(users.get(id));
+
+    res.json({
+      success: true,
+      group: {
+        ...withMongoId(group),
+        creatorId: asUser(group.creatorId),
+        admins: group.members.filter(m => m.role === 'admin').map(m => asUser(m.userId)),
+        members: group.members.map(m => asUser(m.userId)),
+        memberCount: group.members.length
+      }
+    });
   } catch (error: any) {
     logger.error('Error fetching group', { error: error.message });
     res.status(500).json({ error: 'Failed to fetch group' });
@@ -137,18 +188,23 @@ router.post('/:groupId/join', authenticateToken, async (req: Request, res: Respo
     const userId = (req as any).auth.userId;
     const { groupId } = req.params;
 
-    const group = await Group.findById(groupId);
+    const group = await prisma.group.findUnique({ where: { id: groupId } });
     if (!group) {
       return res.status(404).json({ error: 'Group not found' });
     }
 
-    if (group.members.includes(userId)) {
-      return res.status(400).json({ error: 'Already a member of this group' });
+    // One membership per user is a constraint, so the insert decides rather
+    // than a pre-check two concurrent joins could both pass.
+    try {
+      await prisma.groupMember.create({ data: { groupId, userId } });
+    } catch (err: any) {
+      if (err?.code === 'P2002') {
+        return res.status(400).json({ error: 'Already a member of this group' });
+      }
+      throw err;
     }
 
-    group.members.push(userId);
-    group.memberCount = group.members.length;
-    await group.save();
+    const memberCount = await prisma.groupMember.count({ where: { groupId } });
 
     // Award reputation points for joining a group
     await User.findByIdAndUpdate(userId, {
@@ -160,7 +216,7 @@ router.post('/:groupId/join', authenticateToken, async (req: Request, res: Respo
     res.json({
       success: true,
       message: 'Joined group successfully',
-      memberCount: group.memberCount
+      memberCount
     });
   } catch (error: any) {
     logger.error('Error joining group', { error: error.message });
@@ -177,30 +233,30 @@ router.post('/:groupId/leave', authenticateToken, async (req: Request, res: Resp
     const userId = (req as any).auth.userId;
     const { groupId } = req.params;
 
-    const group = await Group.findById(groupId);
+    const group = await prisma.group.findUnique({ where: { id: groupId } });
     if (!group) {
       return res.status(404).json({ error: 'Group not found' });
     }
 
-    if (group.creatorId.toString() === userId) {
+    if (group.creatorId === userId) {
       return res.status(400).json({ error: 'Group creator cannot leave the group' });
     }
 
-    if (!group.members.includes(userId)) {
+    // One row covers both lists now, so leaving removes the membership and the
+    // admin role together - the old code had to remember to filter both arrays.
+    const removed = await prisma.groupMember.deleteMany({ where: { groupId, userId } });
+    if (removed.count === 0) {
       return res.status(400).json({ error: 'Not a member of this group' });
     }
 
-    group.members = group.members.filter(id => id.toString() !== userId);
-    group.admins = group.admins.filter(id => id.toString() !== userId);
-    group.memberCount = group.members.length;
-    await group.save();
+    const memberCount = await prisma.groupMember.count({ where: { groupId } });
 
     logger.info('User left group', { groupId, userId });
 
     res.json({
       success: true,
       message: 'Left group successfully',
-      memberCount: group.memberCount
+      memberCount
     });
   } catch (error: any) {
     logger.error('Error leaving group', { error: error.message });
@@ -217,16 +273,18 @@ router.delete('/:groupId', authenticateToken, async (req: Request, res: Response
     const userId = (req as any).auth.userId;
     const { groupId } = req.params;
 
-    const group = await Group.findById(groupId);
+    const group = await prisma.group.findUnique({ where: { id: groupId } });
     if (!group) {
       return res.status(404).json({ error: 'Group not found' });
     }
 
-    if (group.creatorId.toString() !== userId) {
+    if (group.creatorId !== userId) {
       return res.status(403).json({ error: 'Only the group creator can delete this group' });
     }
 
-    await Group.findByIdAndDelete(groupId);
+    // Memberships go with it - the foreign key cascades - so there is no second
+    // delete to forget.
+    await prisma.group.delete({ where: { id: groupId } });
 
     logger.info('Group deleted', { groupId, userId });
 

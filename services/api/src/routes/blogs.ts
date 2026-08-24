@@ -1,7 +1,8 @@
 import express from 'express';
 import { z } from 'zod';
 import { authenticateJwt, requireRole } from '../middleware/auth';
-import { BlogPost } from '../models/BlogPost';
+import { prisma } from '../lib/prisma';
+import { withMongoId, withMongoIds, asPopulated } from '../lib/apiShape';
 import { slugify } from '../utils/slugify';
 import { logger } from '../utils/logger';
 
@@ -21,7 +22,9 @@ async function generateUniqueSlug(title: string, skipId?: string) {
   let candidate = base;
   let attempt = 1;
   while (true) {
-    const existing = await BlogPost.findOne({ slug: candidate, ...(skipId ? { _id: { $ne: skipId } } : {}) }).lean();
+    const existing = await prisma.blogPost.findFirst({
+      where: { slug: candidate, ...(skipId ? { id: { not: skipId } } : {}) }
+    });
     if (!existing) return candidate;
     candidate = `${base}-${attempt++}`;
   }
@@ -143,17 +146,23 @@ router.get('/', async (req, res) => {
     const skip = (page - 1) * limit;
 
     const [items, total] = await Promise.all([
-      BlogPost.find({ status: 'published' })
-        .select('title slug excerpt coverImage tags publishedAt readTimeMinutes createdAt')
-        .sort({ publishedAt: -1, createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-      BlogPost.countDocuments({ status: 'published' })
+      prisma.blogPost.findMany({
+        where: { status: 'published' },
+        select: {
+          id: true, title: true, slug: true, excerpt: true, coverImage: true,
+          tags: true, publishedAt: true, readTimeMinutes: true, createdAt: true
+        },
+        // Nulls last, so an unpublished-then-published post does not jump the
+        // queue - Mongo sorted missing publishedAt to the end here too.
+        orderBy: [{ publishedAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
+        skip,
+        take: limit
+      }),
+      prisma.blogPost.count({ where: { status: 'published' } })
     ]);
 
     res.json({
-      data: items,
+      data: withMongoIds(items),
       pagination: {
         page,
         limit,
@@ -171,11 +180,15 @@ router.use('/admin', authenticateJwt, requireRole(['admin']));
 
 router.get('/admin/list', async (_req, res) => {
   try {
-    const items = await BlogPost.find({})
-      .select('title slug excerpt content coverImage status tags publishedAt updatedAt createdAt readTimeMinutes')
-      .sort({ updatedAt: -1 })
-      .lean();
-    res.json({ data: items });
+    const items = await prisma.blogPost.findMany({
+      select: {
+        id: true, title: true, slug: true, excerpt: true, content: true,
+        coverImage: true, status: true, tags: true, publishedAt: true,
+        updatedAt: true, createdAt: true, readTimeMinutes: true
+      },
+      orderBy: { updatedAt: 'desc' }
+    });
+    res.json({ data: withMongoIds(items) });
   } catch (error: any) {
     logger.error('Failed to fetch admin blog list', { error: error.message });
     res.status(500).json({ error: 'Failed to fetch admin blog list' });
@@ -187,17 +200,25 @@ router.post('/admin', async (req, res) => {
     const parsed = blogSchema.parse(req.body);
     const slug = await generateUniqueSlug(parsed.title);
     const readTimeMinutes = Math.max(1, Math.ceil(parsed.content.split(/\s+/).length / 220));
-    const doc = await BlogPost.create({
-      ...parsed,
-      coverImage: parsed.coverImage || undefined,
-      tags: parsed.tags || [],
-      slug,
-      authorId: (req as any).auth.userId,
-      readTimeMinutes,
-      publishedAt: parsed.status === 'published' ? new Date() : undefined
+    const doc = await prisma.blogPost.create({
+      // Fields are listed rather than spread: zod's inferred type marks some of
+      // them optional, and Prisma requires them, so a spread hides which ones a
+      // row actually needs.
+      data: {
+        title: parsed.title,
+        excerpt: parsed.excerpt,
+        content: parsed.content,
+        status: parsed.status,
+        coverImage: parsed.coverImage || undefined,
+        tags: parsed.tags || [],
+        slug,
+        authorId: (req as any).auth.userId,
+        readTimeMinutes,
+        publishedAt: parsed.status === 'published' ? new Date() : undefined
+      }
     });
 
-    res.status(201).json({ data: doc });
+    res.status(201).json({ data: withMongoId(doc) });
   } catch (error: any) {
     logger.error('Failed to create blog post', { error: error.message });
     res.status(400).json({ error: 'Failed to create blog post', details: error.message });
@@ -207,7 +228,7 @@ router.post('/admin', async (req, res) => {
 router.put('/admin/:id', async (req, res) => {
   try {
     const parsed = blogSchema.parse(req.body);
-    const existing = await BlogPost.findById(req.params.id);
+    const existing = await prisma.blogPost.findUnique({ where: { id: req.params.id } });
     if (!existing) {
       return res.status(404).json({ error: 'Blog not found' });
     }
@@ -216,23 +237,27 @@ router.put('/admin/:id', async (req, res) => {
       ? await generateUniqueSlug(parsed.title, req.params.id)
       : existing.slug;
 
-    existing.title = parsed.title;
-    existing.slug = slug;
-    existing.excerpt = parsed.excerpt;
-    existing.content = parsed.content;
-    existing.coverImage = parsed.coverImage || undefined;
-    existing.tags = parsed.tags || [];
-    existing.status = parsed.status;
-    existing.readTimeMinutes = Math.max(1, Math.ceil(parsed.content.split(/\s+/).length / 220));
-    if (parsed.status === 'published' && !existing.publishedAt) {
-      existing.publishedAt = new Date();
-    }
-    if (parsed.status === 'draft') {
-      existing.publishedAt = undefined;
-    }
-    await existing.save();
+    const updated = await prisma.blogPost.update({
+      where: { id: req.params.id },
+      data: {
+        title: parsed.title,
+        slug,
+        excerpt: parsed.excerpt,
+        content: parsed.content,
+        coverImage: parsed.coverImage || null,
+        tags: parsed.tags || [],
+        status: parsed.status,
+        readTimeMinutes: Math.max(1, Math.ceil(parsed.content.split(/\s+/).length / 220)),
+        // Publishing stamps the date once; going back to draft clears it, as
+        // before. A republished post therefore gets a fresh date, which is what
+        // the old code did too.
+        publishedAt: parsed.status === 'draft'
+          ? null
+          : existing.publishedAt ?? new Date()
+      }
+    });
 
-    res.json({ data: existing });
+    res.json({ data: withMongoId(updated) });
   } catch (error: any) {
     logger.error('Failed to update blog post', { error: error.message });
     res.status(400).json({ error: 'Failed to update blog post', details: error.message });
@@ -241,8 +266,8 @@ router.put('/admin/:id', async (req, res) => {
 
 router.delete('/admin/:id', async (req, res) => {
   try {
-    const deleted = await BlogPost.findByIdAndDelete(req.params.id);
-    if (!deleted) {
+    const deleted = await prisma.blogPost.deleteMany({ where: { id: req.params.id } });
+    if (deleted.count === 0) {
       return res.status(404).json({ error: 'Blog not found' });
     }
     res.json({ message: 'Blog deleted' });
@@ -254,7 +279,7 @@ router.delete('/admin/:id', async (req, res) => {
 
 router.post('/admin/seed', async (req, res) => {
   try {
-    const currentCount = await BlogPost.countDocuments();
+    const currentCount = await prisma.blogPost.count();
     if (currentCount > 0 && !req.query.force) {
       return res.json({ message: 'Blogs already exist. Use ?force=1 to add defaults again.', created: 0 });
     }
@@ -262,13 +287,22 @@ router.post('/admin/seed', async (req, res) => {
     let created = 0;
     for (const entry of defaultBlogs) {
       const slug = await generateUniqueSlug(entry.title);
-      await BlogPost.create({
-        ...entry,
-        slug,
-        status: 'published',
-        authorId: (req as any).auth.userId,
-        publishedAt: new Date(),
-        readTimeMinutes: Math.max(1, Math.ceil(entry.content.split(/\s+/).length / 220))
+      // Listed rather than spread: the inferred type of defaultBlogs marks some
+      // fields optional, and Prisma requires them, so a spread hides which ones
+      // a row actually needs.
+      await prisma.blogPost.create({
+        data: {
+          title: entry.title,
+          excerpt: entry.excerpt,
+          content: entry.content,
+          coverImage: entry.coverImage,
+          tags: entry.tags,
+          slug,
+          status: 'published',
+          authorId: (req as any).auth.userId,
+          publishedAt: new Date(),
+          readTimeMinutes: Math.max(1, Math.ceil(entry.content.split(/\s+/).length / 220))
+        }
       });
       created += 1;
     }
@@ -282,15 +316,20 @@ router.post('/admin/seed', async (req, res) => {
 
 router.get('/:slug', async (req, res) => {
   try {
-    const item = await BlogPost.findOne({ slug: req.params.slug, status: 'published' })
-      .populate('authorId', 'name')
-      .lean();
+    const item = await prisma.blogPost.findFirst({
+      where: { slug: req.params.slug, status: 'published' }
+    });
 
     if (!item) {
       return res.status(404).json({ error: 'Blog not found' });
     }
 
-    res.json({ data: item });
+    // populate('authorId', 'name') is gone - User is still a Mongo document -
+    // so the author is fetched and put back under the key the page reads.
+    const { User } = require('../models/User');
+    const author = await User.findById(item.authorId).select('name').lean();
+
+    res.json({ data: { ...withMongoId(item), authorId: asPopulated(author) } });
   } catch (error: any) {
     logger.error('Failed to fetch blog details', { error: error.message });
     res.status(500).json({ error: 'Failed to fetch blog' });

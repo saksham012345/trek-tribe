@@ -1,4 +1,5 @@
-import { KnowledgeBase, KnowledgeType } from '../models/KnowledgeBase';
+import { KnowledgeType } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import { embeddingService } from './embeddingService';
 import { logger } from '../utils/logger';
 
@@ -170,13 +171,22 @@ export class RAGService {
       }
       
       // Get knowledge documents with embeddings
-      const knowledgeDocs = await KnowledgeBase.find({
-        isActive: true,
-        type: { $in: options.types },
-        embedding: { $exists: true, $ne: [] }
-      })
-      .select('title summary content type embedding relevanceScore queryCount')
-      .limit(options.maxResults * 3); // Get more for similarity filtering
+      // isEmpty: false is the Postgres way of saying "has an embedding" - the
+      // Mongo version needed both $exists and $ne: [] because a missing field and
+      // an empty array were different things. A NOT NULL array column with a
+      // default of [] makes only the second question meaningful.
+      const knowledgeDocs = await prisma.knowledgeBase.findMany({
+        where: {
+          isActive: true,
+          type: { in: options.types },
+          embedding: { isEmpty: false }
+        },
+        select: {
+          id: true, title: true, summary: true, content: true,
+          type: true, embedding: true, relevanceScore: true, queryCount: true
+        },
+        take: options.maxResults * 3 // Get more for similarity filtering
+      });
       
       // Calculate similarities
       const similarities = knowledgeDocs.map(doc => {
@@ -211,13 +221,39 @@ export class RAGService {
     options: { maxResults: number; types: KnowledgeType[] }
   ): Promise<Array<{ title: string; content: string; type: KnowledgeType; score: number }>> {
     try {
-      // Use MongoDB text search
-      const results = await (KnowledgeBase as any).semanticSearch(query, {
-        type: options.types,
-        limit: options.maxResults
-      });
-      
-      return results.map((doc: any) => ({
+      // Was KnowledgeBase.semanticSearch, a Mongoose static running a $text
+      // aggregation ranked by $meta:'textScore'. Postgres full-text search is
+      // the equivalent: plainto_tsquery parses the phrase the way $search did,
+      // and ts_rank replaces textScore. Raw SQL because Prisma has no typed API
+      // for ranking; the index behind it is knowledge_base_search_idx.
+      const minScore = 0.1;
+      const results = await prisma.$queryRaw<Array<{
+        title: string;
+        summary: string | null;
+        content: string;
+        type: KnowledgeType;
+        relevanceScore: number;
+      }>>`
+        SELECT title, summary, content, type, relevance_score AS "relevanceScore"
+        FROM knowledge_base
+        WHERE is_active = true
+          AND type = ANY(${options.types}::knowledge_type[])
+          AND to_tsvector('english', title || ' ' || coalesce(summary, '') || ' ' || content)
+              @@ plainto_tsquery('english', ${query})
+          AND ts_rank(
+                to_tsvector('english', title || ' ' || coalesce(summary, '') || ' ' || content),
+                plainto_tsquery('english', ${query})
+              ) >= ${minScore}
+        ORDER BY ts_rank(
+                   to_tsvector('english', title || ' ' || coalesce(summary, '') || ' ' || content),
+                   plainto_tsquery('english', ${query})
+                 ) DESC,
+                 relevance_score DESC,
+                 query_count DESC
+        LIMIT ${options.maxResults}
+      `;
+
+      return results.map(doc => ({
         title: doc.title,
         content: doc.summary || doc.content.substring(0, 300),
         type: doc.type,

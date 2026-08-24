@@ -1,4 +1,5 @@
-import { KnowledgeBase, KnowledgeType } from '../models/KnowledgeBase';
+import { KnowledgeType } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import { embeddingService } from './embeddingService';
 import { logger } from '../utils/logger';
 
@@ -99,9 +100,8 @@ export class KnowledgeIngestionService {
   public async ingestDocument(doc: DocumentData): Promise<boolean> {
     try {
       // Check if document already exists
-      const existing = await KnowledgeBase.findOne({
-        title: doc.title,
-        type: doc.type
+      const existing = await prisma.knowledgeBase.findFirst({
+        where: { title: doc.title, type: doc.type }
       });
 
       if (existing) {
@@ -123,7 +123,8 @@ export class KnowledgeIngestionService {
       }
 
       // Create document
-      const knowledgeDoc = new KnowledgeBase({
+      await prisma.knowledgeBase.create({
+        data: {
         title: doc.title,
         content: doc.content,
         summary: doc.summary,
@@ -135,9 +136,9 @@ export class KnowledgeIngestionService {
         relevanceScore: 1.0,
         queryCount: 0,
         isActive: true
+        }
       });
 
-      await knowledgeDoc.save();
       logger.info(`Successfully ingested: ${doc.title}`);
       return true;
 
@@ -218,15 +219,16 @@ export class KnowledgeIngestionService {
     embeddingServiceReady: boolean;
   }> {
     const [totalCount, typeStats] = await Promise.all([
-      KnowledgeBase.countDocuments({ isActive: true }),
-      KnowledgeBase.aggregate([
-        { $match: { isActive: true } },
-        { $group: { _id: '$type', count: { $sum: 1 } } }
-      ])
+      prisma.knowledgeBase.count({ where: { isActive: true } }),
+      prisma.knowledgeBase.groupBy({
+        by: ['type'],
+        where: { isActive: true },
+        _count: { type: true }
+      })
     ]);
 
     const documentsByType = typeStats.reduce((acc: any, item: any) => {
-      acc[item._id] = item.count;
+      acc[item.type] = item._count.type;
       return acc;
     }, {});
 
@@ -242,8 +244,8 @@ export class KnowledgeIngestionService {
    */
   public async clearAll(): Promise<{ deletedCount: number }> {
     logger.warn('Clearing all knowledge base documents');
-    const result = await KnowledgeBase.deleteMany({});
-    return { deletedCount: result.deletedCount || 0 };
+    const result = await prisma.knowledgeBase.deleteMany({});
+    return { deletedCount: result.count };
   }
 }
 

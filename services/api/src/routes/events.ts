@@ -1,9 +1,20 @@
 import express, { Request, Response } from 'express';
 import { z } from 'zod';
 import { authenticateToken } from '../middleware/auth';
-import { Event } from '../models/Event';
+import { prisma } from '../lib/prisma';
+import { withMongoId, asPopulated } from '../lib/apiShape';
 import { User } from '../models/User';
 import { logger } from '../utils/logger';
+
+/** Load the Mongo users behind a set of ids. populate() cannot cross databases. */
+async function loadUsers(ids: string[]) {
+  const unique = Array.from(new Set(ids.filter(Boolean)));
+  if (unique.length === 0) return new Map<string, any>();
+  const users = await User.find({ _id: { $in: unique } })
+    .select('name profilePhoto location organizerProfile')
+    .lean();
+  return new Map(users.map((u: any) => [u._id.toString(), u]));
+}
 
 const router = express.Router();
 
@@ -41,22 +52,37 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       });
     }
 
-    const event = new Event({
-      ...parsed.data,
-      organizerId: userId,
-      attendees: [userId],
-      attendeeCount: 1,
-      status: 'upcoming'
+    // The organizer's attendance is created with the event, so an event never
+    // exists for a moment with nobody attending. attendees[] and invitees[] were
+    // two arrays; they are rows with a kind now, and one row per person.
+    const event = await prisma.event.create({
+      data: {
+        title: parsed.data.title,
+        description: parsed.data.description,
+        eventType: parsed.data.eventType,
+        startDate: new Date(parsed.data.startDate),
+        endDate: new Date(parsed.data.endDate),
+        location: parsed.data.location,
+        isVirtual: parsed.data.isVirtual ?? false,
+        virtualLink: parsed.data.virtualLink,
+        groupId: parsed.data.groupId,
+        coverImage: parsed.data.coverImage,
+        capacity: parsed.data.capacity,
+        tags: parsed.data.tags ?? [],
+        price: parsed.data.price,
+        isPaid: parsed.data.isPaid ?? false,
+        organizerId: userId,
+        status: 'upcoming',
+        participants: { create: [{ userId, kind: 'attendee' }] }
+      }
     });
-
-    await event.save();
 
     // Award reputation points for creating an event
     await User.findByIdAndUpdate(userId, {
       $inc: { 'reputation.points': 30 }
     });
 
-    logger.info('Event created', { eventId: event._id, userId });
+    logger.info('Event created', { eventId: event.id, userId });
 
     res.status(201).json({
       success: true,
@@ -84,19 +110,28 @@ router.get('/', async (req: Request, res: Response) => {
     const filter: any = {};
     if (eventType) filter.eventType = eventType;
     if (status) filter.status = status;
-    else filter.status = { $in: ['upcoming', 'ongoing'] }; // Default to active events
+    else filter.status = { in: ['upcoming', 'ongoing'] }; // Default to active events
 
-    const events = await Event.find(filter)
-      .populate('organizerId', 'name profilePhoto')
-      .sort({ startDate: 1 })
-      .skip(skip)
-      .limit(limit);
+    const [events, totalEvents] = await Promise.all([
+      prisma.event.findMany({
+        where: filter,
+        orderBy: { startDate: 'asc' },
+        skip,
+        take: limit,
+        include: { _count: { select: { participants: true } } }
+      }),
+      prisma.event.count({ where: filter })
+    ]);
 
-    const totalEvents = await Event.countDocuments(filter);
+    const organizers = await loadUsers(events.map(e => e.organizerId));
 
     res.json({
       success: true,
-      events,
+      events: events.map(e => ({
+        ...withMongoId(e),
+        organizerId: asPopulated(organizers.get(e.organizerId)),
+        attendeeCount: e._count.participants
+      })),
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(totalEvents / limit),
@@ -117,15 +152,29 @@ router.get('/', async (req: Request, res: Response) => {
  */
 router.get('/:eventId', async (req: Request, res: Response) => {
   try {
-    const event = await Event.findById(req.params.eventId)
-      .populate('organizerId', 'name profilePhoto organizerProfile')
-      .populate('attendees', 'name profilePhoto location');
+    const event = await prisma.event.findUnique({
+      where: { id: req.params.eventId },
+      include: { participants: true }
+    });
 
     if (!event) {
       return res.status(404).json({ error: 'Event not found' });
     }
 
-    res.json({ success: true, event });
+    const users = await loadUsers([event.organizerId, ...event.participants.map(p => p.userId)]);
+    const asUser = (id: string) => asPopulated(users.get(id));
+    const attendees = event.participants.filter(p => p.kind === 'attendee');
+
+    res.json({
+      success: true,
+      event: {
+        ...withMongoId(event),
+        organizerId: asUser(event.organizerId),
+        attendees: attendees.map(p => asUser(p.userId)),
+        invitees: event.participants.filter(p => p.kind === 'invitee').map(p => asUser(p.userId)),
+        attendeeCount: attendees.length
+      }
+    });
   } catch (error: any) {
     logger.error('Error fetching event', { error: error.message });
     res.status(500).json({ error: 'Failed to fetch event' });
@@ -141,23 +190,39 @@ router.post('/:eventId/rsvp', authenticateToken, async (req: Request, res: Respo
     const userId = (req as any).auth.userId;
     const { eventId } = req.params;
 
-    const event = await Event.findById(eventId);
+    const event = await prisma.event.findUnique({ where: { id: eventId } });
     if (!event) {
       return res.status(404).json({ error: 'Event not found' });
     }
 
-    if (event.attendees.includes(userId)) {
+    const attendeeCountBefore = await prisma.eventParticipant.count({
+      where: { eventId, kind: 'attendee' }
+    });
+
+    const already = await prisma.eventParticipant.findUnique({
+      where: { eventId_userId: { eventId, userId } }
+    });
+    if (already && already.kind === 'attendee') {
       return res.status(400).json({ error: 'Already RSVPed to this event' });
     }
 
     // Check capacity
-    if (event.capacity && event.attendeeCount >= event.capacity) {
+    if (event.capacity && attendeeCountBefore >= event.capacity) {
       return res.status(400).json({ error: 'Event is at full capacity' });
     }
 
-    event.attendees.push(userId);
-    event.attendeeCount = event.attendees.length;
-    await event.save();
+    // An invitee who joins becomes an attendee rather than getting a second row -
+    // the unique constraint on (eventId, userId) is what makes that the only
+    // possible outcome.
+    await prisma.eventParticipant.upsert({
+      where: { eventId_userId: { eventId, userId } },
+      create: { eventId, userId, kind: 'attendee' },
+      update: { kind: 'attendee' }
+    });
+
+    const attendeeCount = await prisma.eventParticipant.count({
+      where: { eventId, kind: 'attendee' }
+    });
 
     // Award reputation points for attending an event
     await User.findByIdAndUpdate(userId, {
@@ -169,7 +234,7 @@ router.post('/:eventId/rsvp', authenticateToken, async (req: Request, res: Respo
     res.json({
       success: true,
       message: 'RSVP successful',
-      attendeeCount: event.attendeeCount
+      attendeeCount
     });
   } catch (error: any) {
     logger.error('Error RSVPing to event', { error: error.message });
@@ -186,12 +251,15 @@ router.post('/:eventId/cancel-rsvp', authenticateToken, async (req: Request, res
     const userId = (req as any).auth.userId;
     const { eventId } = req.params;
 
-    const event = await Event.findById(eventId);
+    const event = await prisma.event.findUnique({ where: { id: eventId } });
     if (!event) {
       return res.status(404).json({ error: 'Event not found' });
     }
 
-    if (!event.attendees.includes(userId)) {
+    const membership = await prisma.eventParticipant.findUnique({
+      where: { eventId_userId: { eventId, userId } }
+    });
+    if (!membership || membership.kind !== 'attendee') {
       return res.status(400).json({ error: 'Not RSVPed to this event' });
     }
 
@@ -199,16 +267,20 @@ router.post('/:eventId/cancel-rsvp', authenticateToken, async (req: Request, res
       return res.status(400).json({ error: 'Event organizer cannot cancel RSVP' });
     }
 
-    event.attendees = event.attendees.filter(id => id.toString() !== userId);
-    event.attendeeCount = event.attendees.length;
-    await event.save();
+    await prisma.eventParticipant.delete({
+      where: { eventId_userId: { eventId, userId } }
+    });
+
+    const attendeeCount = await prisma.eventParticipant.count({
+      where: { eventId, kind: 'attendee' }
+    });
 
     logger.info('User canceled RSVP to event', { eventId, userId });
 
     res.json({
       success: true,
       message: 'RSVP canceled successfully',
-      attendeeCount: event.attendeeCount
+      attendeeCount
     });
   } catch (error: any) {
     logger.error('Error canceling RSVP', { error: error.message });
@@ -225,7 +297,7 @@ router.delete('/:eventId', authenticateToken, async (req: Request, res: Response
     const userId = (req as any).auth.userId;
     const { eventId } = req.params;
 
-    const event = await Event.findById(eventId);
+    const event = await prisma.event.findUnique({ where: { id: eventId } });
     if (!event) {
       return res.status(404).json({ error: 'Event not found' });
     }
@@ -234,7 +306,8 @@ router.delete('/:eventId', authenticateToken, async (req: Request, res: Response
       return res.status(403).json({ error: 'Only the event organizer can delete this event' });
     }
 
-    await Event.findByIdAndDelete(eventId);
+    // Participants go with it by cascade.
+    await prisma.event.delete({ where: { id: eventId } });
 
     logger.info('Event deleted', { eventId, userId });
 
