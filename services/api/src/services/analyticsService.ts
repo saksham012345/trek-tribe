@@ -1,5 +1,5 @@
 
-import Ticket from '../models/Ticket';
+
 import { prisma } from '../lib/prisma';
 import TripVerification from '../models/TripVerification';
 import CRMSubscription from '../models/CRMSubscription';
@@ -32,16 +32,19 @@ class AnalyticsService {
       const conversionRate = totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
 
       // Get tickets
-      const totalTickets = await Ticket.countDocuments({
-        requesterId: organizerId,
-        requesterType: 'organizer',
-        ...dateFilter,
+      const ticketRange = dateRange
+        ? { createdAt: { gte: dateRange.start, lte: dateRange.end } }
+        : {};
+      const totalTickets = await prisma.ticket.count({
+        where: { requesterId: organizerId, requesterType: 'organizer', ...ticketRange }
       });
-      const resolvedTickets = await Ticket.countDocuments({
-        requesterId: organizerId,
-        requesterType: 'organizer',
-        status: 'resolved',
-        ...dateFilter,
+      const resolvedTickets = await prisma.ticket.count({
+        where: {
+          requesterId: organizerId,
+          requesterType: 'organizer',
+          status: 'resolved',
+          ...ticketRange
+        }
       });
 
       // Get user activity
@@ -104,14 +107,15 @@ class AnalyticsService {
       // const totalBookings = await Booking.countDocuments({ userId });
 
       // Get tickets
-      const totalTickets = await Ticket.countDocuments({
-        requesterId: userId,
-        requesterType: 'user',
+      const totalTickets = await prisma.ticket.count({
+        where: { requesterId: userId, requesterType: 'user' }
       });
-      const pendingTickets = await Ticket.countDocuments({
-        requesterId: userId,
-        requesterType: 'user',
-        status: { $in: ['pending', 'in_progress'] },
+      const pendingTickets = await prisma.ticket.count({
+        where: {
+          requesterId: userId,
+          requesterType: 'user',
+          status: { in: ['pending', 'in_progress'] }
+        }
       });
 
       // Get recent activities
@@ -162,10 +166,12 @@ class AnalyticsService {
       const newLeads = await prisma.lead.count({ where: { status: 'new', ...adminLeadRange } });
 
       // Tickets
-      const totalTickets = await Ticket.countDocuments(dateFilter);
-      const pendingTickets = await Ticket.countDocuments({
-        status: 'pending',
-        ...dateFilter,
+      const adminTicketRange = dateRange
+        ? { createdAt: { gte: dateRange.start, lte: dateRange.end } }
+        : {};
+      const totalTickets = await prisma.ticket.count({ where: adminTicketRange });
+      const pendingTickets = await prisma.ticket.count({
+        where: { status: 'pending', ...adminTicketRange }
       });
       const avgResponseTime = await this.getAverageResponseTime(dateFilter);
 
@@ -241,9 +247,11 @@ class AnalyticsService {
    */
   private async getAverageResponseTime(dateFilter: any): Promise<number> {
     try {
-      const tickets = await Ticket.find({
-        ...dateFilter,
-        responseTime: { $exists: true },
+      // $exists: true becomes 'not null' - a Postgres column either has a
+      // value or does not, so the two questions Mongo needed collapse into one.
+      const tickets = await prisma.ticket.findMany({
+        where: { responseTime: { not: null } },
+        select: { responseTime: true }
       });
 
       if (tickets.length === 0) return 0;
@@ -277,19 +285,14 @@ class AnalyticsService {
    */
   async getTicketCategoryBreakdown() {
     try {
-      const categories = await Ticket.aggregate([
-        {
-          $group: {
-            _id: '$category',
-            count: { $sum: 1 },
-          },
-        },
-        {
-          $sort: { count: -1 },
-        },
-      ]);
+      const grouped = await prisma.ticket.groupBy({
+        by: ['category'],
+        _count: { category: true }
+      });
 
-      return categories;
+      return grouped
+        .map(g => ({ _id: g.category, count: g._count.category }))
+        .sort((a, b) => b.count - a.count);
     } catch (error) {
       console.error('Error getting ticket categories:', error);
       throw error;

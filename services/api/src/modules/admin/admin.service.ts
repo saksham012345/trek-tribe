@@ -12,7 +12,7 @@ import { prisma } from '../../lib/prisma';
 
 import CRMSubscription from '../../models/CRMSubscription';
 import { OrganizerSubscription } from '../../models/OrganizerSubscription';
-import { SupportTicket } from '../../models/SupportTicket';
+
 import { VerificationRequest } from '../../models/VerificationRequest';
 import { logger } from '../../utils/logger';
 import { emailService } from '../../services/emailService';
@@ -29,7 +29,7 @@ export async function getDashboardStats() {
       Trip.countDocuments(),
       prisma.review.count(),
       prisma.wishlist.count(),
-      SupportTicket.countDocuments(),
+      prisma.supportTicket.count(),
       CRMSubscription.countDocuments({ status: 'active' }),
     ]);
 
@@ -67,10 +67,11 @@ export async function getDashboardStats() {
     { $project: { plan: '$_id', count: 1, revenue: 1, _id: 0 } },
   ]);
 
-  const ticketsByStatus = await SupportTicket.aggregate([
-    { $group: { _id: '$status', count: { $sum: 1 } } },
-    { $project: { status: '$_id', count: 1, _id: 0 } },
-  ]);
+  const ticketGroups = await prisma.supportTicket.groupBy({
+    by: ['status'],
+    _count: { status: true }
+  });
+  const ticketsByStatus = ticketGroups.map(g => ({ status: g.status, count: g._count.status }));
 
   const recentUsers = await User.find({}, 'name email role createdAt')
     .sort({ createdAt: -1 })

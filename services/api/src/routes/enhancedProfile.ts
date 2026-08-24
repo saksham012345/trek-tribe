@@ -2,7 +2,7 @@ import express from 'express';
 import { authenticateToken } from '../middleware/auth';
 import { User } from '../models/User';
 import { Trip } from '../models/Trip';
-import { SupportTicket } from '../models/SupportTicket';
+import { prisma } from '../lib/prisma';
 import { logger } from '../utils/logger';
 import { extractTokenFromHeaders } from '../utils/tokenHelper';
 import multer from 'multer';
@@ -521,7 +521,7 @@ router.get('/me/stats', authenticateToken, async (req, res) => {
     const [tripsJoined, upcomingTrips, openTickets] = await Promise.all([
       Trip.countDocuments({ participants: userId }),
       Trip.countDocuments({ participants: userId, startDate: { $gte: new Date() } }),
-      SupportTicket.countDocuments({ userId })
+      prisma.supportTicket.count({ where: { userId } })
     ]);
 
     // Profile completeness heuristic

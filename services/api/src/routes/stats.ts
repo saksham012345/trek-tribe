@@ -113,8 +113,10 @@ router.get('/dashboard', async (req, res) => {
       weeklyRevenue
     ] = await Promise.all([
       // Count active support tickets
-      require('../models/SupportTicket').SupportTicket.countDocuments({ 
-        status: { $in: ['open', 'in-progress'] } 
+      // The stored labels keep their hyphens, but the Prisma member is spelled
+      // in_progress - see the @map on SupportStatus.
+      prisma.supportTicket.count({
+        where: { status: { in: ['open', 'in_progress'] } }
       }),
       // Count pending bookings
       GroupBooking.countDocuments({ status: 'pending' }),

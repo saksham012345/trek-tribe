@@ -1123,3 +1123,423 @@ model KnowledgeBase {
   @@index([category, isActive])
   @@map("knowledge_base")
 }
+
+// ─── Wave 6: support (D10/D11) ───────────────────────────────────────────────
+
+enum SupportCategory {
+  booking
+  payment
+  technical
+  general
+  complaint
+  refund
+
+  @@map("support_category")
+}
+
+enum SupportPriority {
+  low
+  medium
+  high
+  urgent
+
+  @@map("support_priority")
+}
+
+// The Mongoose values carry hyphens: 'in-progress', 'waiting-customer'. A Prisma
+// enum member cannot be spelled with one, so the stored label is mapped rather
+// than the value being rewritten. That keeps what is already in Mongo valid here,
+// so the backfill copies these straight across with no translation - and no row
+// arrives carrying a value the column will not accept.
+enum SupportStatus {
+  open
+  in_progress      @map("in-progress")
+  waiting_customer @map("waiting-customer")
+  resolved
+  closed
+
+  @@map("support_status")
+}
+
+// A different model with a different lifecycle: Ticket starts at 'pending' and
+// can be cancelled, SupportTicket starts at 'open' and cannot. They are not the
+// same set and never were - analytics.service.ts counted Ticket rows with
+// status 'open', which Ticket has never had, so that half of the count was
+// always zero.
+enum TicketStatus {
+  pending
+  in_progress
+  waiting_customer
+  resolved
+  closed
+  cancelled
+
+  @@map("ticket_status")
+}
+
+enum TicketCategory {
+  booking
+  payment
+  verification
+  technical
+  inquiry
+  complaint
+  other
+
+  @@map("ticket_category")
+}
+
+enum TicketRequesterType {
+  user
+  organizer
+
+  @@map("ticket_requester_type")
+}
+
+enum TicketSenderType {
+  user
+  organizer
+  admin
+
+  @@map("ticket_sender_type")
+}
+
+model Ticket {
+  id           String @id @default(uuid())
+  // Supplied by ticket_number_seq through a column default.
+  ticketNumber String @unique @default(dbgenerated()) @map("ticket_number")
+
+  subject     String
+  description String
+  category    TicketCategory
+  priority    SupportPriority     @default(medium)
+  status      TicketStatus        @default(pending)
+
+  requesterId   String              @map("requester_id")
+  requesterType TicketRequesterType @map("requester_type")
+  assignedTo    String?             @map("assigned_to")
+  tripId        String?             @map("trip_id")
+  bookingId     String?             @map("booking_id")
+
+  attachments Json @default("[]")
+
+  resolvedBy     String?   @map("resolved_by")
+  resolvedAt     DateTime? @map("resolved_at")
+  resolutionNote String?   @map("resolution_note")
+
+  // Minutes, both of them - analyticsService averages responseTime across
+  // tickets that have one.
+  responseTime       Int? @map("response_time")
+  resolutionTime     Int? @map("resolution_time")
+  satisfactionRating Int? @map("satisfaction_rating")
+
+  tags String[] @default([])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  conversation  TicketMessage[]
+  internalNotes TicketInternalNote[]
+
+  @@index([requesterId])
+  @@index([assignedTo])
+  @@index([status])
+  @@index([tripId])
+  @@map("tickets")
+}
+
+// Was an embedded conversation array, same reasoning as support ticket messages:
+// a reply is an insert, not a rewrite of the whole ticket.
+model TicketMessage {
+  id         String           @id @default(uuid())
+  ticketId   String           @map("ticket_id")
+  senderId   String           @map("sender_id")
+  senderType TicketSenderType @map("sender_type")
+  message    String
+  timestamp  DateTime         @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, timestamp])
+  @@map("ticket_messages")
+}
+
+// internalNotes on Ticket were objects with an author, unlike SupportTicket's
+// plain strings, so they get their own table rather than a String[].
+model TicketInternalNote {
+  id        String   @id @default(uuid())
+  ticketId  String   @map("ticket_id")
+  noteBy    String   @map("note_by")
+  note      String
+  timestamp DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, timestamp])
+  @@map("ticket_internal_notes")
+}
+
+// ticketId was generated in a pre-save hook from countDocuments() + 1 joined to
+// a millisecond timestamp. That is a count-based sequence: two tickets created
+// in the same millisecond read the same count, build the same id, and the unique
+// index then rejects one of them. Postgres has an actual sequence for this - see
+// the migration - so the id is assigned by the database and cannot collide.
+model SupportTicket {
+  id       String @id @default(uuid())
+  // The value comes from support_ticket_number_seq via a column default, so
+  // Prisma must be told not to require it on create.
+  ticketId String @unique @default(dbgenerated()) @map("ticket_id")
+
+  userId           String  @map("user_id")
+  assignedAgentId  String? @map("assigned_agent_id")
+  relatedTripId    String? @map("related_trip_id")
+  relatedBookingId String? @map("related_booking_id")
+
+  subject     String
+  description String
+  category    SupportCategory @default(general)
+  priority    SupportPriority @default(medium)
+  status      SupportStatus   @default(open)
+
+  customerEmail String  @map("customer_email")
+  customerName  String  @map("customer_name")
+  customerPhone String? @map("customer_phone")
+
+  tags          String[] @default([])
+  // internalNotes was [String] - free text an agent adds. Still an array of
+  // strings; nothing queries inside it.
+  internalNotes String[] @default([]) @map("internal_notes")
+
+  firstResponseTime DateTime? @map("first_response_time")
+  // A timestamp here, unlike Ticket.resolutionTime which is a number of minutes.
+  // Same field name, different meaning, two different models.
+  resolutionTime    DateTime? @map("resolution_time")
+  resolvedAt        DateTime? @map("resolved_at")
+  closedAt          DateTime? @map("closed_at")
+
+  customerSatisfactionRating Int?    @map("customer_satisfaction_rating")
+  customerFeedback           String? @map("customer_feedback") @db.VarChar(500)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  messages SupportTicketMessage[]
+
+  @@index([userId])
+  @@index([assignedAgentId])
+  @@index([status])
+  @@index([category])
+  @@index([priority])
+  @@index([customerEmail])
+  @@map("support_tickets")
+}
+
+enum SupportSender {
+  customer
+  agent
+
+  @@map("support_sender")
+}
+
+// Was an embedded messages array on the ticket. A reply is an insert now rather
+// than a rewrite of the whole ticket document, so two agents answering at once
+// cannot lose each other's message.
+model SupportTicketMessage {
+  id          String        @id @default(uuid())
+  ticketId    String        @map("ticket_id")
+  sender      SupportSender
+  senderName  String        @map("sender_name")
+  senderId    String?       @map("sender_id")
+  message     String        @db.VarChar(2000)
+  attachments String[]      @default([])
+  timestamp   DateTime      @default(now())
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, timestamp])
+  @@map("support_ticket_messages")
+}
+
+enum ChatSessionStatus {
+  active
+  waiting_agent
+  with_agent
+  resolved
+  closed
+
+  @@map("chat_session_status")
+}
+
+model ChatSession {
+  id        String @id @default(uuid())
+  sessionId String @unique @map("session_id")
+
+  userId    String? @map("user_id")
+  userName  String? @map("user_name")
+  userEmail String? @map("user_email")
+
+  status ChatSessionStatus @default(active)
+
+  // userContext was a nested blob of recent bookings, destinations and issues.
+  // Nothing filters inside it, so it stays JSON rather than becoming four tables.
+  userContext Json? @map("user_context")
+
+  currentIntent   String?   @map("current_intent")
+  lastActivity    DateTime  @default(now()) @map("last_activity")
+  assignedAgentId String?   @map("assigned_agent_id")
+  handoffReason   String?   @map("handoff_reason")
+  handoffTime     DateTime? @map("handoff_time")
+  agentJoinedTime DateTime? @map("agent_joined_time")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  messages ChatSessionMessage[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([assignedAgentId])
+  @@map("chat_sessions")
+}
+
+enum ChatSender {
+  user
+  ai
+  agent
+
+  @@map("chat_sender")
+}
+
+// totalMessages was a counter beside the embedded array. It is a count of these
+// rows now, for the same reason memberCount was dropped in wave 5.
+model ChatSessionMessage {
+  id        String     @id @default(uuid())
+  sessionId String     @map("session_id")
+  sender    ChatSender
+  message   String     @db.VarChar(2000)
+  timestamp DateTime   @default(now())
+
+  isFromBot   Boolean  @default(false) @map("is_from_bot")
+  agentId     String?  @map("agent_id")
+  intent      String?
+  confidence  Float?
+  responseFor String?  @map("response_for")
+  suggestions String[] @default([])
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, timestamp])
+  @@map("chat_session_messages")
+}
+
+enum ChatMessageSenderType {
+  user
+  organizer
+  admin
+
+  @@map("chat_message_sender_type")
+}
+
+enum ChatMessageType {
+  text
+  image
+  file
+  system
+
+  @@map("chat_message_type")
+}
+
+enum ChatMessageRelatedType {
+  trip
+  booking
+  ticket
+
+  @@map("chat_message_related_type")
+}
+
+model ChatMessage {
+  id             String                 @id @default(uuid())
+  conversationId String                 @map("conversation_id")
+  senderId       String                 @map("sender_id")
+  senderType     ChatMessageSenderType  @map("sender_type")
+  recipientId    String?                @map("recipient_id")
+  recipientType  ChatMessageSenderType? @map("recipient_type")
+  message        String
+  messageType    ChatMessageType        @default(text) @map("message_type")
+  attachments    Json                   @default("[]")
+  isRead         Boolean                @default(false) @map("is_read")
+
+  // relatedTo was a nested { type, id }. Two columns, so "unread messages about
+  // this booking" is a query rather than a scan through JSON.
+  relatedToType ChatMessageRelatedType? @map("related_to_type")
+  relatedToId   String?                 @map("related_to_id")
+
+  metadata Json @default("{}")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+  @@index([isRead])
+  @@map("chat_messages")
+}
+
+enum AiMessageRole {
+  user
+  assistant
+  system
+
+  @@map("ai_message_role")
+}
+
+// The Mongoose schema carried a second TTL index, on expiresAt with
+// expireAfterSeconds 0 and expiresAt set 30 days ahead. Postgres has no TTL, so
+// - as with audit_logs in wave 3 - the retention is a scheduled job.
+// scripts/prune-expired.ts covers both, and it must actually be scheduled or
+// these rows live forever.
+model AIConversation {
+  id        String  @id @default(uuid())
+  sessionId String  @unique @map("session_id")
+  userId    String? @map("user_id")
+
+  startedAt         DateTime  @default(now()) @map("started_at")
+  lastInteractionAt DateTime  @default(now()) @map("last_interaction_at")
+  expiresAt         DateTime? @map("expires_at")
+
+  // summary, context and escalation are read back whole by the assistant and
+  // never filtered on, so they stay JSON.
+  summary    Json?
+  context    Json  @default("{}")
+  escalation Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  messages AIConversationMessage[]
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([lastInteractionAt])
+  @@map("ai_conversations")
+}
+
+// metrics.messageCount was a counter beside the array; it is a count of these.
+model AIConversationMessage {
+  id             String        @id @default(uuid())
+  conversationId String        @map("conversation_id")
+  role           AiMessageRole
+  content        String        @db.VarChar(2000)
+  timestamp      DateTime      @default(now())
+
+  responseTime       Int?     @map("response_time")
+  topic              String?
+  requiresHumanAgent Boolean? @map("requires_human_agent")
+  sender             String?
+  metadata           Json     @default("{}")
+
+  conversation AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, timestamp])
+  @@map("ai_conversation_messages")
+}

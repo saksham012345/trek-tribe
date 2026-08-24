@@ -5,13 +5,13 @@
  * No req/res objects — pure data in, data out.
  */
 
-import { SupportTicket } from '../../models/SupportTicket';
+
 import { Trip } from '../../models/Trip';
 import { User } from '../../models/User';
 import { OrganizerSubscription } from '../../models/OrganizerSubscription';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
-import Ticket from '../../models/Ticket';
+
 import TripVerification from '../../models/TripVerification';
 import { GroupBooking } from '../../models/GroupBooking';
 
@@ -50,7 +50,11 @@ export async function getAdminDashboard() {
     TripVerification.countDocuments({ status: 'pending' }),
     prisma.lead.count(),
     prisma.lead.count({ where: { status: 'converted' } }),
-    Ticket.countDocuments({ status: { $in: ['open', 'in_progress'] } }),
+    // Was { $in: ['open', 'in_progress'] }. Ticket has never had an 'open'
+    // status - that value belongs to SupportTicket, a different model with a
+    // different lifecycle - so half of this count silently matched nothing.
+    // Postgres refuses the value outright, which is how it came to light.
+    prisma.ticket.count({ where: { status: { in: ['pending', 'in_progress'] } } }),
     Trip.aggregate([
       { $group: { _id: '$destination', count: { $sum: 1 } } },
       { $sort: { count: -1 } },
@@ -122,7 +126,7 @@ export async function getOrganizerDashboard(userId: string) {
     Trip.countDocuments({ organizer: userId, isActive: true }),
     prisma.lead.count({ where: { assignedTo: userId } }),
     prisma.lead.count({ where: { assignedTo: userId, status: 'converted' } }),
-    Ticket.countDocuments({ userId }),
+    prisma.ticket.count({ where: { requesterId: userId } }),
     OrganizerSubscription.aggregate([
       { $match: { organizerId: userId, 'payments.status': 'completed' } },
       { $group: { _id: null, total: { $sum: '$totalPaid' } } },
@@ -171,7 +175,7 @@ export async function getTravelerDashboard(userId: string) {
   const [tripsJoined, upcomingTrips, myTickets] = await Promise.all([
     Trip.countDocuments({ participants: userId }),
     Trip.countDocuments({ participants: userId, startDate: { $gte: new Date() } }),
-    SupportTicket.countDocuments({ userId }),
+    prisma.supportTicket.count({ where: { userId } }),
   ]);
 
   const recentTrips = await Trip.find({ participants: userId })

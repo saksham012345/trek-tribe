@@ -1,6 +1,7 @@
 import express from 'express';
 import { z } from 'zod';
-import { SupportTicket } from '../models/SupportTicket';
+import { prisma } from '../lib/prisma';
+import { withMongoId, withMongoIds, asPopulated } from '../lib/apiShape';
 import { User } from '../models/User';
 import { Trip } from '../models/Trip';
 import { authenticateJwt } from '../middleware/auth';
@@ -9,6 +10,19 @@ import { emailService } from '../services/emailService';
 import { socketService } from '../services/socketService';
 import { logger } from '../utils/logger';
 import { analyzeChatForLead } from '../services/chatLeadService';
+
+/**
+ * Load the Mongo users behind a set of ids. The populate() calls this replaces
+ * cannot work now that tickets are in Postgres and users are not.
+ */
+async function loadUsers(ids: (string | null | undefined)[]) {
+  const unique = Array.from(new Set(ids.filter(Boolean) as string[]));
+  if (unique.length === 0) return new Map<string, any>();
+  const users = await User.find({ _id: { $in: unique } })
+    .select('name email phone profilePhoto')
+    .lean();
+  return new Map(users.map((u: any) => [u._id.toString(), u]));
+}
 
 const router = express.Router();
 
@@ -33,11 +47,13 @@ router.get('/stats', async (req, res) => {
     // Get ticket statistics
     // Get ticket statistics
     const [myTotalTickets, openTickets, inProgressTickets, resolvedTickets, unassignedTickets] = await Promise.all([
-      SupportTicket.countDocuments({ assignedAgentId: agentId }),
-      SupportTicket.countDocuments({ assignedAgentId: agentId, status: 'open' }),
-      SupportTicket.countDocuments({ assignedAgentId: agentId, status: 'in-progress' }),
-      SupportTicket.countDocuments({ assignedAgentId: agentId, status: 'resolved' }),
-      SupportTicket.countDocuments({ assignedAgentId: null, status: { $ne: 'closed' } })
+      // The stored labels still read 'in-progress'; the Prisma member is spelled
+      // in_progress. See the @map on SupportStatus.
+      prisma.supportTicket.count({ where: { assignedAgentId: agentId } }),
+      prisma.supportTicket.count({ where: { assignedAgentId: agentId, status: 'open' } }),
+      prisma.supportTicket.count({ where: { assignedAgentId: agentId, status: 'in_progress' } }),
+      prisma.supportTicket.count({ where: { assignedAgentId: agentId, status: 'resolved' } }),
+      prisma.supportTicket.count({ where: { assignedAgentId: null, status: { not: 'closed' } } })
     ]);
 
     // Total should reflect "My Workload" + "Potential Workload" (Unassigned) to avoid "0 Total, 3 Unassigned" confusion
@@ -46,20 +62,26 @@ router.get('/stats', async (req, res) => {
 
 
     // Get recent activity
-    const recentTickets = await SupportTicket.find({ assignedAgentId: agentId })
-      .populate('userId', 'name email')
-      .sort({ updatedAt: -1 })
-      .limit(5)
-      .select('ticketId subject status priority updatedAt customerName');
+    const recentTickets = await prisma.supportTicket.findMany({
+      where: { assignedAgentId: agentId },
+      orderBy: { updatedAt: 'desc' },
+      take: 5,
+      select: {
+        id: true, ticketId: true, subject: true, status: true,
+        priority: true, updatedAt: true, customerName: true
+      }
+    });
 
     // Get performance metrics (last 30 days)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const resolvedInPeriod = await SupportTicket.find({
-      assignedAgentId: agentId,
-      status: 'resolved',
-      resolvedAt: { $gte: thirtyDaysAgo }
+    const resolvedInPeriod = await prisma.supportTicket.findMany({
+      where: {
+        assignedAgentId: agentId,
+        status: 'resolved',
+        resolvedAt: { gte: thirtyDaysAgo }
+      }
     });
 
     const avgResolutionTime = resolvedInPeriod.length > 0
@@ -129,22 +151,34 @@ router.get('/tickets', async (req, res) => {
 
     // Search functionality
     if (search) {
-      query.$or = [
-        { ticketId: { $regex: search, $options: 'i' } },
-        { subject: { $regex: search, $options: 'i' } },
-        { customerName: { $regex: search, $options: 'i' } },
-        { customerEmail: { $regex: search, $options: 'i' } }
+      query.OR = [
+        { ticketId: { contains: search, mode: 'insensitive' } },
+        { subject: { contains: search, mode: 'insensitive' } },
+        { customerName: { contains: search, mode: 'insensitive' } },
+        { customerEmail: { contains: search, mode: 'insensitive' } }
       ];
     }
 
-    const total = await SupportTicket.countDocuments(query);
-    const tickets = await SupportTicket.find(query)
-      .populate('userId', 'name email phone')
-      .populate('assignedAgentId', 'name email')
-      .populate('relatedTripId', 'title destination')
-      .sort({ priority: 1, createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
+    const [total, ticketRows] = await Promise.all([
+      prisma.supportTicket.count({ where: query }),
+      prisma.supportTicket.findMany({
+        where: query,
+        orderBy: [{ priority: 'asc' }, { createdAt: 'desc' }],
+        skip: (page - 1) * limit,
+        take: limit
+      })
+    ]);
+
+    // populate() is gone - users are still Mongo documents - so the two the UI
+    // reads are fetched in one lookup and put back under their original keys.
+    const listUsers = await loadUsers(
+      ticketRows.flatMap(t => [t.userId, t.assignedAgentId])
+    );
+    const tickets = ticketRows.map(t => ({
+      ...withMongoId(t),
+      userId: asPopulated(listUsers.get(t.userId)),
+      assignedAgentId: t.assignedAgentId ? asPopulated(listUsers.get(t.assignedAgentId)) : null
+    }));
 
     res.json({
       tickets,
@@ -166,16 +200,25 @@ router.get('/tickets/:ticketId', async (req, res) => {
   try {
     const { ticketId } = req.params;
 
-    const ticket = await SupportTicket.findOne({ ticketId })
-      .populate('userId', 'name email phone profilePhoto')
-      .populate('assignedAgentId', 'name email')
-      .populate('relatedTripId', 'title destination startDate endDate price');
+    const row = await prisma.supportTicket.findUnique({
+      where: { ticketId },
+      include: { messages: { orderBy: { timestamp: 'asc' } } }
+    });
 
-    if (!ticket) {
+    if (!row) {
       return res.status(404).json({ error: 'Ticket not found' });
     }
 
-    res.json({ ticket });
+    const people = await loadUsers([row.userId, row.assignedAgentId]);
+
+    res.json({
+      ticket: {
+        ...withMongoId(row),
+        userId: asPopulated(people.get(row.userId)),
+        assignedAgentId: row.assignedAgentId ? asPopulated(people.get(row.assignedAgentId)) : null,
+        messages: withMongoIds(row.messages)
+      }
+    });
 
   } catch (error: any) {
     logger.error('Error fetching ticket details', { error: error.message, ticketId: req.params.ticketId });
@@ -190,18 +233,26 @@ router.post('/tickets/:ticketId/assign', async (req, res) => {
     const { assignedAgentId } = req.body;
     const currentAgentId = (req as any).auth.userId;
 
-    const ticket = await SupportTicket.findOneAndUpdate(
-      { ticketId },
-      {
-        assignedAgentId: assignedAgentId || currentAgentId,
-        status: 'in-progress'
-      },
-      { new: true }
-    ).populate('assignedAgentId', 'name email');
-
-    if (!ticket) {
+    const existing = await prisma.supportTicket.findUnique({ where: { ticketId } });
+    if (!existing) {
       return res.status(404).json({ error: 'Ticket not found' });
     }
+
+    const updated = await prisma.supportTicket.update({
+      where: { ticketId },
+      data: {
+        assignedAgentId: assignedAgentId || currentAgentId,
+        status: 'in_progress'
+      }
+    });
+
+    const assignees = await loadUsers([updated.assignedAgentId]);
+    const ticket = {
+      ...withMongoId(updated),
+      assignedAgentId: updated.assignedAgentId
+        ? asPopulated(assignees.get(updated.assignedAgentId))
+        : null
+    };
 
     logger.info('Ticket assigned', {
       ticketId,
@@ -221,11 +272,15 @@ router.post('/tickets/:ticketId/assign', async (req, res) => {
 router.post('/tickets/:ticketId/ai-resolve', async (req, res) => {
   try {
     const { ticketId } = req.params;
-    const ticket = await SupportTicket.findOne({ ticketId }).populate('userId', 'name email');
+    // messages are rows now, so the last ten are a query rather than a slice of
+    // an embedded array - the whole ticket does not have to be loaded to read them.
+    const ticket = await prisma.supportTicket.findUnique({
+      where: { ticketId },
+      include: { messages: { orderBy: { timestamp: 'desc' }, take: 10 } }
+    });
     if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
 
-    // Build a concise prompt from the ticket details and recent messages
-    const recentMessages = (ticket.messages || []).slice(-10).map((m: any) => `${m.senderName || m.sender}: ${m.message}`).join('\n');
+    const recentMessages = [...ticket.messages].reverse().map((m: any) => `${m.senderName || m.sender}: ${m.message}`).join('\n');
     const prompt = `You are a helpful customer support agent. A customer raised the following support ticket:\n\nSubject: ${ticket.subject}\nCustomer: ${ticket.customerName} (${ticket.customerEmail})\n\nConversation:\n${recentMessages}\n\nProvide a concise, professional resolution note and a one-paragraph reply the agent can send to the customer. Keep it under 300 words.`;
 
     // Forward to AI service (use server-side AI key)
@@ -256,25 +311,27 @@ router.post('/tickets/:ticketId/resolve', async (req, res) => {
     const { resolutionNote } = req.body;
     const agentId = (req as any).auth.userId;
 
-    const ticket = await SupportTicket.findOne({ ticketId });
-    if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+    const existing = await prisma.supportTicket.findUnique({ where: { ticketId } });
+    if (!existing) return res.status(404).json({ error: 'Ticket not found' });
 
     // Only assigned agent or admin can resolve
-    if (ticket.assignedAgentId && ticket.assignedAgentId.toString() !== agentId && (req as any).auth.role !== 'admin') {
+    if (existing.assignedAgentId && existing.assignedAgentId !== agentId && (req as any).auth.role !== 'admin') {
       return res.status(403).json({ error: 'Only assigned agent or admin can resolve this ticket' });
     }
 
     // Mark resolved and record timestamps. Keep notes in internalNotes for audit.
-    ticket.status = 'resolved';
-    ticket.resolvedAt = new Date();
-    ticket.resolutionTime = new Date();
-    ticket.updatedAt = new Date();
-    if (resolutionNote) {
-      ticket.internalNotes = ticket.internalNotes || [];
-      ticket.internalNotes.push(`Resolved by ${agentId}: ${resolutionNote}`);
-    }
-
-    await ticket.save();
+    const now = new Date();
+    const ticket = await prisma.supportTicket.update({
+      where: { ticketId },
+      data: {
+        status: 'resolved',
+        resolvedAt: now,
+        resolutionTime: now,
+        ...(resolutionNote
+          ? { internalNotes: { push: `Resolved by ${agentId}: ${resolutionNote}` } }
+          : {})
+      }
+    });
 
     // Notify customer immediately (properly awaited)
     try {
@@ -307,15 +364,15 @@ router.patch('/tickets/:ticketId/status', async (req, res) => {
       return res.status(400).json({ error: 'Invalid status' });
     }
 
-    const ticket = await SupportTicket.findOneAndUpdate(
-      { ticketId },
-      { status },
-      { new: true }
-    );
-
-    if (!ticket) {
+    const exists = await prisma.supportTicket.count({ where: { ticketId } });
+    if (exists === 0) {
       return res.status(404).json({ error: 'Ticket not found' });
     }
+
+    const ticket = await prisma.supportTicket.update({
+      where: { ticketId },
+      data: { status }
+    });
 
     logger.info('Ticket status updated', { ticketId, status, agentId: (req as any).auth.userId });
 
@@ -351,27 +408,34 @@ router.post('/tickets/:ticketId/messages', async (req, res) => {
       return res.status(404).json({ error: 'Agent not found' });
     }
 
-    const ticket = await SupportTicket.findOneAndUpdate(
-      { ticketId },
-      {
-        $push: {
-          messages: {
+    const target = await prisma.supportTicket.findUnique({ where: { ticketId } });
+    if (!target) {
+      return res.status(404).json({ error: 'Ticket not found' });
+    }
+
+    // The reply is an insert, not a $push that rewrites the ticket, so two
+    // agents answering at the same moment both get recorded.
+    const updated = await prisma.supportTicket.update({
+      where: { ticketId },
+      data: {
+        status: 'waiting_customer',
+        messages: {
+          create: [{
             sender: 'agent',
             senderName: agent.name,
             senderId: agentId,
             message,
-            attachments: attachments || [],
-            timestamp: new Date()
-          }
-        },
-        status: 'waiting-customer'
-      },
-      { new: true }
-    ).populate('userId', 'name email phone');
+            attachments: attachments || []
+          }]
+        }
+      }
+    });
 
-    if (!ticket) {
-      return res.status(404).json({ error: 'Ticket not found' });
-    }
+    const replyUsers = await loadUsers([updated.userId]);
+    const ticket = {
+      ...withMongoId(updated),
+      userId: asPopulated(replyUsers.get(updated.userId))
+    };
 
     // Send email notification to customer (properly awaited)
     try {
@@ -402,8 +466,13 @@ router.post('/tickets/:ticketId/messages', async (req, res) => {
     logger.info('Message added to ticket', { ticketId, agentId, messageLength: message.length });
 
     // Analyze chat for lead generation (async, non-blocking)
-    if (ticket.userId && ticket.messages && ticket.messages.length > 2) {
-      analyzeChatForLead(ticket.userId.toString(), ticket.messages.map(m => ({
+    const replyMessages = await prisma.supportTicketMessage.findMany({
+      where: { ticketId: updated.id },
+      orderBy: { timestamp: 'asc' }
+    });
+
+    if (updated.userId && replyMessages.length > 2) {
+      analyzeChatForLead(updated.userId, replyMessages.map(m => ({
         role: m.sender === 'agent' ? 'assistant' : 'user',
         content: m.message,
         timestamp: m.timestamp
@@ -448,26 +517,32 @@ router.post('/tickets', async (req, res) => {
       return res.status(404).json({ error: 'Customer not found' });
     }
 
-    const ticket = await SupportTicket.create({
-      userId,
-      assignedAgentId: agentId,
-      subject,
-      description,
-      category,
-      priority,
-      relatedTripId,
-      relatedBookingId,
-      customerEmail: customer.email,
-      customerName: customer.name,
-      customerPhone: customer.phone || undefined,
-      status: 'in-progress',
-      messages: [{
-        sender: 'customer',
-        senderName: customer.name,
-        senderId: userId,
-        message: description,
-        timestamp: new Date()
-      }]
+    // ticketId is not passed: the column defaults to a value from
+    // support_ticket_number_seq, which replaced the countDocuments() + 1 that
+    // could hand two tickets the same id.
+    const ticket = await prisma.supportTicket.create({
+      data: {
+        userId,
+        assignedAgentId: agentId,
+        subject,
+        description,
+        category: category as any,
+        priority: priority as any,
+        relatedTripId: relatedTripId || null,
+        relatedBookingId: relatedBookingId || null,
+        customerEmail: customer.email,
+        customerName: customer.name,
+        customerPhone: customer.phone || undefined,
+        status: 'in_progress',
+        messages: {
+          create: [{
+            sender: 'customer',
+            senderName: customer.name,
+            senderId: userId,
+            message: description
+          }]
+        }
+      }
     });
 
     logger.info('Ticket created by agent', { ticketId: ticket.ticketId, agentId, customerId: userId });
@@ -524,10 +599,16 @@ router.get('/customers/:userId', async (req, res) => {
       .limit(10);
 
     // Get customer's support tickets
-    const tickets = await SupportTicket.find({ userId })
-      .populate('assignedAgentId', 'name email')
-      .sort({ createdAt: -1 })
-      .limit(10);
+    const ticketRows = await prisma.supportTicket.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: 10
+    });
+    const agents = await loadUsers(ticketRows.map(t => t.assignedAgentId));
+    const tickets = ticketRows.map(t => ({
+      ...withMongoId(t),
+      assignedAgentId: t.assignedAgentId ? asPopulated(agents.get(t.assignedAgentId)) : null
+    }));
 
     res.json({
       customer,
@@ -581,19 +662,26 @@ router.get('/services/status', async (req, res) => {
 router.get('/queries', async (req, res) => {
   try {
     // For now, return support tickets as customer queries
-    const queries = await SupportTicket.find({
-      status: { $in: ['open', 'in-progress'] }
-    })
-      .populate('userId', 'name email')
-      .sort({ priority: 1, createdAt: -1 })
-      .limit(20);
+    const queryRows = await prisma.supportTicket.findMany({
+      where: { status: { in: ['open', 'in_progress'] } },
+      orderBy: [{ priority: 'asc' }, { createdAt: 'desc' }],
+      take: 20,
+      include: { messages: { orderBy: { timestamp: 'asc' } } }
+    });
+    const queryUsers = await loadUsers(queryRows.map(t => t.userId));
+    const queries = queryRows.map(t => ({
+      ...withMongoId(t),
+      userId: asPopulated(queryUsers.get(t.userId))
+    }));
 
     const formattedQueries = queries.map(ticket => ({
       _id: ticket._id,
       customerName: ticket.customerName || (ticket.userId as any)?.name || 'Unknown',
       customerEmail: ticket.customerEmail || (ticket.userId as any)?.email || 'unknown@email.com',
       query: ticket.subject || 'No subject',
-      status: ticket.status === 'in-progress' ? 'in_progress' : ticket.status,
+      // The Prisma member is already in_progress; the stored label keeps its
+      // hyphen but never reaches here.
+      status: ticket.status,
       priority: ticket.priority || 'medium',
       createdAt: ticket.createdAt,
       lastResponse: ticket.messages && ticket.messages.length > 0
@@ -723,18 +811,25 @@ router.get('/pending-tickets', async (req, res) => {
     const limit = parseInt(req.query.limit as string) || 20;
 
     // Get unassigned or waiting-agent tickets
-    const pendingTickets = await SupportTicket.find({
-      $or: [
-        { assignedAgentId: null },
-        { status: 'waiting-agent' }
-      ],
-      status: { $nin: ['closed', 'resolved'] }
-    })
-      .populate('userId', 'name email phone')
-      .populate('relatedTripId', 'title destination')
-      .sort({ priority: 1, createdAt: 1 }) // High priority and oldest first
-      .limit(limit)
-      .select('ticketId subject description status priority category customerName customerEmail customerPhone messages createdAt updatedAt');
+    // The second branch of the old $or asked for status 'waiting-agent', which
+    // SupportTicket has never had - that value belongs to ChatSession. It matched
+    // nothing, so this queue was only ever "unassigned and still open". Postgres
+    // rejects the value outright, so the query says what it actually does.
+    const pendingRows = await prisma.supportTicket.findMany({
+      where: {
+        assignedAgentId: null,
+        status: { notIn: ['closed', 'resolved'] }
+      },
+      orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }], // High priority and oldest first
+      take: limit,
+      include: { messages: { orderBy: { timestamp: 'asc' } } }
+    });
+
+    const pendingUsers = await loadUsers(pendingRows.map(t => t.userId));
+    const pendingTickets = pendingRows.map(t => ({
+      ...withMongoId(t),
+      userId: asPopulated(pendingUsers.get(t.userId))
+    }));
 
     const formattedTickets = pendingTickets.map(ticket => ({
       ticketId: ticket.ticketId,
@@ -778,25 +873,34 @@ router.post('/tickets/:ticketId/assign', async (req, res) => {
     const agentId = (req as any).auth.userId;
     const { ticketId } = req.params;
 
-    const ticket = await SupportTicket.findOne({ ticketId });
-    if (!ticket) {
+    const claimable = await prisma.supportTicket.findUnique({ where: { ticketId } });
+    if (!claimable) {
       return res.status(404).json({ error: 'Ticket not found' });
     }
 
     // Check if already assigned
-    if (ticket.assignedAgentId) {
+    if (claimable.assignedAgentId) {
       return res.status(400).json({
         error: 'Ticket already assigned',
-        assignedTo: ticket.assignedAgentId
+        assignedTo: claimable.assignedAgentId
       });
     }
 
-    // Assign to agent
-    ticket.assignedAgentId = agentId as any;
-    ticket.status = 'in-progress';
-    ticket.updatedAt = new Date();
+    // Claim it only if it is still unassigned. Scoping the update on
+    // assignedAgentId: null means two agents clicking at once cannot both win -
+    // the second one updates zero rows and is told so.
+    const claimed = await prisma.supportTicket.updateMany({
+      where: { ticketId, assignedAgentId: null },
+      data: { assignedAgentId: agentId, status: 'in_progress' }
+    });
 
-    await ticket.save();
+    if (claimed.count === 0) {
+      return res.status(400).json({ error: 'Ticket already assigned' });
+    }
+
+    // The status was set in the same scoped update that claimed the ticket,
+    // so this is only a read-back for the response.
+    const ticket = await prisma.supportTicket.findUnique({ where: { ticketId } });
 
     logger.info('Ticket assigned', { ticketId, agentId });
 
