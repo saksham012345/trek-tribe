@@ -5,7 +5,7 @@ import { logger } from '../utils/logger';
 import tokenHelper from '../utils/tokenHelper';
 import { aiSupportService } from './aiSupportService';
 import { emailService } from './emailService';
-import { SupportTicket } from '../models/SupportTicket';
+import { prisma } from '../lib/prisma';
 import { User } from '../models/User';
 
 interface ChatMessage {
@@ -353,22 +353,25 @@ class SocketService {
         const ticketDescription = `User requested human support during chat session.\n\nReason: ${data.reason || 'Not specified'}\n\nChat History:\n${session.messages.map(msg => `${msg.senderName}: ${msg.message}`).join('\n')}`;
 
         // Create ticket directly using SupportTicket model
-        const newTicket = await SupportTicket.create({
-          userId: session.userId,
-          subject: ticketSubject,
-          description: ticketDescription,
-          category: 'general',
-          priority: data.urgency === 'high' ? 'high' : data.urgency === 'low' ? 'low' : 'medium',
-          customerEmail: session.userEmail,
-          customerName: session.userName,
-          status: 'open',
-          messages: [{
-            sender: 'customer',
-            senderName: session.userName,
-            senderId: session.userId,
-            message: ticketDescription,
-            timestamp: new Date()
-          }]
+        const newTicket = await prisma.supportTicket.create({
+          data: {
+            userId: session.userId,
+            subject: ticketSubject,
+            description: ticketDescription,
+            category: 'general',
+            priority: data.urgency === 'high' ? 'high' : data.urgency === 'low' ? 'low' : 'medium',
+            customerEmail: session.userEmail,
+            customerName: session.userName,
+            status: 'open',
+            messages: {
+              create: [{
+                sender: 'customer',
+                senderName: session.userName,
+                senderId: session.userId,
+                message: ticketDescription
+              }]
+            }
+          }
         });
 
         ticketId = newTicket.ticketId;
@@ -512,25 +515,29 @@ class SocketService {
     // Update support ticket if it exists
     if (session.ticketId) {
       try {
-        const updatedTicket = await SupportTicket.findOneAndUpdate(
-          { ticketId: session.ticketId },
-          {
-            $push: {
-              messages: {
+        // Two corrections here, both silent under Mongoose.
+        //
+        // assignedTo is not a field on SupportTicket - the column is
+        // assignedAgentId - so strict mode dropped it and the agent replying in
+        // chat was never actually assigned the ticket. Postgres would reject the
+        // unknown field outright.
+        //
+        // And the status label is 'in-progress', not 'in_progress'; the Prisma
+        // member is spelled with an underscore and maps to the stored hyphen.
+        const updatedTicket = await prisma.supportTicket.update({
+          where: { ticketId: session.ticketId },
+          data: {
+            status: 'in_progress',
+            assignedAgentId: session.agentId,
+            messages: {
+              create: [{
                 sender: 'agent',
                 senderName: session.agentName,
-                message: data.message,
-                timestamp: new Date()
-              }
-            },
-            $set: {
-              status: 'in_progress',
-              assignedTo: session.agentId,
-              updatedAt: new Date()
+                message: data.message
+              }]
             }
-          },
-          { new: true }
-        );
+          }
+        });
 
         // Send email notification to user about agent reply
         if (updatedTicket && !socket.data.isGuest && session.userEmail) {

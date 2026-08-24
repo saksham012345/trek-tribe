@@ -1,6 +1,17 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/roleCheck';
-import Ticket from '../models/Ticket';
+import { withMongoId, withMongoIds, asPopulated } from '../lib/apiShape';
+import { User } from '../models/User';
+
+/** Load the Mongo users behind a set of ids; populate() cannot cross databases. */
+async function loadTicketUsers(ids: (string | null | undefined)[]) {
+  const unique = Array.from(new Set(ids.filter(Boolean) as string[]));
+  if (unique.length === 0) return new Map<string, any>();
+  const users = await User.find({ _id: { $in: unique } })
+    .select('name email phone')
+    .lean();
+  return new Map(users.map((u: any) => [u._id.toString(), u]));
+}
 import notificationService from '../services/notificationService';
 import { prisma } from '../lib/prisma';
 
@@ -27,20 +38,22 @@ class TicketController {
         });
       }
 
-      const ticket = new Ticket({
-        subject,
-        description,
-        category,
-        priority: priority || 'medium',
-        requesterId: req.user.id,
-        requesterType: req.user.role === 'organizer' ? 'organizer' : 'user',
-        tripId,
-        bookingId,
-        attachments: attachments || [],
-        status: 'pending',
+      // ticketNumber comes from ticket_number_seq via the column default, which
+      // replaced a pre-save hook building it from countDocuments() + 1.
+      const ticket = await prisma.ticket.create({
+        data: {
+          subject,
+          description,
+          category,
+          priority: priority || 'medium',
+          requesterId: req.user.id,
+          requesterType: req.user.role === 'organizer' ? 'organizer' : 'user',
+          tripId: tripId || null,
+          bookingId: bookingId || null,
+          attachments: (attachments || []) as any,
+          status: 'pending',
+        }
       });
-
-      await ticket.save();
 
       // Track activity
       await prisma.userActivity.create({
@@ -49,7 +62,7 @@ class TicketController {
           userType: req.user.role === 'organizer' ? 'organizer' : 'user',
           activityType: 'ticket_created',
           description: `Created support ticket: ${subject}`,
-          metadata: { ticketId: String(ticket._id) },
+          metadata: { ticketId: ticket.id },
         },
       });
 
@@ -98,15 +111,24 @@ class TicketController {
         ];
       }
 
-      const tickets = await Ticket.find(query)
-        .populate('requesterId', 'name email')
-        .populate('assignedTo', 'name email')
-        .populate('tripId', 'title')
-        .sort({ createdAt: -1 })
-        .limit(Number(limit))
-        .skip((Number(page) - 1) * Number(limit));
+      const [ticketRows, total] = await Promise.all([
+        prisma.ticket.findMany({
+          where: query,
+          orderBy: { createdAt: 'desc' },
+          take: Number(limit),
+          skip: (Number(page) - 1) * Number(limit)
+        }),
+        prisma.ticket.count({ where: query })
+      ]);
 
-      const total = await Ticket.countDocuments(query);
+      const listPeople = await loadTicketUsers(
+        ticketRows.flatMap(t => [t.requesterId, t.assignedTo])
+      );
+      const tickets = ticketRows.map(t => ({
+        ...withMongoId(t),
+        requesterId: asPopulated(listPeople.get(t.requesterId)),
+        assignedTo: t.assignedTo ? asPopulated(listPeople.get(t.assignedTo)) : null
+      }));
 
       res.json({
         success: true,
@@ -135,11 +157,24 @@ class TicketController {
     try {
       const { id } = req.params;
 
-      const ticket = await Ticket.findById(id)
-        .populate('requesterId', 'name email phone')
-        .populate('assignedTo', 'name email')
-        .populate('tripId')
-        .populate('bookingId');
+      const row = await prisma.ticket.findUnique({
+        where: { id },
+        include: {
+          conversation: { orderBy: { timestamp: 'asc' } },
+          internalNotes: { orderBy: { timestamp: 'asc' } }
+        }
+      });
+
+      const detailPeople = row
+        ? await loadTicketUsers([row.requesterId, row.assignedTo])
+        : new Map();
+      const ticket = row && {
+        ...withMongoId(row),
+        requesterId: asPopulated(detailPeople.get(row.requesterId)),
+        assignedTo: row.assignedTo ? asPopulated(detailPeople.get(row.assignedTo)) : null,
+        conversation: withMongoIds(row.conversation),
+        internalNotes: withMongoIds(row.internalNotes)
+      };
 
       if (!ticket) {
         return res.status(404).json({
@@ -151,7 +186,7 @@ class TicketController {
       // Check permissions
       if (
         req.user?.role !== 'admin' &&
-        ticket.requesterId.toString() !== req.user?.id
+        ticket.requesterId !== req.user?.id
       ) {
         return res.status(403).json({
           success: false,
@@ -181,17 +216,19 @@ class TicketController {
       const { id } = req.params;
       const { status } = req.body;
 
-      const ticket = await Ticket.findById(id);
+      const existing = await prisma.ticket.findUnique({ where: { id } });
 
-      if (!ticket) {
+      if (!existing) {
         return res.status(404).json({
           success: false,
           message: 'Ticket not found',
         });
       }
 
-      ticket.status = status;
-      await ticket.save();
+      const ticket = await prisma.ticket.update({
+        where: { id },
+        data: { status }
+      });
 
       // Notify requester
       await notificationService.createNotification({
@@ -199,9 +236,9 @@ class TicketController {
         type: 'ticket',
         title: 'Ticket Status Updated',
         message: `Your ticket #${ticket.ticketNumber} status has been updated to ${status}`,
-        actionUrl: `/tickets/${ticket._id}`,
+        actionUrl: `/tickets/${ticket.id}`,
         actionType: 'view_ticket',
-        relatedTo: { type: 'ticket', id: ticket._id.toString() },
+        relatedTo: { type: 'ticket', id: ticket.id },
         sendEmail: true,
       });
 
@@ -235,40 +272,46 @@ class TicketController {
         });
       }
 
-      const ticket = await Ticket.findById(id);
+      const existing = await prisma.ticket.findUnique({
+        where: { id },
+        include: { conversation: { select: { id: true }, take: 1 } }
+      });
 
-      if (!ticket) {
+      if (!existing) {
         return res.status(404).json({
           success: false,
           message: 'Ticket not found',
         });
       }
 
-      // Calculate response time if this is the first response from support
-      if (
-        ticket.conversation.length === 0 &&
+      // Calculate response time if this is the first response from support.
+      // conversation is a relation now, so "is it empty" is a one-row include
+      // rather than loading every message to check the length.
+      const isFirstReply =
+        existing.conversation.length === 0 &&
         req.user.role === 'admin' &&
-        !ticket.responseTime
-      ) {
-        const responseTime = Math.floor(
-          (Date.now() - ticket.createdAt.getTime()) / 60000
-        ); // minutes
-        ticket.responseTime = responseTime;
-      }
+        !existing.responseTime;
 
-      ticket.conversation.push({
-        senderId: req.user.id as any,
-        senderType: req.user.role as any,
-        message,
-        timestamp: new Date(),
-        attachments: attachments || [],
+      // The message is an insert, not a push that rewrites the ticket.
+      const ticket = await prisma.ticket.update({
+        where: { id },
+        data: {
+          ...(isFirstReply
+            ? { responseTime: Math.floor((Date.now() - existing.createdAt.getTime()) / 60000) }
+            : {}),
+          conversation: {
+            create: [{
+              senderId: req.user.id,
+              senderType: req.user.role as any,
+              message
+            }]
+          }
+        }
       });
-
-      await ticket.save();
 
       // Notify relevant party
       const notifyUserId =
-        req.user.id === ticket.requesterId.toString()
+        req.user.id === ticket.requesterId
           ? ticket.assignedTo
           : ticket.requesterId;
 
@@ -278,9 +321,9 @@ class TicketController {
           type: 'ticket',
           title: 'New Ticket Message',
           message: `New message on ticket #${ticket.ticketNumber}`,
-          actionUrl: `/tickets/${ticket._id}`,
+          actionUrl: `/tickets/${ticket.id}`,
           actionType: 'view_ticket',
-          relatedTo: { type: 'ticket', id: ticket._id.toString() },
+          relatedTo: { type: 'ticket', id: ticket.id },
           sendEmail: true,
         });
       }
@@ -308,11 +351,13 @@ class TicketController {
       const { id } = req.params;
       const { assignedTo } = req.body;
 
-      const ticket = await Ticket.findByIdAndUpdate(
-        id,
-        { assignedTo, status: 'in_progress' },
-        { new: true }
-      );
+      const assignable = await prisma.ticket.count({ where: { id } });
+      const ticket = assignable
+        ? await prisma.ticket.update({
+            where: { id },
+            data: { assignedTo, status: 'in_progress' }
+          })
+        : null;
 
       if (!ticket) {
         return res.status(404).json({
@@ -327,9 +372,9 @@ class TicketController {
         type: 'ticket',
         title: 'Ticket Assigned',
         message: `You have been assigned ticket #${ticket.ticketNumber}`,
-        actionUrl: `/tickets/${ticket._id}`,
+        actionUrl: `/tickets/${ticket.id}`,
         actionType: 'view_ticket',
-        relatedTo: { type: 'ticket', id: ticket._id.toString() },
+        relatedTo: { type: 'ticket', id: ticket.id },
       });
 
       res.json({
@@ -362,9 +407,9 @@ class TicketController {
         });
       }
 
-      const ticket = await Ticket.findById(id);
+      const existing = await prisma.ticket.findUnique({ where: { id } });
 
-      if (!ticket) {
+      if (!existing) {
         return res.status(404).json({
           success: false,
           message: 'Ticket not found',
@@ -373,18 +418,21 @@ class TicketController {
 
       // Calculate resolution time
       const resolutionTime = Math.floor(
-        (Date.now() - ticket.createdAt.getTime()) / 60000
+        (Date.now() - existing.createdAt.getTime()) / 60000
       ); // minutes
 
-      ticket.status = 'resolved';
-      ticket.resolution = {
-        resolvedBy: req.user.id as any,
-        resolvedAt: new Date(),
-        resolutionNote,
-      };
-      ticket.resolutionTime = resolutionTime;
-
-      await ticket.save();
+      // resolution was a nested { resolvedBy, resolvedAt, resolutionNote }; it is
+      // three columns, so each part can be read without unpacking the others.
+      const ticket = await prisma.ticket.update({
+        where: { id },
+        data: {
+          status: 'resolved',
+          resolvedBy: req.user.id,
+          resolvedAt: new Date(),
+          resolutionNote,
+          resolutionTime
+        }
+      });
 
       // Notify requester
       await notificationService.createNotification({
@@ -392,9 +440,9 @@ class TicketController {
         type: 'ticket',
         title: 'Ticket Resolved',
         message: `Your ticket #${ticket.ticketNumber} has been resolved`,
-        actionUrl: `/tickets/${ticket._id}`,
+        actionUrl: `/tickets/${ticket.id}`,
         actionType: 'view_ticket',
-        relatedTo: { type: 'ticket', id: ticket._id.toString() },
+        relatedTo: { type: 'ticket', id: ticket.id },
         sendEmail: true,
       });
 

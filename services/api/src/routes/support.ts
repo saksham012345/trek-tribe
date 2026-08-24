@@ -1,7 +1,8 @@
 import express from 'express';
-import { SupportTicket } from '../models/SupportTicket';
+import { prisma } from '../lib/prisma';
+import { withMongoId, withMongoIds, asPopulated } from '../lib/apiShape';
 import { User } from '../models/User';
-import { ChatSession } from '../models/ChatSession';
+
 import { authenticateJwt } from '../middleware/auth';
 import { socketService } from '../services/socketService';
 import notificationService from '../services/notificationService';
@@ -9,6 +10,19 @@ import { logger } from '../utils/logger';
 import { sanitizeText } from '../utils/sanitize';
 import { ticketCreateValidators, messageValidators, handleValidationErrors } from '../validators/ticketValidator';
 import axios from 'axios';
+
+/**
+ * Load the Mongo users behind a set of ids. Tickets are in Postgres and users
+ * are not, so populate() cannot reach across.
+ */
+async function loadSupportUsers(ids: (string | null | undefined)[]) {
+  const unique = Array.from(new Set(ids.filter(Boolean) as string[]));
+  if (unique.length === 0) return new Map<string, any>();
+  const users = await User.find({ _id: { $in: unique } })
+    .select('name email')
+    .lean();
+  return new Map(users.map((u: any) => [u._id.toString(), u]));
+}
 
 const router = express.Router();
 
@@ -22,17 +36,28 @@ router.get('/:ticketId/chats', async (req, res) => {
     const userId = (req as any).auth.userId;
     const userRole = (req as any).auth.role;
 
-    const ticket = await SupportTicket.findOne({ ticketId })
-      .populate('userId', 'name email')
-      .populate('assignedAgentId', 'name email');
+    const row = await prisma.supportTicket.findUnique({
+      where: { ticketId },
+      include: { messages: { orderBy: { timestamp: 'asc' } } }
+    });
 
-    if (!ticket) {
+    if (!row) {
       return res.status(404).json({ error: 'Ticket not found' });
     }
 
+    // populate() is gone - users are still Mongo documents - so the permission
+    // check reads the plain column, and the people are fetched afterwards.
+    const supportUsers = await loadSupportUsers([row.userId, row.assignedAgentId]);
+    const ticket = {
+      ...withMongoId(row),
+      userId: asPopulated(supportUsers.get(row.userId)),
+      assignedAgentId: row.assignedAgentId ? asPopulated(supportUsers.get(row.assignedAgentId)) : null,
+      messages: withMongoIds(row.messages)
+    };
+
     // Check if user has permission to view this ticket
     const canView =
-      ticket.userId.toString() === userId || // User owns the ticket
+      row.userId === userId || // User owns the ticket
       userRole === 'agent' || // Agent can view any ticket
       userRole === 'admin'; // Admin can view any ticket
 
@@ -99,24 +124,28 @@ router.post('/tickets', ticketCreateValidators, handleValidationErrors, async (r
       return next(err);
     }
 
-    const ticket = await SupportTicket.create({
-      userId,
-      subject: safeSubject,
-      description: safeDescription,
-      category,
-      priority,
-      relatedTripId,
-      customerEmail: user.email,
-      customerName: user.name,
-      customerPhone: user.phone,
-      status: 'open',
-      messages: [{
-        sender: 'customer',
-        senderName: user.name,
-        senderId: userId,
-        message: safeDescription,
-        timestamp: new Date()
-      }]
+    // ticketId comes from support_ticket_number_seq via the column default.
+    const ticket = await prisma.supportTicket.create({
+      data: {
+        userId,
+        subject: safeSubject,
+        description: safeDescription,
+        category: category as any,
+        priority: priority as any,
+        relatedTripId: relatedTripId || null,
+        customerEmail: user.email,
+        customerName: user.name,
+        customerPhone: user.phone,
+        status: 'open',
+        messages: {
+          create: [{
+            sender: 'customer',
+            senderName: user.name,
+            senderId: userId,
+            message: safeDescription
+          }]
+        }
+      }
     });
 
     // Notify agents about the new ticket
@@ -175,13 +204,22 @@ router.get('/tickets/my-tickets', async (req, res) => {
       query.status = status;
     }
 
-    const total = await SupportTicket.countDocuments(query);
-    const tickets = await SupportTicket.find(query)
-      .populate('assignedAgentId', 'name email')
-      .populate('relatedTripId', 'title destination')
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
+    const [total, ticketRows] = await Promise.all([
+      prisma.supportTicket.count({ where: query }),
+      prisma.supportTicket.findMany({
+        where: query,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: { messages: { orderBy: { timestamp: 'desc' }, take: 1 } }
+      })
+    ]);
+
+    const listAgents = await loadSupportUsers(ticketRows.map(t => t.assignedAgentId));
+    const tickets = ticketRows.map(t => ({
+      ...withMongoId(t),
+      assignedAgentId: t.assignedAgentId ? asPopulated(listAgents.get(t.assignedAgentId)) : null
+    }));
 
     const ticketsWithLastMessage = tickets.map(ticket => ({
       ticketId: ticket.ticketId,
@@ -193,12 +231,13 @@ router.get('/tickets/my-tickets', async (req, res) => {
         name: ticket.assignedAgentId.name,
         email: ticket.assignedAgentId.email
       } : null,
-      relatedTrip: ticket.relatedTripId ? {
-        title: ticket.relatedTripId.title,
-        destination: ticket.relatedTripId.destination
-      } : null,
-      lastMessage: ticket.messages && ticket.messages.length > 0
-        ? ticket.messages[ticket.messages.length - 1].message
+      // relatedTripId used to arrive populated. Trips are still Mongo documents
+      // and nothing on this list rendered more than the id, so it stays an id.
+      relatedTripId: ticket.relatedTripId ?? null,
+      // The include above fetched only the newest message, so it is [0] rather
+      // than the last element of the whole array.
+      lastMessage: ticket.messages.length > 0
+        ? ticket.messages[0].message
         : ticket.description,
       lastActivity: ticket.updatedAt,
       createdAt: ticket.createdAt,
@@ -237,25 +276,25 @@ router.post('/:ticketId/messages', messageValidators, handleValidationErrors, as
 
     const safeMessage = sanitizeText(message, 2000);
 
-    const ticket = await SupportTicket.findOneAndUpdate(
-      { ticketId, userId }, // Ensure user owns the ticket
-      {
-        $push: {
-          messages: {
-            sender: 'customer',
-            senderName: user.name,
-            senderId: userId,
-            message: safeMessage,
-            timestamp: new Date()
+    // Scoped on userId as well as ticketId, so one customer cannot post into
+    // another's ticket - the same guarantee the old filter gave.
+    const owned = await prisma.supportTicket.findFirst({ where: { ticketId, userId } });
+    const ticket = owned
+      ? await prisma.supportTicket.update({
+          where: { ticketId },
+          data: {
+            status: 'open', // Reopen ticket if it was closed
+            messages: {
+              create: [{
+                sender: 'customer',
+                senderName: user.name,
+                senderId: userId,
+                message: safeMessage
+              }]
+            }
           }
-        },
-        $set: {
-          status: 'open', // Reopen ticket if it was closed
-          updatedAt: new Date()
-        }
-      },
-      { new: true }
-    );
+        })
+      : null;
 
     if (!ticket) {
       const err: any = new Error('Ticket not found or access denied');
@@ -300,15 +339,18 @@ router.post('/tickets/:ticketId/ai-resolve', async (req, res) => {
     const userId = (req as any).auth.userId;
     const userRole = (req as any).auth.role;
 
-    const ticket = await SupportTicket.findOne({ ticketId }).populate('userId', 'name email');
+    // The last ten messages are a query now, not a slice of an embedded array.
+    const ticket = await prisma.supportTicket.findUnique({
+      where: { ticketId },
+      include: { messages: { orderBy: { timestamp: 'desc' }, take: 10 } }
+    });
     if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
 
     // Permission: owner, agent or admin can request AI suggestion
-    const canView = ticket.userId.toString() === userId || userRole === 'agent' || userRole === 'admin';
+    const canView = ticket.userId === userId || userRole === 'agent' || userRole === 'admin';
     if (!canView) return res.status(403).json({ error: 'Access denied' });
 
-    // Build simple context from last messages + subject
-    const lastMessages = (ticket.messages || []).slice(-10).map((m: any) => `${m.senderName || m.sender}: ${m.message}`).join('\n');
+    const lastMessages = [...ticket.messages].reverse().map((m: any) => `${m.senderName || m.sender}: ${m.message}`).join('\n');
     const prompt = `Ticket: ${ticket.ticketId}\nSubject: ${ticket.subject}\nCategory: ${ticket.category}\nPriority: ${ticket.priority}\n\nConversation:\n${lastMessages}\n\nPlease suggest a concise resolution for this ticket and an action summary. Provide a short resolution note.`;
 
     const aiUrl = `${req.protocol}://${req.get('host')}/api/ai/chat`;
@@ -337,10 +379,10 @@ router.post('/tickets/:ticketId/resolve', async (req, res, next) => {
     const user = await UserModel.findById(userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const ticket = await SupportTicket.findOne({ ticketId });
+    const ticket = await prisma.supportTicket.findUnique({ where: { ticketId } });
     if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
 
-    const canResolve = ticket.userId.toString() === userId || userRole === 'agent' || userRole === 'admin';
+    const canResolve = ticket.userId === userId || userRole === 'agent' || userRole === 'admin';
     if (!canResolve) return res.status(403).json({ error: 'Access denied' });
 
     const sender = userRole === 'agent' || userRole === 'admin' ? 'agent' : 'customer';
@@ -368,13 +410,14 @@ router.post('/tickets/:ticketId/resolve', async (req, res, next) => {
 
     // Broadcast status change
     socketService.updateTicketStatus({
-      ...ticket.toObject(),
+      ...ticket,
       status: 'resolved',
       updatedAt: new Date()
     }, 'resolved');
 
     // Delete the ticket from database
-    await SupportTicket.findOneAndDelete({ ticketId });
+    // Its messages go with it by cascade.
+    await prisma.supportTicket.delete({ where: { ticketId } });
 
     logger.info('Ticket deleted after resolution', { ticketId: ticket.ticketId, resolvedBy: userId });
 
@@ -404,32 +447,31 @@ router.post('/human-agent/request', messageValidators, handleValidationErrors, a
     const ticketDescription = description || message || 'User requested to speak with a human agent';
 
     // Create a new support ticket
-    const ticket = new SupportTicket({
-      ticketId: `TKT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      userId: userId,
-      customerName: user.name,
-      customerEmail: user.email,
-      customerPhone: user.phone || undefined,
-      subject: ticketSubject,
-      description: ticketDescription,
-      category: category || 'general',
-      priority: priority || 'medium',
-      status: 'open',
-      assignedAgentId: null,
-      messages: [
-        {
-          sender: 'customer',
-          senderName: user.name,
-          senderId: userId,
-          message: ticketDescription,
-          timestamp: new Date()
+    // The hand-rolled id - a timestamp plus nine random characters - is gone.
+    // support_ticket_number_seq supplies it, in the same format every other
+    // ticket gets, and without the chance of two collisions this one carried.
+    const ticket = await prisma.supportTicket.create({
+      data: {
+        userId: userId,
+        customerName: user.name,
+        customerEmail: user.email,
+        customerPhone: user.phone || undefined,
+        subject: ticketSubject,
+        description: ticketDescription,
+        category: (category || 'general') as any,
+        priority: (priority || 'medium') as any,
+        status: 'open',
+        assignedAgentId: null,
+        messages: {
+          create: [{
+            sender: 'customer',
+            senderName: user.name,
+            senderId: userId,
+            message: ticketDescription
+          }]
         }
-      ],
-      createdAt: new Date(),
-      updatedAt: new Date()
+      }
     });
-
-    await ticket.save();
 
     logger.info('Human agent ticket created', {
       ticketId: ticket.ticketId,
@@ -461,7 +503,7 @@ router.post('/human-agent/request', messageValidators, handleValidationErrors, a
         type: 'ticket',
         title: 'Support Ticket Created',
         message: `Your support ticket ${ticket.ticketId} has been created. A human agent will assist you shortly.`,
-        relatedTo: { type: 'ticket', id: ticket._id.toString() }
+        relatedTo: { type: 'ticket', id: ticket.id }
       });
     } catch (notifyError) {
       logger.warn('Failed to send notification', { error: notifyError });
@@ -535,27 +577,38 @@ router.post('/:ticketId/message', messageValidators, handleValidationErrors, asy
     const userId = (req as any).auth.userId;
     const userRole = (req as any).auth.role;
 
-    const ticket = await SupportTicket.findOne({ ticketId })
-      .populate('assignedAgentId', 'name email _id');
+    const ticketRow = await prisma.supportTicket.findUnique({ where: { ticketId } });
 
-    if (!ticket) {
+    if (!ticketRow) {
       return res.status(404).json({ success: false, error: 'Ticket not found' });
     }
 
-    const user = await User.findById(userId);
-
-    // Add message to ticket
-    const newMessage: any = {
-      sender: (userRole === 'agent' ? 'agent' : 'customer') as 'agent' | 'customer',
-      senderName: user?.name || 'User',
-      senderId: userId,
-      message: sanitizeText(message),
-      timestamp: new Date()
+    const replyAgents = await loadSupportUsers([ticketRow.assignedAgentId]);
+    const ticket = {
+      ...withMongoId(ticketRow),
+      assignedAgentId: ticketRow.assignedAgentId
+        ? asPopulated(replyAgents.get(ticketRow.assignedAgentId))
+        : null
     };
 
-    ticket.messages.push(newMessage);
-    ticket.updatedAt = new Date();
-    await ticket.save();
+    const user = await User.findById(userId);
+
+    // An insert rather than a push onto an embedded array, so two people
+    // replying at the same moment do not overwrite each other.
+    const newMessage = await prisma.supportTicketMessage.create({
+      data: {
+        ticketId: ticketRow.id,
+        sender: userRole === 'agent' ? 'agent' : 'customer',
+        senderName: user?.name || 'User',
+        senderId: userId,
+        message: sanitizeText(message)
+      }
+    });
+
+    await prisma.supportTicket.update({
+      where: { id: ticketRow.id },
+      data: { updatedAt: new Date() }
+    });
 
     // Notify via socket if agent is assigned (use existing notifyNewTicket method)
     if (ticket.assignedAgentId) {
@@ -575,7 +628,9 @@ router.post('/:ticketId/message', messageValidators, handleValidationErrors, asy
       success: true,
       message: 'Message sent',
       ticketId,
-      messageId: ticket.messages[ticket.messages.length - 1]._id?.toString() || Date.now().toString(),
+      // The insert returned the row, so the id is known without re-reading
+      // the ticket and taking the last element of an array.
+      messageId: newMessage.id,
       timestamp: newMessage.timestamp
     });
 

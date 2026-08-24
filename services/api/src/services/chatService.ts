@@ -1,5 +1,5 @@
 import { Server, Socket } from 'socket.io';
-import ChatMessage from '../models/ChatMessage';
+import { prisma } from '../lib/prisma';
 import notificationService from './notificationService';
 
 class ChatService {
@@ -57,27 +57,30 @@ class ChatService {
         }) => {
           try {
             // Save message to database
-            const chatMessage = new ChatMessage({
-              conversationId: data.conversationId,
-              senderId: data.senderId,
-              senderType: data.senderType,
-              recipientId: data.recipientId,
-              recipientType: data.recipientType,
-              message: data.message,
-              messageType: 'text',
-              attachments: data.attachments || [],
-              relatedTo: data.relatedTo,
-              metadata: {
-                ipAddress: socket.handshake.address,
-                userAgent: socket.handshake.headers['user-agent'],
-              },
+            // relatedTo was a nested { type, id }; it is two columns now.
+            const chatMessage = await prisma.chatMessage.create({
+              data: {
+                conversationId: data.conversationId,
+                senderId: data.senderId,
+                senderType: data.senderType as any,
+                recipientId: data.recipientId,
+                recipientType: data.recipientType as any,
+                message: data.message,
+                messageType: 'text',
+                attachments: (data.attachments || []) as any,
+                relatedToType: (data.relatedTo?.type as any) ?? null,
+                relatedToId: data.relatedTo?.id ?? null,
+                metadata: {
+                  ipAddress: socket.handshake.address,
+                  userAgent: socket.handshake.headers['user-agent'],
+                },
+              }
             });
-
-            await chatMessage.save();
 
             // Emit message to conversation room
             io.to(`conversation:${data.conversationId}`).emit('message:new', {
-              ...chatMessage.toObject(),
+              ...chatMessage,
+              _id: chatMessage.id,
               timestamp: new Date(),
             });
 
@@ -133,14 +136,10 @@ class ChatService {
         'message:read',
         async (data: { conversationId: string; messageId: string }) => {
           try {
-            const message = await ChatMessage.findByIdAndUpdate(
-              data.messageId,
-              {
-                isRead: true,
-                readAt: new Date(),
-              },
-              { new: true }
-            );
+            const message = await prisma.chatMessage.update({
+              where: { id: data.messageId },
+              data: { isRead: true, readAt: new Date() }
+            });
 
             if (message) {
               io.to(`conversation:${data.conversationId}`).emit('message:read', {
@@ -170,14 +169,32 @@ class ChatService {
    */
   async getConversationMessages(conversationId: string, limit: number = 50, skip: number = 0) {
     try {
-      const messages = await ChatMessage.find({ conversationId })
-        .sort({ createdAt: -1 })
-        .limit(limit)
-        .skip(skip)
-        .populate('senderId', 'name avatar')
-        .populate('recipientId', 'name avatar');
+      // populate() is gone - users are still Mongo documents - so the two
+      // people on each message are fetched in one lookup and attached.
+      const messages = await prisma.chatMessage.findMany({
+        where: { conversationId },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip
+      });
 
-      return messages.reverse(); // Return in chronological order
+      const { User } = require('../models/User');
+      const ids = Array.from(new Set(
+        messages.flatMap(m => [m.senderId, m.recipientId]).filter(Boolean) as string[]
+      ));
+      const people = ids.length
+        ? await User.find({ _id: { $in: ids } }).select('name avatar').lean()
+        : [];
+      const byId = new Map(people.map((u: any) => [u._id.toString(), u]));
+
+      return messages
+        .map(m => ({
+          ...m,
+          _id: m.id,
+          senderId: byId.get(m.senderId) ?? m.senderId,
+          recipientId: m.recipientId ? byId.get(m.recipientId) ?? m.recipientId : null
+        }))
+        .reverse(); // Return in chronological order
     } catch (error) {
       console.error('Error fetching messages:', error);
       throw error;
@@ -198,41 +215,48 @@ class ChatService {
    */
   async getUserConversations(userId: string) {
     try {
-      const conversations = await ChatMessage.aggregate([
-        {
-          $match: {
-            $or: [{ senderId: userId }, { recipientId: userId }],
+      // The old pipeline grouped by conversationId, kept the newest message and
+      // counted the unread ones addressed to this user. groupBy cannot express a
+      // conditional sum or carry a whole document, so it is three steps: the
+      // conversations this user is in, their newest message each, and the unread
+      // counts - joined here.
+      const mine = await prisma.chatMessage.findMany({
+        where: { OR: [{ senderId: userId }, { recipientId: userId }] },
+        select: { conversationId: true },
+        distinct: ['conversationId']
+      });
+      const conversationIds = mine.map(m => m.conversationId);
+      if (conversationIds.length === 0) return [];
+
+      const [newest, unread] = await Promise.all([
+        prisma.chatMessage.findMany({
+          where: { conversationId: { in: conversationIds } },
+          orderBy: { createdAt: 'desc' },
+          distinct: ['conversationId']
+        }),
+        prisma.chatMessage.groupBy({
+          by: ['conversationId'],
+          where: {
+            conversationId: { in: conversationIds },
+            recipientId: userId,
+            isRead: false
           },
-        },
-        {
-          $sort: { createdAt: -1 },
-        },
-        {
-          $group: {
-            _id: '$conversationId',
-            lastMessage: { $first: '$$ROOT' },
-            unreadCount: {
-              $sum: {
-                $cond: [
-                  {
-                    $and: [
-                      { $eq: ['$recipientId', userId] },
-                      { $eq: ['$isRead', false] },
-                    ],
-                  },
-                  1,
-                  0,
-                ],
-              },
-            },
-          },
-        },
-        {
-          $sort: { 'lastMessage.createdAt': -1 },
-        },
+          _count: { conversationId: true }
+        })
       ]);
 
-      return conversations;
+      const unreadByConversation = new Map(
+        unread.map(u => [u.conversationId, u._count.conversationId])
+      );
+
+      return newest
+        .map(lastMessage => ({
+          _id: lastMessage.conversationId,
+          lastMessage: { ...lastMessage, _id: lastMessage.id },
+          unreadCount: unreadByConversation.get(lastMessage.conversationId) ?? 0
+        }))
+        .sort((a, b) =>
+          b.lastMessage.createdAt.getTime() - a.lastMessage.createdAt.getTime());
     } catch (error) {
       console.error('Error fetching conversations:', error);
       throw error;

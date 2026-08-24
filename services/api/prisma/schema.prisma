@@ -1207,7 +1207,7 @@ enum TicketSenderType {
 model Ticket {
   id           String @id @default(uuid())
   // Supplied by ticket_number_seq through a column default.
-  ticketNumber String @unique @default(dbgenerated()) @map("ticket_number")
+  ticketNumber String @unique @default(dbgenerated("('TKT-'::text || to_char(now(), 'YYMMDD'::text) || '-'::text || lpad((nextval('ticket_number_seq'::regclass))::text, 4, '0'::text))")) @map("ticket_number")
 
   subject     String
   description String
@@ -1288,7 +1288,7 @@ model SupportTicket {
   id       String @id @default(uuid())
   // The value comes from support_ticket_number_seq via a column default, so
   // Prisma must be told not to require it on create.
-  ticketId String @unique @default(dbgenerated()) @map("ticket_id")
+  ticketId String @unique @default(dbgenerated("('TT-'::text || to_char(now(), 'YYMMDD'::text) || '-'::text || lpad((nextval('support_ticket_number_seq'::regclass))::text, 4, '0'::text))")) @map("ticket_id")
 
   userId           String  @map("user_id")
   assignedAgentId  String? @map("assigned_agent_id")
@@ -1468,6 +1468,7 @@ model ChatMessage {
   messageType    ChatMessageType        @default(text) @map("message_type")
   attachments    Json                   @default("[]")
   isRead         Boolean                @default(false) @map("is_read")
+  readAt         DateTime?              @map("read_at")
 
   // relatedTo was a nested { type, id }. Two columns, so "unread messages about
   // this booking" is a query rather than a scan through JSON.
@@ -1507,20 +1508,34 @@ model AIConversation {
   lastInteractionAt DateTime  @default(now()) @map("last_interaction_at")
   expiresAt         DateTime? @map("expires_at")
 
-  // summary, context and escalation are read back whole by the assistant and
-  // never filtered on, so they stay JSON.
-  summary    Json?
-  context    Json  @default("{}")
-  escalation Json?
+  // summary and context are read back whole by the assistant and never filtered
+  // on, so they stay JSON.
+  summary Json?
+  context Json @default("{}")
+
+  // escalation is different: the Mongoose schema indexed
+  // { 'escalation.escalated': 1, 'escalation.assignedAgent': 1 } and the service
+  // queries both, so these are columns. I had them as JSON first, which would
+  // have turned "which escalations are unassigned" into a scan through documents.
+  escalated         Boolean   @default(false)
+  escalatedAt       DateTime? @map("escalated_at")
+  escalationReason  String?   @map("escalation_reason")
+  assignedAgentId   String?   @map("assigned_agent_id")
+
+  // metrics was a nested object. messageCount is a count of the message rows now,
+  // so it is not stored; the other three are values nothing derives.
+  avgResponseTime  Float? @map("avg_response_time")
+  userSatisfaction Int?   @map("user_satisfaction")
+  aiConfidenceAvg  Float? @map("ai_confidence_avg")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   messages AIConversationMessage[]
 
-  @@index([userId])
+  @@index([userId, lastInteractionAt])
   @@index([expiresAt])
-  @@index([lastInteractionAt])
+  @@index([escalated, assignedAgentId])
   @@map("ai_conversations")
 }
 

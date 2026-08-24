@@ -1,10 +1,9 @@
 import { logger } from '../utils/logger';
+import { prisma } from '../lib/prisma';
 import { Trip } from '../models/Trip';
 import { User } from '../models/User';
-import { SupportTicket } from '../models/SupportTicket';
 import { sanitizeText } from '../utils/sanitize';
 import { GroupBooking } from '../models/GroupBooking';
-import { prisma } from '../lib/prisma';
 import mongoose from 'mongoose';
 
 // RAG integration - lazy import to avoid circular dependencies
@@ -1526,24 +1525,25 @@ class AISupportService {
         userId,
         subject: safeSubject,
         description: safeDescription,
-        category,
-        priority: 'medium',
+        category: category as any,
+        priority: 'medium' as const,
         customerEmail: user.email,
         customerName: user.name,
         customerPhone: user.phone,
-        status: 'open',
-        messages: [{
-          sender: 'customer',
-          senderName: user.name,
-          message: safeDescription,
-          timestamp: new Date()
-        }]
+        status: 'open' as const,
+        messages: {
+          create: [{
+            sender: 'customer' as const,
+            senderName: user.name,
+            message: safeDescription
+          }]
+        }
       };
 
       console.log('📝 Creating ticket with data:', ticketData);
 
-      const ticket = await SupportTicket.create(ticketData);
-      console.log('✅ Ticket created successfully:', { ticketId: ticket.ticketId, _id: ticket._id });
+      const ticket = await prisma.supportTicket.create({ data: ticketData });
+      console.log('✅ Ticket created successfully:', { ticketId: ticket.ticketId, _id: ticket.id });
 
       logger.info('Support ticket created by Trek Tribe AI', {
         ticketId: ticket.ticketId,

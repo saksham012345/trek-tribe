@@ -1,4 +1,4 @@
-import AIConversation from '../models/AIConversation';
+import { prisma } from '../lib/prisma';
 import { logger } from '../utils/logger';
 
 /**
@@ -52,20 +52,25 @@ class AIConversationAnalyticsService {
   ): Promise<ConversationInsights> {
     try {
       const query: any = {
-        createdAt: { $gte: startDate, $lte: endDate }
+        createdAt: { gte: startDate, lte: endDate }
       };
 
       if (userId) {
         query.userId = userId;
       }
 
-      const conversations = await AIConversation.find(query);
-      
+      // messages are rows now, so they are included rather than being part of
+      // the document by default.
+      const conversations = await prisma.aIConversation.findMany({
+        where: query,
+        include: { messages: { orderBy: { timestamp: 'asc' } } }
+      });
+
       // Calculate metrics
       const totalConversations = conversations.length;
       const totalMessages = conversations.reduce((sum, conv) => sum + conv.messages.length, 0);
-      const averageMessagesPerConversation = totalConversations > 0 
-        ? totalMessages / totalConversations 
+      const averageMessagesPerConversation = totalConversations > 0
+        ? totalMessages / totalConversations
         : 0;
 
       // Calculate average response time
@@ -81,8 +86,8 @@ class AIConversationAnalyticsService {
         });
       });
 
-      const averageResponseTime = responseCount > 0 
-        ? totalResponseTime / responseCount 
+      const averageResponseTime = responseCount > 0
+        ? totalResponseTime / responseCount
         : 0;
 
       // Sentiment analysis (simplified)
@@ -115,19 +120,19 @@ class AIConversationAnalyticsService {
         .map(([topic, count]) => ({ topic, count }));
 
       // Human handoff rate
-      const handoffCount = conversations.filter(conv => 
+      const handoffCount = conversations.filter(conv =>
         conv.messages.some(msg => msg.requiresHumanAgent)
       ).length;
-      const humanHandoffRate = totalConversations > 0 
-        ? (handoffCount / totalConversations) * 100 
+      const humanHandoffRate = totalConversations > 0
+        ? (handoffCount / totalConversations) * 100
         : 0;
 
       // Resolution rate
-      const resolvedCount = conversations.filter(conv => 
+      const resolvedCount = conversations.filter(conv =>
         (conv as any).resolved === true
       ).length;
-      const resolutionRate = totalConversations > 0 
-        ? (resolvedCount / totalConversations) * 100 
+      const resolutionRate = totalConversations > 0
+        ? (resolvedCount / totalConversations) * 100
         : 0;
 
       // Peak hours analysis
@@ -170,8 +175,12 @@ class AIConversationAnalyticsService {
    */
   async getUserEngagementMetrics(userId: string): Promise<UserEngagementMetrics> {
     try {
-      const conversations = await AIConversation.find({ userId }).sort({ createdAt: -1 });
-      
+      const conversations = await prisma.aIConversation.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        include: { messages: { orderBy: { timestamp: 'asc' } } }
+      });
+
       const conversationCount = conversations.length;
       const messageCount = conversations.reduce((sum, conv) => sum + conv.messages.length, 0);
 
@@ -186,7 +195,7 @@ class AIConversationAnalyticsService {
         }
       });
 
-      const averageSessionDuration = conversationCount > 0 
+      const averageSessionDuration = conversationCount > 0
         ? totalDuration / conversationCount / 1000 // Convert to seconds
         : 0;
 
@@ -207,12 +216,12 @@ class AIConversationAnalyticsService {
 
       // Calculate satisfaction score (based on resolved conversations)
       const resolvedCount = conversations.filter(conv => (conv as any).resolved === true).length;
-      const satisfactionScore = conversationCount > 0 
-        ? (resolvedCount / conversationCount) * 100 
+      const satisfactionScore = conversationCount > 0
+        ? (resolvedCount / conversationCount) * 100
         : 0;
 
-      const lastInteraction = conversations.length > 0 
-        ? conversations[0].updatedAt 
+      const lastInteraction = conversations.length > 0
+        ? conversations[0].updatedAt
         : new Date();
 
       return {
@@ -235,8 +244,9 @@ class AIConversationAnalyticsService {
    */
   async getPerformanceMetrics(startDate: Date, endDate: Date): Promise<PerformanceMetrics> {
     try {
-      const conversations = await AIConversation.find({
-        createdAt: { $gte: startDate, $lte: endDate }
+      const conversations = await prisma.aIConversation.findMany({
+        where: { createdAt: { gte: startDate, lte: endDate } },
+        include: { messages: { orderBy: { timestamp: 'asc' } } }
       });
 
       // Calculate first response time (time to first AI message)
@@ -246,7 +256,11 @@ class AIConversationAnalyticsService {
       conversations.forEach(conv => {
         if (conv.messages.length >= 2) {
           const userMsg = conv.messages[0];
-          const aiMsg = conv.messages.find(msg => msg.sender === 'ai');
+          // Was msg.sender === 'ai'. Nothing ever writes sender - addMessage
+          // sets role, content, timestamp and metadata - and the role for an AI
+          // reply is 'assistant', not 'ai'. This find always returned undefined,
+          // so first-response-time was permanently zero.
+          const aiMsg = conv.messages.find(msg => msg.role === 'assistant');
           if (aiMsg) {
             const responseTime = new Date(aiMsg.timestamp).getTime() - new Date(userMsg.timestamp).getTime();
             totalFirstResponseTime += responseTime;
@@ -255,8 +269,8 @@ class AIConversationAnalyticsService {
         }
       });
 
-      const averageFirstResponseTime = firstResponseCount > 0 
-        ? totalFirstResponseTime / firstResponseCount / 1000 
+      const averageFirstResponseTime = firstResponseCount > 0
+        ? totalFirstResponseTime / firstResponseCount / 1000
         : 0;
 
       // Calculate overall response time
@@ -272,27 +286,27 @@ class AIConversationAnalyticsService {
         });
       });
 
-      const averageResponseTime = responseCount > 0 
-        ? totalResponseTime / responseCount 
+      const averageResponseTime = responseCount > 0
+        ? totalResponseTime / responseCount
         : 0;
 
       // Count successful resolutions
-      const successfulResolutions = conversations.filter(conv => 
+      const successfulResolutions = conversations.filter(conv =>
         (conv as any).resolved === true
       ).length;
 
       // Count escalations to human
-      const escalatedToHuman = conversations.filter(conv => 
+      const escalatedToHuman = conversations.filter(conv =>
         conv.messages.some(msg => msg.requiresHumanAgent)
       ).length;
 
       // Calculate error rate
       const totalMessages = conversations.reduce((sum, conv) => sum + conv.messages.length, 0);
-      const errorMessages = conversations.reduce((sum, conv) => 
+      const errorMessages = conversations.reduce((sum, conv) =>
         sum + conv.messages.filter(msg => (msg as any).error).length, 0
       );
-      const errorRate = totalMessages > 0 
-        ? (errorMessages / totalMessages) * 100 
+      const errorRate = totalMessages > 0
+        ? (errorMessages / totalMessages) * 100
         : 0;
 
       // Uptime percentage (simplified - assumes 24/7 operation)
@@ -328,9 +342,11 @@ class AIConversationAnalyticsService {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
 
-      const conversations = await AIConversation.find({
-        createdAt: { $gte: startDate, $lte: endDate }
-      }).sort({ createdAt: 1 });
+      const conversations = await prisma.aIConversation.findMany({
+        where: { createdAt: { gte: startDate, lte: endDate } },
+        orderBy: { createdAt: 'asc' },
+        include: { messages: { orderBy: { timestamp: 'asc' } } }
+      });
 
       // Group conversations by day
       const dailyData: { [date: string]: { count: number; messages: number } } = {};
@@ -354,8 +370,8 @@ class AIConversationAnalyticsService {
       // Calculate growth rate
       const firstWeekAvg = trend.slice(0, 7).reduce((sum, d) => sum + d.conversations, 0) / 7;
       const lastWeekAvg = trend.slice(-7).reduce((sum, d) => sum + d.conversations, 0) / 7;
-      const growthRate = firstWeekAvg > 0 
-        ? ((lastWeekAvg - firstWeekAvg) / firstWeekAvg) * 100 
+      const growthRate = firstWeekAvg > 0
+        ? ((lastWeekAvg - firstWeekAvg) / firstWeekAvg) * 100
         : 0;
 
       return {
