@@ -10,7 +10,6 @@ import mongoose from 'mongoose';
 import authRoutes from '../routes/auth';
 import crmRoutes from '../routes/crm';
 import { prisma } from '../lib/prisma';
-import { LeadActivity } from '../models/LeadActivity';
 import { User } from '../models/User';
 
 const app = express();
@@ -25,8 +24,12 @@ let leadId: string;
 
 beforeAll(async () => {
   await User.deleteMany({ email: { $in: ['crm-org@test.com', 'crm-traveler@test.com'] } });
-  await prisma.lead.deleteMany({});
-  await LeadActivity.deleteMany({});
+
+  // Scoped to this suite's own leads. It used to be an unscoped deleteMany,
+  // which against one shared Postgres wipes whatever another suite has set up -
+  // exactly what happened when these ran together. Activities and interactions
+  // go with their leads by cascade, so there is nothing to delete separately.
+  await prisma.lead.deleteMany({ where: { email: { contains: 'lead' } } });
 
   const orgRes = await request(app).post('/auth/register').send({
     name: 'CRM Organizer',

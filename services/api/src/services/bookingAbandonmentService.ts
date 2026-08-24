@@ -1,4 +1,4 @@
-import Lead from '../models/Lead';
+import { prisma } from '../lib/prisma';
 import { logger } from '../utils/logger';
 import notificationService from './notificationService';
 import { emailQueue } from './emailQueueService';
@@ -25,51 +25,52 @@ class BookingAbandonmentService {
       const { userId, tripId, email, phone, name, formData } = data;
 
       // Check if lead already exists
-      let lead = await Lead.findOne({ 
-        userId, 
-        tripId,
-        source: 'partial_booking' 
+      let lead = await prisma.lead.findFirst({
+        where: { userId, tripId, source: 'partial_booking' }
       });
 
       if (lead) {
-        // Update existing lead
-        lead.metadata.partialFormData = formData;
-        lead.metadata.lastVisitedAt = new Date();
-        lead.leadScore = Math.min(lead.leadScore + 10, 100);
-        lead.status = lead.status === 'lost' ? 'new' : lead.status; // Reactivate if was lost
-        await lead.save();
-        
-        logger.info('Updated lead from partial booking', { 
-          leadId: lead._id,
+        lead = await prisma.lead.update({
+          where: { id: lead.id },
+          data: {
+            partialFormData: formData,
+            lastVisitedAt: new Date(),
+            leadScore: Math.min(lead.leadScore + 10, 100),
+            // Reactivate if it had been written off
+            status: lead.status === 'lost' ? 'new' : lead.status
+          }
+        });
+
+        logger.info('Updated lead from partial booking', {
+          leadId: lead.id,
           userId,
-          tripId 
+          tripId
         });
       } else {
-        // Create high-priority lead
-        lead = new Lead({
-          userId,
-          tripId,
-          email: email || formData.email,
-          phone: phone || formData.phone,
-          name: name || formData.name,
-          source: 'partial_booking',
-          status: 'new',
-          leadScore: 80, // High score for abandoned bookings
-          metadata: {
+        // Create high-priority lead. The email column is lowercase-only, so it
+        // is normalised here rather than being refused by the CHECK.
+        lead = await prisma.lead.create({
+          data: {
+            userId,
+            tripId,
+            email: String(email || formData.email).toLowerCase(),
+            phone: phone || formData.phone,
+            name: name || formData.name,
+            source: 'partial_booking',
+            status: 'new',
+            leadScore: 80, // High score for abandoned bookings
             partialFormData: formData,
             lastVisitedAt: new Date(),
             tags: ['auto-generated', 'high-priority', 'abandoned-booking'],
-            notes: `User started booking but didn't complete. Form progress: ${this.calculateFormProgress(formData)}%`,
-          },
+            notes: `User started booking but didn't complete. Form progress: ${this.calculateFormProgress(formData)}%`
+          }
         });
 
-        await lead.save();
-        
-        logger.info('Auto-created lead from partial booking', { 
-          leadId: lead._id,
+        logger.info('Auto-created lead from partial booking', {
+          leadId: lead.id,
           userId,
           tripId,
-          score: lead.leadScore 
+          score: lead.leadScore
         });
 
         // Notify organizer immediately (high priority)
@@ -77,7 +78,7 @@ class BookingAbandonmentService {
       }
 
       // Schedule follow-up email after 24 hours using queue
-      this.scheduleAbandonmentFollowUp(lead._id.toString(), 24 * 60 * 60 * 1000);
+      this.scheduleAbandonmentFollowUp(lead.id, 24 * 60 * 60 * 1000);
       
     } catch (error: any) {
       logger.error('Error tracking partial booking', { error: error.message });
@@ -112,14 +113,14 @@ class BookingAbandonmentService {
         title: '🚨 High-Priority Lead: Abandoned Booking',
         message: `${lead.name || lead.email} started booking for "${trip.title}" but didn't complete. Act fast!`,
         priority: 'high',
-        actionUrl: `/crm/leads/${lead._id}`,
+        actionUrl: `/crm/leads/${lead.id}`,
         actionType: 'view_lead',
-        relatedTo: { type: 'lead', id: lead._id.toString() },
+        relatedTo: { type: 'lead', id: lead.id },
       });
 
       logger.info('Notified organizer of abandoned booking', { 
         organizerId: trip.organizerId,
-        leadId: lead._id 
+        leadId: lead.id 
       });
     } catch (error: any) {
       logger.error('Error notifying organizer', { error: error.message });
@@ -131,10 +132,14 @@ class BookingAbandonmentService {
    */
   private async scheduleAbandonmentFollowUp(leadId: string, delayMs: number): Promise<void> {
     try {
-      const lead = await Lead.findById(leadId).populate('tripId');
+      // tripId used to arrive populated; it is a foreign-key string now, so
+      // the trip is fetched from Mongo where it still lives.
+      const lead = await prisma.lead.findUnique({ where: { id: leadId } });
+      const { Trip } = require('../models/Trip');
+      const tripDoc = lead?.tripId ? await Trip.findById(lead.tripId).lean() : null;
       if (!lead || lead.status === 'converted') return;
 
-      const trip = (lead.tripId as any);
+      const trip = tripDoc as any;
       if (!trip || !lead.email) return;
 
       const { emailTemplates } = require('../templates/emailTemplates');
@@ -152,7 +157,7 @@ class BookingAbandonmentService {
         to: lead.email,
         subject: `Complete Your Booking for ${trip.title} - Special Offer Inside! 🎁`,
         html: emailHtml,
-        leadId: lead._id.toString(),
+        leadId: lead.id,
         tripId: trip._id.toString(),
       }, delayMs);
 
@@ -167,11 +172,15 @@ class BookingAbandonmentService {
    */
   private async sendAbandonmentFollowUp(leadId: string): Promise<void> {
     try {
-      const lead = await Lead.findById(leadId).populate('tripId');
+      // tripId used to arrive populated; it is a foreign-key string now, so
+      // the trip is fetched from Mongo where it still lives.
+      const lead = await prisma.lead.findUnique({ where: { id: leadId } });
+      const { Trip } = require('../models/Trip');
+      const tripDoc = lead?.tripId ? await Trip.findById(lead.tripId).lean() : null;
       
       if (!lead || lead.status === 'converted') return; // Skip if already converted
 
-      const trip = (lead.tripId as any);
+      const trip = tripDoc as any;
       if (!trip) return;
 
       // Send email via email service
@@ -196,14 +205,15 @@ class BookingAbandonmentService {
 
         logger.info('Sent abandonment follow-up email', { leadId, email: lead.email });
 
-        // Update lead with interaction
-        lead.interactions.push({
-          type: 'email',
-          description: 'Sent booking abandonment follow-up email with 10% discount',
-          timestamp: new Date(),
-          performedBy: undefined,
-        } as any);
-        await lead.save();
+        // An insert rather than a push-and-save, so recording the email cannot
+        // overwrite an interaction added between the read and the write.
+        await prisma.leadInteraction.create({
+          data: {
+            leadId: lead.id,
+            type: 'email',
+            description: 'Sent booking abandonment follow-up email with 10% discount'
+          }
+        });
       }
     } catch (error: any) {
       logger.error('Error sending abandonment follow-up', { error: error.message });

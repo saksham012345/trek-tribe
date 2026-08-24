@@ -1,8 +1,8 @@
 import csv from 'csv-parser';
 import xlsx from 'xlsx';
 import { Readable } from 'stream';
-import Lead from '../models/Lead';
-import ImportedDatabase from '../models/ImportedDatabase';
+import { prisma } from '../lib/prisma';
+
 import { logger } from '../utils/logger';
 import mongoose from 'mongoose';
 
@@ -204,21 +204,35 @@ class DatabaseImportService {
     organizerId: string,
     config: ImportConfig
   ): any {
+    // Field-mapping targets are stored strings like 'metadata.notes' and
+    // 'metadata.travelerDetails.age' - written when metadata was one nested blob
+    // on the document. Those columns are flat now, and travelerDetails is JSON,
+    // so the targets are translated rather than written through literally.
+    //
+    // This is not cosmetic. Building { metadata: {...}, interactions: [] } and
+    // handing it to prisma.lead.create fails at runtime with unknown fields, and
+    // TypeScript cannot see it because leadData is `any`.
+    const COLUMN_FOR: Record<string, string> = {
+      'metadata.notes': 'notes',
+      'metadata.tags': 'tags',
+      'metadata.inquiryMessage': 'inquiryMessage',
+      'metadata.tripViewCount': 'tripViewCount',
+      'metadata.lastVisitedAt': 'lastVisitedAt',
+      'metadata.kycStatus': 'kycStatus'
+    };
+
     const leadData: any = {
       assignedTo: config.autoAssignToOrganizer ? organizerId : undefined,
       source: config.defaultLeadSource || 'form',
       status: config.defaultLeadStatus || 'new',
       leadScore: 0,
-      interactions: [],
-      metadata: {
-        tags: config.defaultTags || [],
-        travelerDetails: {}
-      }
+      tags: config.defaultTags || []
     };
+    const travelerDetails: Record<string, any> = {};
 
     for (const mapping of fieldMapping) {
       let value = sourceData[mapping.sourceField];
-      
+
       if (value === undefined || value === null || value === '') {
         continue;
       }
@@ -226,25 +240,28 @@ class DatabaseImportService {
       // Apply transformation
       value = this.applyTransform(value, mapping.transform);
 
-      // Set nested fields
-      const fieldParts = mapping.targetField.split('.');
-      let current = leadData;
-      
-      for (let i = 0; i < fieldParts.length - 1; i++) {
-        if (!current[fieldParts[i]]) {
-          current[fieldParts[i]] = {};
-        }
-        current = current[fieldParts[i]];
+      const target = mapping.targetField;
+
+      // metadata.travelerDetails.* keeps its nesting, inside the JSON column.
+      if (target.startsWith('metadata.travelerDetails.')) {
+        travelerDetails[target.slice('metadata.travelerDetails.'.length)] = value;
+        continue;
       }
-      
-      const lastField = fieldParts[fieldParts.length - 1];
-      
-      // Handle special cases
-      if (lastField === 'tags' && typeof value === 'string') {
-        current[lastField] = value.split(',').map((t: string) => t.trim());
+
+      const column = COLUMN_FOR[target] ?? target;
+
+      if (column === 'tags' && typeof value === 'string') {
+        leadData.tags = value.split(',').map((t: string) => t.trim());
+      } else if (column === 'email' && typeof value === 'string') {
+        // The column is lowercase-only, so normalise rather than be refused.
+        leadData.email = value.toLowerCase().trim();
       } else {
-        current[lastField] = value;
+        leadData[column] = value;
       }
+    }
+
+    if (Object.keys(travelerDetails).length > 0) {
+      leadData.travelerDetails = travelerDetails;
     }
 
     return leadData;
@@ -290,9 +307,10 @@ class DatabaseImportService {
    * Check for duplicate lead
    */
   private async checkDuplicate(email: string, organizerId: string): Promise<boolean> {
-    const existing = await Lead.findOne({
-      email: email.toLowerCase(),
-      assignedTo: organizerId
+    // (email, assignedTo) is a unique constraint now, so this is a fast path
+    // rather than the thing that actually prevents the duplicate.
+    const existing = await prisma.lead.findFirst({
+      where: { email: email.toLowerCase(), assignedTo: organizerId }
     });
     return !!existing;
   }
@@ -339,13 +357,14 @@ class DatabaseImportService {
       }
 
       // Create import record
-      const importRecord = await ImportedDatabase.create({
+      const importRecord = await prisma.importedDatabase.create({
+        data: {
         organizerId,
         fileName: file.originalname,
         fileSize: file.size,
         fileType,
         status: 'processing',
-        fieldMapping,
+        fieldMapping: fieldMapping as any,
         config: {
           skipDuplicates: config?.skipDuplicates ?? true,
           updateExisting: config?.updateExisting ?? false,
@@ -355,18 +374,18 @@ class DatabaseImportService {
           defaultLeadStatus: config?.defaultLeadStatus || 'new',
           defaultTags: config?.defaultTags || []
         },
-        stats: {
-          totalRecords: records.length,
-          successfulImports: 0,
-          failedImports: 0,
-          duplicatesSkipped: 0
-        },
+        statsTotalRecords: records.length,
+        statsSuccessfulImports: 0,
+        statsFailedImports: 0,
+        statsDuplicatesSkipped: 0,
+        totalRows: records.length,
         importErrors: [],
         importedLeadIds: []
+        }
       });
 
       // Process records
-      const importedLeadIds: mongoose.Types.ObjectId[] = [];
+      const importedLeadIds: string[] = [];
       const errors: any[] = [];
       let successCount = 0;
       let failCount = 0;
@@ -399,11 +418,10 @@ class DatabaseImportService {
             if (isDuplicate) {
               if (config?.updateExisting) {
                 // Update existing lead
-                await Lead.findOneAndUpdate(
-                  { email: leadData.email.toLowerCase(), assignedTo: organizerId },
-                  { $set: leadData },
-                  { new: true }
-                );
+                await prisma.lead.updateMany({
+                  where: { email: leadData.email.toLowerCase(), assignedTo: organizerId },
+                  data: leadData
+                });
                 successCount++;
               } else {
                 duplicateCount++;
@@ -413,8 +431,8 @@ class DatabaseImportService {
           }
 
           // Create lead
-          const lead = await Lead.create(leadData);
-          importedLeadIds.push(lead._id as any);
+          const lead = await prisma.lead.create({ data: leadData });
+          importedLeadIds.push(lead.id);
           successCount++;
 
         } catch (error: any) {
@@ -429,28 +447,43 @@ class DatabaseImportService {
 
       // Update import record
       const processingTime = Date.now() - startTime;
-      importRecord.status = failCount === 0 ? 'completed' : 
-                           successCount > 0 ? 'partially_completed' : 'failed';
-      importRecord.stats = {
+      const stats = {
         totalRecords: records.length,
         successfulImports: successCount,
         failedImports: failCount,
         duplicatesSkipped: duplicateCount,
         processingTime
       };
-      importRecord.importErrors = errors;
-      importRecord.importedLeadIds = importedLeadIds;
-      await importRecord.save();
+
+      const finished = await prisma.importedDatabase.update({
+        where: { id: importRecord.id },
+        data: {
+          status: failCount === 0 ? 'completed' :
+                  successCount > 0 ? 'partially_completed' : 'failed',
+          statsTotalRecords: stats.totalRecords,
+          statsSuccessfulImports: stats.successfulImports,
+          statsFailedImports: stats.failedImports,
+          statsDuplicatesSkipped: stats.duplicatesSkipped,
+          statsProcessingTime: stats.processingTime,
+          processedRows: records.length,
+          progressPercentage: 100,
+          importErrors: errors,
+          // The ids rollback will delete. Written in the same statement as the
+          // final status, so a completed import always knows what it created -
+          // there is no window where it is done but cannot be undone.
+          importedLeadIds
+        }
+      });
 
       logger.info('Database import completed', {
-        importId: importRecord._id,
+        importId: finished.id,
         organizerId,
-        stats: importRecord.stats
+        stats
       });
 
       return {
         success: successCount > 0,
-        importId: importRecord._id.toString(),
+        importId: finished.id,
         stats: {
           totalRecords: records.length,
           successfulImports: successCount,
@@ -473,30 +506,33 @@ class DatabaseImportService {
    * Get import history
    */
   async getImportHistory(organizerId: string, limit: number = 10) {
-    return await ImportedDatabase.find({ organizerId })
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .select('-importErrors') // Exclude detailed errors for list view
-      .lean();
+    // importErrors is left out of the list view, as select('-importErrors') did:
+    // a failed import of ten thousand rows carries ten thousand error objects.
+    return await prisma.importedDatabase.findMany({
+      where: { organizerId },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      omit: { importErrors: true }
+    });
   }
 
   /**
    * Get import details
    */
   async getImportDetails(importId: string, organizerId: string) {
-    return await ImportedDatabase.findOne({
-      _id: importId,
-      organizerId
-    }).lean();
+    // Scoped by organizerId as well as id, so one organizer cannot read
+    // another's import by guessing an id.
+    return await prisma.importedDatabase.findFirst({
+      where: { id: importId, organizerId }
+    });
   }
 
   /**
    * Rollback import
    */
   async rollbackImport(importId: string, organizerId: string): Promise<boolean> {
-    const importRecord = await ImportedDatabase.findOne({
-      _id: importId,
-      organizerId
+    const importRecord = await prisma.importedDatabase.findFirst({
+      where: { id: importId, organizerId }
     });
 
     if (!importRecord) {
@@ -512,14 +548,15 @@ class DatabaseImportService {
     }
 
     // Delete all imported leads
-    await Lead.deleteMany({
-      _id: { $in: importRecord.importedLeadIds }
+    await prisma.lead.deleteMany({
+      where: { id: { in: importRecord.importedLeadIds } }
     });
 
     // Mark as rolled back
-    importRecord.rolledBackAt = new Date();
-    importRecord.canRollback = false;
-    await importRecord.save();
+    await prisma.importedDatabase.update({
+      where: { id: importRecord.id },
+      data: { rolledBackAt: new Date(), canRollback: false }
+    });
 
     logger.info('Import rolled back', {
       importId,

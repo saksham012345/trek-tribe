@@ -13,8 +13,8 @@ import express from 'express';
 import mongoose from 'mongoose';
 import authRoutes from '../routes/auth';
 import databaseImportRoutes from '../routes/databaseImport';
-import ImportedDatabase from '../models/ImportedDatabase';
-import Lead from '../models/Lead';
+import { prisma } from '../lib/prisma';
+
 import { User } from '../models/User';
 import CRMSubscription from '../models/CRMSubscription';
 
@@ -94,7 +94,8 @@ describe('GET /api/database-import/:importId/status', () => {
   let importRecordId: string;
 
   beforeAll(async () => {
-    const record = await ImportedDatabase.create({
+    const record = await prisma.importedDatabase.create({
+      data: {
       organizerId,
       fileName: 'status-test.csv',
       fileSize: 512,
@@ -102,14 +103,18 @@ describe('GET /api/database-import/:importId/status', () => {
       status: 'processing',
       fieldMapping: [],
       config: { skipDuplicates: true, updateExisting: false, validateData: true, autoAssignToOrganizer: true, defaultLeadSource: 'form', defaultLeadStatus: 'new' },
-      stats: { totalRecords: 10, successfulImports: 0, failedImports: 0, duplicatesSkipped: 0 },
+      statsTotalRecords: 10,
+      statsSuccessfulImports: 0,
+      statsFailedImports: 0,
+      statsDuplicatesSkipped: 0,
       importErrors: [],
       importedLeadIds: [],
       processedRows: 5,
       totalRows: 10,
       progressPercentage: 50,
+      }
     });
-    importRecordId = record._id.toString();
+    importRecordId = record.id;
   });
 
   it('returns import status with progress fields', async () => {
@@ -150,13 +155,16 @@ describe('POST /api/database-import/:importId/rollback', () => {
 
   beforeAll(async () => {
     // Create a lead and import record to rollback
-    const lead = await Lead.create({
-      email: 'rollback-api@example.com',
-      source: 'form',
-      assignedTo: organizerId,
+    const lead = await prisma.lead.create({
+      data: {
+        email: 'rollback-api@example.com',
+        source: 'form',
+        assignedTo: organizerId,
+      }
     });
 
-    const record = await ImportedDatabase.create({
+    const record = await prisma.importedDatabase.create({
+      data: {
       organizerId,
       fileName: 'rollback-test.csv',
       fileSize: 256,
@@ -164,12 +172,16 @@ describe('POST /api/database-import/:importId/rollback', () => {
       status: 'completed',
       fieldMapping: [],
       config: { skipDuplicates: true, updateExisting: false, validateData: true, autoAssignToOrganizer: true, defaultLeadSource: 'form', defaultLeadStatus: 'new' },
-      stats: { totalRecords: 1, successfulImports: 1, failedImports: 0, duplicatesSkipped: 0 },
+      statsTotalRecords: 1,
+      statsSuccessfulImports: 1,
+      statsFailedImports: 0,
+      statsDuplicatesSkipped: 0,
       importErrors: [],
-      importedLeadIds: [lead._id],
+      importedLeadIds: [lead.id],
       canRollback: true,
+      }
     });
-    rollbackImportId = record._id.toString();
+    rollbackImportId = record.id;
   });
 
   it('rolls back an import successfully', async () => {
@@ -181,11 +193,11 @@ describe('POST /api/database-import/:importId/rollback', () => {
     expect(res.body.success).toBe(true);
 
     // Verify lead was deleted
-    const lead = await Lead.findOne({ email: 'rollback-api@example.com' });
+    const lead = await prisma.lead.findFirst({ where: { email: 'rollback-api@example.com' } });
     expect(lead).toBeNull();
 
     // Verify canRollback is now false
-    const record = await ImportedDatabase.findById(rollbackImportId);
+    const record = await prisma.importedDatabase.findUnique({ where: { id: rollbackImportId } });
     expect(record?.canRollback).toBe(false);
   });
 

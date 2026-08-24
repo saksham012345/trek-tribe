@@ -885,11 +885,27 @@ model ImportedDatabase {
   statsSuccessfulImports Int @default(0) @map("stats_successful_imports")
   statsFailedImports    Int @default(0) @map("stats_failed_imports")
   statsDuplicatesSkipped Int @default(0) @map("stats_duplicates_skipped")
+  // Milliseconds the run took. Nullable, because a job still in flight has not
+  // taken any time yet.
+  statsProcessingTime   Int? @map("stats_processing_time")
 
-  // Both are variable-shaped lists read back whole by the UI.
+  // Variable-shaped lists read back whole by the UI, so JSON rather than
+  // child tables nobody joins to.
   fieldMapping Json @default("[]") @map("field_mapping")
-  importConfig Json @default("{}") @map("import_config")
-  errors       Json @default("[]")
+  config       Json @default("{}")
+  importErrors Json @default("[]") @map("import_errors")
+
+  // How rollback works: the ids of the leads this import created. Without it
+  // an import cannot be undone, which is the whole point of the feature.
+  importedLeadIds String[] @default([]) @map("imported_lead_ids")
+
+  canRollback  Boolean   @default(true) @map("can_rollback")
+  rolledBackAt DateTime? @map("rolled_back_at")
+
+  // Progress tracking, read by the import history panel while a job runs.
+  processedRows      Int @default(0) @map("processed_rows")
+  totalRows          Int @default(0) @map("total_rows")
+  progressPercentage Int @default(0) @map("progress_percentage")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

@@ -1,4 +1,4 @@
-import Lead from '../models/Lead';
+import { prisma } from '../lib/prisma';
 import { logger } from '../utils/logger';
 import { emailService } from './emailService';
 import { emailTemplates } from '../templates/emailTemplates';
@@ -46,7 +46,7 @@ class MarketingAutomationService {
         query.status = campaign.targetAudience;
       }
 
-      const leads = await Lead.find(query).limit(1000); // Batch limit
+      const leads = await prisma.lead.findMany({ where: query, take: 1000 }); // Batch limit
       
       let sent = 0;
       let failed = 0;
@@ -70,14 +70,15 @@ class MarketingAutomationService {
             html: emailHtml,
           });
 
-          // Log interaction
-          lead.interactions.push({
-            type: 'email',
-            description: `Campaign: ${campaign.name}`,
-            timestamp: new Date(),
-            performedBy: undefined,
-          } as any);
-          await lead.save();
+          // An insert, not a push onto the document. A campaign sending to a
+          // thousand leads would otherwise rewrite each whole lead row.
+          await prisma.leadInteraction.create({
+            data: {
+              leadId: lead.id,
+              type: 'email',
+              description: `Campaign: ${campaign.name}`
+            }
+          });
 
           sent++;
           
@@ -86,7 +87,7 @@ class MarketingAutomationService {
           
         } catch (error: any) {
           logger.error('Error sending campaign email to lead', { 
-            leadId: lead._id,
+            leadId: lead.id,
             error: error.message 
           });
           failed++;
@@ -113,7 +114,7 @@ class MarketingAutomationService {
    */
   async startDripCampaign(leadId: string, campaign: DripCampaign): Promise<void> {
     try {
-      const lead = await Lead.findById(leadId);
+      const lead = await prisma.lead.findUnique({ where: { id: leadId } });
       if (!lead || !lead.email) return;
 
       logger.info('Starting drip campaign', { 
@@ -144,10 +145,10 @@ class MarketingAutomationService {
     stepNumber: number
   ): Promise<void> {
     try {
-      const lead = await Lead.findById(leadId).populate('tripId');
+      const lead = await prisma.lead.findUnique({ where: { id: leadId } });
       if (!lead || !lead.email) return;
 
-      const trip = lead.tripId ? await this.getTripDetails(lead.tripId.toString()) : null;
+      const trip = lead.tripId ? await this.getTripDetails(lead.tripId) : null;
       const emailHtml = this.generateEmailContent(step.template, {
         userName: lead.name || 'Traveler',
         email: lead.email,
@@ -160,7 +161,7 @@ class MarketingAutomationService {
         to: lead.email,
         subject: step.subject,
         html: emailHtml,
-        leadId: lead._id.toString(),
+        leadId: lead.id,
         metadata: { campaignName, stepNumber },
       }, delayMs);
 
@@ -180,7 +181,12 @@ class MarketingAutomationService {
    */
   async sendAutomatedFollowUp(leadId: string): Promise<void> {
     try {
-      const lead = await Lead.findById(leadId);
+      // getDaysSinceLastInteraction reads the interactions, so they are loaded
+      // with the lead rather than fetched again inside it.
+      const lead = await prisma.lead.findUnique({
+        where: { id: leadId },
+        include: { interactions: { orderBy: { timestamp: 'asc' } } }
+      });
       if (!lead || !lead.email) return;
 
       const daysSinceLastContact = this.getDaysSinceLastInteraction(lead);
@@ -237,13 +243,13 @@ class MarketingAutomationService {
         html: emailHtml,
       });
 
-      lead.interactions.push({
-        type: 'email',
-        description: `Automated follow-up: ${lead.status} status`,
-        timestamp: new Date(),
-        performedBy: undefined,
-      } as any);
-      await lead.save();
+      await prisma.leadInteraction.create({
+        data: {
+          leadId: lead.id,
+          type: 'email',
+          description: `Automated follow-up: ${lead.status} status`
+        }
+      });
 
       logger.info('Automated follow-up sent', { 
         leadId,
@@ -261,8 +267,8 @@ class MarketingAutomationService {
    */
   async runDailyFollowUpCheck(): Promise<void> {
     try {
-      const leads = await Lead.find({
-        status: { $in: ['new', 'contacted', 'interested', 'not_interested'] },
+      const leads = await prisma.lead.findMany({
+        where: { status: { in: ['new', 'contacted', 'interested', 'not_interested'] } }
       });
 
       logger.info(`Running daily follow-up check for ${leads.length} leads`);
@@ -278,7 +284,7 @@ class MarketingAutomationService {
           (lead.status === 'not_interested' && daysSinceLastContact >= 30);
 
         if (shouldFollowUp) {
-          await this.sendAutomatedFollowUp(lead._id.toString());
+          await this.sendAutomatedFollowUp(lead.id);
           
           // Rate limiting
           await new Promise(resolve => setTimeout(resolve, 200));

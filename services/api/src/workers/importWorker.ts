@@ -3,8 +3,8 @@ import csv from 'csv-parser';
 import xlsx from 'xlsx';
 import { Readable } from 'stream';
 import { z } from 'zod';
-import Lead from '../models/Lead';
-import ImportedDatabase from '../models/ImportedDatabase';
+import { prisma } from '../lib/prisma';
+
 import { leadScoringService } from '../services/leadScoringService';
 import { socketService } from '../services/socketService';
 import { logger } from '../utils/logger';
@@ -126,7 +126,7 @@ export const importQueue: Queue<ImportJobData> = new Bull<ImportJobData>('lead-i
 importQueue.process(async (job: Job<ImportJobData>) => {
   const { importId, organizerId, fileBuffer, fileName, mimeType, fieldMapping, config } = job.data;
 
-  const importRecord = await ImportedDatabase.findById(importId);
+  const importRecord = await prisma.importedDatabase.findUnique({ where: { id: importId } });
   if (!importRecord) throw new Error(`Import record ${importId} not found`);
 
   try {
@@ -136,29 +136,35 @@ importQueue.process(async (job: Job<ImportJobData>) => {
     const records: any[] = isExcel ? parseExcel(buffer) : await parseCSV(buffer);
 
     if (records.length === 0) {
-      importRecord.status = 'failed';
-      importRecord.stats.totalRecords = 0;
-      await importRecord.save();
+      await prisma.importedDatabase.update({
+        where: { id: importId },
+        data: { status: 'failed', statsTotalRecords: 0 }
+      });
       return;
     }
 
     // Row limit check
     if (records.length > MAX_ROWS) {
-      importRecord.status = 'failed';
-      importRecord.importErrors = [{
-        row: 0,
-        error: `Import limit exceeded. Maximum ${MAX_ROWS} leads per file.`,
-        timestamp: new Date(),
-      }];
-      await importRecord.save();
+      await prisma.importedDatabase.update({
+        where: { id: importId },
+        data: {
+          status: 'failed',
+          importErrors: [{
+            row: 0,
+            error: `Import limit exceeded. Maximum ${MAX_ROWS} leads per file.`,
+            timestamp: new Date().toISOString(),
+          }]
+        }
+      });
       return;
     }
 
-    importRecord.totalRows = records.length;
-    importRecord.stats.totalRecords = records.length;
-    await importRecord.save();
+    await prisma.importedDatabase.update({
+      where: { id: importId },
+      data: { totalRows: records.length, statsTotalRecords: records.length }
+    });
 
-    const importedLeadIds: mongoose.Types.ObjectId[] = [];
+    const importedLeadIds: string[] = [];
     const errors: any[] = [];
     let successCount = 0;
     let failCount = 0;
@@ -184,10 +190,14 @@ importQueue.process(async (job: Job<ImportJobData>) => {
         }
 
         // Dedup
-        const existing = await Lead.findOne({ email: leadData.email.toLowerCase(), assignedTo: organizerId });
+        // (email, assignedTo) is unique now, so this is the fast path; the
+        // constraint is what actually stops a duplicate landing.
+        const existing = await prisma.lead.findFirst({
+          where: { email: leadData.email.toLowerCase(), assignedTo: organizerId }
+        });
         if (existing) {
           if (config.updateExisting) {
-            await Lead.findByIdAndUpdate(existing._id, { $set: leadData });
+            await prisma.lead.update({ where: { id: existing.id }, data: leadData });
             successCount++;
           } else {
             dupCount++;
@@ -198,8 +208,8 @@ importQueue.process(async (job: Job<ImportJobData>) => {
         // Score
         leadData.leadScore = leadScoringService.computeScore(leadData);
 
-        const lead = await Lead.create(leadData);
-        importedLeadIds.push(lead._id as mongoose.Types.ObjectId);
+        const lead = await prisma.lead.create({ data: leadData });
+        importedLeadIds.push(lead.id);
         successCount++;
       } catch (err: any) {
         errors.push({ row: i + 1, error: err.message, timestamp: new Date() });
@@ -209,34 +219,53 @@ importQueue.process(async (job: Job<ImportJobData>) => {
       // Update progress every N rows
       if ((i + 1) % PROGRESS_UPDATE_INTERVAL === 0 || i === records.length - 1) {
         const pct = Math.round(((i + 1) / records.length) * 100);
-        await ImportedDatabase.findByIdAndUpdate(importId, {
-          processedRows: i + 1,
-          progressPercentage: pct,
+        await prisma.importedDatabase.update({
+          where: { id: importId },
+          data: { processedRows: i + 1, progressPercentage: pct }
         });
       }
     }
 
     // Final update
     const finalStatus = failCount === 0 ? 'completed' : successCount > 0 ? 'partially_completed' : 'failed';
-    importRecord.status = finalStatus;
-    importRecord.stats = { totalRecords: records.length, successfulImports: successCount, failedImports: failCount, duplicatesSkipped: dupCount };
-    importRecord.importErrors = errors;
-    importRecord.importedLeadIds = importedLeadIds;
-    importRecord.processedRows = records.length;
-    importRecord.progressPercentage = 100;
-    await importRecord.save();
+    const stats = {
+      totalRecords: records.length,
+      successfulImports: successCount,
+      failedImports: failCount,
+      duplicatesSkipped: dupCount
+    };
+
+    await prisma.importedDatabase.update({
+      where: { id: importId },
+      data: {
+        status: finalStatus,
+        statsTotalRecords: stats.totalRecords,
+        statsSuccessfulImports: stats.successfulImports,
+        statsFailedImports: stats.failedImports,
+        statsDuplicatesSkipped: stats.duplicatesSkipped,
+        importErrors: errors,
+        // Written with the final status, so a finished import always knows
+        // which leads it created and can therefore be rolled back.
+        importedLeadIds,
+        processedRows: records.length,
+        progressPercentage: 100
+      }
+    });
 
     // Emit Socket.IO event
     try {
-      socketService.getIO()?.emit(`leads_imported:${organizerId}`, { importId, stats: importRecord.stats });
+      socketService.getIO()?.emit(`leads_imported:${organizerId}`, { importId, stats });
     } catch (_) { /* socket optional */ }
 
-    logger.info('Import job completed', { importId, organizerId, stats: importRecord.stats });
+    logger.info('Import job completed', { importId, organizerId, stats });
   } catch (err: any) {
     logger.error('Import job failed', { importId, error: err.message });
-    await ImportedDatabase.findByIdAndUpdate(importId, {
-      status: 'failed',
-      importErrors: [{ row: 0, error: err.message, timestamp: new Date() }],
+    await prisma.importedDatabase.update({
+      where: { id: importId },
+      data: {
+        status: 'failed',
+        importErrors: [{ row: 0, error: err.message, timestamp: new Date().toISOString() }]
+      }
     });
     throw err;
   }

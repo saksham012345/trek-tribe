@@ -4,7 +4,7 @@ import rateLimit from 'express-rate-limit';
 import { authenticateJwt, requireRole } from '../middleware/auth';
 import { databaseImportService } from '../services/databaseImportService';
 import { importQueue } from '../workers/importWorker';
-import ImportedDatabase from '../models/ImportedDatabase';
+import { prisma } from '../lib/prisma';
 import CRMSubscription from '../models/CRMSubscription';
 import { logger } from '../utils/logger';
 
@@ -164,36 +164,34 @@ router.post(
         req.file.mimetype.includes('sheet') || req.file.mimetype.includes('excel') ? 'xlsx' : 'json';
 
       // Create Import_Record immediately
-      const importRecord = await ImportedDatabase.create({
-        organizerId,
-        fileName: req.file.originalname,
-        fileSize: req.file.size,
-        fileType,
-        status: 'processing',
-        fieldMapping: fieldMapping || (sampleData.length > 0 ? databaseImportService.autoDetectFieldMapping(sampleData[0]) : []),
-        config,
-        stats: { totalRecords: 0, successfulImports: 0, failedImports: 0, duplicatesSkipped: 0 },
-        importErrors: [],
-        importedLeadIds: [],
-        processedRows: 0,
-        totalRows: 0,
-        progressPercentage: 0,
+      const importRecord = await prisma.importedDatabase.create({
+        data: {
+          organizerId,
+          fileName: req.file.originalname,
+          fileSize: req.file.size,
+          fileType,
+          status: 'processing',
+          fieldMapping: (fieldMapping || (sampleData.length > 0 ? databaseImportService.autoDetectFieldMapping(sampleData[0]) : [])) as any,
+          config,
+          importErrors: [],
+          importedLeadIds: [],
+        }
       });
 
       // Push to queue
       await importQueue.add({
-        importId: importRecord._id.toString(),
+        importId: importRecord.id,
         organizerId,
         fileBuffer: req.file.buffer.toString('base64'),
         fileName: req.file.originalname,
         mimeType: req.file.mimetype,
-        fieldMapping: importRecord.fieldMapping,
+        fieldMapping: importRecord.fieldMapping as any,
         config,
       });
 
       return res.status(202).json({
         success: true,
-        importId: importRecord._id.toString(),
+        importId: importRecord.id,
         message: 'Import queued. Use the importId to track progress.',
       });
     } catch (error: any) {
@@ -218,9 +216,22 @@ router.get(
       const { importId } = req.params;
       const organizerId = req.auth.userId;
 
-      const record = await ImportedDatabase.findOne({ _id: importId, organizerId })
-        .select('status processedRows totalRows progressPercentage stats importErrors')
-        .lean();
+      // Scoped by organizerId as well as id, so one organizer cannot poll
+      // another's import by guessing the id.
+      const record = await prisma.importedDatabase.findFirst({
+        where: { id: importId, organizerId },
+        select: {
+          status: true,
+          processedRows: true,
+          totalRows: true,
+          progressPercentage: true,
+          statsTotalRecords: true,
+          statsSuccessfulImports: true,
+          statsFailedImports: true,
+          statsDuplicatesSkipped: true,
+          importErrors: true
+        }
+      });
 
       if (!record) {
         return res.status(404).json({ success: false, error: 'Import record not found' });
@@ -233,8 +244,15 @@ router.get(
           processedRows: record.processedRows,
           totalRows: record.totalRows,
           progressPercentage: record.progressPercentage,
-          stats: record.stats,
-          errorCount: record.importErrors?.length ?? 0,
+          // stats was one nested object; it is four columns now, rebuilt here so
+          // the response shape the UI reads does not change.
+          stats: {
+            totalRecords: record.statsTotalRecords,
+            successfulImports: record.statsSuccessfulImports,
+            failedImports: record.statsFailedImports,
+            duplicatesSkipped: record.statsDuplicatesSkipped
+          },
+          errorCount: Array.isArray(record.importErrors) ? record.importErrors.length : 0,
         },
       });
     } catch (error: any) {

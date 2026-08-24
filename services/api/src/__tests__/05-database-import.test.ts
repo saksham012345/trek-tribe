@@ -6,8 +6,8 @@
 import { describe, it, expect, beforeAll, afterEach } from '@jest/globals';
 import mongoose from 'mongoose';
 import { databaseImportService } from '../services/databaseImportService';
-import Lead from '../models/Lead';
-import ImportedDatabase from '../models/ImportedDatabase';
+import { prisma } from '../lib/prisma';
+
 
 const ORGANIZER_ID = new mongoose.Types.ObjectId().toString();
 
@@ -28,8 +28,8 @@ function makeFile(content: string, mimetype = 'text/csv', name = 'test.csv'): Ex
 }
 
 afterEach(async () => {
-  await Lead.deleteMany({ assignedTo: ORGANIZER_ID });
-  await ImportedDatabase.deleteMany({ organizerId: ORGANIZER_ID });
+  await prisma.lead.deleteMany({ where: { assignedTo: ORGANIZER_ID } });
+  await prisma.importedDatabase.deleteMany({ where: { organizerId: ORGANIZER_ID } });
 });
 
 // ─── Auto-detect field mapping ────────────────────────────────────────────────
@@ -143,8 +143,8 @@ assigned@example.com,Assigned`;
       autoAssignToOrganizer: true,
     });
 
-    const lead = await Lead.findOne({ email: 'assigned@example.com' });
-    expect(lead?.assignedTo?.toString()).toBe(ORGANIZER_ID);
+    const lead = await prisma.lead.findFirst({ where: { email: 'assigned@example.com' } });
+    expect(lead?.assignedTo).toBe(ORGANIZER_ID);
   });
 
   it('returns empty array stats for empty CSV', async () => {
@@ -190,7 +190,7 @@ describe('rollbackImport', () => {
     const importId = result.importId!;
 
     // Verify lead exists
-    const leadBefore = await Lead.findOne({ email: 'rollback@example.com' });
+    const leadBefore = await prisma.lead.findFirst({ where: { email: 'rollback@example.com' } });
     expect(leadBefore).not.toBeNull();
 
     // Rollback
@@ -198,11 +198,11 @@ describe('rollbackImport', () => {
     expect(success).toBe(true);
 
     // Lead should be gone
-    const leadAfter = await Lead.findOne({ email: 'rollback@example.com' });
+    const leadAfter = await prisma.lead.findFirst({ where: { email: 'rollback@example.com' } });
     expect(leadAfter).toBeNull();
 
     // Import record should have canRollback=false
-    const record = await ImportedDatabase.findById(importId);
+    const record = await prisma.importedDatabase.findUnique({ where: { id: importId } });
     expect(record?.canRollback).toBe(false);
     expect(record?.rolledBackAt).toBeDefined();
   });
