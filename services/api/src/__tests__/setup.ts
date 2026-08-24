@@ -10,8 +10,21 @@ jest.setTimeout(60000);
 
 // Setup before all tests
 beforeAll(async () => {
-  // Create in-memory MongoDB instance (downloads binaries if needed)
-  mongoServer = await MongoMemoryServer.create();
+  // Create in-memory MongoDB instance (downloads binaries if needed).
+  //
+  // The port is pinned to a range Windows will actually let us bind. By default
+  // mongodb-memory-server picks a random high port, and Windows reserves whole
+  // blocks up there for Hyper-V and WSL - `netsh interface ipv4 show
+  // excludedportrange protocol=tcp` lists them. Landing inside one gives
+  // "listen EACCES: permission denied", which surfaces as a suite that fails
+  // for no reason and passes on the next run. That is what was happening here:
+  // ports 46584 and 46632 both sit inside the reserved 46540-46639 block.
+  //
+  // 27100+ is below every reserved block on this machine and above the default
+  // Mongo port, so a real local mongod does not collide with it either.
+  mongoServer = await MongoMemoryServer.create({
+    instance: { port: 27100 + Math.floor(Math.random() * 400) }
+  });
   const mongoUri = mongoServer.getUri();
 
   // Share URI with application code (including serverless handlers) to avoid
