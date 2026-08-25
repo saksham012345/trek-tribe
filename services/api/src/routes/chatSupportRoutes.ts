@@ -336,12 +336,15 @@ router.post('/recommendations', async (req, res) => {
     
     // Fallback to real trip data if AI fails
     try {
-      const { Trip } = require('../models/Trip');
-      const trips = await Trip.find({ status: 'active' })
-        .populate('organizerId', 'name')
-        .select('title destination price categories difficultyLevel organizerId')
-        .limit(5)
-        .sort({ createdAt: -1 });
+      const { prisma } = require('../lib/prisma');
+      // 'difficultyLevel' was in the select and is not a field - the column is
+      // 'difficulty' - so it selected nothing and the fallback never carried a
+      // difficulty. Nothing below reads one, so it is simply not selected.
+      const trips = await prisma.trip.findMany({
+        where: { status: 'active' },
+        take: 5,
+        orderBy: { createdAt: 'desc' }
+      });
 
       const fallbackRecommendations = trips.map((trip: any, index: number) => ({
         trip: {

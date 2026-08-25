@@ -1,4 +1,5 @@
-import { Proposal, CustomTripRequestDocument } from '../models/CustomTripRequest';
+import { CustomTripProposal, CustomTripRequest } from '@prisma/client';
+import { toNumber } from '../lib/money';
 import { logger } from '../utils/logger';
 
 export interface AIAnalysisResult {
@@ -17,10 +18,10 @@ export class AIQualityService {
      * - Price sanity (dummy logic for now)
      * - Clarity of Value Statement
      */
-    static async analyzeTripProposal(proposal: Proposal, request: CustomTripRequestDocument): Promise<AIAnalysisResult> {
+    static async analyzeTripProposal(proposal: CustomTripProposal, request: CustomTripRequest): Promise<AIAnalysisResult> {
         logger.info('Starting AI Quality Analysis for proposal', {
             organizer: proposal.organizerId,
-            request: request._id
+            request: request.id
         });
 
         // Mock Logic for MVP / Testing
@@ -29,7 +30,8 @@ export class AIQualityService {
         let riskLevel: 'Low' | 'Medium' | 'High' = 'Low';
 
         // 1. Check Completeness
-        if (!proposal.qualitySnapshot.safetyPlanPresent) {
+        // qualitySnapshot was a nested object; safetyPlanPresent is a column.
+        if (!proposal.safetyPlanPresent) {
             score -= 20;
             reasons.push('Safety plan is not marked as present.');
             riskLevel = 'Medium';
@@ -42,7 +44,11 @@ export class AIQualityService {
         }
 
         // 2. Check Price vs Budget (if budget exists)
-        if (request.budget && proposal.price > request.budget * 1.5) {
+        // Both are Decimal columns. `proposal.price > request.budget * 1.5`
+        // would multiply a Decimal by a number - giving a Decimal - and then
+        // compare two Decimals with `>`, which coerces each to a string: "9"
+        // would count as greater than "10". Compared as numbers.
+        if (request.budget && toNumber(proposal.price) > toNumber(request.budget) * 1.5) {
             score -= 10;
             reasons.push('Price significantly exceeds budget.');
             riskLevel = 'Medium'; // Not high risk, but warning

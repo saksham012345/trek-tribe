@@ -1,6 +1,5 @@
 import { prisma } from '../lib/prisma';
 import { vendorNotificationQueue } from '../lib/queue';
-import { Trip } from '../models/Trip';
 
 async function synthesizePreDepartureReminders() {
   const threeDaysFromNow = new Date();
@@ -9,13 +8,16 @@ async function synthesizePreDepartureReminders() {
   const threeDaysFromNowEnd = new Date(threeDaysFromNow);
   threeDaysFromNowEnd.setHours(23, 59, 59, 999);
 
-  const departingTrips = await Trip.find({
-    startDate: { $gte: threeDaysFromNow, $lte: threeDaysFromNowEnd },
-    status: 'active'
-  }).select('_id');
+  const departingTrips = await prisma.trip.findMany({
+    where: {
+      startDate: { gte: threeDaysFromNow, lte: threeDaysFromNowEnd },
+      status: 'active'
+    },
+    select: { id: true }
+  });
 
   for (const trip of departingTrips) {
-    const tripId = trip._id.toString();
+    const tripId = trip.id;
 
     const alreadyExists = await prisma.vendorEvent.findFirst({
       where: { tripId, eventType: 'pre_departure_reminder' }

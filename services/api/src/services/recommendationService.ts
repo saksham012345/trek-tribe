@@ -1,5 +1,6 @@
 import { User } from '../models/User';
-import { Trip } from '../models/Trip';
+import { prisma } from '../lib/prisma';
+import { shapeTrips } from '../services/tripShapeService';
 import { logger } from '../utils/logger';
 
 interface RecommendationParams {
@@ -148,12 +149,24 @@ export class RecommendationService {
       const preferences = await this.analyzeUserBehavior(userId);
 
       // Get active trips (exclude user's own trips)
-      const trips = await Trip.find({
-        status: 'active',
-        organizerId: { $ne: userId }
-      })
-        .populate('organizerId', 'name profilePhoto organizerProfile')
-        .limit(100); // Get larger pool for scoring
+      const tripRows = await prisma.trip.findMany({
+        where: { status: 'active', organizerId: { not: userId } },
+        include: { participants: { select: { userId: true } } },
+        take: 100 // Get larger pool for scoring
+      });
+
+      // The organizer populate fed calculateTripScore, which reads the
+      // organizer's profile, so the documents are fetched rather than dropped.
+      const organizerIds = Array.from(new Set(tripRows.map(t => t.organizerId)));
+      const organizerDocs = organizerIds.length
+        ? await User.find({ _id: { $in: organizerIds } }, 'name profilePhoto organizerProfile').lean()
+        : [];
+      const organizerById = new Map(organizerDocs.map((u: any) => [u._id.toString(), u]));
+
+      const trips = shapeTrips(tripRows as any).map(trip => ({
+        ...trip,
+        organizerId: organizerById.get(trip.organizerId) ?? trip.organizerId
+      }));
 
       // Score each trip
       const scoredTrips = trips.map(trip => ({

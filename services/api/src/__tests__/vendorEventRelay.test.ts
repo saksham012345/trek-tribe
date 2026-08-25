@@ -2,7 +2,6 @@ import { prisma } from '../lib/prisma';
 import { vendorNotificationQueue } from '../lib/queue';
 import { processUnprocessedVendorEvents } from '../services/vendorEventRelay';
 import mongoose from 'mongoose';
-import { Trip } from '../models/Trip';
 
 describe('Vendor event relay', () => {
   let vendorId: string;
@@ -75,19 +74,23 @@ describe('Vendor event relay', () => {
     const threeDaysOut = new Date();
     threeDaysOut.setDate(threeDaysOut.getDate() + 3);
 
-    await Trip.create({
-      _id: departingTripId,
-      title: 'Reminder Test Trip',
-      description: 'Test trip',
-      organizerId: '507f1f77bcf86cd799439012',
-      destination: 'Manali',
-      startDate: threeDaysOut,
-      endDate: threeDaysOut,
-      price: 15000,
-      capacity: 20,
-      categories: ['adventure'],
-      images: [],
-      status: 'active'
+    // Trips are Postgres rows since wave 8; this fixture was a Mongo document,
+    // so the relay stopped finding it.
+    await prisma.trip.create({
+      data: {
+        id: departingTripId,
+        title: 'Reminder Test Trip',
+        description: 'Test trip',
+        organizerId: '507f1f77bcf86cd799439012',
+        destination: 'Manali',
+        startDate: threeDaysOut,
+        endDate: threeDaysOut,
+        price: 15000,
+        capacity: 20,
+        categories: ['adventure'],
+        images: [],
+        status: 'active'
+      }
     });
 
     const vendor = await prisma.vendor.create({
@@ -114,6 +117,6 @@ describe('Vendor event relay', () => {
     await prisma.tripVendorAssignment.deleteMany({ where: { tripId: departingTripId } });
     await prisma.vendor.delete({ where: { id: vendor.id } });
     await prisma.vendorEvent.deleteMany({ where: { tripId: departingTripId } });
-    await Trip.deleteOne({ _id: departingTripId });
+    await prisma.trip.deleteMany({ where: { id: departingTripId } });
   });
 });

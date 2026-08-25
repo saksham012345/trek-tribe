@@ -1,5 +1,4 @@
 import { User } from '../models/User';
-import { GroupBooking } from '../models/GroupBooking';
 import { logger } from '../utils/logger';
 import { emailService } from './emailService';
 

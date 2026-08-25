@@ -1,6 +1,7 @@
 import express from 'express';
 import { User } from '../models/User';
-import { Trip } from '../models/Trip';
+import { prisma } from '../lib/prisma';
+import { shapeTrips } from '../services/tripShapeService';
 import { authenticateJwt } from '../middleware/auth';
 import { logger } from '../utils/logger';
 import { cacheMiddleware } from '../utils/cache';
@@ -41,20 +42,31 @@ router.get('/trips', cacheMiddleware(300), async (req, res) => {
     
     if (minPrice || maxPrice) {
       searchCriteria.price = {};
-      if (minPrice) searchCriteria.price.$gte = parseInt(minPrice.toString());
-      if (maxPrice) searchCriteria.price.$lte = parseInt(maxPrice.toString());
+      if (minPrice) searchCriteria.price.gte = parseInt(minPrice.toString());
+      if (maxPrice) searchCriteria.price.lte = parseInt(maxPrice.toString());
     }
 
-    const trips = await Trip.find(searchCriteria)
-      .select('title description destination price startDate endDate coverImage difficulty categories capacity participants status')
-      .populate({
-        path: 'organizerId',
-        select: 'name profilePhoto',
-        options: { lean: true }
-      })
-      .limit(searchLimit)
-      .sort({ startDate: 1, createdAt: -1 })
-      .lean();
+    const tripRows = await prisma.trip.findMany({
+      where: searchCriteria,
+      // participants was selected so the response could report how full a trip
+      // is; it is a relation now, and only the ids are needed for that count.
+      include: { participants: { select: { userId: true } } },
+      take: searchLimit,
+      orderBy: [{ startDate: 'asc' }, { createdAt: 'desc' }]
+    });
+
+    // populate('organizerId') is gone - users are still Mongo documents - so
+    // the organizers are fetched once for the page.
+    const organizerIds = Array.from(new Set(tripRows.map(t => t.organizerId)));
+    const organizerDocs = organizerIds.length
+      ? await User.find({ _id: { $in: organizerIds } }, 'name profilePhoto').lean()
+      : [];
+    const organizerById = new Map(organizerDocs.map((u: any) => [u._id.toString(), u]));
+
+    const trips = shapeTrips(tripRows as any).map(trip => ({
+      ...trip,
+      organizerId: organizerById.get(trip.organizerId) ?? trip.organizerId
+    }));
 
     const formattedTrips = trips.map(trip => ({
       ...trip,

@@ -1,17 +1,19 @@
 import { prisma } from '../lib/prisma';
 import { VendorCategory } from '@prisma/client';
-import { Trip } from '../models/Trip';
 import { vendorService } from './vendorService';
 
 class VendorAssignmentService {
   async assignVendor(organizerId: string, tripId: string, vendorId: string, category: VendorCategory) {
-    const trip = await Trip.findById(tripId).select('organizerId');
+    const trip = await prisma.trip.findUnique({
+      where: { id: tripId },
+      select: { organizerId: true }
+    });
     if (!trip) {
       const err: any = new Error('Trip not found');
       err.status = 404;
       throw err;
     }
-    if (trip.organizerId.toString() !== organizerId) {
+    if (trip.organizerId !== organizerId) {
       const err: any = new Error('Access denied. You can only assign vendors to your own trips.');
       err.status = 403;
       throw err;

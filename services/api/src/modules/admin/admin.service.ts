@@ -6,9 +6,9 @@
  */
 
 import { User } from '../../models/User';
-import { Trip } from '../../models/Trip';
+import { shapeTrip, shapeTrips } from '../../services/tripShapeService';
 import { prisma } from '../../lib/prisma';
-import { upsertRacingSafely } from '../../lib/upsert';
+import { upsertRacingSafely } from '../../lib/upsert';
 import { toNumber } from '../../lib/money';
 
 
@@ -20,13 +20,32 @@ import { emailService } from '../../services/emailService';
 import TrustScoreService from '../../services/trustScoreService';
 import { emailQueue } from '../../services/emailQueueService';
 
+/**
+ * Attach the organizer that .populate('organizerId') supplied.
+ *
+ * Trips are Postgres rows; users are still Mongo documents, so this is a second
+ * query for the page rather than a join.
+ */
+async function tripsWithOrganizers(rows: any[], select: string): Promise<any[]> {
+  const present = rows.filter(Boolean);
+  if (present.length === 0) return [];
+  const ids = Array.from(new Set(present.map(r => r.organizerId)));
+  const users = await User.find({ _id: { $in: ids } }, select).lean();
+  const byId = new Map(users.map((u: any) => [u._id.toString(), u]));
+  return present.map(row => {
+    const trip = shapeTrip(row);
+    trip.organizerId = byId.get(row.organizerId) ?? row.organizerId;
+    return trip;
+  });
+}
+
 // ─── Dashboard stats ──────────────────────────────────────────────────────────
 
 export async function getDashboardStats() {
   const [totalUsers, totalTrips, totalReviews, totalWishlists, totalTickets, activeSubscriptions] =
     await Promise.all([
       User.countDocuments(),
-      Trip.countDocuments(),
+      prisma.trip.count(),
       prisma.review.count(),
       prisma.wishlist.count(),
       prisma.supportTicket.count(),
@@ -38,18 +57,24 @@ export async function getDashboardStats() {
     { $project: { role: '$_id', count: 1, _id: 0 } },
   ]);
 
-  const tripsByStatus = await Trip.aggregate([
-    { $group: { _id: '$status', count: { $sum: 1 } } },
-    { $project: { status: '$_id', count: 1, _id: 0 } },
-  ]);
-
-  const tripsWithParticipants = await Trip.find({}, 'participants price');
-  let totalBookings = 0;
-  let totalTripRevenue = 0;
-  tripsWithParticipants.forEach((trip) => {
-    totalBookings += trip.participants.length;
-    totalTripRevenue += trip.participants.length * trip.price;
+  const tripStatusGroups = await prisma.trip.groupBy({
+    by: ['status'],
+    _count: { status: true },
   });
+  const tripsByStatus = tripStatusGroups.map(g => ({ status: g.status, count: g._count.status }));
+
+  // Was every trip loaded with its participants array so two totals could be
+  // summed in JavaScript. It is one statement.
+  //
+  // "Revenue" here is participants times list price, which is not what anyone
+  // was actually charged - group discounts and packages both change it. That is
+  // what it has always computed, and it is left alone: correcting it is a
+  // reporting decision, not a migration one.
+  const [tripTotals] = await prisma.$queryRawUnsafe<Array<{ bookings: bigint; revenue: number }>>(
+    'SELECT count(p.id) AS bookings, COALESCE(sum(t.price), 0)::float8 AS revenue FROM trips t LEFT JOIN trip_participants p ON p.trip_id = t.id'
+  );
+  const totalBookings = Number(tripTotals?.bookings ?? 0);
+  const totalTripRevenue = Number(tripTotals?.revenue ?? 0);
 
   // This loaded every subscription and summed a virtual in JavaScript. The sum
   // is a sum of the completed payment rows, which the database can do.
@@ -102,10 +127,10 @@ export async function getDashboardStats() {
     .limit(5)
     .select('-passwordHash');
 
-  const recentTrips = await Trip.find({}, 'title destination price status createdAt')
-    .populate('organizerId', 'name')
-    .sort({ createdAt: -1 })
-    .limit(5);
+  const recentTrips = await tripsWithOrganizers(
+    await prisma.trip.findMany({ orderBy: { createdAt: 'desc' }, take: 5 }),
+    'name'
+  );
 
   const totalRevenue = totalTripRevenue + totalSubscriptionRevenue;
 
@@ -153,23 +178,25 @@ export async function getUserStats() {
 // ─── Trip stats ───────────────────────────────────────────────────────────────
 
 export async function getTripStats() {
-  const totalTrips = await Trip.countDocuments();
-  const tripsByStatus = await Trip.aggregate([
-    { $group: { _id: '$status', count: { $sum: 1 } } },
-    { $project: { status: '$_id', count: 1, _id: 0 } },
+  const [totalTrips, statusGroups, recentTripRows, [totals]] = await Promise.all([
+    prisma.trip.count(),
+    prisma.trip.groupBy({ by: ['status'], _count: { status: true } }),
+    prisma.trip.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      include: { participants: { select: { userId: true } } },
+    }),
+    // Same participants-times-list-price total as the dashboard, and the same
+    // note applies: it is not what anyone paid, and that is pre-existing.
+    prisma.$queryRawUnsafe<Array<{ bookings: bigint; revenue: number }>>(
+      'SELECT count(p.id) AS bookings, COALESCE(sum(t.price), 0)::float8 AS revenue FROM trips t LEFT JOIN trip_participants p ON p.trip_id = t.id'
+    ),
   ]);
-  const recentTrips = await Trip.find({}, 'title destination price status participants createdAt')
-    .populate('organizerId', 'name email')
-    .sort({ createdAt: -1 })
-    .limit(10);
 
-  const tripsWithParticipants = await Trip.find({}, 'participants price');
-  let totalBookings = 0;
-  let totalRevenue = 0;
-  tripsWithParticipants.forEach((trip) => {
-    totalBookings += trip.participants.length;
-    totalRevenue += trip.participants.length * trip.price;
-  });
+  const tripsByStatus = statusGroups.map(g => ({ status: g.status, count: g._count.status }));
+  const recentTrips = await tripsWithOrganizers(recentTripRows, 'name email');
+  const totalBookings = Number(totals?.bookings ?? 0);
+  const totalRevenue = Number(totals?.revenue ?? 0);
 
   return { total: totalTrips, byStatus: tripsByStatus, recentTrips, totalBookings, totalRevenue };
 }
@@ -289,7 +316,8 @@ export async function deleteUser(adminId: string, userId: string) {
   await Promise.all([
     prisma.review.deleteMany({ where: { reviewerId: String(userId) } }),
     prisma.wishlist.deleteMany({ where: { userId: String(userId) } }),
-    Trip.updateMany({ participants: userId }, { $pull: { participants: userId } }),
+    // Was $pull from an ObjectId array; the participant is a row.
+    prisma.tripParticipant.deleteMany({ where: { userId: String(userId) } }),
   ]);
   await User.findByIdAndDelete(userId);
 
@@ -302,47 +330,65 @@ export async function deleteUser(adminId: string, userId: string) {
 export async function listTrips(page: number, limit: number, search: string, status?: string) {
   const query: any = {};
   if (search) {
-    query.$or = [
-      { title: { $regex: search, $options: 'i' } },
-      { destination: { $regex: search, $options: 'i' } },
+    // $regex with the 'i' option is an unanchored case-insensitive substring
+    // match, which is what `contains` with insensitive mode does.
+    query.OR = [
+      { title: { contains: search, mode: 'insensitive' } },
+      { destination: { contains: search, mode: 'insensitive' } },
     ];
   }
   if (status && status !== 'all') query.status = status;
 
-  const total = await Trip.countDocuments(query);
-  const trips = await Trip.find(query)
-    .populate('organizerId', 'name email')
-    .sort({ createdAt: -1 })
-    .skip((page - 1) * limit)
-    .limit(limit);
+  const [total, rows] = await Promise.all([
+    prisma.trip.count({ where: query }),
+    prisma.trip.findMany({
+      where: query,
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+  ]);
 
+  const trips = await tripsWithOrganizers(rows, 'name email');
   return { trips, pagination: { current: page, pages: Math.ceil(total / limit), total } };
 }
 
 export async function listPendingVerificationTrips(page: number, limit: number) {
-  const query: any = { verificationStatus: 'pending' };
+  const query: any = { verificationStatus: 'pending' as const };
   const skip = (page - 1) * limit;
-  const total = await Trip.countDocuments(query);
-  const trips = await Trip.find(query)
-    .populate('organizerId', 'name email')
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limit)
-    .lean();
+  const [total, rows] = await Promise.all([
+    prisma.trip.count({ where: query }),
+    prisma.trip.findMany({
+      where: query,
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+    }),
+  ]);
+  const trips = await tripsWithOrganizers(rows, 'name email');
   return { trips, pagination: { current: page, pages: Math.ceil(total / limit), total } };
 }
 
 // ─── Trip verify / reject ─────────────────────────────────────────────────────
 
 export async function verifyTrip(adminId: string, tripId: string, adminNotes?: string) {
-  const trip = await Trip.findById(tripId).populate('organizerId', 'name email');
-  if (!trip) throw Object.assign(new Error('Trip not found'), { status: 404 });
-  if (trip.verificationStatus === 'approved') throw Object.assign(new Error('Trip already approved'), { status: 400 });
+  // Read the status, check it, write it - two admins approving the same trip
+  // both passed. The claim and the check are one statement.
+  const claimed = await prisma.trip.updateMany({
+    where: { id: tripId, verificationStatus: { not: 'approved' } },
+    data: {
+      verificationStatus: 'approved',
+      verifiedBy: adminId,
+      verifiedAt: new Date(),
+      ...(adminNotes ? { adminNotes } : {}),
+    },
+  });
 
-  trip.verificationStatus = 'approved';
-  trip.verifiedBy = adminId as any;
-  trip.verifiedAt = new Date();
-  if (adminNotes) trip.adminNotes = adminNotes;
+  const tripRow = await prisma.trip.findUnique({ where: { id: tripId } });
+  if (!tripRow) throw Object.assign(new Error('Trip not found'), { status: 404 });
+  if (claimed.count === 0) throw Object.assign(new Error('Trip already approved'), { status: 400 });
+
+  const [trip] = await tripsWithOrganizers([tripRow], 'name email');
   trip.status = 'active';
   await trip.save();
 
@@ -364,17 +410,27 @@ export async function verifyTrip(adminId: string, tripId: string, adminNotes?: s
 }
 
 export async function rejectTrip(adminId: string, tripId: string, rejectionReason?: string, adminNotes?: string) {
-  const trip = await Trip.findById(tripId).populate('organizerId', 'name email');
-  if (!trip) throw Object.assign(new Error('Trip not found'), { status: 404 });
-  if (trip.verificationStatus === 'rejected') throw Object.assign(new Error('Trip already rejected'), { status: 400 });
+  const existing = await prisma.trip.findUnique({ where: { id: tripId } });
+  if (!existing) throw Object.assign(new Error('Trip not found'), { status: 404 });
 
-  trip.verificationStatus = 'rejected';
-  trip.rejectionReason = rejectionReason || 'No reason provided';
-  trip.adminNotes = adminNotes || trip.adminNotes;
-  trip.verifiedBy = adminId as any;
-  trip.verifiedAt = new Date();
-  trip.status = 'cancelled';
-  await trip.save();
+  const claimed = await prisma.trip.updateMany({
+    where: { id: tripId, verificationStatus: { not: 'rejected' } },
+    data: {
+      verificationStatus: 'rejected',
+      rejectionReason: rejectionReason || 'No reason provided',
+      adminNotes: adminNotes || existing.adminNotes,
+      verifiedBy: adminId,
+      verifiedAt: new Date(),
+      status: 'cancelled',
+    },
+  });
+
+  if (claimed.count === 0) throw Object.assign(new Error('Trip already rejected'), { status: 400 });
+
+  const [trip] = await tripsWithOrganizers(
+    [await prisma.trip.findUnique({ where: { id: tripId } })],
+    'name email'
+  );
 
   try {
     const organizer: any = trip.organizerId;
@@ -397,21 +453,30 @@ export async function updateTripStatus(adminId: string, tripId: string, status: 
   if (!['active', 'cancelled', 'completed'].includes(status)) {
     throw Object.assign(new Error('Invalid status'), { status: 400 });
   }
-  const trip = await Trip.findByIdAndUpdate(tripId, { status }, { new: true }).populate('organizerId', 'name email');
-  if (!trip) throw Object.assign(new Error('Trip not found'), { status: 404 });
+  const updated = await prisma.trip.update({
+    where: { id: tripId },
+    data: { status: status as any },
+  }).catch((error: any) => {
+    if (error?.code === 'P2025') return null;
+    throw error;
+  });
+  if (!updated) throw Object.assign(new Error('Trip not found'), { status: 404 });
+  const [trip] = await tripsWithOrganizers([updated], 'name email');
   logger.info('Trip status updated', { adminId, tripId, newStatus: status });
   return { message: 'Trip status updated successfully', trip };
 }
 
 export async function deleteTrip(adminId: string, tripId: string) {
-  const trip = await Trip.findById(tripId);
+  const trip = await prisma.trip.findUnique({ where: { id: tripId } });
   if (!trip) throw Object.assign(new Error('Trip not found'), { status: 404 });
 
   await Promise.all([
     prisma.review.deleteMany({ where: { targetId: String(tripId), reviewType: 'trip' } }),
     prisma.wishlist.deleteMany({ where: { tripId: String(tripId) } }),
   ]);
-  await Trip.findByIdAndDelete(tripId);
+  // The schedule, packages, stops, photos, participants and bookings go with it
+  // by cascade; deleting the document used to leave all of them behind.
+  await prisma.trip.delete({ where: { id: tripId } });
 
   logger.info('Trip deleted', { adminId, deletedTripId: tripId, deletedTripTitle: trip.title });
   return { message: 'Trip deleted successfully' };
@@ -438,16 +503,16 @@ export async function performCleanup(adminId: string) {
   // Rows pointing at a *deleted* Mongo user or trip are a different problem and
   // are deliberately not swept here: that would be new behaviour, not a port.
   const orphanedWishlistsResult = { deletedCount: 0 };
-  const expiredTripsResult = await Trip.updateMany(
-    { endDate: { $lt: new Date() }, status: 'active' },
-    { status: 'completed' }
-  );
+  const expiredTripsResult = await prisma.trip.updateMany({
+    where: { endDate: { lt: new Date() }, status: 'active' },
+    data: { status: 'completed' },
+  });
 
   logger.info('System cleanup performed', {
     adminId,
     orphanedReviews: orphanedReviewsResult.deletedCount,
     orphanedWishlists: orphanedWishlistsResult.deletedCount,
-    expiredTrips: expiredTripsResult.modifiedCount,
+    expiredTrips: expiredTripsResult.count,
   });
 
   return {
@@ -455,7 +520,7 @@ export async function performCleanup(adminId: string) {
     results: {
       orphanedReviews: orphanedReviewsResult.deletedCount,
       orphanedWishlists: orphanedWishlistsResult.deletedCount,
-      expiredTrips: expiredTripsResult.modifiedCount,
+      expiredTrips: expiredTripsResult.count,
     },
   };
 }
@@ -647,11 +712,14 @@ export async function getVerificationRequestById(requestId: string) {
   const organizer = request.organizerId as any;
   let tripHistory: any[] = [];
   if (organizer?._id) {
-    tripHistory = await Trip.find({ organizerId: organizer._id })
-      .select('title destination price status startDate participants createdAt')
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .lean();
+    tripHistory = shapeTrips(
+      await prisma.trip.findMany({
+        where: { organizerId: organizer._id.toString() },
+        include: { participants: { select: { userId: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      }) as any
+    );
   }
 
   return { success: true, data: { ...request, tripHistory } };

@@ -102,7 +102,6 @@ class BookingAbandonmentService {
    */
   private async notifyOrganizerOfAbandonedBooking(lead: any, tripId: string): Promise<void> {
     try {
-      const { Trip } = require('../models/Trip');
       const trip = await prisma.trip.findUnique({ where: { id: tripId } });
       
       if (!trip || !trip.organizerId) return;
@@ -135,7 +134,6 @@ class BookingAbandonmentService {
       // tripId used to arrive populated; it is a foreign-key string now, so
       // the trip is fetched from Mongo where it still lives.
       const lead = await prisma.lead.findUnique({ where: { id: leadId } });
-      const { Trip } = require('../models/Trip');
       const tripDoc = lead?.tripId ? await prisma.trip.findUnique({ where: { id: lead.tripId } }) : null;
       if (!lead || lead.status === 'converted') return;
 
@@ -175,7 +173,6 @@ class BookingAbandonmentService {
       // tripId used to arrive populated; it is a foreign-key string now, so
       // the trip is fetched from Mongo where it still lives.
       const lead = await prisma.lead.findUnique({ where: { id: leadId } });
-      const { Trip } = require('../models/Trip');
       const tripDoc = lead?.tripId ? await prisma.trip.findUnique({ where: { id: lead.tripId } }) : null;
       
       if (!lead || lead.status === 'converted') return; // Skip if already converted

@@ -10,7 +10,6 @@
 
 import { prisma } from '../lib/prisma';
 import { User } from '../models/User';
-import { Trip } from '../models/Trip';
 import mongoose from 'mongoose';
 
 interface LeadEvent {

@@ -1,5 +1,5 @@
 import { User } from '../models/User';
-import { CustomTripRequestDocument } from '../models/CustomTripRequest';
+import { CustomTripRequest } from '@prisma/client';
 import { logger } from '../utils/logger';
 import mongoose from 'mongoose';
 
@@ -12,7 +12,7 @@ export class RoutingService {
      * 2. Trust Score >= 60
      * 3. (Optional Future) Matches destination expertise
      */
-    static async findMatchingOrganizers(request: CustomTripRequestDocument): Promise<mongoose.Types.ObjectId[]> {
+    static async findMatchingOrganizers(request: CustomTripRequest): Promise<mongoose.Types.ObjectId[]> {
         try {
             // Threshold from env or default to 60 as per requirements
             const minTrustScore = 60;
@@ -29,7 +29,7 @@ export class RoutingService {
 
             const matchingOrganizers = await User.find(query).select('_id organizerProfile.trustScore');
 
-            logger.info(`Routing logic found ${matchingOrganizers.length} organizers for request ${request._id}`, {
+            logger.info(`Routing logic found ${matchingOrganizers.length} organizers for request ${request.id}`, {
                 destination: request.destination,
                 minScore: minTrustScore
             });

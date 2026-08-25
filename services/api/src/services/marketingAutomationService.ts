@@ -317,8 +317,8 @@ class MarketingAutomationService {
    */
   private async getTripDetails(tripId: string): Promise<any> {
     try {
-      const { Trip } = require('../models/Trip');
-      return await Trip.findById(tripId);
+      const { prisma } = require('../lib/prisma');
+      return await prisma.trip.findUnique({ where: { id: tripId } });
     } catch (error) {
       return null;
     }
