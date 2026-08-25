@@ -2,6 +2,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 // Import Jest globals to satisfy TypeScript typings for lifecycle hooks
 import { beforeAll, afterAll, jest } from '@jest/globals';
+import { prisma } from '../lib/prisma';
 
 let mongoServer: MongoMemoryServer;
 
@@ -52,6 +53,13 @@ afterAll(async () => {
   if (mongoServer) {
     await mongoServer.stop();
   }
+
+  // And Prisma. This was missing from the moment the first model moved to
+  // Postgres: every suite that touches Prisma opened a connection pool that
+  // nothing closed, so jest finished its tests and then sat there with an open
+  // handle until something killed it. The tests were passing in thirty seconds
+  // and the command was taking ten minutes.
+  await prisma.$disconnect();
 });
 
 // Mock environment variables for testing

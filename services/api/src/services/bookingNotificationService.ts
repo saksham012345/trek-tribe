@@ -1,5 +1,4 @@
-import { GroupBooking } from '../models/GroupBooking';
-import { Trip } from '../models/Trip';
+import { prisma } from '../lib/prisma';
 import { User } from '../models/User';
 import { emailService } from './emailService';
 import { smsService } from './smsService';
@@ -56,32 +55,43 @@ export async function send24HourTripReminders(): Promise<{ processed: number; no
   const windowStart = new Date(now.getTime() + Math.max(reminderHours - 1, 0) * 60 * 60 * 1000);
   const windowEnd = new Date(now.getTime() + reminderHours * 60 * 60 * 1000 + 15 * 60 * 1000);
 
-  const trips = await Trip.find({
-    startDate: { $gte: windowStart, $lte: windowEnd }
-  }).select('_id title destination startDate').lean();
+  const trips = await prisma.trip.findMany({
+    where: { startDate: { gte: windowStart, lte: windowEnd } },
+    select: { id: true, title: true, destination: true, startDate: true }
+  });
 
   if (trips.length === 0) {
     return { processed: 0, notified: 0 };
   }
 
-  const tripById = new Map(trips.map((t: any) => [String(t._id), t]));
-  const tripIds = trips.map((t: any) => t._id);
+  const tripById = new Map(trips.map(t => [t.id, t]));
+  const tripIds = trips.map(t => t.id);
 
-  const bookings = await GroupBooking.find({
-    tripId: { $in: tripIds },
-    bookingStatus: 'confirmed',
-    paymentStatus: { $in: ['completed', 'partial'] },
-    $or: [
-      { 'reminders.tripStart24hSentAt': { $exists: false } },
-      { 'reminders.tripStart24hSentAt': null }
-    ]
-  }).populate('mainBookerId', 'name email phone preferences');
+  // reminders was a nested object, and "not sent yet" was two conditions
+  // because a nested object might be absent entirely. It is one nullable
+  // column, so it is one condition.
+  const bookings = await prisma.groupBooking.findMany({
+    where: {
+      tripId: { in: tripIds },
+      bookingStatus: 'confirmed',
+      paymentStatus: { in: ['completed', 'partial'] },
+      tripStart24hSentAt: null
+    }
+  });
+
+  // populate('mainBookerId') is gone - User is still a Mongo document - so the
+  // bookers are fetched once for the batch rather than once per booking.
+  const bookerIds = Array.from(new Set(bookings.map(b => b.mainBookerId)));
+  const bookers = bookerIds.length
+    ? await User.find({ _id: { $in: bookerIds } }, 'name email phone preferences').lean()
+    : [];
+  const bookerById = new Map(bookers.map((u: any) => [u._id.toString(), u]));
 
   let notified = 0;
   for (const booking of bookings as any[]) {
     try {
-      const user = booking.mainBookerId;
-      const trip = tripById.get(String(booking.tripId));
+      const user = bookerById.get(booking.mainBookerId);
+      const trip = tripById.get(booking.tripId);
       if (!user || !trip) continue;
 
       const wantsEmail = user?.preferences?.notifications?.email !== false;
@@ -107,11 +117,16 @@ export async function send24HourTripReminders(): Promise<{ processed: number; no
         );
       }
 
-      booking.set('reminders.tripStart24hSentAt', new Date());
-      await booking.save();
-      notified += 1;
+      // Only mark it sent if no other run got there first. The set-and-save
+      // this replaces would happily send a second reminder to anyone whose
+      // booking two workers picked up together.
+      const marked = await prisma.groupBooking.updateMany({
+        where: { id: booking.id, tripStart24hSentAt: null },
+        data: { tripStart24hSentAt: new Date() }
+      });
+      if (marked.count > 0) notified += 1;
     } catch (error: any) {
-      logger.error('Failed to send trip reminder', { bookingId: booking._id, error: error.message });
+      logger.error('Failed to send trip reminder', { bookingId: booking.id, error: error.message });
     }
   }
 

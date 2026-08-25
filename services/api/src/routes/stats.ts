@@ -1,8 +1,7 @@
 import express from 'express';
 import { User } from '../models/User';
-import { Trip } from '../models/Trip';
-import { GroupBooking } from '../models/GroupBooking';
-import { prisma } from '../lib/prisma';
+import { prisma } from '../lib/prisma';
+import { toNumber } from '../lib/money';
 import { logger } from '../utils/logger';
 
 const router = express.Router();
@@ -19,8 +18,12 @@ router.get('/', async (req, res) => {
     ] = await Promise.all([
       User.countDocuments(),
       User.countDocuments({ role: 'organizer' }),
-      Trip.countDocuments({ status: 'active' }),
-      GroupBooking.countDocuments({ status: 'confirmed' }),
+      prisma.trip.count({ where: { status: 'active' } }),
+      // Was `{ status: 'confirmed' }`. GroupBooking has no `status` field - it
+      // has bookingStatus and paymentStatus - so this matched nothing and the
+      // public stats page has always reported zero bookings. Postgres refuses
+      // the unknown column outright, which is how it came to light.
+      prisma.groupBooking.count({ where: { bookingStatus: 'confirmed' } }),
       prisma.review.count()
     ]);
 
@@ -33,30 +36,43 @@ router.get('/', async (req, res) => {
       recentBookings
     ] = await Promise.all([
       User.countDocuments({ createdAt: { $gte: thirtyDaysAgo } }),
-      Trip.countDocuments({ createdAt: { $gte: thirtyDaysAgo } }),
-      GroupBooking.countDocuments({ createdAt: { $gte: thirtyDaysAgo } })
+      prisma.trip.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
+      prisma.groupBooking.count({ where: { createdAt: { gte: thirtyDaysAgo } } })
     ]);
 
     // Get popular destinations from active trips
-    const popularDestinations = await Trip.aggregate([
-      { $match: { status: 'active' } },
-      { $group: { _id: '$destination', count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-      { $limit: 5 }
-    ]);
+    const destinationGroups = await prisma.trip.groupBy({
+      by: ['destination'],
+      where: { status: 'active' },
+      _count: { destination: true },
+      orderBy: { _count: { destination: 'desc' } },
+      take: 5
+    });
+    const popularDestinations = destinationGroups.map(g => ({
+      _id: g.destination,
+      count: g._count.destination
+    }));
 
     // Get trip categories distribution from active trips
-    const categoryStats = await Trip.aggregate([
-      { $match: { status: 'active' } },
-      { $unwind: '$categories' },
-      { $group: { _id: '$categories', count: { $sum: 1 } } },
-      { $sort: { count: -1 } }
-    ]);
+    // categories is a text array. $unwind flattened it before grouping;
+    // unnest() is the same operation, and Prisma's groupBy cannot express it.
+    const categoryRows = await prisma.$queryRaw<Array<{ category: string; count: bigint }>>`
+      SELECT unnest(categories) AS category, count(*) AS count
+        FROM trips
+       WHERE status = 'active'
+       GROUP BY 1
+       ORDER BY count DESC
+    `;
+    const categoryStats = categoryRows.map(r => ({ _id: r.category, count: Number(r.count) }));
 
     // Get unique countries count from active trips
-    const countries = await Trip.distinct('destination', { status: 'active' });
+    const distinctDestinations = await prisma.trip.findMany({
+      where: { status: 'active' },
+      distinct: ['destination'],
+      select: { destination: true }
+    });
     const uniqueCountries = new Set(
-      countries.map(dest => dest?.split(',')[0]?.trim()).filter(Boolean)
+      distinctDestinations.map(d => d.destination?.split(',')[0]?.trim()).filter(Boolean)
     ).size;
 
     res.json({
@@ -118,35 +134,30 @@ router.get('/dashboard', async (req, res) => {
       prisma.supportTicket.count({
         where: { status: { in: ['open', 'in_progress'] } }
       }),
-      // Count pending bookings
-      GroupBooking.countDocuments({ status: 'pending' }),
+      // Count pending bookings. Same wrong field as above: `status` does not
+      // exist on this model, so the admin dashboard has shown zero pending
+      // bookings and zero weekly revenue for as long as this endpoint existed.
+      prisma.groupBooking.count({ where: { bookingStatus: 'pending' } }),
       // Count today's bookings
-      GroupBooking.countDocuments({
-        createdAt: {
-          $gte: new Date(new Date().setHours(0, 0, 0, 0)),
-          $lt: new Date(new Date().setHours(23, 59, 59, 999))
+      prisma.groupBooking.count({
+        where: {
+          createdAt: {
+            gte: new Date(new Date().setHours(0, 0, 0, 0)),
+            lt: new Date(new Date().setHours(23, 59, 59, 999))
+          }
         }
       }),
       // Calculate weekly revenue
-      GroupBooking.aggregate([
-        {
-          $match: {
-            createdAt: {
-              $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-            },
-            status: 'confirmed'
-          }
+      prisma.groupBooking.aggregate({
+        where: {
+          createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+          bookingStatus: 'confirmed'
         },
-        {
-          $group: {
-            _id: null,
-            totalRevenue: { $sum: '$totalAmount' }
-          }
-        }
-      ])
+        _sum: { totalAmount: true }
+      })
     ]);
 
-    const revenue = weeklyRevenue.length > 0 ? weeklyRevenue[0].totalRevenue : 0;
+    const revenue = toNumber(weeklyRevenue._sum.totalAmount);
 
     res.json({
       success: true,

@@ -4,7 +4,6 @@
  */
 
 import { User } from '../models/User';
-import { Trip } from '../models/Trip';
 import { prisma } from '../lib/prisma';
 import { logger } from '../utils/logger';
 import chatService from './chatService'; // Correct default import
@@ -76,12 +75,13 @@ export class TrustScoreService {
       }
 
       // 4. Completed Trips (0-15 points)
-      const trips = await Trip.find({
-        organizerId,
-        status: 'completed'
+      // Only the ids and the count are used, so this selects the ids rather
+      // than loading every completed trip in full.
+      const completedTrips = await prisma.trip.findMany({
+        where: { organizerId, status: 'completed' },
+        select: { id: true }
       });
-
-      const completedTripsCount = trips.length;
+      const completedTripsCount = completedTrips.length;
       if (completedTripsCount >= 50) {
         breakdown.completedTrips = 15;
       } else if (completedTripsCount >= 25) {
@@ -95,8 +95,16 @@ export class TrustScoreService {
       }
 
       // 5. User Reviews & Ratings (0-15 points)
+      // Was `where: { tripId: ... }`. reviews.tripId is a column no code path
+      // writes - a trip review is (reviewType 'trip', targetId = the trip) -
+      // so this matched nothing and every organizer's review score has
+      // been zero, understating every trust score in the system. The same
+      // mistake was waiting in the trip-rating trigger and was caught there too.
       const reviews = await prisma.review.findMany({
-        where: { tripId: { in: trips.map(t => String(t._id)) } },
+        where: {
+          reviewType: 'trip',
+          targetId: { in: completedTrips.map(t => t.id) }
+        },
         select: { rating: true }
       });
 
@@ -136,10 +144,9 @@ export class TrustScoreService {
 
       // 7. Refund/Cancellation Rate (0-5 points)
       // Lower refund rate = higher score
-      const totalTrips = await Trip.countDocuments({ organizerId });
-      const cancelledTrips = await Trip.countDocuments({
-        organizerId,
-        status: 'cancelled'
+      const totalTrips = await prisma.trip.count({ where: { organizerId } });
+      const cancelledTrips = await prisma.trip.count({
+        where: { organizerId, status: 'cancelled' }
       });
 
       if (totalTrips > 0) {

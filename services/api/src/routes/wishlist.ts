@@ -2,38 +2,44 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { Types } from 'mongoose';
 import { prisma } from '../lib/prisma';
-import { Trip } from '../models/Trip';
+import { shapeTrip, shapeTrips } from '../services/tripShapeService';
 import { User } from '../models/User';
 import { authenticateJwt } from '../middleware/auth';
 import { withMongoId, asPopulated } from '../lib/apiShape';
 
 /**
- * Wishlist rows live in Postgres (D10/D11, wave 2). Trip and User are still in
- * Mongo, so user_id / trip_id are ObjectId strings with no FK behind them.
+ * Wishlist rows live in Postgres (D10/D11, wave 2). Trip joined them in wave 8,
+ * so trip_id could become a real foreign key once nothing reads a trip from
+ * Mongo any more. User is still a Mongo document, so user_id stays an ObjectId.
  *
  * Three things changed shape and are worth knowing before editing this file:
  *
- *  1. Item ids are UUIDs now, not ObjectIds. Every `Types.ObjectId.isValid(id)`
- *     guard on a *wishlist item id* would reject every real id, so those became
- *     UUID checks. The guards on tripId stay ObjectId checks - trips are still
- *     Mongo documents.
+ *  1. Item ids are UUIDs now, not ObjectIds - and so are trip ids, since wave
+ *     8. Every `Types.ObjectId.isValid(id)` guard would reject every real id,
+ *     so they are all gone, including the one on tripId that wave 2 kept on
+ *     purpose because trips were still Mongo documents at the time.
  *
  *  2. The old list was one aggregation: $lookup into trips, $match on
- *     trip.status = 'active', then sort and paginate. That filter and that
- *     pagination happened *after* the join, which a single query can no longer
- *     do across two databases. The list now reads the rows from Postgres, loads
- *     their trips from Mongo, drops the inactive ones, and only then paginates -
- *     so totalItems still counts what the user can actually see. A wishlist is
- *     tens of rows, so this is cheap; it would not be for a large collection.
+ *     trip.status = 'active', then sort and paginate. Wave 2 could not keep it
+ *     as a single query because the join crossed two databases, so the rows are
+ *     read first and paginated only after the inactive trips are dropped, which
+ *     keeps totalItems counting what the user can actually see.
  *
- *  3. "Trip exists and is active" was a Mongoose pre-save hook. Postgres cannot
- *     check a Mongo document, so it lives here now, before the insert.
+ *     That constraint is gone now that Trip is in Postgres. This can go back to
+ *     being one query with a join, and should when wishlist.trip_id becomes a
+ *     foreign key; a wishlist is tens of rows, so the current shape is cheap
+ *     enough that it has not been worth doing yet.
+ *
+ *  3. "Trip exists and is active" was a Mongoose pre-save hook, then a
+ *     cross-database check. It could be a foreign key and a status check now.
  */
 
 const router = Router();
 
 const addToWishlistSchema = z.object({
-  tripId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid trip ID'),
+  // Was a 24-hex ObjectId check. Trip ids are generated uuid strings now, so
+  // that regex would have rejected every real trip.
+  tripId: z.string().min(1, 'Invalid trip ID'),
   notes: z.string().max(500).optional(),
   priority: z.enum(['low', 'medium', 'high']).optional(),
   tags: z.array(z.string().max(50)).optional()
@@ -56,9 +62,6 @@ const isItemId = (id: string) => UUID.test(id);
 const normaliseTags = (tags: string[]) =>
   Array.from(new Set(tags.map(t => t.toLowerCase().trim()).filter(t => t.length > 0)));
 
-const TRIP_FIELDS =
-  'title description destination price startDate endDate capacity images coverImage categories status organizerId';
-
 /** Load one wishlist row and check it belongs to the caller. */
 async function ownedItem(id: string, userId: string, res: Response) {
   if (!isItemId(id)) {
@@ -77,13 +80,16 @@ async function ownedItem(id: string, userId: string, res: Response) {
   return item;
 }
 
-/** Attach the Mongo trip to each row, dropping rows whose trip is gone or inactive. */
+/** Attach the trip to each row, dropping rows whose trip is gone or inactive. */
 async function withActiveTrips(rows: any[]) {
   if (rows.length === 0) return [];
-  const trips = await Trip.find({ _id: { $in: rows.map(r => r.tripId) }, status: 'active' })
-    .select(TRIP_FIELDS)
-    .lean();
-  const byId = new Map(trips.map((t: any) => [t._id.toString(), t]));
+  // Trip is a row in the same database now, so this could become a relation on
+  // Wishlist once wishlist.tripId is a foreign key - which waits for the last
+  // Mongo trip reference to go.
+  const trips = await prisma.trip.findMany({
+    where: { id: { in: rows.map(r => r.tripId) }, status: 'active' }
+  });
+  const byId = new Map(trips.map(t => [t.id, shapeTrip(t)]));
   return rows
     .map(row => ({ row, trip: byId.get(row.tripId) }))
     .filter(x => x.trip !== undefined);
@@ -204,8 +210,11 @@ router.post('/',
 
     const { tripId, notes, priority = 'medium', tags = [] } = parsed.data;
 
-    // Was a Mongoose pre-save hook. Postgres cannot check a Mongo document.
-    const trip: any = await Trip.findById(tripId).select(TRIP_FIELDS).lean();
+    // Was a Mongoose pre-save hook, then a cross-database check while Trip was
+    // still in Mongo. Both models are in Postgres now, so this could be a
+    // foreign key once wishlist.tripId becomes one.
+    const tripRow = await prisma.trip.findUnique({ where: { id: tripId } });
+    const trip: any = tripRow ? shapeTrip(tripRow) : null;
     if (!trip) {
       return res.status(404).json({ error: 'Trip not found' });
     }
@@ -252,7 +261,8 @@ router.put('/:id',
     if (tags) data.tags = normaliseTags(tags);
 
     const wishlistItem = await prisma.wishlist.update({ where: { id: existing.id }, data });
-    const trip = await Trip.findById(wishlistItem.tripId).select(TRIP_FIELDS).lean();
+    const tripRow = await prisma.trip.findUnique({ where: { id: wishlistItem.tripId } });
+    const trip = tripRow ? shapeTrip(tripRow) : null;
 
     res.json({
       message: 'Wishlist item updated successfully',
