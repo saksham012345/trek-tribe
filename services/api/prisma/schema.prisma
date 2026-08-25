@@ -2158,3 +2158,838 @@ model CRMBillingEntry {
   @@index([subscriptionId, date])
   @@map("crm_billing_entries")
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// WAVE 8 - CORE
+//
+// Trip, GroupBooking and the verification models. This is the wave where the
+// arrays that other models point at become tables, and where three bugs of the
+// same shape come out:
+//
+//     (trip.participants as any[]).includes(userId)
+//
+// participants holds ObjectIds. `includes` compares with SameValueZero, so an
+// ObjectId is never equal to a string, and two ObjectId instances holding the
+// same value are not equal to each other either. That expression is false every
+// time it is evaluated, in all three places it appears:
+//
+//   - cancelBookingByTripId: always throws "You are not booked for this trip",
+//     so nobody can cancel through this route.
+//   - getBookingDetailsByTripId: always 404s, so nobody can see their booking.
+//   - verifyPayment and organizer.service: the guard against pushing a
+//     participant who is already there never fires, so every payment
+//     verification appends the same user again. The participant list grows, and
+//     since capacity is checked against its length, the trip sells out early.
+//
+// One line further down the same file gets it right - `.filter(id =>
+// id.toString() !== userId)` - which is what makes the other three readable as
+// oversights rather than a misunderstanding.
+//
+// A row and a unique constraint make all three impossible.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+enum TripDifficulty {
+  easy
+  moderate
+  hard
+
+  @@map("trip_difficulty")
+}
+
+enum TripRoutingStatus {
+  pending_onboarding
+  active
+  main_account_fallback
+  main_account
+  error
+
+  @@map("trip_routing_status")
+}
+
+enum TripStatus {
+  pending
+  active
+  cancelled
+  completed
+
+  @@map("trip_status")
+}
+
+enum TripApprovalStatus {
+  pending
+  approved
+  rejected
+
+  @@map("trip_approval_status")
+}
+
+enum ExperienceLevel {
+  beginner
+  intermediate
+  advanced
+
+  @@map("experience_level")
+}
+
+enum TripPaymentType {
+  full
+  advance
+
+  @@map("trip_payment_type")
+}
+
+enum TripStopKind {
+  pickup
+  dropoff
+
+  @@map("trip_stop_kind")
+}
+
+// averageRating and reviewCount are maintained by a database trigger on the
+// reviews table, not by the application.
+//
+// They were denormalized counters that whichever code path wrote a review was
+// responsible for keeping in step - and Review moved to Postgres in wave 4,
+// while Trip stayed in Mongo, so for the duration of this migration nothing
+// could have kept them in step at all. Now both tables are in the same
+// database, so the counters can be what they always claimed to be: a function
+// of the reviews.
+//
+// A trigger rather than application code because the sort in routes/ai.ts is
+// `ORDER BY average_rating DESC` over every trip - it needs a column, not a
+// computed value - and because a counter maintained in one place cannot drift.
+model Trip {
+  id          String         @id @default(uuid())
+  organizerId String         @map("organizer_id")
+  title       String
+  description String
+  difficulty  TripDifficulty @default(moderate)
+  categories  String[]
+  destination String
+
+  // location was a GeoJSON Point with a 2dsphere index. Nothing ever queried it
+  // - no $near, no $geoWithin, anywhere in the codebase - so it was an index
+  // maintained for queries that do not exist. Two columns, and PostGIS is not
+  // needed until something actually asks a geographic question.
+  longitude Float?
+  latitude  Float?
+
+  images                 String[]
+  coverImage             String?   @map("cover_image")
+  itinerary              String?
+  itineraryPdf           String?   @map("itinerary_pdf")
+  itineraryPdfFilename   String?   @map("itinerary_pdf_filename")
+  itineraryPdfUploadedAt DateTime? @map("itinerary_pdf_uploaded_at")
+
+  capacity   Int
+  price      Decimal @db.Decimal(14, 2)
+  minimumAge Int?    @map("minimum_age")
+
+  startDate DateTime @map("start_date")
+  endDate   DateTime @map("end_date")
+
+  status TripStatus @default(pending)
+
+  averageRating Decimal @default(0) @map("average_rating") @db.Decimal(3, 2)
+  reviewCount   Int     @default(0) @map("review_count")
+
+  thumbnail String?
+
+  verificationStatus TripApprovalStatus @default(pending) @map("verification_status")
+  verifiedBy         String?            @map("verified_by")
+  verifiedAt         DateTime?          @map("verified_at")
+  rejectionReason    String?            @map("rejection_reason")
+  adminNotes         String?            @map("admin_notes") @db.VarChar(1000)
+
+  // ── paymentConfig, flattened ────────────────────────────────────────────────
+  // collectionMode, verificationMode, manualProofRequired and trustLevel were
+  // single-value enums with a comment explaining that TrekTribe carries the
+  // liability and the values are therefore forced. A column that can only hold
+  // one value is a comment with storage costs; the comment is kept and the
+  // columns are not.
+  paymentType         TripPaymentType @default(full) @map("payment_type")
+  advanceAmount       Decimal?        @map("advance_amount") @db.Decimal(14, 2)
+  paymentDueDate      DateTime?       @map("payment_due_date")
+  refundPolicy        String?         @map("refund_policy")
+  paymentMethods      String[]        @default(["upi"]) @map("payment_methods")
+  paymentInstructions String?         @map("payment_instructions")
+
+  gatewayQrAmount      Decimal?  @map("gateway_qr_amount") @db.Decimal(14, 2)
+  gatewayQrCurrency    String?   @map("gateway_qr_currency") @db.VarChar(3)
+  gatewayQrReferenceId String?   @map("gateway_qr_reference_id")
+  gatewayQrUrl         String?   @map("gateway_qr_url")
+  gatewayQrGeneratedAt DateTime? @map("gateway_qr_generated_at")
+
+  // ── safetyInfo, flattened ───────────────────────────────────────────────────
+  hasInsurance            Boolean  @default(false) @map("has_insurance")
+  insuranceDetails        String?  @map("insurance_details")
+  emergencyContactName    String?  @map("emergency_contact_name")
+  emergencyContactPhone   String?  @map("emergency_contact_phone")
+  medicalFacilitiesNearby String?  @map("medical_facilities_nearby")
+  safetyEquipment         String[] @map("safety_equipment")
+  covidProtocol           String?  @map("covid_protocol")
+
+  // required: true AND a default, in the Mongoose schema. Carrying over the
+  // NOT NULL without the default made every trip creation that did not send
+  // one fail - which is every trip creation, because no caller sends it.
+  safetyDisclaimer String @default("This trip involves physical activity and potential risks. Participants must be in good health and follow safety guidelines. The organizer is not liable for accidents, injuries, or loss of belongings. Travel insurance is recommended.") @map("safety_disclaimer")
+
+  contentHash    String? @map("content_hash")
+  isDuplicate    Boolean @default(false) @map("is_duplicate")
+  originalTripId String? @map("original_trip_id")
+
+  isPrivate      Boolean  @default(false) @map("is_private")
+  allowedUserIds String[] @map("allowed_user_ids")
+
+  slug String? @unique
+
+  // These five were written by the application and stored by nothing.
+  //
+  // setupPaymentRouting() assigns trip.paymentRoutingStatus, trip.paymentQR,
+  // trip.paymentRouteId and trip.useMainRazorpayAccount and then saves; none of
+  // the four are in the Mongoose schema, and Mongoose in strict mode - the
+  // default - drops paths it does not know about. The whole routing state
+  // machine has been writing into nothing. The same is true of
+  // customRequestId, which routes/customTrips.ts sets when it converts a
+  // proposal into a private trip, so the link back to the request that
+  // produced it was never stored either.
+  //
+  // Nothing reads any of them, which is why nobody noticed. They are columns
+  // now rather than deleted code: the intent is unambiguous in every case, and
+  // a routing status that is recorded is worth more than five lines removed.
+  paymentRoutingStatus   TripRoutingStatus? @map("payment_routing_status")
+  paymentQrUrl           String?            @map("payment_qr_url")
+  paymentRouteId         String?            @map("payment_route_id")
+  useMainRazorpayAccount Boolean            @default(false) @map("use_main_razorpay_account")
+  customRequestId        String?            @map("custom_request_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  schedule     TripScheduleDay[]
+  packages     TripPackage[]
+  stops        TripStop[]
+  participants TripParticipant[]
+  livePhotos   TripLivePhoto[]
+  bookings     GroupBooking[]
+
+  @@index([status, startDate])
+  @@index([status, destination, startDate])
+  @@index([organizerId, createdAt])
+  @@index([organizerId, status])
+  @@index([destination])
+  @@index([price])
+  @@index([difficulty])
+  @@index([contentHash])
+  @@index([isDuplicate])
+  @@index([isPrivate])
+  @@index([verificationStatus])
+  @@index([averageRating, createdAt])
+  @@map("trips")
+}
+
+// Was `participants: ObjectId[]` alongside a `participantDetails` array of the
+// same people with more fields.
+//
+// participantDetails had no consumers at all - nothing wrote it and nothing
+// read it, in the whole codebase - so it is one table, not two, and the fields
+// that only existed on the unused half are carried here where they can actually
+// be filled in.
+//
+// @@unique([tripId, userId]) is the constraint that fixes the `includes` bug:
+// joining a trip twice is refused by the database rather than by a comparison
+// that never worked.
+model TripParticipant {
+  id     String @id @default(uuid())
+  tripId String @map("trip_id")
+  userId String @map("user_id")
+
+  emergencyContactName  String?          @map("emergency_contact_name")
+  emergencyContactPhone String?          @map("emergency_contact_phone")
+  medicalConditions     String?          @map("medical_conditions")
+  dietaryRestrictions   String?          @map("dietary_restrictions")
+  experienceLevel       ExperienceLevel? @map("experience_level")
+  specialRequests       String?          @map("special_requests")
+
+  joinedAt DateTime @default(now()) @map("joined_at")
+
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, userId])
+  @@index([userId, joinedAt])
+  @@map("trip_participants")
+}
+
+model TripScheduleDay {
+  id         String   @id @default(uuid())
+  tripId     String   @map("trip_id")
+  day        Int
+  title      String
+  activities String[]
+
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, day])
+  @@map("trip_schedule_days")
+}
+
+// packageOptionSchema carried its own `id` string, generated by the application
+// and unique only by convention. It is the key bookings reference by
+// selectedPackageId, so it is unique per trip now.
+model TripPackage {
+  id          String   @id @default(uuid())
+  tripId      String   @map("trip_id")
+  packageKey  String   @map("package_key")
+  name        String
+  description String?
+  price       Decimal  @db.Decimal(14, 2)
+  capacity    Int
+  inclusions  String[]
+  exclusions  String[]
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")
+
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, packageKey])
+  @@index([tripId, sortOrder])
+  @@map("trip_packages")
+}
+
+// pickupPoints and dropOffPoints were two arrays of identical shape. One table
+// with a kind, because the difference between them was which array they were in
+// and nothing else.
+model TripStop {
+  id            String       @id @default(uuid())
+  tripId        String       @map("trip_id")
+  kind          TripStopKind
+  name          String
+  address       String
+  longitude     Float?
+  latitude      Float?
+  time          String?
+  contactPerson String?      @map("contact_person")
+  contactPhone  String?      @map("contact_phone")
+  landmarks     String?
+  instructions  String?
+  sortOrder     Int          @default(0) @map("sort_order")
+
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, kind, sortOrder])
+  @@map("trip_stops")
+}
+
+// isThumbnail was a flag on each photo with "first uploaded photo is thumbnail"
+// as the rule, maintained by whoever uploaded. A partial unique index makes at
+// most one photo per trip the thumbnail; the rule is in the database.
+model TripLivePhoto {
+  id          String   @id @default(uuid())
+  tripId      String   @map("trip_id")
+  url         String
+  filename    String
+  caption     String?  @db.VarChar(200)
+  location    String?
+  isThumbnail Boolean  @default(false) @map("is_thumbnail")
+  uploadedAt  DateTime @default(now()) @map("uploaded_at")
+
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, uploadedAt])
+  @@map("trip_live_photos")
+}
+
+// ─── Group bookings ───────────────────────────────────────────────────────────
+
+enum BookingPaymentStatus {
+  pending
+  partial
+  completed
+  failed
+  refunded
+
+  @@map("booking_payment_status")
+}
+
+enum BookingVerificationStatus {
+  pending
+  verified
+  rejected
+
+  @@map("booking_verification_status")
+}
+
+enum BookingStatus {
+  confirmed
+  pending
+  cancelled
+  completed
+
+  @@map("booking_status")
+}
+
+enum BookingRefundStatus {
+  pending
+  processed
+  failed
+
+  @@map("booking_refund_status")
+}
+
+enum ParticipantGender {
+  male
+  female
+  other
+  prefer_not_to_say @map("prefer-not-to-say")
+
+  @@map("participant_gender")
+}
+
+// The money on a booking is stored, not derived - a booking is a record of what
+// was agreed, and recomputing it later from a price that has since changed would
+// rewrite history.
+//
+// But it has to add up, and a pre-save hook recomputing four numbers on every
+// save is not the same as it adding up. The CHECK constraints below say the
+// arithmetic the hook was performing, so a booking whose parts disagree cannot
+// be stored at all:
+//
+//     total_amount   = price_per_person * number_of_guests
+//     discount_amount = total_amount * group_discount / 100
+//     final_amount   = total_amount - discount_amount
+//
+// numberOfGuests and totalParticipants were two columns for one quantity - the
+// model comment says "same as totalParticipants but clearer naming" - and the
+// hook set one from the other while the money was computed from whichever
+// happened to be set. There is one now.
+model GroupBooking {
+  id           String @id @default(uuid())
+  tripId       String @map("trip_id")
+  mainBookerId String @map("main_booker_id")
+
+  numberOfGuests    Int     @map("number_of_guests")
+  selectedPackageId String? @map("selected_package_id")
+  packageName       String? @map("package_name")
+
+  totalAmount    Decimal  @map("total_amount") @db.Decimal(14, 2)
+  pricePerPerson Decimal  @map("price_per_person") @db.Decimal(14, 2)
+  groupDiscount  Decimal  @default(0) @map("group_discount") @db.Decimal(5, 2)
+  discountAmount Decimal  @default(0) @map("discount_amount") @db.Decimal(14, 2)
+  finalAmount    Decimal  @map("final_amount") @db.Decimal(14, 2)
+  paidAmount     Decimal? @map("paid_amount") @db.Decimal(14, 2)
+
+  paymentType     TripPaymentType @default(full) @map("payment_type")
+  advanceAmount   Decimal?        @map("advance_amount") @db.Decimal(14, 2)
+  remainingAmount Decimal?        @map("remaining_amount") @db.Decimal(14, 2)
+
+  paymentStatus        BookingPaymentStatus @default(pending) @map("payment_status")
+  paymentMethod        String               @map("payment_method")
+  paymentTransactionId String?              @map("payment_transaction_id")
+  razorpayOrderId      String?              @map("razorpay_order_id")
+  razorpayPaymentId    String?              @unique @map("razorpay_payment_id")
+
+  // paymentDetails, flattened
+  transactionDate      DateTime? @map("transaction_date")
+  paymentGateway       String?   @map("payment_gateway")
+  gatewayTransactionId String?   @map("gateway_transaction_id")
+  paymentReference     String?   @map("payment_reference")
+
+  // paymentScreenshot, flattened
+  screenshotFilename     String?   @map("screenshot_filename")
+  screenshotOriginalName String?   @map("screenshot_original_name")
+  screenshotUrl          String?   @map("screenshot_url")
+  screenshotUploadedAt   DateTime? @map("screenshot_uploaded_at")
+
+  paymentVerificationStatus BookingVerificationStatus @default(pending) @map("payment_verification_status")
+  paymentVerificationNotes  String?                   @map("payment_verification_notes")
+  verifiedBy                String?                   @map("verified_by")
+  verifiedAt                DateTime?                 @map("verified_at")
+  verificationNotes         String?                   @map("verification_notes")
+  rejectionReason           String?                   @map("rejection_reason")
+
+  bookingStatus      BookingStatus        @default(pending) @map("booking_status")
+  specialRequests    String?              @map("special_requests")
+  notes              String?
+  cancellationReason String?              @map("cancellation_reason")
+  cancellationDate   DateTime?            @map("cancellation_date")
+  refundAmount       Decimal?             @map("refund_amount") @db.Decimal(14, 2)
+  refundStatus       BookingRefundStatus? @map("refund_status")
+
+  // reminders was a nested object with one field in it.
+  tripStart24hSentAt DateTime? @map("trip_start_24h_sent_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  trip         Trip                 @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  participants BookingParticipant[]
+
+  @@unique([mainBookerId, tripId])
+  @@index([tripId, createdAt])
+  @@index([mainBookerId, createdAt])
+  @@index([paymentStatus, bookingStatus])
+  @@index([paymentVerificationStatus])
+  @@map("group_bookings")
+}
+
+// "Exactly one main booker" was maintained by a pre-save hook that promoted
+// participants[0] when none was marked, and by transferMainBooker flipping two
+// flags one after the other with nothing holding them together. A partial
+// unique index on (booking_id) WHERE is_main_booker says it instead, so a
+// transfer that half-finished cannot leave two.
+model BookingParticipant {
+  id        String @id @default(uuid())
+  bookingId String @map("booking_id")
+
+  name  String
+  email String
+  phone String
+
+  dateOfBirth DateTime?          @map("date_of_birth")
+  gender      ParticipantGender?
+
+  emergencyContactName  String          @map("emergency_contact_name")
+  emergencyContactPhone String          @map("emergency_contact_phone")
+  medicalConditions     String?         @map("medical_conditions")
+  dietaryRestrictions   String?         @map("dietary_restrictions")
+  experienceLevel       ExperienceLevel @map("experience_level")
+  specialRequests       String?         @map("special_requests")
+  isMainBooker          Boolean         @default(false) @map("is_main_booker")
+
+  booking GroupBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@unique([bookingId, email])
+  @@index([bookingId])
+  @@map("booking_participants")
+}
+
+// ─── Custom trip requests ─────────────────────────────────────────────────────
+
+enum CustomRequestStatus {
+  open
+  assigned_to_organizers
+  proposal_selected
+  needs_review
+  converted
+  cancelled
+
+  @@map("custom_request_status")
+}
+
+enum CustomTripType {
+  relaxed
+  adventure
+  cultural
+  religious
+  wildlife
+  mixed
+
+  @@map("custom_trip_type")
+}
+
+enum CustomAgeGroup {
+  age_18_25 @map("18-25")
+  age_25_40 @map("25-40")
+  age_40_60 @map("40-60")
+  family
+  seniors
+  mixed
+
+  @@map("custom_age_group")
+}
+
+enum CustomPrivacyLevel {
+  private
+  invite_only @map("invite-only")
+
+  @@map("custom_privacy_level")
+}
+
+enum ProposalStatus {
+  pending
+  accepted
+  rejected
+
+  @@map("proposal_status")
+}
+
+model CustomTripRequest {
+  id         String @id @default(uuid())
+  travelerId String @map("traveler_id")
+
+  destination       String
+  startDate         DateTime? @map("start_date")
+  endDate           DateTime? @map("end_date")
+  flexibleDates     Boolean   @default(false) @map("flexible_dates")
+  budget            Decimal?  @db.Decimal(14, 2)
+  numberOfTravelers Int       @default(1) @map("number_of_travelers")
+
+  tripType        CustomTripType     @default(mixed) @map("trip_type")
+  experienceLevel ExperienceLevel    @default(beginner) @map("experience_level")
+  ageGroup        CustomAgeGroup     @default(mixed) @map("age_group")
+  specialNeeds    String?            @map("special_needs")
+  privacyLevel    CustomPrivacyLevel @default(private) @map("privacy_level")
+  preferences     String?
+
+  status     CustomRequestStatus @default(open)
+  adminNotes String?             @map("admin_notes")
+
+  assignedOrganizers String[] @map("assigned_organizers")
+  convertedTripId    String?  @map("converted_trip_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  proposals CustomTripProposal[]
+
+  @@index([travelerId, createdAt])
+  @@index([status])
+  @@map("custom_trip_requests")
+}
+
+// One proposal per organizer per request. The Mongoose version pushed onto an
+// array, so an organizer who submitted twice - or whose request was retried -
+// appeared twice in a sealed-bid list.
+model CustomTripProposal {
+  id          String @id @default(uuid())
+  requestId   String @map("request_id")
+  organizerId String @map("organizer_id")
+
+  price    Decimal @db.Decimal(14, 2)
+  currency String  @default("INR") @db.VarChar(3)
+
+  itinerarySummary   String    @map("itinerary_summary")
+  inclusions         String[]
+  exclusions         String[]
+  valueStatement     String    @map("value_statement") @db.VarChar(500)
+  priceBreakdown     String?   @map("price_breakdown")
+  cancellationPolicy String    @map("cancellation_policy")
+  validUntil         DateTime? @map("valid_until")
+
+  // qualitySnapshot, flattened. Its first four fields were `required: true` in
+  // the sub-schema but the containing object was optional, so the requirement
+  // only bit when a snapshot was provided at all.
+  stayType          String? @map("stay_type")
+  comfortLevel      String? @map("comfort_level")
+  transportType     String? @map("transport_type")
+  maxGroupSize      String? @map("max_group_size")
+  safetyPlanPresent Boolean @default(false) @map("safety_plan_present")
+
+  status ProposalStatus @default(pending)
+  sealed Boolean        @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  request CustomTripRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@unique([requestId, organizerId])
+  @@index([requestId, status])
+  @@map("custom_trip_proposals")
+}
+
+// ─── Trip verification ────────────────────────────────────────────────────────
+
+enum TripVerificationStatus {
+  pending
+  under_review
+  verified
+  rejected
+  revision_required
+
+  @@map("trip_verification_status")
+}
+
+enum TripVerificationPriority {
+  low
+  medium
+  high
+
+  @@map("trip_verification_priority")
+}
+
+enum TripDocumentType {
+  license
+  insurance
+  permits
+  id_proof
+  business_registration
+  other
+
+  @@map("trip_document_type")
+}
+
+enum ChecklistItemStatus {
+  pending
+  approved
+  rejected
+
+  @@map("checklist_item_status")
+}
+
+enum VerificationAction {
+  submitted
+  under_review
+  verified
+  rejected
+  revision_requested
+
+  @@map("verification_action")
+}
+
+model TripVerification {
+  id          String                   @id @default(uuid())
+  tripId      String                   @unique @map("trip_id")
+  organizerId String                   @map("organizer_id")
+  status      TripVerificationStatus   @default(pending)
+  priority    TripVerificationPriority @default(medium)
+  submittedAt DateTime                 @default(now()) @map("submitted_at")
+
+  verifiedBy      String?   @map("verified_by")
+  verifiedAt      DateTime? @map("verified_at")
+  rejectionReason String?   @map("rejection_reason")
+  revisionNotes   String?   @map("revision_notes")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  documents     TripVerificationDocument[]
+  checklist     TripVerificationChecklistItem[]
+  reviewHistory TripVerificationReview[]
+
+  @@index([organizerId])
+  @@index([status])
+  @@index([submittedAt])
+  @@map("trip_verifications")
+}
+
+model TripVerificationDocument {
+  id             String           @id @default(uuid())
+  verificationId String           @map("verification_id")
+  type           TripDocumentType
+  filename       String
+  url            String
+  verified       Boolean          @default(false)
+  uploadedAt     DateTime         @default(now()) @map("uploaded_at")
+
+  verification TripVerification @relation(fields: [verificationId], references: [id], onDelete: Cascade)
+
+  @@index([verificationId])
+  @@map("trip_verification_documents")
+}
+
+model TripVerificationChecklistItem {
+  id             String              @id @default(uuid())
+  verificationId String              @map("verification_id")
+  itemName       String              @map("item_name")
+  status         ChecklistItemStatus @default(pending)
+  notes          String?
+  checkedBy      String?             @map("checked_by")
+  checkedAt      DateTime?           @map("checked_at")
+
+  verification TripVerification @relation(fields: [verificationId], references: [id], onDelete: Cascade)
+
+  @@unique([verificationId, itemName])
+  @@map("trip_verification_checklist_items")
+}
+
+model TripVerificationReview {
+  id             String             @id @default(uuid())
+  verificationId String             @map("verification_id")
+  reviewedBy     String             @map("reviewed_by")
+  action         VerificationAction
+  reason         String?
+  notes          String?
+  timestamp      DateTime           @default(now())
+
+  verification TripVerification @relation(fields: [verificationId], references: [id], onDelete: Cascade)
+
+  @@index([verificationId, timestamp])
+  @@map("trip_verification_reviews")
+}
+
+// ─── Organizer verification requests ──────────────────────────────────────────
+
+enum VerificationRequestType {
+  initial
+  kyc_update
+  re_verification
+
+  @@map("verification_request_type")
+}
+
+enum VerificationRequestStatus {
+  pending
+  under_review
+  approved
+  rejected
+
+  @@map("verification_request_status")
+}
+
+enum VerificationRequestPriority {
+  low
+  medium
+  high
+  urgent
+
+  @@map("verification_request_priority")
+}
+
+enum KycDocumentType {
+  pan
+  aadhar
+  business_proof
+  bank_statement
+  gst
+
+  @@map("kyc_document_type")
+}
+
+model VerificationRequest {
+  id             String                      @id @default(uuid())
+  organizerId    String                      @map("organizer_id")
+  organizerName  String                      @map("organizer_name")
+  organizerEmail String                      @map("organizer_email")
+  requestType    VerificationRequestType     @default(initial) @map("request_type")
+  status         VerificationRequestStatus   @default(pending)
+  priority       VerificationRequestPriority @default(medium)
+
+  // kycDetails, flattened
+  panNumber    String? @map("pan_number")
+  businessName String? @map("business_name")
+  phone        String?
+  address      String?
+
+  adminNotes        String?   @map("admin_notes")
+  reviewedBy        String?   @map("reviewed_by")
+  reviewedAt        DateTime? @map("reviewed_at")
+  approvalNotes     String?   @map("approval_notes")
+  rejectionReason   String?   @map("rejection_reason")
+  initialTrustScore Int?      @map("initial_trust_score")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  documents VerificationRequestDocument[]
+
+  @@index([status, createdAt])
+  @@index([organizerId, createdAt])
+  @@index([priority, status])
+  @@map("verification_requests")
+}
+
+model VerificationRequestDocument {
+  id              String          @id @default(uuid())
+  requestId       String          @map("request_id")
+  type            KycDocumentType
+  url             String
+  verified        Boolean         @default(false)
+  verifiedAt      DateTime?       @map("verified_at")
+  verifiedBy      String?         @map("verified_by")
+  rejectionReason String?         @map("rejection_reason")
+
+  request VerificationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@map("verification_request_documents")
+}

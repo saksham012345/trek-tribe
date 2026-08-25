@@ -1,7 +1,6 @@
 
 
-import TripVerification from '../models/TripVerification';
-import { prisma } from '../lib/prisma';
+import { prisma } from '../lib/prisma';
 import { toNumber } from '../lib/money';
 import mongoose from 'mongoose';
 
@@ -177,14 +176,21 @@ class AnalyticsService {
       const avgResponseTime = await this.getAverageResponseTime(dateFilter);
 
       // Trip verifications
-      const pendingVerifications = await TripVerification.countDocuments({
-        status: 'pending',
-        ...dateFilter,
-      });
-      const verifiedTrips = await TripVerification.countDocuments({
-        status: 'verified',
-        ...dateFilter,
-      });
+      // dateFilter is a Mongo range on createdAt; Prisma spells the same bounds
+      // as gte and lte. It stays Mongo-shaped because the queries around this
+      // one are still Mongo queries and share it.
+      const verificationWhere: any = {};
+      const createdAtRange = (dateFilter as any).createdAt;
+      if (createdAtRange) {
+        verificationWhere.createdAt = {};
+        if (createdAtRange.$gte) verificationWhere.createdAt.gte = createdAtRange.$gte;
+        if (createdAtRange.$lte) verificationWhere.createdAt.lte = createdAtRange.$lte;
+      }
+
+      const [pendingVerifications, verifiedTrips] = await Promise.all([
+        prisma.tripVerification.count({ where: { ...verificationWhere, status: 'pending' } }),
+        prisma.tripVerification.count({ where: { ...verificationWhere, status: 'verified' } }),
+      ]);
 
       // Subscriptions
       const activeSubscriptions = await prisma.cRMSubscription.count({

@@ -14,7 +14,6 @@ import { toNumber } from '../../lib/money';
 
 import { ensureTrialSubscription, decorate, tripsRemaining } from '../../services/organizerSubscriptionService';
 
-import { VerificationRequest } from '../../models/VerificationRequest';
 import { logger } from '../../utils/logger';
 import { emailService } from '../../services/emailService';
 
@@ -561,6 +560,37 @@ export async function getAllOrganizerVerifications(status?: string) {
 
 // ─── Verification requests ────────────────────────────────────────────────────
 
+/**
+ * Reattach the organizer and reviewer that .populate() used to supply.
+ *
+ * VerificationRequest is a Postgres row and User is still a Mongo document, so
+ * there is no join to make. Both are fetched in one query each and attached
+ * under the keys the admin UI already reads - organizerId and reviewedBy as
+ * objects, not ids - so the response shape does not change.
+ */
+async function attachVerificationUsers(rows: any[]): Promise<any[]> {
+  if (rows.length === 0) return [];
+
+  const ids = Array.from(new Set([
+    ...rows.map(r => r.organizerId),
+    ...rows.map(r => r.reviewedBy).filter(Boolean),
+  ]));
+
+  const users = await User.find(
+    { _id: { $in: ids } },
+    'name email phone createdAt organizerProfile'
+  ).lean();
+
+  const byId = new Map(users.map((u: any) => [u._id.toString(), u]));
+
+  return rows.map(row => ({
+    ...row,
+    _id: row.id,
+    organizerId: byId.get(row.organizerId) ?? row.organizerId,
+    reviewedBy: row.reviewedBy ? (byId.get(row.reviewedBy) ?? row.reviewedBy) : null,
+  }));
+}
+
 export async function listVerificationRequests(filters: any, page: number, limit: number, sortBy: string, sortOrder: string) {
   const query: any = {};
   if (filters.status) query.status = filters.status;
@@ -570,23 +600,32 @@ export async function listVerificationRequests(filters: any, page: number, limit
   const skip = (page - 1) * limit;
   const sort: any = { [sortBy]: sortOrder === 'desc' ? -1 : 1 };
 
-  const [requests, total] = await Promise.all([
-    VerificationRequest.find(query)
-      .populate('organizerId', 'name email phone createdAt')
-      .populate('reviewedBy', 'name email')
-      .sort(sort)
-      .skip(skip)
-      .limit(limit)
-      .lean(),
-    VerificationRequest.countDocuments(query),
+  const orderBy = { [sortBy]: sortOrder === 'desc' ? 'desc' : 'asc' } as any;
+
+  const [rows, total, statusCounts] = await Promise.all([
+    prisma.verificationRequest.findMany({
+      where: query,
+      orderBy,
+      skip,
+      take: limit,
+      include: { documents: true },
+    }),
+    prisma.verificationRequest.count({ where: query }),
+    // Was an aggregate over the whole collection with the four statuses picked
+    // out of the result by hand. groupBy says the same thing.
+    prisma.verificationRequest.groupBy({ by: ['status'], _count: { status: true } }),
   ]);
 
-  const statusCounts = await VerificationRequest.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]);
+  const requests = await attachVerificationUsers(rows);
+
+  const counted = (status: string) =>
+    statusCounts.find(c => c.status === status)?._count.status || 0;
+
   const summary = {
-    pending: statusCounts.find((s: any) => s._id === 'pending')?.count || 0,
-    under_review: statusCounts.find((s: any) => s._id === 'under_review')?.count || 0,
-    approved: statusCounts.find((s: any) => s._id === 'approved')?.count || 0,
-    rejected: statusCounts.find((s: any) => s._id === 'rejected')?.count || 0,
+    pending: counted('pending'),
+    under_review: counted('under_review'),
+    approved: counted('approved'),
+    rejected: counted('rejected'),
     total,
   };
 
@@ -594,13 +633,17 @@ export async function listVerificationRequests(filters: any, page: number, limit
 }
 
 export async function getVerificationRequestById(requestId: string) {
-  const request = await VerificationRequest.findById(requestId)
-    .populate('organizerId', 'name email phone createdAt organizerProfile')
-    .populate('reviewedBy', 'name email')
-    .lean();
+  const row = await prisma.verificationRequest.findUnique({
+    where: { id: requestId },
+    include: { documents: true },
+  });
 
-  if (!request) throw Object.assign(new Error('Verification request not found'), { status: 404 });
+  if (!row) throw Object.assign(new Error('Verification request not found'), { status: 404 });
 
+  // populate() is gone - User is still a Mongo document until wave 9 - so the
+  // organizer and reviewer are fetched and attached under the same keys the
+  // admin UI reads.
+  const [request] = await attachVerificationUsers([row]);
   const organizer = request.organizerId as any;
   let tripHistory: any[] = [];
   if (organizer?._id) {
@@ -623,9 +666,18 @@ export async function approveVerificationRequest(adminId: string, requestId: str
     throw Object.assign(new Error('Invalid verification badge'), { status: 400 });
   }
 
-  const request = await VerificationRequest.findById(requestId);
+  // Claiming the request and checking it is one statement. Two admins pressing
+  // approve at the same moment both passed the "already approved" check before,
+  // and both ran the whole approval - two emails, two trust scores written, two
+  // audit entries.
+  const claimed = await prisma.verificationRequest.updateMany({
+    where: { id: requestId, status: { not: 'approved' } },
+    data: { status: 'approved', reviewedBy: adminId, reviewedAt: new Date() },
+  });
+
+  const request = await prisma.verificationRequest.findUnique({ where: { id: requestId } });
   if (!request) throw Object.assign(new Error('Verification request not found'), { status: 404 });
-  if (request.status === 'approved') throw Object.assign(new Error('Verification request already approved'), { status: 400 });
+  if (claimed.count === 0) throw Object.assign(new Error('Verification request already approved'), { status: 400 });
 
   const organizer = await User.findById(request.organizerId);
   if (!organizer) throw Object.assign(new Error('Organizer not found'), { status: 404 });
@@ -666,12 +718,11 @@ export async function approveVerificationRequest(adminId: string, requestId: str
 
   await ensureTrialSubscription(organizer._id.toString());
 
-  request.status = 'approved' as any;
-  request.reviewedBy = adminId as any;
-  request.reviewedAt = new Date();
-  request.adminNotes = adminNotes || '';
-  request.initialTrustScore = trustScore;
-  await request.save();
+  // The status, reviewer and timestamp were written by the claim above.
+  await prisma.verificationRequest.update({
+    where: { id: requestId },
+    data: { adminNotes: adminNotes || '', initialTrustScore: trustScore },
+  });
 
   try {
     await emailService.sendEmail({
@@ -690,9 +741,14 @@ export async function approveVerificationRequest(adminId: string, requestId: str
 export async function rejectVerificationRequest(adminId: string, requestId: string, rejectionReason: string, adminNotes?: string) {
   if (!rejectionReason?.trim()) throw Object.assign(new Error('Rejection reason is required'), { status: 400 });
 
-  const request = await VerificationRequest.findById(requestId);
+  const claimed = await prisma.verificationRequest.updateMany({
+    where: { id: requestId, status: { not: 'rejected' } },
+    data: { status: 'rejected', reviewedBy: adminId, reviewedAt: new Date() },
+  });
+
+  const request = await prisma.verificationRequest.findUnique({ where: { id: requestId } });
   if (!request) throw Object.assign(new Error('Verification request not found'), { status: 404 });
-  if (request.status === 'rejected') throw Object.assign(new Error('Verification request already rejected'), { status: 400 });
+  if (claimed.count === 0) throw Object.assign(new Error('Verification request already rejected'), { status: 400 });
 
   const organizer = await User.findById(request.organizerId);
   if (!organizer) throw Object.assign(new Error('Organizer not found'), { status: 404 });
@@ -702,11 +758,10 @@ export async function rejectVerificationRequest(adminId: string, requestId: stri
   organizer.organizerVerificationRejectionReason = rejectionReason;
   await organizer.save();
 
-  request.status = 'rejected' as any;
-  request.reviewedBy = adminId as any;
-  request.reviewedAt = new Date();
-  request.adminNotes = adminNotes || rejectionReason;
-  await request.save();
+  await prisma.verificationRequest.update({
+    where: { id: requestId },
+    data: { adminNotes: adminNotes || rejectionReason },
+  });
 
   try {
     await emailService.sendEmail({
@@ -726,30 +781,38 @@ export async function updateVerificationRequestStatus(adminId: string, requestId
   const validStatuses = ['pending', 'under_review', 'approved', 'rejected'];
   if (!validStatuses.includes(status)) throw Object.assign(new Error('Invalid status. Must be: pending, under_review, approved, or rejected'), { status: 400 });
 
-  const request = await VerificationRequest.findById(requestId);
-  if (!request) throw Object.assign(new Error('Verification request not found'), { status: 404 });
+  const existing = await prisma.verificationRequest.findUnique({ where: { id: requestId } });
+  if (!existing) throw Object.assign(new Error('Verification request not found'), { status: 404 });
 
-  request.status = status as any;
-  if (priority) request.priority = priority as any;
-  if (adminNotes) request.adminNotes = adminNotes;
+  const data: any = { status };
+  if (priority) data.priority = priority;
+  if (adminNotes) data.adminNotes = adminNotes;
   if (['approved', 'rejected'].includes(status)) {
-    request.reviewedBy = adminId as any;
-    request.reviewedAt = new Date();
+    data.reviewedBy = adminId;
+    data.reviewedAt = new Date();
   }
-  await request.save();
+
+  // status and priority are enums, so a value outside the four - the validation
+  // above lists them - is refused by the database as well as by the check.
+  const request = await prisma.verificationRequest.update({
+    where: { id: requestId },
+    data,
+  });
 
   logger.info('Admin updated verification request status', { adminId, requestId, newStatus: status });
-  return { success: true, message: 'Verification request status updated', data: request };
+  return { success: true, message: 'Verification request status updated', data: { ...request, _id: request.id } };
 }
 
 export async function recalculateTrustScore(adminId: string, requestId: string) {
-  const request = await VerificationRequest.findById(requestId);
+  const request = await prisma.verificationRequest.findUnique({ where: { id: requestId } });
   if (!request) throw Object.assign(new Error('Verification request not found'), { status: 404 });
 
   const organizer = await User.findById(request.organizerId);
   if (!organizer) throw Object.assign(new Error('Organizer not found'), { status: 404 });
 
-  const trustScore = await TrustScoreService.calculateTrustScore(request.organizerId.toString());
+  // organizerId is already a string column; .toString() was there because it
+  // was an ObjectId.
+  const trustScore = await TrustScoreService.calculateTrustScore(request.organizerId);
 
   if (!organizer.organizerProfile) organizer.organizerProfile = {} as any;
   organizer.organizerProfile.trustScore = trustScore;

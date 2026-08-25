@@ -12,7 +12,6 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { toNumber } from '../../lib/money';
 
-import TripVerification from '../../models/TripVerification';
 import { GroupBooking } from '../../models/GroupBooking';
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
@@ -55,7 +54,7 @@ export async function getAdminDashboard() {
       where: { status: 'completed' },
       _sum: { amount: true },
     }),
-    TripVerification.countDocuments({ status: 'pending' }),
+    prisma.tripVerification.count({ where: { status: 'pending' } }),
     prisma.lead.count(),
     prisma.lead.count({ where: { status: 'converted' } }),
     // Was { $in: ['open', 'in_progress'] }. Ticket has never had an 'open'

@@ -1,0 +1,1 @@
+ALTER TABLE "trips" ALTER COLUMN "safety_disclaimer" SET DEFAULT 'This trip involves physical activity and potential risks. Participants must be in good health and follow safety guidelines. The organizer is not liable for accidents, injuries, or loss of belongings. Travel insurance is recommended.';

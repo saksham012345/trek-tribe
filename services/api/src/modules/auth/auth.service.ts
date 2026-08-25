@@ -12,7 +12,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { User } from '../../models/User';
-import { VerificationRequest } from '../../models/VerificationRequest';
+import { createInitialVerificationRequest } from '../../services/verificationRequestService';
 import { logger } from '../../utils/logger';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -155,20 +155,23 @@ export async function registerUser(input: RegisterInput): Promise<RegisterResult
   // Create verification request for organizers
   if (role === 'organizer') {
     try {
-      const existing = await VerificationRequest.findOne({ organizerId: user._id });
-      if (!existing) {
-        await VerificationRequest.create({
-          organizerId: user._id,
-          organizerName: user.name,
-          organizerEmail: user.email,
-          requestType: 'initial',
-          status: 'pending',
-          priority: 'medium',
-          documents: [],
-          kycDetails: { phone: phone || '', businessName: name },
-        });
-        logger.info('Verification request created for new organizer', { userId: user._id, email: user.email });
-      }
+      // The find-then-create this replaces was the careful half of a pair; the
+      // Google OAuth path created unconditionally, which is where the duplicates
+      // fix-duplicates.ts used to clean up came from. A partial unique index on
+      // (organizer_id) WHERE request_type = 'initial' now makes the second one
+      // impossible from either path, and this is the ordinary way to say so.
+      //
+      // documents was an empty array and kycDetails a nested object; both are
+      // gone - documents is a table, and the two fields that were ever set are
+      // columns.
+      await createInitialVerificationRequest({
+        organizerId: user._id.toString(),
+        organizerName: user.name,
+        organizerEmail: user.email,
+        phone: phone || '',
+        businessName: name,
+      });
+      logger.info('Verification request ensured for new organizer', { userId: user._id, email: user.email });
     } catch (err: any) {
       logger.error('Failed to create verification request', { userId: user._id, error: err.message });
     }

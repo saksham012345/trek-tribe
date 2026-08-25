@@ -7,7 +7,18 @@
 
 import mongoose from 'mongoose';
 import { z } from 'zod';
-import { Trip } from '../../models/Trip';
+import {
+  shapeTrip,
+  shapeTrips,
+  tripInclude,
+  createTripWithChildren,
+  updateTripWithChildren
+} from '../../services/tripShapeService';
+import {
+  joinTrip as joinTripRow,
+  leaveTrip as leaveTripRow,
+  TripFullError
+} from '../../services/tripParticipationService';
 import { User } from '../../models/User';
 import { prisma } from '../../lib/prisma';
 import { paymentConfig, shouldEnableRoutingForOrganizer } from '../../config/payment.config';
@@ -180,38 +191,62 @@ export async function checkManualCollectionQR(organizerId: string, collectionMod
 // ─── Create trip ──────────────────────────────────────────────────────────────
 
 export async function createTrip(body: CreateTripInput, organizerId: string): Promise<any> {
-  // Generate unique slug
+  // Generate a unique slug.
+  //
+  // The loop this replaces asked "does this slug exist?" and then inserted,
+  // which two organizers publishing similarly titled trips at the same moment
+  // both pass. slug is unique in the database, so the second insert is refused
+  // and the retry picks the next suffix - the check is still there to get the
+  // common case right on the first try, and the constraint is what makes it
+  // correct.
   let baseSlug = slugify(body.title);
   if (!baseSlug) baseSlug = `trip-${Date.now()}`;
-  let dbSlug = baseSlug;
-  let counter = 1;
-  while (true) {
-    const existing = await Trip.findOne({ slug: dbSlug });
-    if (!existing) break;
-    dbSlug = `${baseSlug}-${counter}`;
+
+  let counter = 0;
+  for (;;) {
+    const dbSlug = counter === 0 ? baseSlug : `${baseSlug}-${counter}`;
+    const taken = await prisma.trip.findUnique({ where: { slug: dbSlug }, select: { id: true } });
+
+    if (!taken) {
+      try {
+        const trip = await createTripWithChildren(organizerId, {
+          ...body,
+          slug: dbSlug,
+          itinerary: Array.isArray(body.itinerary) ? JSON.stringify(body.itinerary) : body.itinerary
+        });
+        return shapeTrip(trip as any);
+      } catch (error: any) {
+        // Someone else took the slug between the check and the insert.
+        if (error?.code !== 'P2002') throw error;
+      }
+    }
+
     counter++;
+    if (counter > 50) {
+      throw Object.assign(new Error('Could not generate a unique slug for this trip'), { status: 409 });
+    }
   }
 
-  const createPromise = Trip.create({
-    ...body,
-    organizerId,
-    slug: dbSlug,
-    itinerary: Array.isArray(body.itinerary) ? JSON.stringify(body.itinerary) : body.itinerary,
-    location: body.location ? { type: 'Point', coordinates: body.location.coordinates } : undefined,
-    participants: [],
-    createdAt: new Date(),
-    updatedAt: new Date()
-  });
-
-  const timeoutPromise = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('Database operation timeout')), 10000)
-  );
-
-  const trip = await Promise.race([createPromise, timeoutPromise]) as any;
-  return trip;
+  // The 10-second Promise.race timeout is gone. It did not cancel the insert -
+  // nothing about losing a race stops the query - so a slow create still
+  // completed, after the caller had been told it had failed. A trip could
+  // therefore exist that the organizer had been told was not created.
 }
 
 // ─── Post-create: payment routing ────────────────────────────────────────────
+
+/**
+ * Record the routing outcome on the trip.
+ *
+ * Every assignment this replaces - paymentRoutingStatus, paymentQR,
+ * paymentRouteId, useMainRazorpayAccount - set a field that is not in the
+ * Mongoose schema, and Mongoose in strict mode drops unknown paths on save. The
+ * routing state machine has been writing into nothing since it was written.
+ * Nothing reads these, which is why it was never noticed. They are columns now.
+ */
+async function setRoutingStatus(tripId: string, data: any): Promise<void> {
+  await prisma.trip.update({ where: { id: tripId }, data });
+}
 
 export async function setupPaymentRouting(trip: any, organizerId: string, tripTitle: string): Promise<void> {
   try {
@@ -229,8 +264,7 @@ export async function setupPaymentRouting(trip: any, organizerId: string, tripTi
       let payoutConfig = await prisma.organizerPayoutConfig.findUnique({ where: { organizerId } });
 
       if (!payoutConfig || !payoutConfig.razorpayAccountId) {
-        trip.paymentRoutingStatus = 'pending_onboarding';
-        await trip.save();
+        await setRoutingStatus(trip.id, { paymentRoutingStatus: 'pending_onboarding' });
       } else {
         try {
           const qrResult = await razorpaySubmerchantService.generateQRCode(
@@ -243,8 +277,8 @@ export async function setupPaymentRouting(trip: any, organizerId: string, tripTi
           if (!organizer.organizerProfile.qrCodes) organizer.organizerProfile.qrCodes = [];
 
           organizer.organizerProfile.qrCodes.push({
-            filename: `qr-${trip._id}.png`,
-            originalName: `trip-${trip._id}-qr.png`,
+            filename: `qr-${trip.id}.png`,
+            originalName: `trip-${trip.id}-qr.png`,
             path: qrResult.imageUrl,
             paymentMethod: 'upi',
             description: `Razorpay QR for trip: ${tripTitle}`,
@@ -252,26 +286,26 @@ export async function setupPaymentRouting(trip: any, organizerId: string, tripTi
             isActive: true
           });
 
-          trip.paymentQR = qrResult.imageUrl;
-          trip.paymentRoutingStatus = 'active';
-          trip.paymentRouteId = qrResult.qrCodeId;
-          await trip.save();
+          await setRoutingStatus(trip.id, {
+            paymentQrUrl: qrResult.imageUrl,
+            paymentRoutingStatus: 'active',
+            paymentRouteId: qrResult.qrCodeId
+          });
           await organizer.save();
         } catch (qrError: any) {
-          logger.error('Failed to generate Razorpay QR code', { tripId: trip._id, error: qrError.message });
-          trip.paymentRoutingStatus = 'main_account_fallback';
-          await trip.save();
+          logger.error('Failed to generate Razorpay QR code', { tripId: trip.id, error: qrError.message });
+          await setRoutingStatus(trip.id, { paymentRoutingStatus: 'main_account_fallback' });
         }
       }
     } else {
-      trip.paymentRoutingStatus = 'main_account';
-      trip.useMainRazorpayAccount = true;
-      await trip.save();
+      await setRoutingStatus(trip.id, {
+        paymentRoutingStatus: 'main_account',
+        useMainRazorpayAccount: true
+      });
     }
   } catch (routeError: any) {
-    logger.error('Failed to process payment routing', { tripId: trip._id, organizerId, error: routeError.message });
-    trip.paymentRoutingStatus = 'error';
-    await trip.save();
+    logger.error('Failed to process payment routing', { tripId: trip.id, organizerId, error: routeError.message });
+    await setRoutingStatus(trip.id, { paymentRoutingStatus: 'error' });
   }
 }
 
@@ -324,38 +358,76 @@ export async function listTrips(query: TripListQuery) {
   if (statusQuery === 'completed') {
     filter.status = 'completed';
   } else if (statusQuery === 'all') {
-    filter.status = { $in: ['pending', 'active', 'completed', 'cancelled'] };
+    filter.status = { in: ['pending', 'active', 'completed', 'cancelled'] };
   } else {
     filter.status = 'active';
   }
 
-  if (q) filter.$text = { $search: q };
-  if (category) filter.categories = category;
+  // categories is a string array; `filter.categories = category` was Mongo's
+  // "array contains" and `has` is the same thing.
+  if (category) filter.categories = { has: category };
   if (difficulty) filter.difficulty = difficulty;
   if (dest) filter.destination = dest;
-  if (minPrice || maxPrice) filter.price = { ...(minPrice ? { $gte: Number(minPrice) } : {}), ...(maxPrice ? { $lte: Number(maxPrice) } : {}) };
-  if (from || to) filter.startDate = { ...(from ? { $gte: new Date(from) } : {}), ...(to ? { $lte: new Date(to) } : {}) };
+  if (minPrice || maxPrice) {
+    filter.price = {
+      ...(minPrice ? { gte: Number(minPrice) } : {}),
+      ...(maxPrice ? { lte: Number(maxPrice) } : {})
+    };
+  }
+  if (from || to) {
+    filter.startDate = {
+      ...(from ? { gte: new Date(from) } : {}),
+      ...(to ? { lte: new Date(to) } : {})
+    };
+  }
+
+  // $text became a GIN index over title, description and destination, the same
+  // three fields Mongo's text index covered. Prisma cannot express a tsquery,
+  // so the matching ids come from raw SQL and then join the rest of the filter.
+  //
+  // The id list is capped, so a search matching more than the cap loses the
+  // tail. That is a real limit and it is here because the alternative - writing
+  // the whole query, filters, pagination and count in SQL - trades a bounded
+  // problem for an unbounded one. Production holds one trip; when it holds
+  // enough for the cap to bite, this should become a single SQL query.
+  if (q) {
+    const matches = await prisma.$queryRaw<Array<{ id: string }>>`
+      SELECT id FROM trips
+       WHERE to_tsvector(
+               'english'::regconfig,
+               coalesce(title,'') || ' ' || coalesce(description,'') || ' ' || coalesce(destination,'')
+             ) @@ plainto_tsquery('english', ${q})
+       LIMIT 1000
+    `;
+    filter.id = { in: matches.map(m => m.id) };
+  }
 
   const pageNum = parseInt(page) || 1;
   const limitNum = Math.min(parseInt(limit) || 20, 50);
   const skip = (pageNum - 1) * limitNum;
 
-  const [trips, total] = await Promise.all([
-    Trip.find(filter)
-      .select('title destination price startDate endDate coverImage difficulty categories capacity participants status averageRating reviewCount')
-      .populate({ path: 'organizerId', select: 'name profilePhoto', options: { lean: true } })
-      .lean()
-      .skip(skip)
-      .limit(limitNum)
-      .sort({ createdAt: -1 }),
-    Trip.countDocuments(filter)
+  const [rows, total] = await Promise.all([
+    prisma.trip.findMany({
+      where: filter,
+      // participants is a count for this view, not the list - the select this
+      // replaces pulled the whole array so the client could read .length.
+      include: { participants: { select: { userId: true } } },
+      skip,
+      take: limitNum,
+      orderBy: { createdAt: 'desc' }
+    }),
+    prisma.trip.count({ where: filter })
   ]);
 
-  const tripsWithCategory = trips.map((t: any) => {
-    if (!t.category) {
-      t.category = Array.isArray(t.categories) && t.categories.length > 0 ? t.categories[0] : 'Adventure';
+  const organizers = await organizerMap(rows.map(r => r.organizerId), 'name profilePhoto');
+
+  const tripsWithCategory = rows.map((row: any) => {
+    const trip = shapeTrip(row);
+    trip.organizerId = organizers.get(row.organizerId) ?? row.organizerId;
+    if (!trip.category) {
+      trip.category = Array.isArray(trip.categories) && trip.categories.length > 0 ? trip.categories[0] : 'Adventure';
     }
-    return t;
+    return trip;
   });
 
   return { trips: tripsWithCategory, total, pageNum, limitNum };
@@ -364,21 +436,23 @@ export async function listTrips(query: TripListQuery) {
 // ─── Get trip by ID ───────────────────────────────────────────────────────────
 
 export async function getTripById(id: string): Promise<any> {
-  if (!id || !mongoose.isValidObjectId(id)) {
+  // isValidObjectId is gone: trip ids are generated uuid strings now, and that
+  // check would reject every real one.
+  if (!id) {
     throw Object.assign(new Error('Invalid trip id'), { status: 400 });
   }
 
-  const trip = await Trip.findById(id)
-    .populate({
-      path: 'organizerId',
-      select: 'name profilePhoto organizerProfile.bio organizerProfile.yearsOfExperience organizerProfile.totalTripsOrganized',
-      options: { lean: true }
-    })
-    .lean();
+  const row = await prisma.trip.findUnique({ where: { id }, include: tripInclude });
 
-  if (!trip) throw Object.assign(new Error('Not found'), { status: 404 });
+  if (!row) throw Object.assign(new Error('Not found'), { status: 404 });
 
-  const tripObj = trip as any;
+  const organizers = await organizerMap(
+    [row.organizerId],
+    'name profilePhoto organizerProfile.bio organizerProfile.yearsOfExperience organizerProfile.totalTripsOrganized'
+  );
+
+  const tripObj = shapeTrip(row);
+  tripObj.organizerId = organizers.get(row.organizerId) ?? row.organizerId;
   if (!tripObj.category) {
     tripObj.category = Array.isArray(tripObj.categories) && tripObj.categories.length > 0 ? tripObj.categories[0] : 'Adventure';
   }
@@ -390,10 +464,12 @@ export async function getTripById(id: string): Promise<any> {
 export async function getTripBySlug(slug: string): Promise<any> {
   if (!slug) throw Object.assign(new Error('Slug required'), { status: 400 });
 
-  const trip = await Trip.findOne({ slug }).populate('organizerId', 'name organizerProfile').lean();
-  if (!trip) throw Object.assign(new Error('Trip not found'), { status: 404 });
+  const row = await prisma.trip.findUnique({ where: { slug }, include: tripInclude });
+  if (!row) throw Object.assign(new Error('Trip not found'), { status: 404 });
 
-  const tripObj = trip as any;
+  const organizers = await organizerMap([row.organizerId], 'name organizerProfile');
+  const tripObj = shapeTrip(row);
+  tripObj.organizerId = organizers.get(row.organizerId) ?? row.organizerId;
   if (!tripObj.category) {
     tripObj.category = Array.isArray(tripObj.categories) && tripObj.categories.length > 0 ? tripObj.categories[0] : 'Adventure';
   }
@@ -403,76 +479,90 @@ export async function getTripBySlug(slug: string): Promise<any> {
 // ─── Join trip ────────────────────────────────────────────────────────────────
 
 export async function joinTrip(tripId: string, userId: string): Promise<any> {
-  if (!tripId || !mongoose.isValidObjectId(tripId)) {
-    throw Object.assign(new Error('Invalid trip id'), { status: 400 });
+  if (!tripId) throw Object.assign(new Error('Invalid trip id'), { status: 400 });
+
+  // This was the fourth copy of read-count-compare-push. The capacity check and
+  // the insert happen under a row lock now, and "already joined" is answered by
+  // a unique constraint rather than by `includes` on an ObjectId array, which
+  // was false for every caller.
+  try {
+    const result = await joinTripRow(tripId, userId);
+    if (result.alreadyJoined) {
+      throw Object.assign(new Error('Already joined this trip'), { status: 400 });
+    }
+  } catch (error: any) {
+    if (error instanceof TripFullError) {
+      throw Object.assign(new Error('Trip is full'), { status: 400 });
+    }
+    throw error;
   }
 
-  const trip = await Trip.findById(tripId);
-  if (!trip) throw Object.assign(new Error('Trip not found'), { status: 404 });
-  if (trip.participants.length >= trip.capacity) throw Object.assign(new Error('Trip is full'), { status: 400 });
-  if ((trip.participants as any[]).includes(userId)) throw Object.assign(new Error('Already joined this trip'), { status: 400 });
-
-  (trip.participants as any[]).push(userId);
-  await trip.save();
   await invalidateCache('/trips');
-  return trip;
+  return getTripById(tripId);
 }
 
 // ─── Leave trip ───────────────────────────────────────────────────────────────
 
 export async function leaveTrip(tripId: string, userId: string): Promise<any> {
-  if (!tripId || !mongoose.isValidObjectId(tripId)) {
-    throw Object.assign(new Error('Invalid trip id'), { status: 400 });
-  }
+  if (!tripId) throw Object.assign(new Error('Invalid trip id'), { status: 400 });
 
-  const trip = await Trip.findById(tripId);
-  if (!trip) throw Object.assign(new Error('Trip not found'), { status: 404 });
-  if (!(trip.participants as any[]).includes(userId)) throw Object.assign(new Error('Not part of this trip'), { status: 400 });
+  const removed = await leaveTripRow(tripId, userId);
+  if (!removed) throw Object.assign(new Error('Not part of this trip'), { status: 400 });
 
-  trip.participants = (trip.participants as any[]).filter((id: any) => id.toString() !== userId) as any;
-  await trip.save();
   await invalidateCache('/trips');
-  return trip;
+  return getTripById(tripId);
 }
 
 // ─── Update trip ──────────────────────────────────────────────────────────────
 
 export async function updateTrip(tripId: string, userId: string, userRole: string, updateData: UpdateTripInput): Promise<any> {
-  if (!tripId || !mongoose.isValidObjectId(tripId)) {
-    throw Object.assign(new Error('Invalid trip id'), { status: 400 });
-  }
+  if (!tripId) throw Object.assign(new Error('Invalid trip id'), { status: 400 });
 
-  const trip = await Trip.findById(tripId);
+  const trip = await prisma.trip.findUnique({ where: { id: tripId }, select: { organizerId: true } });
   if (!trip) throw Object.assign(new Error('Trip not found'), { status: 404 });
 
-  if (trip.organizerId.toString() !== userId && userRole !== 'admin') {
+  if (trip.organizerId !== userId && userRole !== 'admin') {
     throw Object.assign(new Error('Not authorized to update this trip'), { status: 403 });
   }
 
-  const data: any = { ...updateData };
-  if (data.location) {
-    data.location = { type: 'Point', coordinates: data.location.coordinates };
-  }
-
-  const updatedTrip = await Trip.findByIdAndUpdate(tripId, data, { new: true, runValidators: true });
+  // runValidators: true was asking Mongoose to apply schema validation on an
+  // update, which it does not do by default. The constraints are in the
+  // database now, so they apply to every write whether anyone asks or not.
+  const updatedTrip = await updateTripWithChildren(tripId, updateData);
   await invalidateCache('/trips');
-  return updatedTrip;
+  return shapeTrip(updatedTrip as any);
 }
 
 // ─── Delete trip ──────────────────────────────────────────────────────────────
 
 export async function deleteTrip(tripId: string, userId: string, userRole: string): Promise<void> {
-  if (!tripId || !mongoose.isValidObjectId(tripId)) {
-    throw Object.assign(new Error('Invalid trip id'), { status: 400 });
-  }
+  if (!tripId) throw Object.assign(new Error('Invalid trip id'), { status: 400 });
 
-  const trip = await Trip.findById(tripId);
+  const trip = await prisma.trip.findUnique({ where: { id: tripId }, select: { organizerId: true } });
   if (!trip) throw Object.assign(new Error('Trip not found'), { status: 404 });
 
-  if (trip.organizerId.toString() !== userId && userRole !== 'admin') {
+  if (trip.organizerId !== userId && userRole !== 'admin') {
     throw Object.assign(new Error('Not authorized to delete this trip'), { status: 403 });
   }
 
-  await Trip.findByIdAndDelete(tripId);
+  // The schedule, packages, stops, photos, participants and bookings go with
+  // it - ON DELETE CASCADE, where deleting the document used to leave the
+  // bookings that referenced it pointing at nothing.
+  await prisma.trip.delete({ where: { id: tripId } });
   await invalidateCache('/trips');
+}
+
+/**
+ * The organizer objects .populate() used to attach.
+ *
+ * User is still a Mongo document, so this is a second query rather than a join.
+ * It returns a map keyed by id string; callers put the result back under
+ * `organizerId`, which is where the frontend reads the organizer's name.
+ */
+async function organizerMap(ids: string[], select: string): Promise<Map<string, any>> {
+  const unique = Array.from(new Set(ids));
+  if (unique.length === 0) return new Map();
+
+  const users = await User.find({ _id: { $in: unique } }, select).lean();
+  return new Map(users.map((u: any) => [u._id.toString(), u]));
 }

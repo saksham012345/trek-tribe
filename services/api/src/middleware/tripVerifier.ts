@@ -1,6 +1,6 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from './roleCheck';
-import TripVerification from '../models/TripVerification';
+import { prisma } from '../lib/prisma';
 
 /**
  * Middleware to ensure trip has verification record
@@ -20,7 +20,7 @@ export const requireTripVerification = async (
       });
     }
 
-    const verification = await TripVerification.findOne({ tripId });
+    const verification = await prisma.tripVerification.findUnique({ where: { tripId } });
 
     if (!verification) {
       return res.status(404).json({
@@ -60,7 +60,7 @@ export const requireVerifiedTrip = async (
       });
     }
 
-    const verification = await TripVerification.findOne({ tripId });
+    const verification = await prisma.tripVerification.findUnique({ where: { tripId } });
 
     if (!verification) {
       return res.status(404).json({
@@ -116,7 +116,7 @@ export const canModifyVerification = async (
       });
     }
 
-    const verification = await TripVerification.findOne({ tripId });
+    const verification = await prisma.tripVerification.findUnique({ where: { tripId } });
 
     if (!verification) {
       return res.status(404).json({

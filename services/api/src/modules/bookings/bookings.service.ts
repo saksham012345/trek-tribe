@@ -7,9 +7,22 @@
 
 import mongoose from 'mongoose';
 import { z } from 'zod';
-import { Trip } from '../../models/Trip';
+import { prisma } from '../../lib/prisma';
+import { shapeTrip, tripInclude } from '../../services/tripShapeService';
+import {
+  bookingInclude,
+  shapeBooking,
+  shapeBookings,
+  computeBookingAmounts
+} from '../../services/bookingShapeService';
+import {
+  joinTrip as joinTripRow,
+  leaveTrip as leaveTripRow,
+  isParticipant,
+  addPaidParticipant,
+  TripFullError
+} from '../../services/tripParticipationService';
 import { User } from '../../models/User';
-import { GroupBooking } from '../../models/GroupBooking';
 import { whatsappService } from '../../services/whatsappService';
 import { logger } from '../../utils/logger';
 import { emailService } from '../../services/emailService';
@@ -33,6 +46,13 @@ export const createBookingSchema = z.object({
 
 export type CreateBookingInput = z.infer<typeof createBookingSchema>;
 
+// Every mongoose.isValidObjectId() guard in this file is gone.
+//
+// Trip and GroupBooking ids are generated uuid strings now, so that check
+// would have rejected every real id and turned each of these routes into a
+// blanket 400. The id is still required; what it looks like is the database's
+// business, and a value of the wrong shape simply matches no row.
+
 // ─── Create booking ───────────────────────────────────────────────────────────
 
 export async function createBooking(input: CreateBookingInput, userId: string): Promise<any> {
@@ -48,11 +68,16 @@ export async function createBooking(input: CreateBookingInput, userId: string): 
     experienceLevel
   } = input;
 
-  if (!tripId || !mongoose.isValidObjectId(tripId)) {
+  if (!tripId) {
     throw Object.assign(new Error('Invalid trip id'), { status: 400 });
   }
 
-  const trip = await Trip.findById(tripId).populate('organizerId', 'name phone email');
+  const tripRow = await prisma.trip.findUnique({ where: { id: tripId }, include: tripInclude });
+  const trip: any = tripRow ? shapeTrip(tripRow) : null;
+  if (trip) {
+    // populate('organizerId') is gone; User is still a Mongo document.
+    trip.organizerId = (await User.findById(trip.organizerId).select('name phone email').lean()) ?? trip.organizerId;
+  }
   if (!trip) throw Object.assign(new Error('Trip not found'), { status: 404 });
 
   const user = await User.findById(userId);
@@ -74,7 +99,12 @@ export async function createBooking(input: CreateBookingInput, userId: string): 
     }
   }
 
-  // Check availability
+  // Check availability.
+  //
+  // This is the friendly error, computed from a count that another booking can
+  // change a millisecond later. It is not what enforces capacity - joinTrip
+  // does that under a row lock - but it is what gives the traveller a useful
+  // message instead of a constraint violation.
   const currentParticipants = trip.participants.length;
   const availableSpots = trip.capacity - currentParticipants;
   if (availableSpots < numberOfTravelers) {
@@ -102,17 +132,15 @@ export async function createBooking(input: CreateBookingInput, userId: string): 
 
   // Duplicate booking check (skip in tests)
   if (process.env.NODE_ENV !== 'test') {
-    const existingBooking = await GroupBooking.findOne({
-      tripId,
-      mainBookerId: userId,
-      bookingStatus: { $in: ['pending', 'confirmed'] }
+    const existingBooking = await prisma.groupBooking.findFirst({
+      where: { tripId, mainBookerId: userId, bookingStatus: { in: ['pending', 'confirmed'] } }
     });
     if (existingBooking) {
       throw Object.assign(new Error('You already have a booking for this trip'), {
         status: 400,
         body: {
           error: 'You already have a booking for this trip',
-          details: { existingBookingId: existingBooking._id, existingStatus: existingBooking.bookingStatus }
+          details: { existingBookingId: existingBooking.id, existingStatus: existingBooking.bookingStatus }
         }
       });
     }
@@ -151,29 +179,50 @@ export async function createBooking(input: CreateBookingInput, userId: string): 
     }
   }
 
-  const totalAmount = pricePerPerson * numberOfTravelers;
-  const finalAmount = totalAmount;
+  // The amounts are computed in one place so they satisfy the CHECK constraints
+  // that say total = price x guests and final = total - discount. The pre-save
+  // hook that used to do this ran only on save.
+  const amounts = computeBookingAmounts({ pricePerPerson, numberOfGuests: numberOfTravelers });
 
-  const groupBooking = new GroupBooking({
-    tripId,
-    mainBookerId: userId,
-    participants,
-    numberOfGuests: numberOfTravelers,
-    totalParticipants: numberOfTravelers,
-    selectedPackageId: selectedPackage?.id,
-    packageName: selectedPackage?.name,
-    pricePerPerson,
-    totalAmount,
-    finalAmount,
-    paymentMethod: 'bank_transfer',
-    bookingStatus: 'pending',
-    paymentVerificationStatus: 'pending',
-    specialRequests
-  });
+  // totalParticipants is gone - it was a second name for numberOfGuests, and
+  // the hook set each from the other.
+  //
+  // The booking and its participants are written together: a booking with no
+  // participants would have no main booker, and the partial unique index that
+  // guarantees exactly one would be satisfied vacuously.
+  let groupBooking: any;
+  try {
+    groupBooking = shapeBooking(await prisma.groupBooking.create({
+      data: {
+        tripId,
+        mainBookerId: userId,
+        numberOfGuests: numberOfTravelers,
+        selectedPackageId: selectedPackage?.id,
+        packageName: selectedPackage?.name,
+        pricePerPerson,
+        totalAmount: amounts.totalAmount,
+        discountAmount: amounts.discountAmount,
+        groupDiscount: amounts.groupDiscount,
+        finalAmount: amounts.finalAmount,
+        paymentMethod: 'bank_transfer',
+        bookingStatus: 'pending',
+        paymentVerificationStatus: 'pending',
+        specialRequests,
+        participants: { create: participants }
+      },
+      include: bookingInclude
+    }));
+  } catch (error: any) {
+    // (mainBookerId, tripId) is unique. The check above catches the ordinary
+    // case; this catches two submissions arriving together, which the check
+    // could not.
+    if (error?.code === 'P2002') {
+      throw Object.assign(new Error('You already have a booking for this trip'), { status: 400 });
+    }
+    throw error;
+  }
 
-  await groupBooking.save();
-
-  logger.info('New booking created with pending status', { bookingId: groupBooking._id, tripId, userId, numberOfTravelers });
+  logger.info('New booking created with pending status', { bookingId: groupBooking.id, tripId, userId, numberOfTravelers });
 
   // Send confirmation email (non-blocking)
   if (emailService.isServiceReady()) {
@@ -189,9 +238,9 @@ export async function createBooking(input: CreateBookingInput, userId: string): 
       organizerName: (trip.organizerId as any).name,
       organizerEmail: (trip.organizerId as any).email,
       organizerPhone: (trip.organizerId as any).phone,
-      bookingId: groupBooking._id.toString()
+      bookingId: groupBooking.id
     }).catch((error: any) => {
-      logger.error('❌ Failed to send booking confirmation email', { error: error.message, bookingId: groupBooking._id });
+      logger.error('❌ Failed to send booking confirmation email', { error: error.message, bookingId: groupBooking.id });
     });
   }
 
@@ -204,23 +253,94 @@ export async function createBooking(input: CreateBookingInput, userId: string): 
       contactInfo: !!contactPhone,
       paymentInfo: false
     }).catch((err: any) => {
-      logger.error('Failed to track partial booking', { error: err.message, bookingId: groupBooking._id });
+      logger.error('Failed to track partial booking', { error: err.message, bookingId: groupBooking.id });
     });
   }
 
   return { groupBooking, pricePerPerson };
 }
 
+/**
+ * A user's bookings with their trips, replacing a populate of tripId that also
+ * populated the trip's organizer.
+ *
+ * Trip is in the same database now, so the trip is a join. The organizer is
+ * still a Mongo document, so it is one extra query for the whole page rather
+ * than one per booking.
+ */
+async function loadUserBookings(userId: string): Promise<any[]> {
+  const rows = await prisma.groupBooking.findMany({
+    where: { mainBookerId: userId },
+    include: bookingInclude,
+    orderBy: { createdAt: 'desc' }
+  });
+
+  const organizerIds = Array.from(new Set(rows.map(r => r.trip?.organizerId).filter(Boolean)));
+  const organizers = organizerIds.length
+    ? await User.find({ _id: { $in: organizerIds } }, 'name phone email').lean()
+    : [];
+  const organizerById = new Map(organizers.map((u: any) => [u._id.toString(), u]));
+
+  return rows.map(row => {
+    const booking = shapeBooking(row);
+    const trip: any = row.trip ? shapeTrip(row.trip as any) : null;
+    if (trip) {
+      trip.organizerId = organizerById.get(row.trip!.organizerId) ?? row.trip!.organizerId;
+    }
+    booking.tripId = trip;
+    return booking;
+  });
+}
+
+/**
+ * One booking, with whichever of its references the caller needs.
+ *
+ * The populate chains this replaces overwrote the id fields with objects, so
+ * `booking.mainBookerId._id.toString()` was how you got the id back. The raw
+ * ids are kept alongside as `mainBookerRef`, `tripRef` and `organizerRef`, so
+ * a permission check compares two strings rather than reaching through an
+ * object that may or may not have been populated.
+ */
+async function loadBookingWithRefs(
+  bookingId: string,
+  want: { trip?: boolean; mainBooker?: boolean; organizer?: boolean; verifier?: boolean }
+): Promise<any> {
+  const row = await prisma.groupBooking.findUnique({
+    where: { id: bookingId },
+    include: bookingInclude
+  });
+  if (!row) return null;
+
+  const booking = shapeBooking(row);
+  booking.mainBookerRef = row.mainBookerId;
+  booking.tripRef = row.tripId;
+
+  if (want.trip && row.trip) {
+    const trip: any = shapeTrip(row.trip as any);
+    trip.organizerRef = row.trip.organizerId;
+    if (want.organizer) {
+      trip.organizerId = (await User.findById(row.trip.organizerId).select('name phone email').lean()) ?? row.trip.organizerId;
+    }
+    booking.tripId = trip;
+  }
+
+  if (want.mainBooker) {
+    booking.mainBookerId = (await User.findById(row.mainBookerId).select('name email phone').lean()) ?? row.mainBookerId;
+  }
+
+  if (want.verifier && row.verifiedBy) {
+    booking.verifiedBy = (await User.findById(row.verifiedBy).select('name email').lean()) ?? row.verifiedBy;
+  }
+
+  return booking;
+}
+
 // ─── Get user bookings ────────────────────────────────────────────────────────
 
 export async function getUserBookings(userId: string): Promise<any[]> {
-  const groupBookings = await GroupBooking.find({ mainBookerId: userId })
-    .populate({
-      path: 'tripId',
-      select: 'title destination startDate endDate coverImage organizerId status',
-      populate: { path: 'organizerId', select: 'name phone email' }
-    })
-    .sort({ createdAt: -1 });
+  // tripId was a populate; Trip is a row in the same database now, so it is a
+  // join. The organizer inside it is still a Mongo document.
+  const groupBookings = await loadUserBookings(userId);
 
   return groupBookings.map(booking => {
     const trip = booking.tripId as any;
@@ -253,13 +373,7 @@ export async function getUserBookings(userId: string): Promise<any[]> {
 // ─── Get user bookings (alias with extra fields) ──────────────────────────────
 
 export async function getUserBookingsAlias(userId: string): Promise<any[]> {
-  const groupBookings = await GroupBooking.find({ mainBookerId: userId })
-    .populate({
-      path: 'tripId',
-      select: 'title destination startDate endDate coverImage organizerId status',
-      populate: { path: 'organizerId', select: 'name phone email' }
-    })
-    .sort({ createdAt: -1 });
+  const groupBookings = await loadUserBookings(userId);
 
   return groupBookings.map(booking => {
     const trip = booking.tripId as any;
@@ -294,14 +408,17 @@ export async function getUserBookingsAlias(userId: string): Promise<any[]> {
 // ─── Cancel booking by trip ID ────────────────────────────────────────────────
 
 export async function cancelBookingByTripId(tripId: string, userId: string): Promise<void> {
-  if (!tripId || !mongoose.isValidObjectId(tripId)) {
+  if (!tripId) {
     throw Object.assign(new Error('Invalid trip id'), { status: 400 });
   }
 
-  const trip = await Trip.findById(tripId);
+  const trip = await prisma.trip.findUnique({ where: { id: tripId }, select: { startDate: true } });
   if (!trip) throw Object.assign(new Error('Trip not found'), { status: 404 });
 
-  if (!(trip.participants as any[]).includes(userId)) {
+  // `trip.participants.includes(userId)` compared ObjectIds to a string, so it
+  // was false for everyone and this route refused every cancellation it was
+  // ever asked for.
+  if (!(await isParticipant(tripId, userId))) {
     throw Object.assign(new Error('You are not booked for this trip'), { status: 400 });
   }
 
@@ -310,21 +427,28 @@ export async function cancelBookingByTripId(tripId: string, userId: string): Pro
     throw Object.assign(new Error('Cannot cancel booking within 48 hours of trip start time'), { status: 400 });
   }
 
-  trip.participants = (trip.participants as any[]).filter((id: any) => id.toString() !== userId) as any;
-  await trip.save();
+  await leaveTripRow(tripId, userId);
 }
 
 // ─── Get booking details by trip ID ──────────────────────────────────────────
 
 export async function getBookingDetailsByTripId(tripId: string, userId: string): Promise<any> {
-  if (!tripId || !mongoose.isValidObjectId(tripId)) {
+  // isValidObjectId would reject every real trip id now that they are uuids.
+  if (!tripId) {
     throw Object.assign(new Error('Invalid trip id'), { status: 400 });
   }
 
-  const trip = await Trip.findById(tripId).populate('organizerId', 'name phone email');
-  if (!trip) throw Object.assign(new Error('Trip not found'), { status: 404 });
+  const tripRow = await prisma.trip.findUnique({ where: { id: tripId }, include: tripInclude });
+  if (!tripRow) throw Object.assign(new Error('Trip not found'), { status: 404 });
 
-  if (!(trip.participants as any[]).includes(userId)) {
+  const trip: any = shapeTrip(tripRow);
+  // populate('organizerId') is gone; User is still a Mongo document.
+  trip.organizerId = (await User.findById(tripRow.organizerId).select('name phone email').lean()) ?? tripRow.organizerId;
+
+  // `trip.participants.includes(userId)` compared ObjectIds against a string
+  // and was false for everyone, so this route answered "Booking not found" to
+  // every traveller who asked about a trip they were actually booked on.
+  if (!(await isParticipant(tripId, userId))) {
     throw Object.assign(new Error('Booking not found'), { status: 404 });
   }
 
@@ -376,10 +500,10 @@ export async function uploadPaymentScreenshot(
     throw Object.assign(new Error('Payment screenshot file is required'), { status: 400 });
   }
 
-  const booking = await GroupBooking.findById(bookingId);
+  const booking = await prisma.groupBooking.findUnique({ where: { id: bookingId } });
   if (!booking) throw Object.assign(new Error('Booking not found'), { status: 404 });
 
-  if (booking.mainBookerId.toString() !== userId) {
+  if (booking.mainBookerId !== userId) {
     throw Object.assign(new Error('You can only upload payment screenshots for your own bookings'), { status: 403 });
   }
 
@@ -402,17 +526,22 @@ export async function uploadPaymentScreenshot(
     throw Object.assign(new Error('Payment screenshot file or URL is required'), { status: 400 });
   }
 
-  (booking as any).paymentScreenshot = {
-    filename: screenshotData.filename,
-    originalName: screenshotData.originalName,
-    url: screenshotData.url,
-    uploadedAt: new Date()
-  };
-  booking.paymentStatus = 'partial';
-  await booking.save();
+  // paymentScreenshot was a nested object; four columns say the same thing and
+  // each of them can be queried.
+  const updated = shapeBooking(await prisma.groupBooking.update({
+    where: { id: bookingId },
+    data: {
+      screenshotFilename: screenshotData.filename,
+      screenshotOriginalName: screenshotData.originalName,
+      screenshotUrl: screenshotData.url,
+      screenshotUploadedAt: new Date(),
+      paymentStatus: 'partial'
+    },
+    include: bookingInclude
+  }));
 
   // Notify organizer via email
-  const trip = await Trip.findById(booking.tripId);
+  const trip = await prisma.trip.findUnique({ where: { id: booking.tripId } });
   const traveler = await User.findById(userId);
   const organizer = trip ? await User.findById(trip.organizerId) : null;
 
@@ -421,37 +550,33 @@ export async function uploadPaymentScreenshot(
       travelerName: traveler.name,
       travelerEmail: traveler.email,
       tripTitle: trip.title,
-      bookingId: booking._id.toString(),
-      totalAmount: booking.totalAmount,
+      bookingId: bookingId,
+      totalAmount: updated.totalAmount,
       organizerName: organizer.name,
       organizerEmail: organizer.email,
-      screenshotUrl: (booking as any).paymentScreenshot.url
+      screenshotUrl: updated.paymentScreenshot.url
     }).catch((emailError: any) => {
       logger.error('Failed to send payment screenshot notification email', { error: emailError.message, organizerEmail: organizer.email, bookingId });
     });
   }
 
-  return booking;
+  return updated;
 }
 
 // ─── Get booking details ──────────────────────────────────────────────────────
 
 export async function getBookingDetails(bookingId: string, userId: string): Promise<any> {
-  const booking = await GroupBooking.findById(bookingId)
-    .populate({
-      path: 'tripId',
-      select: 'title description destination startDate endDate price status coverImage images itinerary itineraryPdf schedule organizerId capacity participants',
-      populate: { path: 'organizerId', select: 'name phone email' }
-    })
-    .populate('mainBookerId', 'name email phone');
+  // tripId is a real join now; mainBookerId and the trip's organizer are still
+  // Mongo documents, so they are fetched and attached under the same keys.
+  const booking = await loadBookingWithRefs(bookingId, { trip: true, mainBooker: true, organizer: true });
 
   if (!booking) throw Object.assign(new Error('Booking not found'), { status: 404 });
 
   const user = await User.findById(userId);
   const trip = booking.tripId as any;
 
-  const isBookingOwner = (booking.mainBookerId as any)._id.toString() === userId;
-  const isOrganizer = trip.organizerId._id.toString() === userId;
+  const isBookingOwner = booking.mainBookerRef === userId;
+  const isOrganizer = trip.organizerRef === userId;
   const isAdmin = user?.role === 'admin';
 
   if (!isBookingOwner && !isOrganizer && !isAdmin) {
@@ -499,14 +624,13 @@ export async function getBookingDetails(bookingId: string, userId: string): Prom
 // ─── Get booking for payment verification ────────────────────────────────────
 
 export async function getBookingForPaymentVerification(bookingId: string, userId: string): Promise<any> {
-  if (!bookingId || !mongoose.isValidObjectId(bookingId)) {
+  if (!bookingId) {
     throw Object.assign(new Error('Invalid booking id'), { status: 400 });
   }
 
-  const booking = await GroupBooking.findById(bookingId)
-    .populate('tripId', 'title destination organizerId')
-    .populate('mainBookerId', 'name email phone')
-    .populate('verifiedBy', 'name email');
+  const booking = await loadBookingWithRefs(bookingId, {
+    trip: true, mainBooker: true, organizer: true, verifier: true
+  });
 
   if (!booking) throw Object.assign(new Error('Booking not found'), { status: 404 });
 
@@ -551,46 +675,60 @@ export async function getBookingForPaymentVerification(bookingId: string, userId
 // ─── Verify payment ───────────────────────────────────────────────────────────
 
 export async function verifyPayment(bookingId: string, userId: string, status: string, notes: string): Promise<any> {
-  if (!['verified', 'rejected'].includes(status)) {
+  // Written as two comparisons rather than an array includes so TypeScript
+  // narrows `status` to the two values the column accepts. `includes` on a
+  // string[] proves nothing to the compiler, which is how a value outside the
+  // enum could have reached the database in the first place.
+  if (status !== 'verified' && status !== 'rejected') {
     throw Object.assign(new Error('Invalid verification status'), { status: 400 });
   }
 
-  if (!bookingId || !mongoose.isValidObjectId(bookingId)) {
+  if (!bookingId) {
     throw Object.assign(new Error('Invalid booking id'), { status: 400 });
   }
 
-  const booking = await GroupBooking.findById(bookingId)
-    .populate('tripId', 'title organizerId participants capacity');
+  const booking = await loadBookingWithRefs(bookingId, { trip: true });
 
   if (!booking) throw Object.assign(new Error('Booking not found'), { status: 404 });
 
   const user = await User.findById(userId);
   const trip = booking.tripId as any;
 
-  const isOrganizer = trip.organizerId.toString() === userId;
+  const isOrganizer = trip.organizerRef === userId;
   const isAdmin = user?.role === 'admin';
 
   if (!isOrganizer && !isAdmin) {
     throw Object.assign(new Error('You do not have permission to verify payments'), { status: 403 });
   }
 
-  (booking as any).paymentVerificationStatus = status;
-  (booking as any).paymentVerificationNotes = notes || '';
-  (booking as any).verifiedBy = userId;
-  (booking as any).verifiedAt = new Date();
+  const verifiedNow = status === 'verified';
 
-  if (status === 'verified') {
+  await prisma.groupBooking.update({
+    where: { id: bookingId },
+    data: {
+      paymentVerificationStatus: status,
+      paymentVerificationNotes: notes || '',
+      verifiedBy: userId,
+      verifiedAt: new Date(),
+      ...(verifiedNow ? { paymentStatus: 'completed' as const, bookingStatus: 'confirmed' as const } : {})
+    }
+  });
+
+  if (verifiedNow) {
     booking.paymentStatus = 'completed';
     booking.bookingStatus = 'confirmed';
 
-    if (!(trip.participants as any[]).includes(booking.mainBookerId)) {
-      (trip.participants as any[]).push(booking.mainBookerId);
-      await trip.save();
-    }
+    // `trip.participants.includes(booking.mainBookerId)` compared two ObjectId
+    // instances, which are never equal to each other even when they hold the
+    // same value - so this guard never fired and every verification appended
+    // the same traveller again. Capacity is measured against that list, so a
+    // trip sold out early. addPaidParticipant is refused by the unique
+    // constraint instead of guarded by a comparison that could not work.
+    await addPaidParticipant(booking.tripId?.id ?? booking.tripRef, booking.mainBookerRef);
 
     const [mainBooker, organizer] = await Promise.all([
-      User.findById(booking.mainBookerId).select('name email phone').lean(),
-      User.findById(trip.organizerId).select('name email phone').lean()
+      User.findById(booking.mainBookerRef).select('name email phone').lean(),
+      User.findById(trip.organizerRef).select('name email phone').lean()
     ]);
 
     if (emailService.isServiceReady() && mainBooker && organizer) {
@@ -606,7 +744,7 @@ export async function verifyPayment(bookingId: string, userId: string, status: s
         organizerName: organizer.name,
         organizerEmail: organizer.email,
         organizerPhone: organizer.phone || '',
-        bookingId: booking._id.toString()
+        bookingId: bookingId
       }).catch((error: any) => {
         logger.error('Failed to send payment verification email', { error: error.message });
       });
@@ -632,23 +770,26 @@ export async function verifyPayment(bookingId: string, userId: string, status: s
   } else if (status === 'rejected') {
     booking.paymentStatus = 'failed';
     booking.bookingStatus = 'cancelled';
+    await prisma.groupBooking.update({
+      where: { id: bookingId },
+      data: { paymentStatus: 'failed', bookingStatus: 'cancelled' }
+    });
   }
 
-  await booking.save();
   return booking;
 }
 
 // ─── Get booking by ID ────────────────────────────────────────────────────────
 
 export async function getBookingById(bookingId: string, userId: string): Promise<any> {
-  if (!bookingId || !mongoose.isValidObjectId(bookingId)) {
+  if (!bookingId) {
     throw Object.assign(new Error('Invalid booking id'), { status: 400 });
   }
 
-  const booking = await GroupBooking.findById(bookingId).lean();
+  const booking = await loadBookingWithRefs(bookingId, { trip: true });
   if (!booking) throw Object.assign(new Error('Booking not found'), { status: 404 });
 
-  if ((booking as any).mainBookerId.toString() !== userId) {
+  if (booking.mainBookerRef !== userId) {
     throw Object.assign(new Error('You do not have permission to view this booking'), { status: 403 });
   }
 
@@ -658,40 +799,45 @@ export async function getBookingById(bookingId: string, userId: string): Promise
 // ─── Update booking ───────────────────────────────────────────────────────────
 
 export async function updateBooking(bookingId: string, userId: string, specialRequests?: string): Promise<any> {
-  if (!bookingId || !mongoose.isValidObjectId(bookingId)) {
+  if (!bookingId) {
     throw Object.assign(new Error('Invalid booking id'), { status: 400 });
   }
 
-  const booking = await GroupBooking.findById(bookingId);
+  const booking = await loadBookingWithRefs(bookingId, {});
   if (!booking) throw Object.assign(new Error('Booking not found'), { status: 404 });
 
-  if (!booking.mainBookerId || booking.mainBookerId.toString() !== userId) {
+  if (booking.mainBookerRef !== userId) {
     throw Object.assign(new Error('You do not have permission to update this booking'), { status: 403 });
   }
 
-  if (specialRequests) {
-    booking.specialRequests = String(specialRequests);
-  }
+  if (!specialRequests) return booking;
 
-  await booking.save();
-  return booking.toObject();
+  return shapeBooking(await prisma.groupBooking.update({
+    where: { id: bookingId },
+    data: { specialRequests: String(specialRequests) },
+    include: bookingInclude
+  }));
 }
 
 // ─── Cancel booking ───────────────────────────────────────────────────────────
 
 export async function cancelBooking(bookingId: string, userId: string): Promise<any> {
-  if (!bookingId || !mongoose.isValidObjectId(bookingId)) {
+  if (!bookingId) {
     throw Object.assign(new Error('Invalid booking id'), { status: 400 });
   }
 
-  const booking = await GroupBooking.findById(bookingId);
+  const booking = await loadBookingWithRefs(bookingId, {});
   if (!booking) throw Object.assign(new Error('Booking not found'), { status: 404 });
 
-  if (!booking.mainBookerId || booking.mainBookerId.toString() !== userId) {
+  if (booking.mainBookerRef !== userId) {
     throw Object.assign(new Error('You do not have permission to cancel this booking'), { status: 403 });
   }
 
-  booking.bookingStatus = 'cancelled';
-  await booking.save();
-  return booking.toObject();
+  // .save() on a plain object was the 500 here: loadBookingWithRefs returns the
+  // shaped row, not a Mongoose document, so there was nothing to save.
+  return shapeBooking(await prisma.groupBooking.update({
+    where: { id: bookingId },
+    data: { bookingStatus: 'cancelled' },
+    include: bookingInclude
+  }));
 }

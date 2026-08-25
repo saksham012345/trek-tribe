@@ -3,8 +3,8 @@ import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
-import { VerificationRequest } from '../models/VerificationRequest';
 import { prisma } from '../lib/prisma';
+import { createInitialVerificationRequest } from '../services/verificationRequestService';
 import { authenticateJwt, requireRole } from '../middleware/auth';
 import { emailService } from '../services/emailService';
 import { logger } from '../utils/logger';
@@ -1116,18 +1116,16 @@ router.post('/complete-profile', authenticateJwt, async (req, res) => {
     // Create verification request for organizers (Google OAuth)
     if (role === 'organizer') {
       try {
-        await VerificationRequest.create({
-          organizerId: user._id,
+        // Was an unconditional create, which is why an organizer who signed in
+        // with Google more than once accumulated verification requests. The
+        // unique index refuses the second, and a refusal here means the
+        // organizer already has one - which is the expected outcome, not an error.
+        await createInitialVerificationRequest({
+          organizerId: user._id.toString(),
           organizerName: user.name,
           organizerEmail: user.email,
-          requestType: 'initial',
-          status: 'pending',
-          priority: 'medium',
-          documents: [],
-          kycDetails: {
-            phone: phone || '',
-            businessName: user.name
-          }
+          phone: phone || '',
+          businessName: user.name,
         });
 
         logger.info('Verification request created for Google OAuth organizer', {

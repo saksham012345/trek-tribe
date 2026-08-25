@@ -10,8 +10,7 @@ import authRoutes from '../routes/auth';
 import tripRoutes from '../routes/trips';
 import bookingRoutes from '../routes/bookings';
 import { User } from '../models/User';
-import { Trip } from '../models/Trip';
-import { GroupBooking } from '../models/GroupBooking';
+import { prisma } from '../lib/prisma';
 
 const app = express();
 app.use(express.json());
@@ -143,8 +142,13 @@ describe('GET /trips/:id', () => {
     await request(app).get(`/trips/${fakeId}`).expect(404);
   });
 
-  it('returns 400 for malformed ID', async () => {
-    await request(app).get('/trips/not-a-valid-id').expect(400);
+  it('returns 404 for an id that matches no trip', async () => {
+    // This asserted 400, because an id that was not a valid ObjectId made
+    // Mongoose throw a CastError before any lookup happened. Trip ids are
+    // generated uuid strings in a TEXT column now, so there is no such thing as
+    // a malformed one - any string is a lookup that finds nothing, and "no such
+    // trip" is a 404.
+    await request(app).get('/trips/not-a-valid-id').expect(404);
   });
 });
 
@@ -212,7 +216,7 @@ describe('POST /api/group-bookings', () => {
   });
 
   it('rejects booking exceeding capacity', async () => {
-    const trip = await Trip.findById(tripId);
+    const trip = await prisma.trip.findUnique({ where: { id: tripId } });
     const overCapacity = (trip?.capacity ?? 0) + 100;
 
     await request(app)
