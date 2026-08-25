@@ -1,7 +1,16 @@
 import express, { Request, Response } from 'express';
 import { z } from 'zod';
 import { auth, AuthPayload } from '../middleware/auth';
-import { Trip } from '../models/Trip';
+import { prisma } from '../lib/prisma';
+import { shapeTrip, tripInclude } from '../services/tripShapeService';
+import {
+  bookingInclude,
+  shapeBooking,
+  calculateGroupDiscount,
+  computeBookingAmounts
+} from '../services/bookingShapeService';
+import { addPaidParticipant, leaveTrip } from '../services/tripParticipationService';
+import { toNumber } from '../lib/money';
 import { User } from '../models/User';
 import { GroupBooking, GroupParticipant, GroupBookingDocumentWithMethods } from '../models/GroupBooking';
 import { logger } from '../utils/logger';
@@ -16,6 +25,47 @@ import { AuthenticatedRequest } from '../types/app-types';
 
 
 const router = express.Router();
+
+/**
+ * Recompute the group discount and the amounts that depend on it.
+ *
+ * The Mongoose version set groupDiscount and saved, and a pre-save hook
+ * recomputed the money from numberOfGuests. The hook is gone, so the recompute
+ * is explicit - and it has to be, because the CHECK constraints on
+ * group_bookings refuse a row whose discountAmount and finalAmount do not
+ * follow from its total and its discount rate.
+ *
+ * numberOfGuests is deliberately not touched. It is what the traveller is being
+ * charged for; the participant list is who is coming. The old code let those
+ * two drift, and changing that is a pricing decision rather than a migration
+ * one.
+ */
+async function recalculateDiscount(bookingId: string): Promise<void> {
+  const booking = await prisma.groupBooking.findUnique({
+    where: { id: bookingId },
+    include: { participants: true }
+  });
+  if (!booking) return;
+
+  const groupDiscount = calculateGroupDiscount(booking.participants.length);
+  const amounts = computeBookingAmounts({
+    pricePerPerson: toNumber(booking.pricePerPerson),
+    numberOfGuests: booking.numberOfGuests,
+    groupDiscount,
+    advanceAmount: booking.advanceAmount != null ? toNumber(booking.advanceAmount) : undefined
+  });
+
+  await prisma.groupBooking.update({
+    where: { id: bookingId },
+    data: {
+      groupDiscount: amounts.groupDiscount,
+      totalAmount: amounts.totalAmount,
+      discountAmount: amounts.discountAmount,
+      finalAmount: amounts.finalAmount,
+      remainingAmount: amounts.remainingAmount
+    }
+  });
+}
 
 // Validation schemas
 const createGroupBookingSchema = z.object({
@@ -74,7 +124,8 @@ router.post('/', auth, async (req: AuthenticatedRequest, res: Response) => {
     const { tripId, numberOfGuests, selectedPackageId, participants, paymentMethod, specialRequests, notes } = validation.data;
 
     // Find the trip
-    const trip = await Trip.findById(tripId).populate('organizerId', 'name email phone');
+    const tripRow = await prisma.trip.findUnique({ where: { id: tripId }, include: tripInclude });
+    const trip: any = tripRow ? shapeTrip(tripRow) : null;
     if (!trip) {
       return res.status(404).json({
         success: false,
@@ -120,12 +171,30 @@ router.post('/', auth, async (req: AuthenticatedRequest, res: Response) => {
     }
 
     // Calculate group discount based on actual number of guests
-    const groupDiscount = (GroupBooking as any).calculateGroupDiscount(actualNumberOfGuests);
+    // Was a Mongoose static; Prisma has nowhere to hang one, and it was a pure
+    // function of the party size all along.
+    const groupDiscount = calculateGroupDiscount(actualNumberOfGuests);
 
-    // Mark the first participant as main booker
+    // Mark the first participant as main booker.
+    //
+    // The stored gender value keeps its hyphen ('prefer-not-to-say'), which a
+    // Prisma enum member cannot contain, so the member is prefer_not_to_say and
+    // the request value is translated here. Casting instead would have compiled
+    // and then been refused by the database at runtime.
     const processedParticipants = participants.map((participant, index) => ({
-      ...participant,
+      name: participant.name,
+      email: participant.email,
+      phone: participant.phone,
       dateOfBirth: participant.dateOfBirth ? new Date(participant.dateOfBirth) : undefined,
+      gender: participant.gender === 'prefer-not-to-say'
+        ? ('prefer_not_to_say' as const)
+        : participant.gender,
+      emergencyContactName: participant.emergencyContactName,
+      emergencyContactPhone: participant.emergencyContactPhone,
+      medicalConditions: participant.medicalConditions,
+      dietaryRestrictions: participant.dietaryRestrictions,
+      experienceLevel: participant.experienceLevel,
+      specialRequests: participant.specialRequests,
       isMainBooker: index === 0
     }));
 
@@ -140,34 +209,70 @@ router.post('/', auth, async (req: AuthenticatedRequest, res: Response) => {
       }
     }
 
-    // Create group booking
-    const groupBooking = new GroupBooking({
-      tripId: new mongoose.Types.ObjectId(tripId),
-      mainBookerId: new mongoose.Types.ObjectId(req.user.id),
-      numberOfGuests: actualNumberOfGuests,
-      selectedPackageId,
-      packageName,
-      participants: processedParticipants,
+    // The pre-save hook that computed the amounts is gone; they are computed
+    // here so they satisfy the CHECK constraints that say the parts add up.
+    const amounts = computeBookingAmounts({
       pricePerPerson,
+      numberOfGuests: actualNumberOfGuests,
       groupDiscount,
-      paymentType,
-      advanceAmount,
-      paymentMethod,
-      specialRequests,
-      notes
+      advanceAmount: paymentType === 'advance' ? advanceAmount : undefined
     });
 
-    await groupBooking.save();
+    let groupBooking: any;
+    try {
+      groupBooking = await prisma.groupBooking.create({
+        data: {
+          tripId,
+          mainBookerId: req.user.id,
+          numberOfGuests: actualNumberOfGuests,
+          selectedPackageId,
+          packageName,
+          pricePerPerson,
+          groupDiscount: amounts.groupDiscount,
+          totalAmount: amounts.totalAmount,
+          discountAmount: amounts.discountAmount,
+          finalAmount: amounts.finalAmount,
+          remainingAmount: amounts.remainingAmount,
+          paymentType,
+          advanceAmount,
+          paymentMethod,
+          specialRequests,
+          notes,
+          participants: { create: processedParticipants }
+        },
+        include: bookingInclude
+      });
+    } catch (error: any) {
+      // (main_booker_id, trip_id) is unique.
+      if (error?.code === 'P2002') {
+        return res.status(400).json({
+          success: false,
+          message: 'You already have a booking for this trip'
+        });
+      }
+      throw error;
+    }
 
-    // Add participants to trip
-    const participantIds = Array(participants.length).fill(new mongoose.Types.ObjectId(req.user.id));
-    trip.participants.push(...participantIds);
-    await trip.save();
+    // Add the booker to the trip.
+    //
+    // This was:
+    //
+    //     const participantIds = Array(participants.length)
+    //       .fill(new mongoose.Types.ObjectId(req.user.id));
+    //     trip.participants.push(...participantIds);
+    //
+    // which pushed the *same* user once per person in the party - a group of
+    // five added the booker five times. The participant list is what capacity
+    // is measured against, so a five-person booking consumed five seats held by
+    // one person, and the same person could not be removed cleanly afterwards.
+    //
+    // One traveller is one row; the unique constraint refuses the other four.
+    await addPaidParticipant(tripId, req.user.id);
 
-    // Populate the booking for response
-    const populatedBooking = await GroupBooking.findById(groupBooking._id)
-      .populate('tripId', 'title destination startDate endDate')
-      .populate('mainBookerId', 'name email phone');
+    const populatedBooking: any = shapeBooking(groupBooking);
+    populatedBooking.tripId = trip;
+    populatedBooking.mainBookerId =
+      (await User.findById(req.user.id).select('name email phone').lean()) ?? req.user.id;
 
     res.status(201).json({
       success: true,
@@ -175,7 +280,7 @@ router.post('/', auth, async (req: AuthenticatedRequest, res: Response) => {
       data: {
         booking: populatedBooking,
         discountApplied: groupDiscount,
-        totalSaved: groupBooking.discountAmount
+        totalSaved: toNumber(groupBooking.discountAmount)
       }
     });
 
@@ -197,21 +302,31 @@ router.get('/my-bookings', auth, async (req: AuthenticatedRequest, res: Response
   try {
     const { status, page = 1, limit = 10 } = req.query;
 
-    const filter: any = { mainBookerId: new mongoose.Types.ObjectId(req.user.id) };
+    const filter: any = { mainBookerId: req.user.id };
     if (status && typeof status === 'string') {
       filter.bookingStatus = status;
     }
 
     const skip = (Number(page) - 1) * Number(limit);
 
-    const bookings = await GroupBooking.find(filter)
-      .populate('tripId', 'title destination startDate endDate coverImage')
-      .populate('mainBookerId', 'name email phone')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(Number(limit));
+    const [rows, total] = await Promise.all([
+      prisma.groupBooking.findMany({
+        where: filter,
+        include: bookingInclude,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: Number(limit)
+      }),
+      prisma.groupBooking.count({ where: filter })
+    ]);
 
-    const total = await GroupBooking.countDocuments(filter);
+    const booker = await User.findById(req.user.id).select('name email phone').lean();
+    const bookings = rows.map(row => {
+      const booking: any = shapeBooking(row);
+      booking.tripId = row.trip ? shapeTrip(row.trip as any) : null;
+      booking.mainBookerId = booker ?? row.mainBookerId;
+      return booking;
+    });
 
     res.json({
       success: true,
@@ -242,21 +357,26 @@ router.get('/my-bookings', auth, async (req: AuthenticatedRequest, res: Response
  */
 router.get('/:bookingId', auth, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const booking = await GroupBooking.findById(req.params.bookingId)
-      .populate('tripId', 'title destination startDate endDate coverImage organizerId')
-      .populate('mainBookerId', 'name email phone');
+    const row = await prisma.groupBooking.findUnique({
+      where: { id: req.params.bookingId },
+      include: bookingInclude
+    });
 
-    if (!booking) {
+    if (!row) {
       return res.status(404).json({
         success: false,
         message: 'Group booking not found'
       });
     }
 
-    // Check if user has access to this booking
-    const tripData = booking.tripId as any;
-    if (booking.mainBookerId._id.toString() !== req.user.id &&
-      tripData.organizerId._id.toString() !== req.user.id) {
+    const booking: any = shapeBooking(row);
+    booking.tripId = row.trip ? shapeTrip(row.trip as any) : null;
+    booking.mainBookerId =
+      (await User.findById(row.mainBookerId).select('name email phone').lean()) ?? row.mainBookerId;
+
+    // Check if user has access to this booking. The ids are compared directly
+    // rather than reached through whatever populate happened to attach.
+    if (row.mainBookerId !== req.user.id && row.trip?.organizerId !== req.user.id) {
       return res.status(403).json({
         success: false,
         message: 'Access denied'
@@ -293,7 +413,10 @@ router.put('/:bookingId/participants', auth, async (req: AuthenticatedRequest, r
       });
     }
 
-    const booking = await GroupBooking.findById(req.params.bookingId) as GroupBookingDocumentWithMethods;
+    const booking = await prisma.groupBooking.findUnique({
+      where: { id: req.params.bookingId },
+      include: { participants: true }
+    });
     if (!booking) {
       return res.status(404).json({
         success: false,
@@ -302,7 +425,7 @@ router.put('/:bookingId/participants', auth, async (req: AuthenticatedRequest, r
     }
 
     // Check if user is the main booker
-    if (booking.mainBookerId.toString() !== req.user.id) {
+    if (booking.mainBookerId !== req.user.id) {
       return res.status(403).json({
         success: false,
         message: 'Only the main booker can manage participants'
@@ -319,13 +442,9 @@ router.put('/:bookingId/participants', auth, async (req: AuthenticatedRequest, r
         });
       }
 
-      // Use the instance method to add participant
-      const participantData = {
-        ...validation.data,
-        dateOfBirth: validation.data.dateOfBirth ? new Date(validation.data.dateOfBirth) : undefined
-      };
-
-      // Manually add participant since TypeScript has issues with the instance method
+      // Was an instance method that pushed onto the array and threw at twenty.
+      // The cap is checked here; the email being unique within the booking is
+      // the database's job.
       if (booking.participants.length >= 20) {
         return res.status(400).json({
           success: false,
@@ -333,15 +452,40 @@ router.put('/:bookingId/participants', auth, async (req: AuthenticatedRequest, r
         });
       }
 
-      booking.participants.push({
-        ...participantData,
-        isMainBooker: false
-      } as GroupParticipant);
+      try {
+        // Fields listed rather than spread, for the same reason as the create
+        // path: the gender value has to be translated, and casting to `any`
+        // would only move the mismatch from the compiler to the database.
+        await prisma.bookingParticipant.create({
+          data: {
+            bookingId: booking.id,
+            name: validation.data.name,
+            email: validation.data.email,
+            phone: validation.data.phone,
+            dateOfBirth: validation.data.dateOfBirth ? new Date(validation.data.dateOfBirth) : undefined,
+            gender: validation.data.gender === 'prefer-not-to-say'
+              ? ('prefer_not_to_say' as const)
+              : validation.data.gender,
+            emergencyContactName: validation.data.emergencyContactName,
+            emergencyContactPhone: validation.data.emergencyContactPhone,
+            medicalConditions: validation.data.medicalConditions,
+            dietaryRestrictions: validation.data.dietaryRestrictions,
+            experienceLevel: validation.data.experienceLevel,
+            specialRequests: validation.data.specialRequests,
+            isMainBooker: false
+          }
+        });
+      } catch (error: any) {
+        if (error?.code === 'P2002') {
+          return res.status(409).json({
+            success: false,
+            message: 'That participant is already on this booking'
+          });
+        }
+        throw error;
+      }
 
-      // Recalculate discount
-      booking.groupDiscount = (GroupBooking as any).calculateGroupDiscount(booking.participants.length);
-      await booking.save();
-
+      await recalculateDiscount(booking.id);
     } else if (action === 'remove') {
       if (!participant.email) {
         return res.status(400).json({
@@ -350,19 +494,17 @@ router.put('/:bookingId/participants', auth, async (req: AuthenticatedRequest, r
         });
       }
 
-      // Manually remove participant
-      const participantIndex = booking.participants.findIndex(
-        (p: GroupParticipant) => p.email.toLowerCase() === participant.email.toLowerCase()
+      const participantToRemove = booking.participants.find(
+        (pp) => pp.email.toLowerCase() === participant.email.toLowerCase()
       );
 
-      if (participantIndex === -1) {
+      if (!participantToRemove) {
         return res.status(404).json({
           success: false,
           message: 'Participant not found'
         });
       }
 
-      const participantToRemove = booking.participants[participantIndex];
       if (participantToRemove.isMainBooker && booking.participants.length > 1) {
         return res.status(400).json({
           success: false,
@@ -370,23 +512,29 @@ router.put('/:bookingId/participants', auth, async (req: AuthenticatedRequest, r
         });
       }
 
-      booking.participants.splice(participantIndex, 1);
-
-      if (booking.participants.length === 0) {
+      // The splice-then-check this replaces removed the participant first and
+      // only then noticed the booking was left empty - it returned the error
+      // without saving, so the removal was discarded by accident rather than on
+      // purpose. Checked before the delete now.
+      if (booking.participants.length === 1) {
         return res.status(400).json({
           success: false,
           message: 'Cannot remove all participants'
         });
       }
 
-      // Recalculate discount
-      booking.groupDiscount = (GroupBooking as any).calculateGroupDiscount(booking.participants.length);
-      await booking.save();
+      await prisma.bookingParticipant.delete({ where: { id: participantToRemove.id } });
+      await recalculateDiscount(booking.id);
     }
 
-    const updatedBooking = await GroupBooking.findById(booking._id)
-      .populate('tripId', 'title destination')
-      .populate('mainBookerId', 'name email');
+    const updatedRow = await prisma.groupBooking.findUnique({
+      where: { id: booking.id },
+      include: bookingInclude
+    });
+    const updatedBooking: any = shapeBooking(updatedRow);
+    updatedBooking.tripId = updatedRow?.trip ? shapeTrip(updatedRow.trip as any) : null;
+    updatedBooking.mainBookerId =
+      (await User.findById(booking.mainBookerId).select('name email').lean()) ?? booking.mainBookerId;
 
     res.json({
       success: true,
@@ -419,7 +567,10 @@ router.put('/:bookingId/transfer-main-booker', auth, async (req: AuthenticatedRe
       });
     }
 
-    const booking = await GroupBooking.findById(req.params.bookingId) as GroupBookingDocumentWithMethods;
+    const booking = await prisma.groupBooking.findUnique({
+      where: { id: req.params.bookingId },
+      include: { participants: true }
+    });
     if (!booking) {
       return res.status(404).json({
         success: false,
@@ -428,17 +579,16 @@ router.put('/:bookingId/transfer-main-booker', auth, async (req: AuthenticatedRe
     }
 
     // Check if user is the main booker
-    if (booking.mainBookerId.toString() !== req.user.id) {
+    if (booking.mainBookerId !== req.user.id) {
       return res.status(403).json({
         success: false,
         message: 'Only the current main booker can transfer the role'
       });
     }
 
-    // Manually transfer main booker role
-    const currentMainBooker = booking.participants.find((p: GroupParticipant) => p.isMainBooker);
+    const currentMainBooker = booking.participants.find((pp) => pp.isMainBooker);
     const newMainBooker = booking.participants.find(
-      (p: GroupParticipant) => p.email.toLowerCase() === newMainBookerEmail.toLowerCase()
+      (pp) => pp.email.toLowerCase() === newMainBookerEmail.toLowerCase()
     );
 
     if (!newMainBooker) {
@@ -448,17 +598,33 @@ router.put('/:bookingId/transfer-main-booker', auth, async (req: AuthenticatedRe
       });
     }
 
-    if (currentMainBooker) {
-      currentMainBooker.isMainBooker = false;
-    }
+    // Clear the old flag before setting the new one, in one transaction. A
+    // partial unique index allows exactly one main booker per booking, so
+    // setting the new flag first would be refused - and doing it as two
+    // separate saves, which is what this used to be, could leave a booking with
+    // two main bookers or none if the second write never happened.
+    await prisma.$transaction(async (tx) => {
+      if (currentMainBooker) {
+        await tx.bookingParticipant.update({
+          where: { id: currentMainBooker.id },
+          data: { isMainBooker: false }
+        });
+      }
+      await tx.bookingParticipant.update({
+        where: { id: newMainBooker.id },
+        data: { isMainBooker: true }
+      });
+    });
 
-    newMainBooker.isMainBooker = true;
-    await booking.save();
+    const transferred = await prisma.groupBooking.findUnique({
+      where: { id: booking.id },
+      include: bookingInclude
+    });
 
     res.json({
       success: true,
       message: 'Main booker role transferred successfully',
-      data: { booking }
+      data: { booking: shapeBooking(transferred) }
     });
 
   } catch (error: any) {
@@ -487,8 +653,11 @@ router.put('/:bookingId/payment-status', auth, async (req: AuthenticatedRequest,
       });
     }
 
-    const booking = await GroupBooking.findById(req.params.bookingId).populate('tripId');
-    if (!booking) {
+    const existing = await prisma.groupBooking.findUnique({
+      where: { id: req.params.bookingId },
+      include: { trip: true }
+    });
+    if (!existing || !existing.trip) {
       return res.status(404).json({
         success: false,
         message: 'Group booking not found'
@@ -496,39 +665,44 @@ router.put('/:bookingId/payment-status', auth, async (req: AuthenticatedRequest,
     }
 
     // Check if user is the trip organizer
-    const trip = booking.tripId as any;
-    if (trip.organizerId.toString() !== req.user.id) {
+    if (existing.trip.organizerId !== req.user.id) {
       return res.status(403).json({
         success: false,
         message: 'Only the trip organizer can update payment status'
       });
     }
 
-    booking.paymentStatus = paymentStatus;
+    const data: any = { paymentStatus };
     if (paymentTransactionId) {
-      booking.paymentTransactionId = paymentTransactionId;
+      data.paymentTransactionId = paymentTransactionId;
     }
     if (paymentDetails) {
-      booking.paymentDetails = {
-        ...booking.paymentDetails,
-        ...paymentDetails,
-        transactionDate: new Date()
-      };
+      // paymentDetails was a nested object merged over the existing one. Its
+      // four fields are columns, so only the ones supplied are written and the
+      // rest keep their values - which is what the spread was for.
+      if (paymentDetails.paymentGateway !== undefined) data.paymentGateway = paymentDetails.paymentGateway;
+      if (paymentDetails.gatewayTransactionId !== undefined) data.gatewayTransactionId = paymentDetails.gatewayTransactionId;
+      if (paymentDetails.paymentReference !== undefined) data.paymentReference = paymentDetails.paymentReference;
+      data.transactionDate = new Date();
     }
 
     // Update booking status based on payment
     if (paymentStatus === 'completed') {
-      booking.bookingStatus = 'confirmed';
+      data.bookingStatus = 'confirmed';
     } else if (paymentStatus === 'failed' || paymentStatus === 'refunded') {
-      booking.bookingStatus = 'cancelled';
+      data.bookingStatus = 'cancelled';
     }
 
-    await booking.save();
+    const booking = await prisma.groupBooking.update({
+      where: { id: existing.id },
+      data,
+      include: bookingInclude
+    });
 
     res.json({
       success: true,
       message: 'Payment status updated successfully',
-      data: { booking }
+      data: { booking: shapeBooking(booking) }
     });
 
   } catch (error: any) {
@@ -549,8 +723,10 @@ router.delete('/:bookingId', auth, async (req: AuthenticatedRequest, res: Respon
   try {
     const { cancellationReason } = req.body;
 
-    const booking = await GroupBooking.findById(req.params.bookingId);
-    if (!booking) {
+    const existing = await prisma.groupBooking.findUnique({
+      where: { id: req.params.bookingId }
+    });
+    if (!existing) {
       return res.status(404).json({
         success: false,
         message: 'Group booking not found'
@@ -558,40 +734,53 @@ router.delete('/:bookingId', auth, async (req: AuthenticatedRequest, res: Respon
     }
 
     // Check if user is the main booker
-    if (booking.mainBookerId.toString() !== req.user.id) {
+    if (existing.mainBookerId !== req.user.id) {
       return res.status(403).json({
         success: false,
         message: 'Only the main booker can cancel the booking'
       });
     }
 
-    if (booking.bookingStatus === 'cancelled') {
+    // Read the status, check it, then write it - two clicks on Cancel both
+    // passed. The claim and the check are one statement.
+    const cancelled = await prisma.groupBooking.updateMany({
+      where: { id: existing.id, bookingStatus: { not: 'cancelled' } },
+      data: {
+        bookingStatus: 'cancelled',
+        cancellationReason,
+        cancellationDate: new Date()
+      }
+    });
+
+    if (cancelled.count === 0) {
       return res.status(400).json({
         success: false,
         message: 'Booking is already cancelled'
       });
     }
 
-    // Update booking status
-    booking.bookingStatus = 'cancelled';
-    booking.cancellationReason = cancellationReason;
-    booking.cancellationDate = new Date();
+    // Remove the booker from the trip.
+    //
+    // This was:
+    //
+    //     const participantCount = booking.participants.length;
+    //     trip.participants = trip.participants.slice(0, -participantCount);
+    //
+    // which drops that many entries from the *end* of the participant list,
+    // whoever they happen to be. Cancelling a booking removed other people's
+    // places - as many of them as there were people on the cancelled booking.
+    // Removing the booker removes the booker.
+    await leaveTrip(existing.tripId, existing.mainBookerId);
 
-    await booking.save();
-
-    // Remove participants from trip
-    const trip = await Trip.findById(booking.tripId);
-    if (trip) {
-      // Remove the number of participants from trip
-      const participantCount = booking.participants.length;
-      trip.participants = trip.participants.slice(0, -participantCount);
-      await trip.save();
-    }
+    const booking = await prisma.groupBooking.findUnique({
+      where: { id: existing.id },
+      include: bookingInclude
+    });
 
     res.json({
       success: true,
       message: 'Group booking cancelled successfully',
-      data: { booking }
+      data: { booking: shapeBooking(booking) }
     });
 
   } catch (error: any) {
@@ -613,8 +802,11 @@ router.get('/organizer/bookings', auth, async (req: AuthenticatedRequest, res: R
     const { status, page = 1, limit = 10 } = req.query;
 
     // Find all trips organized by the user
-    const organizerTrips = await Trip.find({ organizerId: new mongoose.Types.ObjectId(req.user.id) }).select('_id');
-    const tripIds = organizerTrips.map(trip => trip._id);
+    const organizerTrips = await prisma.trip.findMany({
+      where: { organizerId: req.user.id },
+      select: { id: true }
+    });
+    const tripIds = organizerTrips.map(trip => trip.id);
 
     if (tripIds.length === 0) {
       return res.json({
@@ -626,21 +818,38 @@ router.get('/organizer/bookings', auth, async (req: AuthenticatedRequest, res: R
       });
     }
 
-    const filter: any = { tripId: { $in: tripIds } };
+    // `trip: { organizerId }` is the same filter as the id list, so the id list
+    // above is only kept for the early return when the organizer has no trips.
+    const filter: any = { trip: { organizerId: req.user.id } };
     if (status && typeof status === 'string') {
       filter.bookingStatus = status;
     }
 
     const skip = (Number(page) - 1) * Number(limit);
 
-    const bookings = await GroupBooking.find(filter)
-      .populate('tripId', 'title destination startDate endDate coverImage')
-      .populate('mainBookerId', 'name email phone')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(Number(limit));
+    const [rows, total] = await Promise.all([
+      prisma.groupBooking.findMany({
+        where: filter,
+        include: bookingInclude,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: Number(limit)
+      }),
+      prisma.groupBooking.count({ where: filter })
+    ]);
 
-    const total = await GroupBooking.countDocuments(filter);
+    const bookerIds = Array.from(new Set(rows.map(r => r.mainBookerId)));
+    const bookers = bookerIds.length
+      ? await User.find({ _id: { $in: bookerIds } }, 'name email phone').lean()
+      : [];
+    const bookerById = new Map(bookers.map((u: any) => [u._id.toString(), u]));
+
+    const bookings = rows.map(row => {
+      const booking: any = shapeBooking(row);
+      booking.tripId = row.trip ? shapeTrip(row.trip as any) : null;
+      booking.mainBookerId = bookerById.get(row.mainBookerId) ?? row.mainBookerId;
+      return booking;
+    });
 
     res.json({
       success: true,
@@ -673,17 +882,18 @@ router.get('/trip/:tripId/packages', async (req: Request, res: Response) => {
   try {
     const { tripId } = req.params;
 
-    const trip = await Trip.findById(tripId);
-    if (!trip) {
+    const tripRow = await prisma.trip.findUnique({ where: { id: tripId }, include: tripInclude });
+    if (!tripRow) {
       return res.status(404).json({
         success: false,
         message: 'Trip not found'
       });
     }
 
-    const packages = trip.packages
-      .filter((pkg: any) => pkg.isActive)
-      .sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    const trip: any = shapeTrip(tripRow);
+    // The packages come back ordered by sortOrder from the database, so the
+    // in-memory sort is gone; only the active filter remains.
+    const packages = trip.packages.filter((pkg: any) => pkg.isActive);
 
     res.json({
       success: true,

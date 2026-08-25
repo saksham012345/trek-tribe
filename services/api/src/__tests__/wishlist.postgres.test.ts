@@ -4,7 +4,6 @@ import jwt from 'jsonwebtoken';
 import app from '../index';
 import { prisma } from '../lib/prisma';
 import { User } from '../models/User';
-import { Trip } from '../models/Trip';
 
 function tokenFor(id: string) {
   return jwt.sign({ id, role: 'traveler' }, process.env.JWT_SECRET as string);
@@ -30,15 +29,19 @@ describe('Wishlist on Postgres', () => {
       await User.create({ _id: id, name, email: id + '@test.com', passwordHash: 'x', role: 'traveler' });
     }
 
+    // Trips are Postgres rows since wave 8; these fixtures used to be Mongo
+    // documents, which is why the route stopped finding them.
     for (const [id, status, title] of [
       [activeTripId, 'active', 'Active Trip'],
       [secondTripId, 'active', 'Second Trip'],
       [inactiveTripId, 'cancelled', 'Cancelled Trip']
-    ]) {
-      await Trip.create({
-        _id: id, title, description: 'd', organizerId, destination: 'Manali',
-        startDate: soon, endDate: soon, price: 1000, capacity: 10,
-        categories: ['adventure'], images: [], status
+    ] as Array<[string, 'active' | 'cancelled', string]>) {
+      await prisma.trip.create({
+        data: {
+          id, title, description: 'd', organizerId, destination: 'Manali',
+          startDate: soon, endDate: soon, price: 1000, capacity: 10,
+          categories: ['adventure'], images: [], status
+        }
       });
     }
   });
@@ -46,7 +49,7 @@ describe('Wishlist on Postgres', () => {
   afterAll(async () => {
     await prisma.wishlist.deleteMany({ where: { userId: { in: [userId, otherUserId] } } });
     await User.deleteMany({ _id: { $in: [userId, otherUserId, organizerId] } });
-    await Trip.deleteMany({ _id: { $in: [activeTripId, secondTripId, inactiveTripId] } });
+    await prisma.trip.deleteMany({ where: { id: { in: [activeTripId, secondTripId, inactiveTripId] } } });
   });
 
   beforeEach(async () => {
@@ -93,7 +96,7 @@ describe('Wishlist on Postgres', () => {
     expect(res.status).toBe(201);
   });
 
-  it('lists items with trip data joined from Mongo', async () => {
+  it('lists items with trip data joined from Postgres', async () => {
     await add(activeTripId, { notes: 'n' });
     const res = await request(app).get('/wishlist').set('Authorization', 'Bearer ' + token);
 
