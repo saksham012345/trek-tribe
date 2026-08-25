@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma';
+import { upsertRacingSafely } from '../lib/upsert';
 import { logger } from '../utils/logger';
 
 /**
@@ -138,11 +139,11 @@ async function ensureSiteSettingsRow() {
   const existing = await prisma.siteSettings.findUnique({ where: { key: 'global' } });
   if (existing) return existing;
 
-  const created = await prisma.siteSettings.upsert({
+  const created = await upsertRacingSafely(() => prisma.siteSettings.upsert({
     where: { key: 'global' },
     create: { key: 'global', ...toColumns(DEFAULT_SITE_SETTINGS) },
     update: {}
-  });
+  }));
   logger.info('Created default site settings');
   return created;
 }

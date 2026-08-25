@@ -5,13 +5,9 @@
  * No req/res objects — pure data in, data out.
  */
 
-import { OrganizerPayoutConfig } from '../../models/OrganizerPayoutConfig';
-import { MarketplaceOrder } from '../../models/MarketplaceOrder';
-import { MarketplaceTransfer } from '../../models/MarketplaceTransfer';
-import { MarketplaceRefund } from '../../models/MarketplaceRefund';
-import { PayoutLedger } from '../../models/PayoutLedger';
-import { OrganizerSubscription } from '../../models/OrganizerSubscription';
 import { User } from '../../models/User';
+import { prisma } from '../../lib/prisma';
+import { withMongoIds } from '../../lib/apiShape';
 import { razorpayRouteService } from '../../services/razorpayRouteService';
 import { logger } from '../../utils/logger';
 import { DEFAULT_AUTOPAY_PLAN } from '../../config/subscription.config';
@@ -46,10 +42,12 @@ export async function onboardOrganizer(organizerId: string, userEmail: string, u
     validatedData = validation.data;
   }
 
-  const activeSub = await OrganizerSubscription.findOne({
-    organizerId,
-    $or: [{ status: 'active' }, { status: 'trial', isTrialActive: true }],
-  }).sort({ createdAt: -1 });
+  const activeSub = await prisma.organizerSubscription.findFirst({
+    where: {
+      organizerId,
+      OR: [{ status: 'active' }, { status: 'trial', isTrialActive: true }],
+    },
+  });
 
   if (!activeSub) {
     throw Object.assign(
@@ -157,10 +155,12 @@ export async function splitPayment(orderId: string, paymentId: string) {
 // ─── Initiate refund ──────────────────────────────────────────────────────────
 
 export async function initiateRefund(orderId: string, amount: number, reason?: string, initiatedBy?: string) {
-  const order = await MarketplaceOrder.findOne({ orderId });
+  const order = await prisma.marketplaceOrder.findUnique({ where: { orderId } });
   if (!order) throw Object.assign(new Error('Order not found'), { status: 404 });
 
-  const transfer = await MarketplaceTransfer.findOne({ orderId: order._id, status: 'processed' });
+  const transfer = await prisma.marketplaceTransfer.findFirst({
+    where: { orderId: order.id, status: 'processed' }
+  });
   if (transfer?.transferId) {
     await razorpayRouteService.reverseTransfer(transfer.transferId, amount);
   }
@@ -171,29 +171,48 @@ export async function initiateRefund(orderId: string, amount: number, reason?: s
 // ─── Settlements ──────────────────────────────────────────────────────────────
 
 export async function getSettlements(organizerId: string) {
-  const transfers = await MarketplaceTransfer.find({ organizerId }).sort({ createdAt: -1 }).limit(50);
-  const ledger = await PayoutLedger.find({ organizerId }).sort({ createdAt: -1 }).limit(50);
-  return { transfers, ledger };
+  const [transfers, ledger] = await Promise.all([
+    prisma.marketplaceTransfer.findMany({
+      where: { organizerId },
+      orderBy: { createdAt: 'desc' },
+      take: 50
+    }),
+    prisma.payoutLedger.findMany({
+      where: { organizerId },
+      orderBy: { createdAt: 'desc' },
+      take: 50
+    })
+  ]);
+
+  // Until now every completed payout appeared here twice - once credited by
+  // createTransfer and once by the transfer.processed webhook. The unique
+  // constraint on (source, referenceId, type) means each is a single row, so
+  // this list finally shows what actually moved.
+  return { transfers: withMongoIds(transfers), ledger: withMongoIds(ledger) };
 }
 
 // ─── Order by ID ──────────────────────────────────────────────────────────────
 
 export async function getOrderById(orderId: string) {
-  const order = await MarketplaceOrder.findOne({ orderId });
+  const order = await prisma.marketplaceOrder.findUnique({ where: { orderId } });
   if (!order) throw Object.assign(new Error('Order not found'), { status: 404 });
-  return order;
+  return { ...order, _id: order.id };
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 export async function getMarketplaceConfig(organizerId: string) {
   const [payoutConfig, organizer, subscription] = await Promise.all([
-    OrganizerPayoutConfig.findOne({ organizerId }),
+    prisma.organizerPayoutConfig.findUnique({ where: { organizerId } }),
     User.findById(organizerId),
-    OrganizerSubscription.findOne({
-      organizerId,
-      $or: [{ status: 'active' }, { status: 'trial', isTrialActive: true }],
-    }).sort({ createdAt: -1 }),
+    // organizerId is unique on this table, so the $or is a test on the single
+    // row rather than a choice between rows, and the sort had nothing to sort.
+    prisma.organizerSubscription.findFirst({
+      where: {
+        organizerId,
+        OR: [{ status: 'active' }, { status: 'trial', isTrialActive: true }],
+      },
+    }),
   ]);
 
   let accountStatus = null;

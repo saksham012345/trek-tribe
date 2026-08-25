@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
 import { VerificationRequest } from '../models/VerificationRequest';
-import { OrganizerSubscription } from '../models/OrganizerSubscription';
+import { prisma } from '../lib/prisma';
 import { authenticateJwt, requireRole } from '../middleware/auth';
 import { emailService } from '../services/emailService';
 import { logger } from '../utils/logger';
@@ -458,9 +458,9 @@ router.get('/me', authenticateJwt, async (req, res) => {
     // Check for premium status if user is an organizer
     let isPremium = false;
     if (user.role === 'organizer') {
-      const subscription = await OrganizerSubscription.findOne({
-        organizerId: user._id,
-        status: 'active'
+      const subscription = await prisma.organizerSubscription.findFirst({
+        // organizerId is a string column holding the user's ObjectId.
+        where: { organizerId: (user as any)._id.toString(), status: 'active' }
       });
 
       if (subscription) {

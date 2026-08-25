@@ -8,9 +8,9 @@
 
 import { Trip } from '../../models/Trip';
 import { User } from '../../models/User';
-import { OrganizerSubscription } from '../../models/OrganizerSubscription';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
+import { toNumber } from '../../lib/money';
 
 import TripVerification from '../../models/TripVerification';
 import { GroupBooking } from '../../models/GroupBooking';
@@ -43,10 +43,18 @@ export async function getAdminDashboard() {
     Trip.countDocuments({ isActive: true, startDate: { $gte: new Date() } }),
     User.countDocuments({ role: 'traveler' }),
     User.countDocuments({ role: 'organizer' }),
-    OrganizerSubscription.aggregate([
-      { $match: { paymentStatus: 'completed' } },
-      { $group: { _id: null, total: { $sum: '$amount' } } },
-    ]),
+    // This has always returned nothing. OrganizerSubscription has no
+    // `paymentStatus` field and no `amount` field - the payment values live
+    // inside the payments array as payments[].status and payments[].amount, and
+    // the total was kept in totalPaid. Mongo answers a match on a field that
+    // does not exist with an empty result, so the admin dashboard has been
+    // showing total platform revenue as zero for as long as this code existed.
+    //
+    // Payments are rows now, so this is the sum it was always meant to be.
+    prisma.subscriptionPayment.aggregate({
+      where: { status: 'completed' },
+      _sum: { amount: true },
+    }),
     TripVerification.countDocuments({ status: 'pending' }),
     prisma.lead.count(),
     prisma.lead.count({ where: { status: 'converted' } }),
@@ -76,7 +84,8 @@ export async function getAdminDashboard() {
   });
 
   const conversionRate = totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
-  const avgBookingValue = totalRevenue.length > 0 ? totalRevenue[0].total / totalOrganizers : 0;
+  const platformRevenue = toNumber(totalRevenue._sum.amount);
+  const avgBookingValue = totalOrganizers > 0 ? platformRevenue / totalOrganizers : 0;
   const monthlyGrowth =
     lastMonthTrips > 0 ? ((currentMonthTrips - lastMonthTrips) / lastMonthTrips) * 100 : 0;
 
@@ -88,7 +97,7 @@ export async function getAdminDashboard() {
       pendingVerifications,
       totalUsers,
       totalOrganizers,
-      revenueThisMonth: totalRevenue.length > 0 ? totalRevenue[0].total : 0,
+      revenueThisMonth: platformRevenue,
       conversionRate: Math.round(conversionRate * 100) / 100,
       averageBookingValue: Math.round(avgBookingValue),
       monthlyGrowth: Math.round(monthlyGrowth * 100) / 100,
@@ -127,11 +136,17 @@ export async function getOrganizerDashboard(userId: string) {
     prisma.lead.count({ where: { assignedTo: userId } }),
     prisma.lead.count({ where: { assignedTo: userId, status: 'converted' } }),
     prisma.ticket.count({ where: { requesterId: userId } }),
-    OrganizerSubscription.aggregate([
-      { $match: { organizerId: userId, 'payments.status': 'completed' } },
-      { $group: { _id: null, total: { $sum: '$totalPaid' } } },
-    ]),
-    OrganizerSubscription.findOne({ organizerId: userId, status: { $in: ['active', 'trial'] } }),
+    // Also always zero, for a second reason: organizerId is an ObjectId and
+    // userId is a string. A find() would have cast it using the schema; an
+    // aggregate $match does not cast, so it compared a string to an ObjectId
+    // and matched nothing. Both columns are strings here.
+    prisma.subscriptionPayment.aggregate({
+      where: { status: 'completed', subscription: { organizerId: userId } },
+      _sum: { amount: true },
+    }),
+    prisma.organizerSubscription.findFirst({
+      where: { organizerId: userId, status: { in: ['active', 'trial'] } },
+    }),
   ]);
 
   const conversionRate = myLeads > 0 ? (myConvertedLeads / myLeads) * 100 : 0;
@@ -140,13 +155,13 @@ export async function getOrganizerDashboard(userId: string) {
     overview: {
       totalTrips: myTrips,
       activeTrips: myActiveTrips,
-      totalRevenue: myRevenue.length > 0 ? myRevenue[0].total : 0,
+      totalRevenue: toNumber(myRevenue._sum.amount),
       conversionRate: Math.round(conversionRate * 100) / 100,
     },
     subscription: mySubscription
       ? {
           plan: mySubscription.plan,
-          tripsRemaining: mySubscription.tripsRemaining,
+          tripsRemaining: Math.max(0, mySubscription.tripsPerCycle - mySubscription.tripsUsed),
           expiryDate: mySubscription.subscriptionEndDate || mySubscription.trialEndDate,
           daysLeft: Math.ceil(
             (((mySubscription.subscriptionEndDate || mySubscription.trialEndDate) as Date).getTime() -
@@ -208,19 +223,29 @@ export async function getRevenueAnalytics(userId: string, userRole: string) {
     const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
     const monthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() - i + 1, 0);
 
-    const matchFilter =
-      userRole === 'admin'
-        ? { 'payments.status': 'completed', createdAt: { $gte: monthStart, $lte: monthEnd } }
-        : { organizerId: userId, 'payments.status': 'completed', createdAt: { $gte: monthStart, $lte: monthEnd } };
+    // The month is the month the payment was made, not the month the
+    // subscription happened to be created. The Mongoose version matched
+    // subscription.createdAt and summed totalPaid, which would have credited
+    // every renewal to the month the organizer first signed up - but it also
+    // matched 'payments.status' against a nested path while grouping a
+    // top-level field, and returned nothing at all, so there is no established
+    // behaviour here to preserve.
+    const where: any = {
+      status: 'completed' as const,
+      paymentDate: { gte: monthStart, lte: monthEnd },
+    };
+    if (userRole !== 'admin') {
+      where.subscription = { organizerId: userId };
+    }
 
-    const revenue = await OrganizerSubscription.aggregate([
-      { $match: matchFilter },
-      { $group: { _id: null, total: { $sum: '$totalPaid' } } },
-    ]);
+    const revenue = await prisma.subscriptionPayment.aggregate({
+      where,
+      _sum: { amount: true },
+    });
 
     monthlyRevenue.push({
       month: monthStart.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-      revenue: revenue.length > 0 ? revenue[0].total : 0,
+      revenue: toNumber(revenue._sum.amount),
     });
   }
 

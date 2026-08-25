@@ -3,7 +3,7 @@ import { paymentsRetryAttempts, paymentsFailedTotal, paymentsSuccessTotal } from
 import { logger } from '../utils/logger';
 import Razorpay from 'razorpay';
 import { razorpayService } from './razorpayService';
-import CRMSubscription from '../models/CRMSubscription';
+import { prisma } from '../lib/prisma';
 
 class ChargeRetryWorker {
   private intervalMs: number = 30 * 1000; // poll every 30s
@@ -49,22 +49,43 @@ class ChargeRetryWorker {
             paymentsSuccessTotal.inc();
             await retryQueueService.complete(job.id);
 
-            // Persist attempt to subscription
+            // Persist attempt to subscription.
+            //
+            // This is a retry worker, so the same charge can reach here more
+            // than once - a job that succeeded but whose completion was not
+            // recorded gets picked up again. transactionId is unique, so the
+            // second write is refused rather than adding a second payment for
+            // money that moved once. That matters more now that what an
+            // organizer has paid is the sum of these rows.
             if (subscriptionId) {
-              const sub = await CRMSubscription.findById(subscriptionId);
-              if (sub) {
-                sub.payments.push({
-                  razorpayOrderId: orderId,
-                  razorpayPaymentId: payment.id,
-                  transactionId: payment.id,
-                  amount: amount / 100,
-                  currency: 'INR',
-                  paymentMethod: 'auto_pay',
-                  status: 'completed',
-                  paidAt: new Date()
-                } as any);
-                sub.markModified('payments');
-                await sub.save();
+              try {
+                await prisma.cRMSubscriptionPayment.create({
+                  data: {
+                    subscriptionId,
+                    razorpayOrderId: orderId,
+                    razorpayPaymentId: payment.id,
+                    transactionId: payment.id,
+                    amount: amount / 100,
+                    currency: 'INR',
+                    paymentMethod: 'auto_pay',
+                    status: 'completed',
+                    paidAt: new Date()
+                  }
+                });
+              } catch (err: any) {
+                if (err?.code === 'P2002') {
+                  logger.info('Charge already recorded for this payment id', {
+                    subscriptionId, paymentId: payment.id
+                  });
+                } else if (err?.code === 'P2003' || err?.code === 'P2025') {
+                  // The subscription is gone. Was a silent no-op before, when
+                  // findById returned null and the block was skipped.
+                  logger.warn('Charge succeeded but its subscription no longer exists', {
+                    subscriptionId, paymentId: payment.id
+                  });
+                } else {
+                  throw err;
+                }
               }
             }
 

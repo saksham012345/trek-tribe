@@ -2,7 +2,8 @@ import { Router, Request, Response } from 'express';
 import { authenticateJwt } from '../middleware/auth';
 import { pdfService } from '../services/pdfService';
 import { GroupBooking } from '../models/GroupBooking';
-import { OrganizerSubscription } from '../models/OrganizerSubscription';
+import { prisma } from '../lib/prisma';
+import { toNumber } from '../lib/money';
 import { User } from '../models/User';
 import { Trip } from '../models/Trip';
 import { logger } from '../utils/logger';
@@ -123,21 +124,30 @@ router.get('/subscription/:subscriptionId', authenticateJwt, async (req: Request
     const userId = (req as any).auth.userId;
     const { subscriptionId } = req.params;
 
-    if (!mongoose.isValidObjectId(subscriptionId)) {
+    // The id is a generated uuid string now, not an ObjectId, so the
+    // isValidObjectId check this replaces would reject every real id. The
+    // column is TEXT rather than Postgres uuid, so a malformed value matches
+    // nothing rather than erroring - but the shape is still worth checking to
+    // answer an obviously bad link with a 400 instead of a 404.
+    if (!/^[0-9a-f-]{36}$/i.test(subscriptionId)) {
       return res.status(400).json({ error: 'Invalid subscription id' });
     }
 
-    // Find the subscription
-    const subscription = await OrganizerSubscription.findById(subscriptionId)
-      .populate('organizerId', 'name email');
+    // Find the subscription. populate('organizerId') is gone - User is still a
+    // Mongo document, so the organizer is fetched separately below.
+    const subscription = await prisma.organizerSubscription.findUnique({
+      where: { id: subscriptionId }
+    });
 
     if (!subscription) {
       return res.status(404).json({ error: 'Subscription not found' });
     }
 
+    const organizer = await User.findById(subscription.organizerId);
+
     // Check authorization - user must be the subscription owner or admin
     const user = await User.findById(userId);
-    const isOwner = subscription.organizerId._id.toString() === userId;
+    const isOwner = subscription.organizerId === userId;
     const isAdmin = user?.role === 'admin';
 
     if (!isOwner && !isAdmin) {
@@ -151,12 +161,13 @@ router.get('/subscription/:subscriptionId', authenticateJwt, async (req: Request
 
     // Generate PDF
     const pdfBuffer = await pdfService.generateSubscriptionReceipt({
-      receiptId: `SUB-${subscription._id.toString().slice(-8).toUpperCase()}`,
-      userName: (subscription.organizerId as any).name,
-      userEmail: (subscription.organizerId as any).email,
+      receiptId: `SUB-${subscription.id.slice(-8).toUpperCase()}`,
+      userName: (organizer as any)?.name,
+      userEmail: (organizer as any)?.email,
       paymentDate: subscription.createdAt,
-      amount: subscription.pricePerCycle,
-      transactionId: subscription.razorpayPaymentId || `TRK-${subscription._id.toString().slice(-8)}`,
+      // pricePerCycle is Decimal; the PDF renderer formats a number.
+      amount: toNumber(subscription.pricePerCycle),
+      transactionId: subscription.razorpayPaymentId || `TRK-${subscription.id.slice(-8)}`,
       planName: subscription.plan,
       planTrips: subscription.tripsPerCycle,
       validFrom: subscription.subscriptionStartDate || subscription.createdAt,

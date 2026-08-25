@@ -9,8 +9,7 @@ import mongoose from 'mongoose';
 import { z } from 'zod';
 import { Trip } from '../../models/Trip';
 import { User } from '../../models/User';
-import { OrganizerSubscription } from '../../models/OrganizerSubscription';
-import { OrganizerPayoutConfig } from '../../models/OrganizerPayoutConfig';
+import { prisma } from '../../lib/prisma';
 import { paymentConfig, shouldEnableRoutingForOrganizer } from '../../config/payment.config';
 import { razorpayRouteService as razorpaySubmerchantService } from '../../services/razorpayRouteService';
 import { socketService } from '../../services/socketService';
@@ -106,10 +105,10 @@ export async function checkOrganizerSubscription(organizerId: string): Promise<v
     });
   }
 
-  const subscription = await OrganizerSubscription.findOne({
-    organizerId: new mongoose.Types.ObjectId(organizerId),
-    status: { $in: ['active', 'trial'] }
-  }).sort({ createdAt: -1 });
+  // organizerId is unique on this table, so the sort had a single row to order.
+  const subscription = await prisma.organizerSubscription.findFirst({
+    where: { organizerId, status: { in: ['active', 'trial'] } }
+  });
 
   if (!subscription) {
     throw Object.assign(new Error('Subscription record missing'), {
@@ -227,7 +226,7 @@ export async function setupPaymentRouting(trip: any, organizerId: string, tripTi
     const shouldEnableRouting = shouldEnableRoutingForOrganizer(trustScore, routingEnabledForOrganizer);
 
     if (shouldEnableRouting && razorpaySubmerchantService && razorpaySubmerchantService.generateQRCode) {
-      let payoutConfig = await OrganizerPayoutConfig.findOne({ organizerId });
+      let payoutConfig = await prisma.organizerPayoutConfig.findUnique({ where: { organizerId } });
 
       if (!payoutConfig || !payoutConfig.razorpayAccountId) {
         trip.paymentRoutingStatus = 'pending_onboarding';
@@ -278,17 +277,36 @@ export async function setupPaymentRouting(trip: any, organizerId: string, tripTi
 
 // ─── Increment subscription trip count ───────────────────────────────────────
 
+// This is the second path that spends a trip slot - the first is the
+// useSubscriptionSlot middleware. Neither knew about the other, and this one
+// incremented without checking the cycle limit at all, so an organizer on a
+// 5-trip plan could reach tripsUsed of 7 and nobody would hear about it.
+//
+// The increment is guarded here the same way, by the database, and a refusal is
+// logged as the real condition rather than swallowed as a generic error.
 export async function incrementSubscriptionTripCount(organizerId: string): Promise<void> {
   try {
-    const subscription = await OrganizerSubscription.findOne({
-      organizerId: new mongoose.Types.ObjectId(organizerId),
-      status: { $in: ['active', 'trial'] }
-    }).sort({ createdAt: -1 });
+    const subscription = await prisma.organizerSubscription.findFirst({
+      where: { organizerId, status: { in: ['active', 'trial'] } }
+    });
 
-    if (subscription) {
-      subscription.tripsUsed = (subscription.tripsUsed || 0) + 1;
-      subscription.updatedAt = new Date();
-      await subscription.save();
+    if (!subscription) return;
+
+    const updated = await prisma.$queryRaw<Array<{ trips_used: number }>>`
+      UPDATE organizer_subscriptions
+         SET trips_used = trips_used + 1, updated_at = now()
+       WHERE id = ${subscription.id}
+         AND trips_used < trips_per_cycle
+      RETURNING trips_used
+    `;
+
+    if (updated.length === 0) {
+      logger.warn('Trip created but the subscription cycle has no slots left', {
+        organizerId,
+        subscriptionId: subscription.id,
+        tripsUsed: subscription.tripsUsed,
+        tripsPerCycle: subscription.tripsPerCycle
+      });
     }
   } catch (error: any) {
     logger.error('Failed to increment trip count', { organizerId, error: error.message });

@@ -46,6 +46,7 @@ buys nothing, because bullmq never touches that client.
 
 ```bash
 export DATABASE_URL="postgresql://trektribe:trek-tribe-postgres-pass@localhost:5433/trektribe"
+export DIRECT_URL="$DATABASE_URL"
 export REDIS_URL="redis://:trek-tribe-redis-pass@localhost:6380"
 npx jest --config jest.config.js --runInBand --testPathPattern="(vendor|Vendor|tripVendor)"
 ```
@@ -68,3 +69,16 @@ is on Postgres; the other 41 Mongoose models are on MongoDB. `vendorEventRelay.t
 touches both in one function.
 
 Per D10 this is being unified onto Postgres, domain by domain.
+
+## Set all three, every time
+
+`DIRECT_URL` is required as well as `DATABASE_URL` - `prisma validate` refuses
+to load the schema without it, because `datasource db` declares both.
+
+And set `REDIS_URL` even for a run that looks like it has nothing to do with
+Redis. I left it out of a full test run and four suites failed with
+`NOAUTH Authentication required` - which is the trap described above, hit
+exactly as written: with no `REDIS_URL`, ioredis connects to localhost:6379,
+reaches a different project's Redis, and reports what looks like a wrong
+password for this one. The suites that failed were the ones using bullmq, and
+nothing about their names suggests Redis.

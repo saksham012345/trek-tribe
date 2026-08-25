@@ -1,11 +1,10 @@
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import { User } from '../models/User';
-import { OrganizerPayoutConfig } from '../models/OrganizerPayoutConfig';
-import { MarketplaceOrder } from '../models/MarketplaceOrder';
-import { MarketplaceTransfer } from '../models/MarketplaceTransfer';
-import { MarketplaceRefund } from '../models/MarketplaceRefund';
-import { PayoutLedger } from '../models/PayoutLedger';
+import { prisma } from '../lib/prisma';
+import { upsertRacingSafely } from '../lib/upsert';
+import { toNumber } from '../lib/money';
+import { recordLedgerEntry } from './payoutLedgerService';
 import { logger } from '../utils/logger';
 
 interface OnboardParams {
@@ -106,23 +105,25 @@ class RazorpayRouteService {
 
     const encryptedAccount = this.encrypt(bankAccount.accountNumber);
 
-    await OrganizerPayoutConfig.findOneAndUpdate(
-      { organizerId },
-      {
-        organizerId,
-        razorpayAccountId: accountId,
-        onboardingStatus: 'connected',
-        bankDetails: {
-          accountNumberEncrypted: encryptedAccount,
-          ifscCode: bankAccount.ifscCode,
-          accountHolderName: bankAccount.accountHolderName,
-          bankName: bankAccount.bankName,
-        },
-        kycStatus: 'submitted',
-        commissionRate,
-      },
-      { upsert: true, new: true }
-    );
+    // bankDetails was a sub-document; the four fields are columns now, three of
+    // them NOT NULL. Onboarding genuinely does set onboardingStatus, so unlike
+    // the bank-details route this writes it on both create and update.
+    const configFields = {
+      razorpayAccountId: accountId,
+      onboardingStatus: 'connected' as const,
+      accountNumberEncrypted: encryptedAccount,
+      ifscCode: bankAccount.ifscCode.toUpperCase(),
+      accountHolderName: bankAccount.accountHolderName,
+      bankName: bankAccount.bankName || null,
+      kycStatus: 'submitted' as const,
+      commissionRate,
+    };
+
+    await upsertRacingSafely(() => prisma.organizerPayoutConfig.upsert({
+      where: { organizerId },
+      create: { organizerId, ...configFields },
+      update: configFields,
+    }));
 
     await User.findByIdAndUpdate(organizerId, {
       razorpayAccountId: accountId,
@@ -155,7 +156,8 @@ class RazorpayRouteService {
       },
     });
 
-    await MarketplaceOrder.create({
+    await prisma.marketplaceOrder.create({
+      data: {
       orderId: order.id,
       userId: params.userId,
       organizerId: params.organizerId,
@@ -168,6 +170,7 @@ class RazorpayRouteService {
       commissionRate,
       organizerPayoutAmount: split.payoutAmount,
       razorpayFeeAmount: split.razorpayFeeAmount,
+      }
     });
 
     return order;
@@ -178,19 +181,51 @@ class RazorpayRouteService {
       throw new Error('Razorpay not configured');
     }
 
-    const order = await MarketplaceOrder.findOne({ orderId: params.orderId });
+    const order = await prisma.marketplaceOrder.findUnique({ where: { orderId: params.orderId } });
     if (!order) {
       throw new Error('Marketplace order not found');
     }
 
-    const organizerConfig = await OrganizerPayoutConfig.findOne({ organizerId: order.organizerId });
+    const organizerConfig = await prisma.organizerPayoutConfig.findUnique({
+      where: { organizerId: order.organizerId }
+    });
     if (!organizerConfig?.razorpayAccountId) {
       throw new Error('Organizer Route account not found');
     }
 
-    const split = this.calculateSplit(order.amount, order.commissionRate);
+    // Claim the order before calling Razorpay.
+    //
+    // This function is reached from the payment.captured webhook, and Razorpay
+    // retries webhooks. The Mongoose version set order.splitStatus = 'processed'
+    // *after* the transfer was created, so a retried delivery found the order
+    // still 'pending' and created a second real transfer - the organizer was
+    // paid twice, out of the platform's money.
+    //
+    // Moving the status first makes the claim atomic: whoever the database lets
+    // through does the transfer, and everyone else finds count 0 and stops.
+    // 'failed' is claimable so a genuine retry after an error still works.
+    const claimed = await prisma.marketplaceOrder.updateMany({
+      where: { id: order.id, splitStatus: { in: ['pending', 'failed'] } },
+      data: { splitStatus: 'processed', paymentId: params.paymentId }
+    });
 
-    const transfer = await (this.razorpay as any).transfers.create({
+    if (claimed.count === 0) {
+      const existing = await prisma.marketplaceTransfer.findFirst({
+        where: { orderId: order.id },
+        orderBy: { createdAt: 'desc' }
+      });
+      logger.info('Transfer already in progress or done for this order', { orderId: params.orderId });
+      return existing;
+    }
+
+    // toNumber because calculateSplit does integer arithmetic on paise, and
+    // Decimal * number would not have thrown - it would have returned a Decimal
+    // that Math.round turns into NaN.
+    const split = this.calculateSplit(toNumber(order.amount), toNumber(order.commissionRate));
+
+    let transfer;
+    try {
+      transfer = await (this.razorpay as any).transfers.create({
       account: organizerConfig.razorpayAccountId,
       amount: split.payoutAmount,
       currency: order.currency,
@@ -201,25 +236,33 @@ class RazorpayRouteService {
         type: 'trip_booking_payout',
       },
       on_hold: false,
+      });
+    } catch (error: any) {
+      // Release the claim so the next attempt can take it.
+      await prisma.marketplaceOrder.update({
+        where: { id: order.id },
+        data: { splitStatus: 'failed' }
+      });
+      throw error;
+    }
+
+    const transferDoc = await prisma.marketplaceTransfer.create({
+      data: {
+        orderId: order.id,
+        organizerId: order.organizerId,
+        paymentId: params.paymentId,
+        transferId: transfer.id,
+        amount: order.amount,
+        commissionAmount: split.commissionAmount,
+        razorpayFeeAmount: split.razorpayFeeAmount,
+        payoutAmount: split.payoutAmount,
+        status: 'initiated',
+      }
     });
 
-    const transferDoc = await MarketplaceTransfer.create({
-      orderId: order._id,
-      organizerId: order.organizerId,
-      paymentId: params.paymentId,
-      transferId: transfer.id,
-      amount: order.amount,
-      commissionAmount: split.commissionAmount,
-      razorpayFeeAmount: split.razorpayFeeAmount,
-      payoutAmount: split.payoutAmount,
-      status: 'initiated',
-    });
+    // The order was already claimed above, so nothing to save here.
 
-    order.splitStatus = 'processed';
-    order.paymentId = params.paymentId;
-    await order.save();
-
-    await PayoutLedger.create({
+    await recordLedgerEntry({
       organizerId: order.organizerId,
       type: 'credit',
       source: 'transfer',
@@ -240,10 +283,10 @@ class RazorpayRouteService {
 
     const resp = await (this.razorpay as any).transfers.reverse(transferId, { amount });
 
-    await MarketplaceTransfer.findOneAndUpdate(
-      { transferId },
-      { status: 'reversed', processedAt: new Date() }
-    );
+    await prisma.marketplaceTransfer.updateMany({
+      where: { transferId },
+      data: { status: 'reversed', processedAt: new Date() }
+    });
 
     logger.info('Transfer reversed', { transferId, amount });
     return resp;
@@ -254,9 +297,16 @@ class RazorpayRouteService {
       throw new Error('Razorpay not configured');
     }
 
-    const order = await MarketplaceOrder.findOne({ orderId: params.orderId });
+    const order = await prisma.marketplaceOrder.findUnique({ where: { orderId: params.orderId } });
     if (!order) {
       throw new Error('Order not found for refund');
+    }
+
+    // paymentId is nullable - an order that was created but never paid has none.
+    // Mongoose passed undefined straight to Razorpay, which fails with a message
+    // about a missing path rather than about an unpaid order.
+    if (!order.paymentId) {
+      throw new Error('Order has no captured payment to refund');
     }
 
     const refund = await (this.razorpay as any).payments.refund(order.paymentId, {
@@ -264,24 +314,34 @@ class RazorpayRouteService {
       notes: { reason: params.reason || 'customer_request' },
     });
 
-    const refundDoc = await MarketplaceRefund.create({
-      orderId: order._id,
-      paymentId: order.paymentId,
-      refundId: refund.id,
-      amount: params.amount,
-      currency: order.currency,
-      reason: params.reason,
-      reversedTransfer: false,
-      status: 'processed',
-      createdBy: params.initiatedBy,
-      processedAt: new Date(),
+    const refundDoc = await prisma.marketplaceRefund.create({
+      data: {
+        orderId: order.id,
+        paymentId: order.paymentId,
+        refundId: refund.id,
+        amount: params.amount,
+        currency: order.currency,
+        reason: params.reason,
+        reversedTransfer: false,
+        status: 'processed',
+        createdBy: params.initiatedBy,
+        processedAt: new Date(),
+      }
     });
 
-    order.status = params.amount === order.amount ? 'refunded' : 'partial_refund';
-    order.refundStatus = params.amount === order.amount ? 'processed' : 'partial';
-    await order.save();
+    // `params.amount === order.amount` compared a number to a Decimal, which is
+    // false for every full refund. Both sides are numbers here.
+    const isFullRefund = params.amount === toNumber(order.amount);
 
-    await PayoutLedger.create({
+    await prisma.marketplaceOrder.update({
+      where: { id: order.id },
+      data: {
+        status: isFullRefund ? 'refunded' : 'partial_refund',
+        refundStatus: isFullRefund ? 'processed' : 'partial',
+      }
+    });
+
+    await recordLedgerEntry({
       organizerId: order.organizerId,
       type: 'debit',
       source: 'refund',
@@ -325,9 +385,16 @@ class RazorpayRouteService {
     };
   }
 
-  private async getCommissionRate(organizerId: string) {
-    const config = await OrganizerPayoutConfig.findOne({ organizerId });
-    return config?.commissionRate ?? Number(process.env.PLATFORM_COMMISSION_RATE || 5);
+  private async getCommissionRate(organizerId: string): Promise<number> {
+    const config = await prisma.organizerPayoutConfig.findUnique({ where: { organizerId } });
+    // commissionRate is Decimal in the database and feeds calculateSplit, which
+    // computes `amount * (commissionRate / 100)`. Dividing a Decimal by a number
+    // yields a Decimal, multiplying yields another, and Math.round of a Decimal
+    // is NaN - so the split would have been three NaNs, and the CHECK that says
+    // the parts add up to the whole would have refused the transfer with a
+    // message about a constraint rather than about a type.
+    if (config) return toNumber(config.commissionRate);
+    return Number(process.env.PLATFORM_COMMISSION_RATE || 5);
   }
 }
 

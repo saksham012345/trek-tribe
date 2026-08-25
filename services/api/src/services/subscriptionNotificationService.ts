@@ -1,5 +1,5 @@
 import { emailService } from './emailService';
-import CRMSubscription from '../models/CRMSubscription';
+import { prisma } from '../lib/prisma';
 import { User } from '../models/User';
 import { logger } from '../utils/logger';
 import { SUBSCRIPTION_PLANS } from './razorpayService';
@@ -318,19 +318,20 @@ class SubscriptionNotificationService {
       const oneDayFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
       // Find active trials
-      const activeTrials = await CRMSubscription.find({
-        planType: 'trial',
-        status: 'active',
-        'trial.isActive': true,
-      }).populate('organizerId');
+      // The trial and notification flags were nested objects reached by dotted
+      // paths; they are columns, so this is an ordinary indexed query.
+      const activeTrials = await prisma.cRMSubscription.findMany({
+        where: { planType: 'trial', status: 'active', trialIsActive: true },
+      });
 
       for (const subscription of activeTrials) {
-        if (!subscription.trial?.endDate) continue;
+        if (!subscription.trialEndDate) continue;
 
-        const endDate = new Date(subscription.trial.endDate);
+        const endDate = new Date(subscription.trialEndDate);
         const daysRemaining = Math.ceil((endDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
 
-        const organizer = subscription.organizerId as any;
+        // populate('organizerId') is gone - User is still a Mongo document.
+        const organizer: any = await User.findById(subscription.organizerId);
         if (!organizer || !organizer.email) continue;
 
         const notificationData: TrialNotificationData = {
@@ -342,38 +343,35 @@ class SubscriptionNotificationService {
         };
 
         // 7 days before expiry
-        if (daysRemaining <= 7 && daysRemaining > 1 && !subscription.notifications?.trialEndingIn7Days) {
+        if (daysRemaining <= 7 && daysRemaining > 1 && !subscription.trialEndingIn7Days) {
           await this.sendTrialEndingIn7DaysEmail(notificationData);
-          subscription.notifications = {
-            ...subscription.notifications,
-            trialEndingIn7Days: true,
-            lastReminderSentAt: new Date(),
-          } as any;
-          await subscription.save();
+          await prisma.cRMSubscription.update({
+            where: { id: subscription.id },
+            data: { trialEndingIn7Days: true, lastReminderSentAt: new Date() },
+          });
         }
 
         // 1 day before expiry
-        if (daysRemaining <= 1 && daysRemaining > 0 && !subscription.notifications?.trialEndingIn1Day) {
+        if (daysRemaining <= 1 && daysRemaining > 0 && !subscription.trialEndingIn1Day) {
           await this.sendTrialEndingIn1DayEmail(notificationData);
-          subscription.notifications = {
-            ...subscription.notifications,
-            trialEndingIn1Day: true,
-            lastReminderSentAt: new Date(),
-          } as any;
-          await subscription.save();
+          await prisma.cRMSubscription.update({
+            where: { id: subscription.id },
+            data: { trialEndingIn1Day: true, lastReminderSentAt: new Date() },
+          });
         }
 
         // Trial expired
-        if (daysRemaining <= 0 && !subscription.notifications?.trialExpired) {
+        if (daysRemaining <= 0 && !subscription.trialExpired) {
           await this.sendTrialExpiredEmail(notificationData);
-          subscription.status = 'expired';
-          subscription.trial.isActive = false;
-          subscription.notifications = {
-            ...subscription.notifications,
-            trialExpired: true,
-            lastReminderSentAt: new Date(),
-          } as any;
-          await subscription.save();
+          await prisma.cRMSubscription.update({
+            where: { id: subscription.id },
+            data: {
+              status: 'expired',
+              trialIsActive: false,
+              trialExpired: true,
+              lastReminderSentAt: new Date(),
+            },
+          });
         }
       }
 

@@ -16,7 +16,6 @@ import databaseImportRoutes from '../routes/databaseImport';
 import { prisma } from '../lib/prisma';
 
 import { User } from '../models/User';
-import CRMSubscription from '../models/CRMSubscription';
 
 const app = express();
 app.use(express.json());
@@ -40,12 +39,16 @@ beforeAll(async () => {
   organizerId = orgRes.body.user._id;
 
   // Grant CRM access for this organizer
-  await CRMSubscription.deleteMany({ organizerId });
-  await CRMSubscription.create({
-    organizerId,
-    planType: 'crm_bundle',
-    status: 'active',
-    crmBundle: { hasAccess: true, price: 2100, features: [] },
+  await prisma.cRMSubscription.deleteMany({ where: { organizerId } });
+  await prisma.cRMSubscription.create({
+    data: {
+      organizerId,
+      planType: 'crm_bundle',
+      status: 'active',
+      crmBundleHasAccess: true,
+      crmBundlePrice: 2100,
+      crmBundleFeatures: [],
+    },
   });
 });
 

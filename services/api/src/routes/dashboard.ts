@@ -3,7 +3,8 @@ import { authenticateJwt, requireRole } from '../middleware/auth';
 import { User } from '../models/User';
 import { Trip } from '../models/Trip';
 import { GroupBooking } from '../models/GroupBooking';
-import CRMSubscription from '../models/CRMSubscription';
+import { prisma } from '../lib/prisma';
+import { remainingTrips } from '../services/crmSubscriptionService';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -22,7 +23,7 @@ router.get('/organizer', authenticateJwt, requireRole(['organizer']), async (req
     }
 
     // Get subscription status
-    const subscription = await CRMSubscription.findOne({ organizerId });
+    const subscription = await prisma.cRMSubscription.findFirst({ where: { organizerId } });
 
     // Get trip statistics
     const [
@@ -135,12 +136,29 @@ router.get('/organizer', authenticateJwt, requireRole(['organizer']), async (req
     } : null;
 
     // Subscription info
+    // The three nested objects are columns now; the response keeps the shape
+    // the dashboard reads.
     const subscriptionInfo = subscription ? {
       planType: subscription.planType,
       status: subscription.status,
-      tripPackage: subscription.tripPackage,
-      crmBundle: subscription.crmBundle,
-      trial: subscription.trial
+      tripPackage: {
+        packageType: subscription.packageType.replace(/^trips_(\d+)$/, '$1_trips'),
+        totalTrips: subscription.totalTrips,
+        usedTrips: subscription.usedTrips,
+        remainingTrips: remainingTrips(subscription),
+        pricePerPackage: Number(subscription.pricePerPackage)
+      },
+      crmBundle: {
+        hasAccess: subscription.crmBundleHasAccess,
+        price: Number(subscription.crmBundlePrice),
+        features: subscription.crmBundleFeatures
+      },
+      trial: {
+        isActive: subscription.trialIsActive,
+        startDate: subscription.trialStartDate,
+        endDate: subscription.trialEndDate,
+        monthsRemaining: subscription.trialMonthsRemaining
+      }
     } : null;
 
     // Profile completeness
@@ -180,10 +198,11 @@ router.get('/organizer', authenticateJwt, requireRole(['organizer']), async (req
       });
     }
 
-    if (subscription && subscription.tripPackage && subscription.tripPackage.remainingTrips <= 2) {
+    const slotsLeft = subscription ? remainingTrips(subscription) : 0;
+    if (subscription && slotsLeft <= 2) {
       alerts.push({
         type: 'info',
-        message: `Only ${subscription.tripPackage.remainingTrips} trip listing${subscription.tripPackage.remainingTrips > 1 ? 's' : ''} remaining`,
+        message: `Only ${slotsLeft} trip listing${slotsLeft > 1 ? 's' : ''} remaining`,
         action: '/subscription/purchase',
         priority: 'medium'
       });
@@ -352,15 +371,31 @@ router.get('/agent', authenticateJwt, requireRole(['agent', 'admin']), async (re
       .lean();
 
     // Get subscriptions requiring attention
-    const subscriptions = await CRMSubscription.find({
-      $or: [
-        { status: 'expired' },
-        { 'tripPackage.remainingTrips': { $lte: 1 } }
-      ]
-    })
-      .populate('organizerId', 'name email')
-      .limit(10)
-      .lean();
+    // "One trip or fewer left" compares two columns, which Prisma's where cannot
+    // express, so it is written as SQL. It was a dotted path into a nested
+    // object holding a third number that the other two already determined -
+    // and that number was only correct while the application kept it so.
+    //
+    // populate('organizerId') is gone; the organizer names are fetched below,
+    // because User is still a Mongo document.
+    const subscriptions = await prisma.$queryRaw<Array<{
+      id: string; organizer_id: string; plan_type: string; status: string;
+      total_trips: number; used_trips: number;
+    }>>`
+      SELECT id, organizer_id, plan_type, status::text AS status, total_trips, used_trips
+        FROM crm_subscriptions
+       WHERE status = 'expired'
+          OR (total_trips - used_trips) <= 1
+       LIMIT 10
+    `;
+
+    const alertOrganizers = await User.find(
+      { _id: { $in: subscriptions.map(s => s.organizer_id) } },
+      'name email'
+    ).lean();
+    const organizerNames = new Map(
+      alertOrganizers.map((u: any) => [u._id.toString(), u.name])
+    );
 
     // Alerts for agents
     const alerts = [];
@@ -456,11 +491,11 @@ router.get('/agent', authenticateJwt, requireRole(['agent', 'admin']), async (re
         createdAt: booking.createdAt
       })),
       subscriptionsAlert: subscriptions.map(sub => ({
-        id: sub._id,
-        organizerName: (sub.organizerId as any)?.name || 'Unknown',
-        planType: sub.planType,
+        id: sub.id,
+        organizerName: organizerNames.get(sub.organizer_id) || 'Unknown',
+        planType: sub.plan_type,
         status: sub.status,
-        remainingTrips: sub.tripPackage?.remainingTrips || 0
+        remainingTrips: Math.max(0, sub.total_trips - sub.used_trips)
       })),
       alerts,
       quickActions
@@ -569,9 +604,9 @@ router.get('/admin', authenticateJwt, requireRole(['admin']), async (req, res) =
       activeSubscriptions,
       expiredSubscriptions
     ] = await Promise.all([
-      CRMSubscription.countDocuments(),
-      CRMSubscription.countDocuments({ status: 'active' }),
-      CRMSubscription.countDocuments({ status: 'expired' })
+      prisma.cRMSubscription.count(),
+      prisma.cRMSubscription.count({ where: { status: 'active' } }),
+      prisma.cRMSubscription.count({ where: { status: 'expired' } })
     ]);
 
     // Growth metrics

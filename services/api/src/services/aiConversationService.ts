@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma';
+import { upsertRacingSafely } from '../lib/upsert';
 import { AIConversation as AIConversationRow, AIConversationMessage } from '@prisma/client';
 
 /** A conversation with its messages loaded. */
@@ -22,12 +23,12 @@ async function getOrCreate(sessionId: string, userId?: string): Promise<Conversa
 
   // sessionId is unique, so two callers racing to start the same conversation
   // cannot both create one - the second gets the first's row.
-  return await prisma.aIConversation.upsert({
+  return await upsertRacingSafely(() => prisma.aIConversation.upsert({
     where: { sessionId },
     create: { sessionId, userId, expiresAt: new Date(Date.now() + THIRTY_DAYS_MS) },
     update: {},
     include: { messages: { orderBy: { timestamp: 'asc' } } }
-  });
+  }));
 }
 
 /**

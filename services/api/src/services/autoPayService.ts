@@ -1,5 +1,5 @@
 import { User } from '../models/User';
-import CRMSubscription from '../models/CRMSubscription';
+import { prisma } from '../lib/prisma';
 import { razorpayService } from './razorpayService';
 import { emailService } from './emailService';
 import { logger } from '../utils/logger';
@@ -143,50 +143,87 @@ class AutoPayService {
 
         const amountPaid = (payment?.amount || autoPay.paymentAmount) / 100;
 
-        // Update or create subscription
-        let subscription = await CRMSubscription.findOne({ organizerId: user._id });
-        if (!subscription) {
-          subscription = new CRMSubscription({
-            organizerId: user._id,
-            planType: 'trip_package_5',
-            status: 'active',
-            tripPackage: { packageType: '5_trips', totalTrips: 5, usedTrips: 0, remainingTrips: 5, pricePerPackage: autoPay.paymentAmount / 100 },
-            notifications: { trialEndingIn7Days: false, trialEndingIn1Day: false, trialExpired: false, paymentReminder: false }
+        // Update or create subscription.
+        //
+        // The three arrays - paymentAttempts, payments and billingHistory - are
+        // tables now, so this is one upsert and three inserts rather than one
+        // document rewritten whole. The whole thing is a transaction: an
+        // auto-pay charge that succeeded at Razorpay must not leave the package
+        // topped up but the payment unrecorded, or the other way round.
+        const organizerId = String(user._id);
+        const attemptId = payment?.id || `rcpt_${Date.now()}`;
+        const transactionId = payment?.id || receiptId;
+
+        await prisma.$transaction(async (tx) => {
+          const existing = await tx.cRMSubscription.findFirst({ where: { organizerId } });
+
+          const subscriptionRow = existing
+            ? await tx.cRMSubscription.update({
+                where: { id: existing.id },
+                // tripPackage was a nested object that could be missing, which
+                // is what the inner branch handled. The columns have defaults,
+                // so the package is always there to add five trips to.
+                data: { totalTrips: { increment: 5 } }
+              })
+            : await tx.cRMSubscription.create({
+                data: {
+                  organizerId,
+                  planType: 'trip_package_5',
+                  status: 'active',
+                  packageType: 'trips_5',
+                  totalTrips: 5,
+                  usedTrips: 0,
+                  pricePerPackage: autoPay.paymentAmount / 100
+                }
+              });
+
+          await tx.cRMPaymentAttempt.create({
+            data: {
+              subscriptionId: subscriptionRow.id,
+              attemptId,
+              razorpayOrderId: order.id,
+              razorpayPaymentId: payment?.id,
+              amount: amountPaid,
+              status: 'success'
+            }
           });
-        } else {
-          if (!subscription.tripPackage) {
-            subscription.tripPackage = { packageType: '5_trips', totalTrips: 5, usedTrips: 0, remainingTrips: 5, pricePerPackage: autoPay.paymentAmount / 100 };
-          } else {
-            subscription.tripPackage.totalTrips += 5;
-            subscription.tripPackage.remainingTrips += 5;
+
+          await tx.cRMSubscriptionPayment.create({
+            data: {
+              subscriptionId: subscriptionRow.id,
+              razorpayOrderId: order.id,
+              razorpayPaymentId: payment?.id,
+              transactionId,
+              amount: amountPaid,
+              currency: 'INR',
+              paymentMethod: 'auto_pay',
+              status: 'completed',
+              paidAt: new Date(),
+              metadata: { raw: payment }
+            }
+          });
+
+          await tx.cRMBillingEntry.create({
+            data: {
+              subscriptionId: subscriptionRow.id,
+              date: new Date(),
+              amount: amountPaid,
+              description: 'Auto-Pay: Trip Package - 5 Trips'
+            }
+          });
+        }).catch((err: any) => {
+          if (err?.code === 'P2002') {
+            // attemptId and transactionId are both unique. This charge has
+            // already been recorded - the scheduler ran twice, or a retry
+            // caught up with a charge that actually succeeded. The five trips
+            // are not granted a second time, which is the point.
+            logger.info('Auto-pay charge already recorded, not recording it twice', {
+              userId: user._id, orderId: order.id, transactionId
+            });
+            return;
           }
-        }
-
-        // Persist payment attempt and success
-        subscription.paymentAttempts = subscription.paymentAttempts || [];
-        subscription.paymentAttempts.push({
-          attemptId: payment?.id || `rcpt_${Date.now()}`,
-          razorpayOrderId: order.id,
-          razorpayPaymentId: payment?.id,
-          amount: amountPaid,
-          status: 'success',
-          createdAt: new Date()
-        } as any);
-
-        subscription.payments.push({
-          razorpayOrderId: order.id,
-          razorpayPaymentId: payment?.id,
-          transactionId: payment?.id || receiptId,
-          amount: amountPaid,
-          currency: 'INR',
-          paymentMethod: 'auto_pay',
-          status: 'completed',
-          paidAt: new Date(),
-          metadata: { raw: payment }
-        } as any);
-
-        subscription.billingHistory.push({ date: new Date(), amount: amountPaid, description: 'Auto-Pay: Trip Package - 5 Trips' } as any);
-        await subscription.save();
+          throw err;
+        });
 
         // Update autoPay schedule
         autoPay.lastPaymentDate = new Date();
@@ -202,28 +239,45 @@ class AutoPayService {
         // Charge failed: record attempt, enqueue retry
         paymentsFailedTotal.inc();
 
-        // Persist a failed attempt on subscription for audit
-        let subscription = await CRMSubscription.findOne({ organizerId: user._id });
+        // Persist a failed attempt on subscription for audit.
+        //
+        // The subscription created here used status 'pending', which is not one
+        // of the four the schema allows - the value is 'pending_payment'.
+        // Mongoose validates enums on save, so for an organizer whose very
+        // first auto-pay charge failed, the save below threw a ValidationError,
+        // the catch above swallowed it, and the retry was never enqueued. Their
+        // payment simply never retried. The enum refuses the wrong value at the
+        // type level now, so it cannot be written by accident again.
+        const failOrganizerId = String(user._id);
+        let subscription = await prisma.cRMSubscription.findFirst({
+          where: { organizerId: failOrganizerId }
+        });
         if (!subscription) {
-          subscription = new CRMSubscription({ organizerId: user._id, planType: 'trip_package_5', status: 'pending' });
+          subscription = await prisma.cRMSubscription.create({
+            data: { organizerId: failOrganizerId, planType: 'trip_package_5', status: 'pending_payment' }
+          });
         }
-        subscription.paymentAttempts = subscription.paymentAttempts || [];
-        subscription.paymentAttempts.push({
-          attemptId: `failed_${Date.now()}`,
-          razorpayOrderId: order.id,
-          razorpayPaymentId: undefined,
-          amount: autoPay.paymentAmount / 100,
-          status: 'failed',
-          errorMessage: chargeErr.message || String(chargeErr),
-          createdAt: new Date()
-        } as any);
-        await subscription.save();
 
-        // Enqueue retry job
-        const delayMs = retryQueueService.calculateBackoffMs(subscription.paymentAttempts.length || 1);
-        await retryQueueService.enqueue('charge', String(subscription._id || user._id), {
+        await prisma.cRMPaymentAttempt.create({
+          data: {
+            subscriptionId: subscription.id,
+            attemptId: `failed_${Date.now()}`,
+            razorpayOrderId: order.id,
+            amount: autoPay.paymentAmount / 100,
+            status: 'failed',
+            errorMessage: chargeErr.message || String(chargeErr)
+          }
+        });
+
+        // Enqueue retry job. The backoff grows with the number of attempts,
+        // which is a count of the rows rather than the length of an array.
+        const attemptCount = await prisma.cRMPaymentAttempt.count({
+          where: { subscriptionId: subscription.id }
+        });
+        const delayMs = retryQueueService.calculateBackoffMs(attemptCount || 1);
+        await retryQueueService.enqueue('charge', subscription.id, {
           organizerId: String(user._id),
-          subscriptionId: String(subscription._id),
+          subscriptionId: subscription.id,
           razorpayCustomerId: autoPay.razorpayCustomerId,
           paymentMethodId: autoPay.paymentMethodId,
           amount: autoPay.paymentAmount,

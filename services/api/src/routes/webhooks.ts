@@ -2,7 +2,6 @@ import { Router, Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import crypto from 'crypto';
 import { razorpayService } from '../services/razorpayService';
-import { OrganizerSubscription } from '../models/OrganizerSubscription';
 import { GroupBooking } from '../models/GroupBooking';
 import { User } from '../models/User';
 import { emailService } from '../services/emailService';
@@ -10,11 +9,10 @@ import { emailTemplates } from '../templates/emailTemplates';
 import { logger } from '../utils/logger';
 import { auditLogService } from '../services/auditLogService';
 import { prisma } from '../lib/prisma';
-import { MarketplaceOrder } from '../models/MarketplaceOrder';
-import { MarketplaceTransfer } from '../models/MarketplaceTransfer';
-import { MarketplaceRefund } from '../models/MarketplaceRefund';
+import { upsertRacingSafely } from '../lib/upsert';
+import { toNumber } from '../lib/money';
+import { recordLedgerEntry } from '../services/payoutLedgerService';
 import { razorpayRouteService } from '../services/razorpayRouteService';
-import { PayoutLedger } from '../models/PayoutLedger';
 
 const router = Router();
 
@@ -179,9 +177,11 @@ async function handlePaymentCaptured(payment: any) {
 
     // Check if this is a subscription payment
     if (notes?.type === 'subscription') {
-      const subscription = await OrganizerSubscription.findOne({
-        razorpayOrderId: orderId
-      }).populate('organizerId', 'name email');
+      // populate('organizerId') is gone - User is still a Mongo document, so the
+      // organizer is fetched explicitly further down where the email needs it.
+      const subscription = await prisma.organizerSubscription.findFirst({
+        where: { razorpayOrderId: orderId }
+      });
 
       if (subscription) {
         // Extract Plan ID from notes or fallback
@@ -199,32 +199,32 @@ async function handlePaymentCaptured(payment: any) {
           planConfig = SUBSCRIPTION_PLANS[subscription.planType];
         }
 
-        subscription.status = 'active';
-        subscription.razorpayPaymentId = paymentId;
-
-        // Apply Plan Limits directly to Subscription
-        subscription.planType = planConfig.id;
-        subscription.tripsPerCycle = planConfig.trips;
-
-        // Apply CRM Access
-        if (!subscription.crmBundle) {
-          subscription.crmBundle = {
-            hasAccess: planConfig.crmAccess,
-            price: 0,
-            features: planConfig.features
-          };
-        } else {
-          subscription.crmBundle.hasAccess = planConfig.crmAccess;
-          subscription.crmBundle.features = planConfig.features;
-        }
+        // crmBundle was a nested object that could be absent, which is why the
+        // branch above it existed. The three fields are columns with defaults
+        // now, so there is nothing to create before writing to.
+        //
+        // tripsPerCycle is raised to the plan's allowance. It can only go up
+        // here, never below trips already used - the CHECK on
+        // (trips_used <= trips_per_cycle) would refuse that, and refusing is
+        // right: silently lowering the cap below what an organizer has already
+        // spent would make their remaining count negative.
+        await prisma.organizerSubscription.update({
+          where: { id: subscription.id },
+          data: {
+            status: 'active',
+            razorpayPaymentId: paymentId,
+            planType: planConfig.id,
+            tripsPerCycle: Math.max(planConfig.trips, subscription.tripsUsed),
+            crmBundleHasAccess: planConfig.crmAccess,
+            crmBundleFeatures: planConfig.features
+          }
+        });
 
         // Reset usage for new cycle if needed (optional logic depending on exact business rule)
         // For now, we just activate. Cycle reset handled by scheduled jobs usually.
 
-        await subscription.save();
-
         logger.info('Subscription activated via webhook', {
-          subscriptionId: subscription._id,
+          subscriptionId: subscription.id,
           paymentId,
           planId: planConfig.id,
           trips: planConfig.trips,
@@ -232,8 +232,10 @@ async function handlePaymentCaptured(payment: any) {
         });
 
         // Send subscription activated email
-        if (emailService.isServiceReady()) {
-          const user = subscription.organizerId as any;
+        const organizer = await User.findById(subscription.organizerId);
+
+        if (emailService.isServiceReady() && organizer) {
+          const user = organizer as any;
           const emailHtml = emailTemplates.subscriptionActivated({
             userName: user.name,
             planName: planConfig.name, // Use actual plan name
@@ -257,10 +259,10 @@ async function handlePaymentCaptured(payment: any) {
 
         // Audit log
         await auditLogService.log({
-          userId: subscription.organizerId._id.toString(),
+          userId: subscription.organizerId,
           action: 'PAYMENT',
           resource: 'Subscription',
-          resourceId: subscription._id.toString(),
+          resourceId: subscription.id,
           metadata: { type: 'subscription.payment_captured', paymentId, orderId, amount: amount / 100, plan: planConfig.id }
         });
       }
@@ -335,15 +337,16 @@ async function handlePaymentCaptured(payment: any) {
 async function handleMarketplacePaymentCaptured(payment: any) {
   const { order_id: orderId, id: paymentId, amount } = payment;
 
-  const order = await MarketplaceOrder.findOne({ orderId });
+  const order = await prisma.marketplaceOrder.findUnique({ where: { orderId } });
   if (!order) {
     logger.warn('Marketplace order not found for payment', { orderId, paymentId });
     return;
   }
 
-  order.status = 'paid';
-  order.paymentId = paymentId;
-  await order.save();
+  await prisma.marketplaceOrder.update({
+    where: { id: order.id },
+    data: { status: 'paid', paymentId }
+  });
 
   try {
     await razorpayRouteService.createTransfer({ orderId, paymentId });
@@ -352,10 +355,10 @@ async function handleMarketplacePaymentCaptured(payment: any) {
   }
 
   await auditLogService.log({
-    userId: order.userId.toString(),
+    userId: order.userId,
     action: 'PAYMENT',
     resource: 'MarketplaceOrder',
-    resourceId: order._id.toString(),
+    resourceId: order.id,
     metadata: { type: 'marketplace.payment_captured', paymentId, amount: amount / 100 }
   });
 }
@@ -372,22 +375,26 @@ async function handlePaymentFailed(payment: any) {
 
     // Update subscription if applicable
     if (notes?.type === 'subscription') {
-      const subscription = await OrganizerSubscription.findOne({
-        razorpayOrderId: orderId
+      const subscription = await prisma.organizerSubscription.findFirst({
+        where: { razorpayOrderId: orderId }
       });
 
       if (subscription) {
-        subscription.status = 'expired'; // Set to expired instead of invalid 'payment_failed'
-        await subscription.save();
+        // 'expired' rather than 'payment_failed', which was never one of the
+        // five allowed values - the comment says so, and the enum now enforces it.
+        await prisma.organizerSubscription.update({
+          where: { id: subscription.id },
+          data: { status: 'expired' }
+        });
 
-        logger.info('Subscription payment failed', { subscriptionId: subscription._id });
+        logger.info('Subscription payment failed', { subscriptionId: subscription.id });
 
         // Audit log
         await auditLogService.log({
-          userId: subscription.organizerId.toString(),
+          userId: subscription.organizerId,
           action: 'PAYMENT',
           resource: 'Subscription',
-          resourceId: subscription._id.toString(),
+          resourceId: subscription.id,
           metadata: { type: 'subscription.payment_failed', paymentId, orderId, error: error_description },
           status: 'FAILURE',
           errorMessage: error_description
@@ -457,31 +464,36 @@ async function handleTransferProcessed(payload: any) {
   const transferId = transferEntity.id;
   const paymentId = transferEntity.source;
 
-  const transferDoc = await MarketplaceTransfer.findOne({ transferId });
+  const transferDoc = await prisma.marketplaceTransfer.findUnique({ where: { transferId } });
   if (!transferDoc) {
     logger.warn('Transfer webhook received but transfer not found in DB', { transferId, paymentId });
     return;
   }
 
-  transferDoc.status = 'processed';
-  transferDoc.processedAt = new Date();
-  await transferDoc.save();
+  await prisma.marketplaceTransfer.update({
+    where: { id: transferDoc.id },
+    data: { status: 'processed', processedAt: new Date() }
+  });
 
-  await PayoutLedger.create({
+  // This is the second half of the double credit. createTransfer() already
+  // wrote a credit for this same transfer id when it created the transfer;
+  // recordLedgerEntry finds the unique constraint, logs it and moves on, so the
+  // payout is counted once whichever of the two runs first.
+  await recordLedgerEntry({
     organizerId: transferDoc.organizerId,
     type: 'credit',
     source: 'transfer',
     referenceId: transferId,
-    amount: transferDoc.payoutAmount,
+    amount: toNumber(transferDoc.payoutAmount),
     currency: 'INR',
     description: 'Transfer processed',
   });
 
   await auditLogService.log({
-    userId: transferDoc.organizerId.toString(),
+    userId: transferDoc.organizerId,
     action: 'PAYMENT',
     resource: 'MarketplaceTransfer',
-    resourceId: transferDoc._id.toString(),
+    resourceId: transferDoc.id,
     metadata: { type: 'transfer.processed', transferId, paymentId }
   });
 }
@@ -536,28 +548,39 @@ async function handleRefundProcessed(refund: any) {
     }
 
     // Marketplace refunds
-    const marketplaceOrder = await MarketplaceOrder.findOne({ paymentId });
+    const marketplaceOrder = await prisma.marketplaceOrder.findUnique({ where: { paymentId } });
     if (marketplaceOrder) {
-      const refundDoc = await MarketplaceRefund.findOneAndUpdate(
-        { refundId },
-        {
-          orderId: marketplaceOrder._id,
-          paymentId,
-          refundId,
-          amount,
-          currency: marketplaceOrder.currency,
-          reversedTransfer: false,
-          status: 'processed',
-          processedAt: new Date(),
-        },
-        { upsert: true, new: true }
-      );
+      const refundFields = {
+        orderId: marketplaceOrder.id,
+        paymentId,
+        amount,
+        currency: marketplaceOrder.currency,
+        reversedTransfer: false,
+        status: 'processed' as const,
+        processedAt: new Date(),
+      };
 
-      marketplaceOrder.status = amount === marketplaceOrder.amount ? 'refunded' : 'partial_refund';
-      marketplaceOrder.refundStatus = amount === marketplaceOrder.amount ? 'processed' : 'partial';
-      await marketplaceOrder.save();
+      const refundDoc = await upsertRacingSafely(() => prisma.marketplaceRefund.upsert({
+        where: { refundId },
+        create: { refundId, ...refundFields },
+        update: refundFields,
+      }));
 
-      await PayoutLedger.create({
+      // amount arrives from Razorpay as a number and the column is Decimal.
+      // `amount === marketplaceOrder.amount` would have been false for every
+      // full refund, so a fully refunded order would have been left reading
+      // 'partial_refund' forever.
+      const isFullRefund = amount === toNumber(marketplaceOrder.amount);
+
+      await prisma.marketplaceOrder.update({
+        where: { id: marketplaceOrder.id },
+        data: {
+          status: isFullRefund ? 'refunded' : 'partial_refund',
+          refundStatus: isFullRefund ? 'processed' : 'partial',
+        }
+      });
+
+      await recordLedgerEntry({
         organizerId: marketplaceOrder.organizerId,
         type: 'debit',
         source: 'refund',
@@ -568,10 +591,10 @@ async function handleRefundProcessed(refund: any) {
       });
 
       await auditLogService.log({
-        userId: marketplaceOrder.userId.toString(),
+        userId: marketplaceOrder.userId,
         action: 'PAYMENT',
         resource: 'MarketplaceRefund',
-        resourceId: refundDoc._id.toString(),
+        resourceId: refundDoc.id,
         metadata: { type: 'marketplace.refund_processed', refundId, paymentId, amount: amount / 100 }
       });
     }

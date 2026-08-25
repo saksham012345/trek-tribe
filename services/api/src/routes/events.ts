@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import { z } from 'zod';
 import { authenticateToken } from '../middleware/auth';
 import { prisma } from '../lib/prisma';
+import { upsertRacingSafely } from '../lib/upsert';
 import { withMongoId, asPopulated } from '../lib/apiShape';
 import { User } from '../models/User';
 import { logger } from '../utils/logger';
@@ -214,11 +215,11 @@ router.post('/:eventId/rsvp', authenticateToken, async (req: Request, res: Respo
     // An invitee who joins becomes an attendee rather than getting a second row -
     // the unique constraint on (eventId, userId) is what makes that the only
     // possible outcome.
-    await prisma.eventParticipant.upsert({
+    await upsertRacingSafely(() => prisma.eventParticipant.upsert({
       where: { eventId_userId: { eventId, userId } },
       create: { eventId, userId, kind: 'attendee' },
       update: { kind: 'attendee' }
-    });
+    }));
 
     const attendeeCount = await prisma.eventParticipant.count({
       where: { eventId, kind: 'attendee' }

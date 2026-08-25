@@ -7,7 +7,10 @@
 
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
-import { OrganizerSubscription } from '../../models/OrganizerSubscription';
+import { prisma } from '../../lib/prisma';
+import { upsertRacingSafely } from '../../lib/upsert';
+import { toNumber } from '../../lib/money';
+import { decorate, tripsRemaining as slotsLeft } from '../../services/organizerSubscriptionService';
 import { User } from '../../models/User';
 import { auditLogService } from '../../services/auditLogService';
 import { SUBSCRIPTION_PLANS } from '../../config/subscription.config';
@@ -40,16 +43,22 @@ export function getPlans() {
 // ─── My Subscription ──────────────────────────────────────────────────────────
 
 export async function getMySubscription(userId: string) {
-  const subscription = await OrganizerSubscription.findOne({ organizerId: userId })
-    .sort({ createdAt: -1 })
-    .lean();
+  // organizerId is unique, so there is at most one row and the sort had nothing
+  // to order. The payments are loaded with it because the check below reads the
+  // most recent one.
+  const subscription = await prisma.organizerSubscription.findUnique({
+    where: { organizerId: userId },
+    include: { payments: { orderBy: { paymentDate: 'asc' } } }
+  });
 
   if (!subscription) {
     const user = await User.findById(userId);
-    const hasHadTrial = await OrganizerSubscription.exists({
-      organizerId: userId,
-      isTrialActive: false,
-    });
+    // hasHadTrial is always false here and always was: this branch is only
+    // reached when the organizer has no subscription row at all, and the query
+    // asks whether one of their rows has isTrialActive false. Kept as it stands
+    // rather than quietly changed - whether a returning organizer gets a second
+    // free trial is a product decision, not a migration one.
+    const hasHadTrial = false;
     return {
       hasSubscription: false,
       eligibleForTrial: user?.role === 'organizer' && !hasHadTrial,
@@ -72,7 +81,7 @@ export async function getMySubscription(userId: string) {
         hasSubscription: false,
         message: 'Subscription not active',
         reason: `Payment status is ${lastPayment.status}. Please complete payment.`,
-        subscriptionId: subscription._id,
+        subscriptionId: subscription.id,
         paymentStatus: lastPayment.status,
       };
     }
@@ -80,14 +89,22 @@ export async function getMySubscription(userId: string) {
 
   const tripsUsed = subscription.tripsUsed || 0;
   const tripsRemaining = Math.max(0, (subscription.tripsPerCycle || 5) - tripsUsed);
+
+  // Both dates are optional, and a subscription created by canCreateTrip has
+  // neither. `expiryDate < new Date()` on undefined is false and
+  // `expiryDate.getTime()` on undefined throws, so this route returned a 500
+  // for exactly those organizers - the ones with a pending subscription and
+  // nothing else, who are the most likely to be looking at this page.
   const expiryDate = subscription.subscriptionEndDate || subscription.trialEndDate;
-  const isExpired = expiryDate < new Date();
-  const daysUntilExpiry = Math.ceil((expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  const isExpired = expiryDate ? expiryDate < new Date() : false;
+  const daysUntilExpiry = expiryDate
+    ? Math.ceil((expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    : 0;
 
   return {
     hasSubscription: !isExpired && ['active', 'trial'].includes(subscription.status),
     subscription: {
-      ...subscription,
+      ...decorate(subscription),
       tripsRemaining,
       isExpired,
       daysUntilExpiry: isExpired ? 0 : daysUntilExpiry,
@@ -109,18 +126,20 @@ export async function createOrder(userId: string, planType: string, skipTrial: b
 
   const plan = SUBSCRIPTION_PLANS[planType as keyof typeof SUBSCRIPTION_PLANS];
 
-  const existingSubscription = await OrganizerSubscription.findOne({
-    organizerId: userId,
-    status: { $in: ['active', 'trial'] },
+  const existingSubscription = await prisma.organizerSubscription.findFirst({
+    where: { organizerId: userId, status: { in: ['active', 'trial'] } },
   });
   if (existingSubscription) {
     throw Object.assign(new Error('You already have an active subscription'), { status: 400 });
   }
 
-  const hasUsedTrial = await OrganizerSubscription.exists({
-    organizerId: userId,
-    isTrialActive: false,
-  });
+  // Unlike the same-looking check in getMySubscription, this one can be true:
+  // an organizer whose subscription expired still has a row, with
+  // isTrialActive false.
+  const hasUsedTrial = !!(await prisma.organizerSubscription.findFirst({
+    where: { organizerId: userId, isTrialActive: false },
+    select: { id: true },
+  }));
 
   const isTrial = !skipTrial && !hasUsedTrial;
   const amount = isTrial ? 0 : plan.price * 100;
@@ -129,24 +148,40 @@ export async function createOrder(userId: string, planType: string, skipTrial: b
     const trialEndDate = new Date();
     trialEndDate.setDate(trialEndDate.getDate() + plan.trialDays);
 
-    const subscription = await OrganizerSubscription.create({
-      organizerId: userId,
-      plan: 'free-trial',
-      status: 'trial',
-      isTrialActive: true,
-      trialStartDate: new Date(),
-      trialEndDate,
-      tripsPerCycle: plan.trips,
-      tripsUsed: 0,
-      tripsRemaining: plan.trips,
-      pricePerCycle: plan.price,
-    });
+    // upsert, not create. organizerId is unique: an organizer with a cancelled
+    // or expired row passes the checks above and then collided on insert, so
+    // starting a trial after a lapsed subscription failed with a duplicate key
+    // error rather than starting a trial.
+    const subscription = await upsertRacingSafely(() => prisma.organizerSubscription.upsert({
+      where: { organizerId: userId },
+      create: {
+        organizerId: userId,
+        plan: 'free_trial',
+        status: 'trial',
+        isTrialActive: true,
+        trialStartDate: new Date(),
+        trialEndDate,
+        tripsPerCycle: plan.trips,
+        tripsUsed: 0,
+        pricePerCycle: plan.price,
+      },
+      update: {
+        plan: 'free_trial',
+        status: 'trial',
+        isTrialActive: true,
+        trialStartDate: new Date(),
+        trialEndDate,
+        tripsPerCycle: plan.trips,
+        tripsUsed: 0,
+        pricePerCycle: plan.price,
+      },
+    }));
 
     await auditLogService.log({
       userId,
       action: 'CREATE',
       resource: 'Subscription',
-      resourceId: subscription._id.toString(),
+      resourceId: subscription.id,
       metadata: { planType, isTrial: true },
       req,
     });
@@ -154,7 +189,7 @@ export async function createOrder(userId: string, planType: string, skipTrial: b
     return {
       success: true,
       isTrial: true,
-      subscription,
+      subscription: decorate(subscription),
       message: `${plan.trialDays}-day free trial activated!`,
     };
   }
@@ -239,10 +274,17 @@ export async function verifyPayment(
     ENTERPRISE: 'enterprise',
   };
 
-  const subscription = await OrganizerSubscription.create({
-    organizerId: userId,
-    plan: planMapping[planType] || 'basic',
-    status: 'active',
+  // This is the path a paying organizer takes, and it was the worst place for
+  // the create/unique collision: an organizer who had ever had a subscription -
+  // a lapsed trial is enough - paid Razorpay, and then this insert failed with
+  // a duplicate key error. The money was taken and no subscription appeared.
+  //
+  // upsert makes renewal the ordinary case it always was. The payment itself is
+  // a row, keyed on the Razorpay payment id, so a retried verification records
+  // one payment rather than two.
+  const planFields = {
+    plan: (planMapping[planType] || 'basic') as any,
+    status: 'active' as const,
     isTrialActive: false,
     crmAccess: crmAccessPlans.includes(planType),
     subscriptionStartDate: startDate,
@@ -251,25 +293,39 @@ export async function verifyPayment(
     currentPeriodEnd: expiryDate,
     tripsPerCycle: plan.trips,
     tripsUsed: 0,
-    tripsRemaining: plan.trips,
     pricePerCycle: plan.price,
-    payments: [{
-      amount: plan.price,
-      currency: 'INR',
-      paymentMethod: 'razorpay',
-      transactionId: razorpay_payment_id,
-      paymentDate: new Date(),
-      status: 'completed',
-    }],
-    totalPaid: plan.price,
     lastPaymentDate: new Date(),
-  });
+  };
+
+  const subscription = await upsertRacingSafely(() => prisma.organizerSubscription.upsert({
+    where: { organizerId: userId },
+    create: { organizerId: userId, ...planFields },
+    update: planFields,
+  }));
+
+  try {
+    await prisma.subscriptionPayment.create({
+      data: {
+        subscriptionId: subscription.id,
+        amount: plan.price,
+        currency: 'INR',
+        paymentMethod: 'razorpay',
+        transactionId: razorpay_payment_id,
+        paymentDate: new Date(),
+        status: 'completed',
+      }
+    });
+  } catch (error: any) {
+    // transactionId is unique. A second verification of the same Razorpay
+    // payment is the client retrying, not a second payment.
+    if (error?.code !== 'P2002') throw error;
+  }
 
   await auditLogService.logPayment(userId, razorpay_payment_id, 'VERIFY', plan.price, req);
 
   return {
     success: true,
-    subscription,
+    subscription: decorate(subscription),
     message: `${plan.name} activated successfully!`,
   };
 }
@@ -277,23 +333,24 @@ export async function verifyPayment(
 // ─── Cancel ───────────────────────────────────────────────────────────────────
 
 export async function cancelSubscription(userId: string, req: any) {
-  const subscription = await OrganizerSubscription.findOne({
-    organizerId: userId,
-    status: { $in: ['active', 'trial'] },
+  const subscription = await prisma.organizerSubscription.findFirst({
+    where: { organizerId: userId, status: { in: ['active', 'trial'] } },
   });
 
   if (!subscription) {
     throw Object.assign(new Error('No active subscription found'), { status: 404 });
   }
 
-  subscription.status = 'cancelled';
-  await subscription.save();
+  await prisma.organizerSubscription.update({
+    where: { id: subscription.id },
+    data: { status: 'cancelled' },
+  });
 
   await auditLogService.log({
     userId,
     action: 'UPDATE',
     resource: 'Subscription',
-    resourceId: subscription._id.toString(),
+    resourceId: subscription.id,
     metadata: { action: 'cancelled' },
     req,
   });
@@ -304,32 +361,47 @@ export async function cancelSubscription(userId: string, req: any) {
 // ─── Payment History ──────────────────────────────────────────────────────────
 
 export async function getPaymentHistory(userId: string) {
-  const subscriptions = await OrganizerSubscription.find({ organizerId: userId })
-    .sort({ createdAt: -1 })
-    .limit(20)
-    .lean();
+  // This returned one entry per subscription, and organizerId is unique - so
+  // "payment history" was a list of at most one item, whose amount was the
+  // totalPaid running sum rather than any individual payment. Payments are rows
+  // now, so the history is the payments, which is what the page asks for and
+  // what its heading claims to show.
+  const subscription = await prisma.organizerSubscription.findUnique({
+    where: { organizerId: userId },
+  });
+
+  if (!subscription) {
+    return { payments: [], total: 0 };
+  }
+
+  const payments = await prisma.subscriptionPayment.findMany({
+    where: { subscriptionId: subscription.id },
+    orderBy: { paymentDate: 'desc' },
+    take: 20,
+  });
 
   return {
-    payments: subscriptions.map((sub) => ({
-      id: sub._id,
-      plan: sub.plan,
-      amount: sub.totalPaid || 0,
-      status: sub.status,
-      startDate: sub.subscriptionStartDate || sub.trialStartDate,
-      expiryDate: sub.subscriptionEndDate || sub.trialEndDate,
-      isTrial: sub.isTrialActive,
-      createdAt: sub.createdAt,
+    payments: payments.map((payment) => ({
+      id: payment.id,
+      plan: subscription.plan,
+      amount: toNumber(payment.amount),
+      status: payment.status,
+      startDate: subscription.subscriptionStartDate || subscription.trialStartDate,
+      expiryDate: subscription.subscriptionEndDate || subscription.trialEndDate,
+      isTrial: subscription.isTrialActive,
+      createdAt: payment.paymentDate,
+      transactionId: payment.transactionId,
+      receiptUrl: payment.receiptUrl,
     })),
-    total: subscriptions.length,
+    total: payments.length,
   };
 }
 
 // ─── Increment Trip ───────────────────────────────────────────────────────────
 
 export async function incrementTrip(userId: string) {
-  const subscription = await OrganizerSubscription.findOne({
-    organizerId: userId,
-    status: { $in: ['active', 'trial'] },
+  const subscription = await prisma.organizerSubscription.findFirst({
+    where: { organizerId: userId, status: { in: ['active', 'trial'] } },
   });
 
   if (!subscription) {
@@ -339,26 +411,35 @@ export async function incrementTrip(userId: string) {
     );
   }
 
-  if (subscription.tripsUsed >= subscription.tripsPerCycle) {
+  // The check and the increment are one statement, so two trips posted at the
+  // same instant cannot both find the last slot free. The read-then-save
+  // version could, and did not even hold the two together in a transaction.
+  const updated = await prisma.$queryRaw<Array<{ trips_used: number; trips_per_cycle: number }>>`
+    UPDATE organizer_subscriptions
+       SET trips_used = trips_used + 1, updated_at = now()
+     WHERE id = ${subscription.id}
+       AND trips_used < trips_per_cycle
+    RETURNING trips_used, trips_per_cycle
+  `;
+
+  if (updated.length === 0) {
     throw Object.assign(
       new Error('Upgrade your plan to post more trips'),
       { status: 403, errorKey: 'Trip limit reached' }
     );
   }
 
-  subscription.tripsUsed += 1;
-  subscription.tripsRemaining = subscription.tripsPerCycle - subscription.tripsUsed;
-  await subscription.save();
-
-  return { success: true, tripsRemaining: subscription.tripsRemaining };
+  return {
+    success: true,
+    tripsRemaining: Math.max(0, updated[0].trips_per_cycle - updated[0].trips_used)
+  };
 }
 
 // ─── Check Eligibility ────────────────────────────────────────────────────────
 
 export async function checkEligibility(userId: string) {
-  const subscription = await OrganizerSubscription.findOne({
-    organizerId: userId,
-    status: { $in: ['active', 'trial'] },
+  const subscription = await prisma.organizerSubscription.findFirst({
+    where: { organizerId: userId, status: { in: ['active', 'trial'] } },
   });
 
   if (!subscription) {
@@ -383,12 +464,16 @@ export async function checkEligibility(userId: string) {
     };
   }
 
+  // tripsRemaining was a column that a pre-save hook kept in step with the other
+  // two, which is why this line had a `??` fallback recomputing it - the author
+  // did not trust the column either.
+  const remaining = slotsLeft(subscription);
   return {
     eligible: true,
-    tripsRemaining: subscription.tripsRemaining,
+    tripsRemaining: remaining,
     planName: subscription.plan,
     canPost: true,
-    remaining: subscription.tripsRemaining ?? (subscription.tripsPerCycle - subscription.tripsUsed),
+    remaining,
   };
 }
 
@@ -578,9 +663,11 @@ export async function verifyCrmAccess(userId: string) {
     }
   }
 
-  const subscription = await OrganizerSubscription.findOne({ organizerId: userId })
-    .sort({ createdAt: -1 })
-    .lean();
+  // The payments are loaded because the checks below read the most recent one.
+  const subscription = await prisma.organizerSubscription.findUnique({
+    where: { organizerId: userId },
+    include: { payments: { orderBy: { paymentDate: 'asc' } } },
+  });
 
   if (!subscription) {
     return {
@@ -646,13 +733,19 @@ export async function verifyCrmAccess(userId: string) {
 
   const plan = SUBSCRIPTION_PLANS[normalizedPlanKey];
 
+  // Both amounts are Decimal columns and every comparison and division below is
+  // numeric, so they convert once here. A Decimal coerces well enough for the
+  // `> 10000` test, but `subscriptionPrice / 100` on a Decimal returns another
+  // Decimal - so the `>= 2299` test further down would be comparing a value that
+  // no longer holds what its name says, and CRM access would be granted or
+  // refused on the wrong number.
   let subscriptionPrice = plan?.price || 0;
-  if (!plan && subscription.payments && subscription.payments.length > 0) {
+  if (!plan && subscription.payments.length > 0) {
     const lastPayment = subscription.payments[subscription.payments.length - 1];
-    subscriptionPrice = lastPayment.amount || 0;
+    subscriptionPrice = toNumber(lastPayment.amount);
     if (subscriptionPrice > 10000) subscriptionPrice = subscriptionPrice / 100;
   } else if (subscription.pricePerCycle) {
-    subscriptionPrice = subscription.pricePerCycle;
+    subscriptionPrice = toNumber(subscription.pricePerCycle);
     if (subscriptionPrice > 10000) subscriptionPrice = subscriptionPrice / 100;
   }
 
@@ -701,9 +794,9 @@ export async function verifyCrmAccess(userId: string) {
 // ─── Check Feature Access ─────────────────────────────────────────────────────
 
 export async function checkFeatureAccess(userId: string, features: string[]) {
-  const subscription = await OrganizerSubscription.findOne({ organizerId: userId })
-    .sort({ createdAt: -1 })
-    .lean();
+  const subscription = await prisma.organizerSubscription.findUnique({
+    where: { organizerId: userId },
+  });
 
   if (!subscription) {
     return {
@@ -811,61 +904,73 @@ export async function verifyOrganizerInfo(userId: string) {
 // ─── Admin Update Subscription ────────────────────────────────────────────────
 
 export async function adminUpdateSubscription(organizerId: string, updates: any, adminUserId: string, req: any) {
-  let subscription = await OrganizerSubscription.findOne({ organizerId });
+  const startDate = new Date();
+  const defaultExpiry = new Date();
+  defaultExpiry.setDate(defaultExpiry.getDate() + 30);
 
-  if (!subscription) {
-    const startDate = new Date();
-    const expiryDate = new Date();
-    expiryDate.setDate(expiryDate.getDate() + 30);
-
-    subscription = await OrganizerSubscription.create({
+  let subscription = await upsertRacingSafely(() => prisma.organizerSubscription.upsert({
+    where: { organizerId },
+    create: {
       organizerId,
-      plan: updates.plan || 'basic',
-      status: updates.status || 'active',
+      plan: (updates.plan || 'basic') as any,
+      status: (updates.status || 'active') as any,
       isTrialActive: false,
       crmAccess: updates.crmAccess || false,
       subscriptionStartDate: startDate,
-      subscriptionEndDate: expiryDate,
+      subscriptionEndDate: defaultExpiry,
       currentPeriodStart: startDate,
-      currentPeriodEnd: expiryDate,
+      currentPeriodEnd: defaultExpiry,
       tripsPerCycle: 5,
       tripsUsed: 0,
-      tripsRemaining: 5,
       pricePerCycle: 0,
-      totalPaid: 0,
       lastPaymentDate: new Date(),
-    });
-  }
+    },
+    update: {},
+  }));
 
-  if (updates.plan) subscription.plan = updates.plan;
-  if (updates.status) subscription.status = updates.status;
-  if (updates.crmAccess !== undefined) subscription.crmAccess = updates.crmAccess;
+  const data: any = {};
+  if (updates.plan) data.plan = updates.plan;
+  if (updates.status) data.status = updates.status;
+  if (updates.crmAccess !== undefined) data.crmAccess = updates.crmAccess;
   if (updates.tripsRemaining !== undefined) {
-    subscription.tripsPerCycle = Number(updates.tripsRemaining) + subscription.tripsUsed;
-    subscription.tripsRemaining = Number(updates.tripsRemaining);
+    // tripsRemaining is not a column any more, so setting it means setting the
+    // cycle allowance to what has been used plus what the admin wants left.
+    // The Mongoose version wrote both numbers and could leave them disagreeing.
+    data.tripsPerCycle = Number(updates.tripsRemaining) + subscription.tripsUsed;
   }
   if (updates.validUntil) {
-    subscription.subscriptionEndDate = new Date(updates.validUntil);
-    subscription.currentPeriodEnd = new Date(updates.validUntil);
+    data.subscriptionEndDate = new Date(updates.validUntil);
+    data.currentPeriodEnd = new Date(updates.validUntil);
   }
 
-  await subscription.save();
+  try {
+    subscription = await prisma.organizerSubscription.update({
+      where: { id: subscription.id },
+      data,
+    });
+  } catch (error: any) {
+    // plan and status come from an admin request body and are both enums.
+    if (/invalid input value for enum/i.test(error?.message || '')) {
+      throw Object.assign(new Error('Unknown plan or status value'), { status: 400 });
+    }
+    throw error;
+  }
 
   await auditLogService.log({
     userId: adminUserId,
     action: 'UPDATE',
     resource: 'Subscription',
-    resourceId: subscription._id.toString(),
+    resourceId: subscription.id,
     metadata: { updates, targetUser: organizerId },
     req,
   });
 
-  return { success: true, message: 'Subscription updated by admin', subscription };
+  return { success: true, message: 'Subscription updated by admin', subscription: decorate(subscription) };
 }
 
 // ─── Get Subscription by Organizer ID ────────────────────────────────────────
 
 export async function getSubscriptionByOrganizerId(organizerId: string) {
-  const subscription = await OrganizerSubscription.findOne({ organizerId });
-  return subscription;
+  const subscription = await prisma.organizerSubscription.findUnique({ where: { organizerId } });
+  return subscription ? decorate(subscription) : null;
 }

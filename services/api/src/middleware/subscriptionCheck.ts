@@ -1,6 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
-import { OrganizerSubscription } from '../models/OrganizerSubscription';
-import { Types } from 'mongoose';
+import { prisma } from '../lib/prisma';
+import {
+  canCreateTrip,
+  useTripSlot,
+  isValid,
+  decorate,
+  NoTripSlotsError
+} from '../services/organizerSubscriptionService';
 
 declare global {
   namespace Express {
@@ -24,10 +30,13 @@ export const checkSubscription = async (
       return next();
     }
 
-    const userId = new Types.ObjectId(req.user.id);
+    // organizerId is a string column holding the Mongo ObjectId of the user;
+    // User is still a Mongo document, so it stays a string until wave 9 makes
+    // it a foreign key.
+    const userId = req.user.id;
     
     // Check if organizer can create trip
-    const check = await (OrganizerSubscription as any).canCreateTrip(userId);
+    const check = await canCreateTrip(userId);
     
     if (!check.allowed) {
       return res.status(403).json({
@@ -39,8 +48,10 @@ export const checkSubscription = async (
     }
 
     // Attach subscription info to request for later use
-    const subscription = await OrganizerSubscription.findOne({ organizerId: userId });
-    req.subscription = subscription;
+    const subscription = await prisma.organizerSubscription.findUnique({
+      where: { organizerId: userId }
+    });
+    req.subscription = subscription ? decorate(subscription) : null;
 
     next();
   } catch (error: any) {
@@ -65,8 +76,10 @@ export const useSubscriptionSlot = async (
       return next();
     }
 
-    const userId = new Types.ObjectId(req.user.id);
-    const subscription = await OrganizerSubscription.findOne({ organizerId: userId });
+    const userId = req.user.id;
+    const subscription = await prisma.organizerSubscription.findUnique({
+      where: { organizerId: userId }
+    });
 
     if (!subscription) {
       throw new Error('Subscription not found');
@@ -77,12 +90,23 @@ export const useSubscriptionSlot = async (
     const tripTitle = res.locals.createdTripTitle;
 
     if (tripId && tripTitle) {
-      await (subscription as any).useTripSlot(tripId, tripTitle);
-      console.log(`✅ Used trip slot for organizer ${userId}. ${subscription.tripsRemaining} slots remaining.`);
+      const result = await useTripSlot(subscription.id, tripId, tripTitle);
+      if (result.alreadyRecorded) {
+        console.log(`Trip ${tripId} had already spent a slot; not spending another.`);
+      } else {
+        console.log(`✅ Used trip slot for organizer ${userId}. ${result.remaining} slots remaining.`);
+      }
     }
 
     next();
   } catch (error: any) {
+    if (error instanceof NoTripSlotsError) {
+      // The trip is already created by the time this middleware runs, so this
+      // stays non-fatal exactly as before - but it is now a distinguishable
+      // condition rather than a generic failure.
+      console.error('Trip created but no subscription slot was available:', error.message);
+      return next();
+    }
     console.error('Error using subscription slot:', error);
     // Don't fail the request, just log the error
     next();
@@ -102,8 +126,10 @@ export const getSubscriptionStatus = async (
       return next();
     }
 
-    const userId = new Types.ObjectId(req.user.id);
-    const subscription = await OrganizerSubscription.findOne({ organizerId: userId });
+    const userId = req.user.id;
+    const subscription = await prisma.organizerSubscription.findUnique({
+      where: { organizerId: userId }
+    });
 
     if (!subscription) {
       // DO NOT auto-create subscription here
@@ -112,7 +138,7 @@ export const getSubscriptionStatus = async (
       // - Paid: /api/subscriptions/verify-payment
       req.subscription = null;
     } else {
-      req.subscription = subscription;
+      req.subscription = decorate(subscription);
     }
 
     next();
@@ -135,10 +161,16 @@ export const requireActiveSubscription = async (
       return next();
     }
 
-    const userId = new Types.ObjectId(req.user.id);
-    const subscription = await OrganizerSubscription.findOne({ organizerId: userId });
+    const userId = req.user.id;
+    const subscription = await prisma.organizerSubscription.findUnique({
+      where: { organizerId: userId }
+    });
 
-    if (!subscription || !(subscription as any).isValid) {
+    // isValid was a Mongoose virtual, so `subscription.isValid` was a boolean
+    // here - but only because the schema set toJSON/toObject virtuals. It is a
+    // function of the dates now, computed every time rather than at save time,
+    // which is what makes an expired subscription actually read as expired.
+    if (!subscription || !isValid(subscription)) {
       return res.status(403).json({
         error: 'Active subscription required',
         message: 'Your subscription has expired. Please renew to access this feature.',
@@ -146,7 +178,7 @@ export const requireActiveSubscription = async (
       });
     }
 
-    req.subscription = subscription;
+    req.subscription = decorate(subscription);
     next();
   } catch (error: any) {
     console.error('Subscription validation error:', error);

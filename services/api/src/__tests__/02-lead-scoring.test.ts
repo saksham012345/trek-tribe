@@ -11,6 +11,14 @@ beforeEach(() => {
   leadScoringService.setMode('RULE_BASED');
 });
 
+/**
+ * These assertions were written against the Mongoose Lead, which kept
+ * tripViewCount and inquiryMessage inside a `metadata` object. Wave 2 moved
+ * Lead to Postgres and made both of them columns - leadScoringService was
+ * updated to read them, and this file was not, so it has failed to compile
+ * ever since. tsc --noEmit does not cover src/__tests__, so nothing said so
+ * until the whole suite was run.
+ */
 describe('LeadScoringService — base scores by source', () => {
   const cases: [string, number][] = [
     ['partial_booking', 80],
@@ -38,7 +46,7 @@ describe('LeadScoringService — bonus signals', () => {
   it('+10 when tripViewCount > 1', () => {
     const score = leadScoringService.computeScore({
       source: 'form',
-      metadata: { tripViewCount: 2 },
+      tripViewCount: 2,
     });
     expect(score).toBe(40 + 10); // 50
   });
@@ -46,7 +54,7 @@ describe('LeadScoringService — bonus signals', () => {
   it('no bonus when tripViewCount === 1', () => {
     const score = leadScoringService.computeScore({
       source: 'form',
-      metadata: { tripViewCount: 1 },
+      tripViewCount: 1,
     });
     expect(score).toBe(40);
   });
@@ -54,7 +62,7 @@ describe('LeadScoringService — bonus signals', () => {
   it('+15 when inquiryMessage is present', () => {
     const score = leadScoringService.computeScore({
       source: 'form',
-      metadata: { inquiryMessage: 'I am interested' },
+      inquiryMessage: 'I am interested',
     });
     expect(score).toBe(40 + 15); // 55
   });
@@ -62,7 +70,7 @@ describe('LeadScoringService — bonus signals', () => {
   it('no bonus when inquiryMessage is empty string', () => {
     const score = leadScoringService.computeScore({
       source: 'form',
-      metadata: { inquiryMessage: '' },
+      inquiryMessage: '',
     });
     expect(score).toBe(40);
   });
@@ -71,8 +79,8 @@ describe('LeadScoringService — bonus signals', () => {
     const score = leadScoringService.computeScore({
       source: 'form',
       interactions: [
-        { type: 'chat', description: 'msg1', timestamp: new Date() },
-        { type: 'chat', description: 'msg2', timestamp: new Date() },
+        { type: 'chat' },
+        { type: 'chat' },
       ],
     });
     expect(score).toBe(40 + 10); // 50
@@ -82,7 +90,7 @@ describe('LeadScoringService — bonus signals', () => {
     const score = leadScoringService.computeScore({
       source: 'form',
       interactions: [
-        { type: 'email', description: 'email1', timestamp: new Date() },
+        { type: 'email' },
       ],
     });
     expect(score).toBe(40);
@@ -92,7 +100,7 @@ describe('LeadScoringService — bonus signals', () => {
     // tripViewCount=4: +10 (>1) + +10 (>3) = +20
     const score = leadScoringService.computeScore({
       source: 'form',
-      metadata: { tripViewCount: 4 },
+      tripViewCount: 4,
     });
     expect(score).toBe(40 + 10 + 10); // 60
   });
@@ -106,10 +114,11 @@ describe('LeadScoringService — bonus signals', () => {
     const score = leadScoringService.computeScore(
       {
         source: 'inquiry', // 60
-        metadata: { tripViewCount: 4, inquiryMessage: 'interested' }, // +10 +10 +15
+        tripViewCount: 4,
+        inquiryMessage: 'interested', // +10 +10 +15
         interactions: [
-          { type: 'chat', description: 'c1', timestamp: new Date() },
-          { type: 'chat', description: 'c2', timestamp: new Date() },
+          { type: 'chat' },
+          { type: 'chat' },
         ], // +10
       },
       1 // +20
@@ -124,7 +133,8 @@ describe('LeadScoringService — score cap', () => {
     const score = leadScoringService.computeScore(
       {
         source: 'partial_booking', // 80
-        metadata: { tripViewCount: 5, inquiryMessage: 'yes' }, // +10 +10 +15
+        tripViewCount: 5,
+        inquiryMessage: 'yes', // +10 +10 +15
       },
       2 // +20
     );

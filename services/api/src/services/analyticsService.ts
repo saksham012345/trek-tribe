@@ -1,8 +1,8 @@
 
 
-import { prisma } from '../lib/prisma';
 import TripVerification from '../models/TripVerification';
-import CRMSubscription from '../models/CRMSubscription';
+import { prisma } from '../lib/prisma';
+import { toNumber } from '../lib/money';
 import mongoose from 'mongoose';
 
 class AnalyticsService {
@@ -60,9 +60,8 @@ class AnalyticsService {
       });
 
       // Get subscription info
-      const subscription = await CRMSubscription.findOne({
-        organizerId,
-        status: 'active',
+      const subscription = await prisma.cRMSubscription.findFirst({
+        where: { organizerId, status: 'active' },
       });
 
       return {
@@ -86,8 +85,10 @@ class AnalyticsService {
           ? {
               planType: subscription.planType,
               status: subscription.status,
-              remainingTrips: subscription.tripPackage?.remainingTrips || 0,
-              hasCRMAccess: subscription.crmBundle?.hasAccess || false,
+              // remainingTrips was a third stored number beside totalTrips and
+              // usedTrips, which already determine it.
+              remainingTrips: Math.max(0, subscription.totalTrips - subscription.usedTrips),
+              hasCRMAccess: subscription.crmBundleHasAccess,
               expiryDate: subscription.endDate,
             }
           : null,
@@ -186,32 +187,26 @@ class AnalyticsService {
       });
 
       // Subscriptions
-      const activeSubscriptions = await CRMSubscription.countDocuments({
-        status: 'active',
+      const activeSubscriptions = await prisma.cRMSubscription.count({
+        where: { status: 'active' },
       });
-      const trialSubscriptions = await CRMSubscription.countDocuments({
-        'trial.isActive': true,
+      const trialSubscriptions = await prisma.cRMSubscription.count({
+        where: { trialIsActive: true },
       });
 
-      // Revenue (sum of all completed payments)
-      const revenueData = await CRMSubscription.aggregate([
-        {
-          $unwind: '$payments',
-        },
-        {
-          $match: {
-            'payments.status': 'completed',
-          },
-        },
-        {
-          $group: {
-            _id: null,
-            totalRevenue: { $sum: '$payments.amount' },
-          },
-        },
-      ]);
+      // Revenue (sum of all completed payments).
+      //
+      // Was $unwind over the embedded payments array followed by a $match and a
+      // $sum. Payments are rows, so it is the sum of a column - and unlike the
+      // OrganizerSubscription version of this same query, this one was actually
+      // correct, because $unwind put each payment at the top level before the
+      // $match looked at it.
+      const revenueData = await prisma.cRMSubscriptionPayment.aggregate({
+        where: { status: 'completed' },
+        _sum: { amount: true },
+      });
 
-      const totalRevenue = revenueData.length > 0 ? revenueData[0].totalRevenue : 0;
+      const totalRevenue = toNumber(revenueData._sum.amount);
 
       return {
         leads: {

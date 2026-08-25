@@ -1,6 +1,8 @@
 import express from 'express';
 import { Trip } from '../models/Trip';
-import { Expense } from '../models/Expense';
+import { prisma } from '../lib/prisma';
+import { toNumber } from '../lib/money';
+import { withMongoIds } from '../lib/apiShape';
 import { GroupBooking } from '../models/GroupBooking'; // Used for Revenue calculation
 import { authenticateJwt } from '../middleware/auth';
 import { logger } from '../utils/logger';
@@ -79,25 +81,25 @@ router.get('/overview', async (req, res) => {
         const totalDiscounts = revenueAgg.length > 0 ? revenueAgg[0].totalDiscounts : 0;
 
         // 2. Calculate Total Expenses
-        const expenseMatch: any = {
-            organizerId: new mongoose.Types.ObjectId(organizerId)
-        };
+        const expenseWhere: any = { organizerId };
 
+        // dateFilter is a Mongo range ({ $gte, $lte }); Prisma spells the same
+        // range { gte, lte }.
         if (dateFilter) {
-            expenseMatch['date'] = dateFilter;
+            // getDateFilter only ever returns a { $gte } lower bound.
+            expenseWhere.date = { gte: dateFilter.$gte };
         }
 
-        const expenseAgg = await Expense.aggregate([
-            { $match: expenseMatch },
-            {
-                $group: {
-                    _id: null, // Total for all time
-                    totalExpenses: { $sum: '$amount' }
-                }
-            }
-        ]);
+        const expenseAgg = await prisma.expense.aggregate({
+            where: expenseWhere,
+            _sum: { amount: true }
+        });
 
-        const totalExpenses = expenseAgg.length > 0 ? expenseAgg[0].totalExpenses : 0;
+        // _sum.amount is a Decimal, and it is null when nothing matched. The
+        // subtraction below is against a plain number, so it converts here -
+        // Decimal minus number would not have thrown, it would have produced a
+        // Decimal that JSON-encodes as a string.
+        const totalExpenses = toNumber(expenseAgg._sum.amount);
         const netProfit = totalRevenue - totalExpenses;
         const profitMargin = totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(2) : 0;
 
@@ -156,7 +158,14 @@ router.get('/trips/:tripId', async (req, res) => {
         const participantCount = revenueAgg.length > 0 ? revenueAgg[0].participantCount : 0;
 
         // 2. Trip Expenses
-        const expenses = await Expense.find({ tripId }).sort({ date: -1 });
+        const expenseRows = await prisma.expense.findMany({
+            where: { tripId },
+            orderBy: { date: 'desc' }
+        });
+        // amount is Decimal now, so every one of these is converted before it is
+        // added to anything. `sum + exp.amount` with a Decimal on the right is a
+        // string concatenation that yields "0149913200" rather than a total.
+        const expenses = expenseRows.map(exp => ({ ...exp, amount: toNumber(exp.amount) }));
         const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
 
         // 3. Derived Stats
@@ -183,7 +192,8 @@ router.get('/trips/:tripId', async (req, res) => {
                 discounts: tripDiscounts
             },
             breakdown: categoryBreakdown,
-            transactions: expenses
+            // The table keys rows on _id and calls amount.toLocaleString().
+            transactions: withMongoIds(expenses)
         });
 
     } catch (error: any) {
@@ -206,20 +216,27 @@ router.post('/expenses', async (req, res) => {
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
-        const expense = new Expense({
-            organizerId,
-            tripId,
-            category,
-            amount,
-            description,
-            date: date || new Date()
+        const expense = await prisma.expense.create({
+            data: {
+                organizerId,
+                tripId,
+                category,
+                amount,
+                description,
+                date: date ? new Date(date) : new Date()
+            }
         });
 
-        await expense.save();
-        logger.info(`Expense added via API`, { id: expense._id, tripId });
+        logger.info(`Expense added via API`, { id: expense.id, tripId });
 
-        res.status(201).json(expense);
+        res.status(201).json({ ...expense, _id: expense.id, amount: toNumber(expense.amount) });
     } catch (error: any) {
+        // A category outside the eight the enum allows, or a negative amount,
+        // is refused by the database rather than stored. Mongoose validated the
+        // category and ignored the sign.
+        if (error?.code === 'P2000' || error?.code === 'P2003' || /invalid input value for enum|violates check constraint/i.test(error?.message || '')) {
+            return res.status(400).json({ error: 'Invalid expense category or amount' });
+        }
         logger.error('Error creating expense', { error: error.message });
         res.status(500).json({ error: 'Failed to create expense' });
     }
@@ -231,8 +248,19 @@ router.delete('/expenses/:id', async (req, res) => {
         const organizerId = (req as any).auth.userId;
         const { id } = req.params;
 
-        const expense = await Expense.findOneAndDelete({ _id: id, organizerId });
-        if (!expense) return res.status(404).json({ error: 'Expense not found' });
+        // Scoped to the organizer, as before, so deleteMany deletes at most one
+        // and one belonging to someone else is not found rather than deleted.
+        //
+        // No id format check. A Prisma `String @id @default(uuid())` is a TEXT
+        // column, not a Postgres uuid, so an id of the wrong shape matches
+        // nothing rather than raising an error.
+        //
+        // I had a regex guard here on the assumption it was a uuid column. The
+        // wave 7 tests found the same wrong assumption in four raw UPDATE
+        // statements, where it was written as a `::uuid` cast that would have
+        // failed on every single call.
+        const deleted = await prisma.expense.deleteMany({ where: { id, organizerId } });
+        if (deleted.count === 0) return res.status(404).json({ error: 'Expense not found' });
 
         res.json({ message: 'Expense deleted' });
     } catch (error: any) {

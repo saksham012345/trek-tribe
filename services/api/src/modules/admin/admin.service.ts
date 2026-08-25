@@ -8,10 +8,11 @@
 import { User } from '../../models/User';
 import { Trip } from '../../models/Trip';
 import { prisma } from '../../lib/prisma';
+import { upsertRacingSafely } from '../../lib/upsert';
+import { toNumber } from '../../lib/money';
 
 
-import CRMSubscription from '../../models/CRMSubscription';
-import { OrganizerSubscription } from '../../models/OrganizerSubscription';
+import { ensureTrialSubscription, decorate, tripsRemaining } from '../../services/organizerSubscriptionService';
 
 import { VerificationRequest } from '../../models/VerificationRequest';
 import { logger } from '../../utils/logger';
@@ -30,7 +31,7 @@ export async function getDashboardStats() {
       prisma.review.count(),
       prisma.wishlist.count(),
       prisma.supportTicket.count(),
-      CRMSubscription.countDocuments({ status: 'active' }),
+      prisma.cRMSubscription.count({ where: { status: 'active' } }),
     ]);
 
   const usersByRole = await User.aggregate([
@@ -51,21 +52,45 @@ export async function getDashboardStats() {
     totalTripRevenue += trip.participants.length * trip.price;
   });
 
-  const subscriptions = await CRMSubscription.find({});
-  let totalSubscriptionRevenue = 0;
-  let thisMonthSubscriptionRevenue = 0;
+  // This loaded every subscription and summed a virtual in JavaScript. The sum
+  // is a sum of the completed payment rows, which the database can do.
+  //
+  // "This month" meant subscriptions created this month, and counted all of
+  // their payments toward it - so a renewal on a year-old subscription
+  // contributed nothing to any month. It is the month the payment was made now,
+  // which is what a monthly revenue figure means.
   const currentDate = new Date();
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-  subscriptions.forEach((sub) => {
-    const revenue = sub.totalPaid || 0;
-    totalSubscriptionRevenue += revenue;
-    if (sub.createdAt >= firstDayOfMonth) thisMonthSubscriptionRevenue += revenue;
-  });
 
-  const subscriptionsByPlan = await CRMSubscription.aggregate([
-    { $group: { _id: '$planType', count: { $sum: 1 }, revenue: { $sum: '$totalPaid' } } },
-    { $project: { plan: '$_id', count: 1, revenue: 1, _id: 0 } },
+  const [totalSubscriptionCount, totalRevenueAgg, monthRevenueAgg] = await Promise.all([
+    prisma.cRMSubscription.count(),
+    prisma.cRMSubscriptionPayment.aggregate({
+      where: { status: 'completed' },
+      _sum: { amount: true },
+    }),
+    prisma.cRMSubscriptionPayment.aggregate({
+      where: { status: 'completed', paidAt: { gte: firstDayOfMonth } },
+      _sum: { amount: true },
+    }),
   ]);
+
+  const totalSubscriptionRevenue = toNumber(totalRevenueAgg._sum.amount);
+  const thisMonthSubscriptionRevenue = toNumber(monthRevenueAgg._sum.amount);
+
+  // `{ $sum: '$totalPaid' }` summed a field that does not exist: totalPaid is a
+  // Mongoose virtual, and an aggregation pipeline never sees virtuals. Revenue
+  // per plan has therefore always been zero on the admin dashboard. The join
+  // below is what the query was reaching for.
+  const subscriptionsByPlan = await prisma.$queryRaw<Array<{
+    plan: string; count: number; revenue: number;
+  }>>`
+    SELECT s.plan_type::text AS plan,
+           COUNT(DISTINCT s.id)::int AS count,
+           COALESCE(SUM(p.amount) FILTER (WHERE p.status = 'completed'), 0)::float8 AS revenue
+      FROM crm_subscriptions s
+      LEFT JOIN crm_subscription_payments p ON p.subscription_id = s.id
+     GROUP BY s.plan_type
+  `;
 
   const ticketGroups = await prisma.supportTicket.groupBy({
     by: ['status'],
@@ -96,7 +121,7 @@ export async function getDashboardStats() {
     },
     trips: { total: totalTrips, byStatus: tripsByStatus, recentTrips, totalBookings, totalRevenue: totalTripRevenue },
     subscriptions: {
-      total: subscriptions.length,
+      total: totalSubscriptionCount,
       active: activeSubscriptions,
       byPlan: subscriptionsByPlan,
       revenue: { total: totalSubscriptionRevenue, thisMonth: thisMonthSubscriptionRevenue },
@@ -475,15 +500,11 @@ export async function approveOrganizerVerification(adminId: string, userId: stri
 
   await user.save();
 
-  const existingSubscription = await OrganizerSubscription.findOne({ organizerId: user._id, status: { $in: ['active', 'trial'] } });
-  if (!existingSubscription) {
-    const trialEndDate = new Date();
-    trialEndDate.setDate(trialEndDate.getDate() + 30);
-    await OrganizerSubscription.create({
-      organizerId: user._id, plan: 'free-trial', status: 'trial', isTrialActive: true,
-      trialStartDate: new Date(), trialEndDate, tripsPerCycle: 5, tripsUsed: 0, tripsRemaining: 5, pricePerCycle: 0, totalPaid: 0,
-    });
-  }
+  // Was: findOne(status active|trial) then create. organizerId is unique, so an
+  // organizer with an expired subscription matched nothing and the create hit a
+  // duplicate key error - verifying them failed with E11000. See
+  // ensureTrialSubscription for the whole story.
+  await ensureTrialSubscription(user._id.toString());
 
   try {
     await emailService.sendEmail({
@@ -643,15 +664,7 @@ export async function approveVerificationRequest(adminId: string, requestId: str
   organizer.markModified('organizerProfile');
   await organizer.save();
 
-  const existingSubscription = await OrganizerSubscription.findOne({ organizerId: organizer._id, status: { $in: ['active', 'trial'] } });
-  if (!existingSubscription) {
-    const trialEndDate = new Date();
-    trialEndDate.setDate(trialEndDate.getDate() + 30);
-    await OrganizerSubscription.create({
-      organizerId: organizer._id, plan: 'free-trial', status: 'trial', isTrialActive: true,
-      trialStartDate: new Date(), trialEndDate, tripsPerCycle: 5, tripsUsed: 0, tripsRemaining: 5, pricePerCycle: 0, totalPaid: 0,
-    });
-  }
+  await ensureTrialSubscription(organizer._id.toString());
 
   request.status = 'approved' as any;
   request.reviewedBy = adminId as any;
@@ -756,35 +769,65 @@ export async function recalculateTrustScore(adminId: string, requestId: string) 
 // ─── Subscription management ──────────────────────────────────────────────────
 
 export async function getUserSubscription(userId: string) {
-  const subscription = await OrganizerSubscription.findOne({ organizerId: userId });
+  const subscription = await prisma.organizerSubscription.findUnique({ where: { organizerId: userId } });
   if (!subscription) return { hasSubscription: false };
-  return { hasSubscription: true, subscription: { ...subscription.toObject(), crmAccess: subscription.crmAccess || false } };
+  // decorate() supplies _id, tripsRemaining, isValid and daysRemaining, which
+  // were a Mongoose virtual or a stored column and are neither now.
+  return { hasSubscription: true, subscription: { ...decorate(subscription), crmAccess: subscription.crmAccess || false } };
 }
 
 export async function overrideUserSubscription(adminId: string, userId: string, crmAccess?: boolean, addTrips?: number, setPlan?: string) {
-  let subscription = await OrganizerSubscription.findOne({ organizerId: userId });
+  let subscription = await prisma.organizerSubscription.findUnique({ where: { organizerId: userId } });
 
   if (!subscription) {
     const user = await User.findById(userId);
     if (user && (user.role === 'organizer' || user.role === 'admin')) {
-      subscription = await OrganizerSubscription.create({ organizerId: userId, plan: 'free-trial', status: 'trial', isTrialActive: true });
+      subscription = await upsertRacingSafely(() => prisma.organizerSubscription.upsert({
+        where: { organizerId: userId },
+        create: { organizerId: userId, plan: 'free_trial', status: 'trial', isTrialActive: true },
+        update: {}
+      }));
     } else {
       throw Object.assign(new Error('No subscription found and user is not an organizer'), { status: 404 });
     }
   }
 
   const updates: any = {};
-  if (crmAccess !== undefined) { subscription.crmAccess = crmAccess; updates.crmAccess = crmAccess; }
+  const data: any = {};
+
+  if (crmAccess !== undefined) { data.crmAccess = crmAccess; updates.crmAccess = crmAccess; }
+
   if (addTrips && typeof addTrips === 'number') {
-    subscription.tripsRemaining = (subscription.tripsRemaining || 0) + addTrips;
-    subscription.tripsPerCycle = Math.max(subscription.tripsPerCycle, subscription.tripsRemaining);
+    // "Add trips" used to mean: raise tripsRemaining, then raise tripsPerCycle
+    // to match if it had fallen behind. tripsRemaining is tripsPerCycle minus
+    // tripsUsed now, so granting N more trips is raising the cycle allowance by
+    // N - which is the same result, said once instead of twice.
+    data.tripsPerCycle = subscription.tripsPerCycle + addTrips;
     updates.tripsAdded = addTrips;
   }
-  if (setPlan) { subscription.plan = setPlan as any; updates.plan = setPlan; }
 
-  await subscription.save();
-  logger.info('Admin updated user subscription manually', { adminId, targetUserId: userId, updates });
-  return { success: true, subscription };
+  if (setPlan) { data.plan = setPlan; updates.plan = setPlan; }
+
+  let updated;
+  try {
+    updated = await prisma.organizerSubscription.update({
+      where: { id: subscription.id },
+      data
+    });
+  } catch (error: any) {
+    // setPlan comes straight from an admin request body. The eight plan names
+    // are an enum, so a typo is refused here rather than stored and puzzled
+    // over later.
+    if (/invalid input value for enum/i.test(error?.message || '')) {
+      throw Object.assign(new Error(`Unknown plan: ${setPlan}`), { status: 400 });
+    }
+    throw error;
+  }
+
+  logger.info('Admin updated user subscription manually', {
+    adminId, targetUserId: userId, updates, tripsRemaining: tripsRemaining(updated)
+  });
+  return { success: true, subscription: decorate(updated) };
 }
 
 // ─── Trust score ──────────────────────────────────────────────────────────────
@@ -850,15 +893,7 @@ export async function verifyOrganizer(adminId: string, userId: string, status: '
   await user.save();
 
   if (status === 'approved') {
-    const existingSubscription = await OrganizerSubscription.findOne({ organizerId: user._id, status: { $in: ['active', 'trial'] } });
-    if (!existingSubscription) {
-      const trialEndDate = new Date();
-      trialEndDate.setDate(trialEndDate.getDate() + 30);
-      await OrganizerSubscription.create({
-        organizerId: user._id, plan: 'free-trial', status: 'trial', isTrialActive: true,
-        trialStartDate: new Date(), trialEndDate, tripsPerCycle: 5, tripsUsed: 0, tripsRemaining: 5, pricePerCycle: 0, totalPaid: 0,
-      });
-    }
+    await ensureTrialSubscription(user._id.toString());
   }
 
   try {

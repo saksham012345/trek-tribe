@@ -41,7 +41,7 @@ model Vendor {
   businessName        String             @map("business_name")
   contactPerson       String?            @map("contact_person")
   phone               String?
-  email                String?
+  email               String?
   whatsappNumber      String?            @map("whatsapp_number")
   category            VendorCategory
   customCategoryLabel String?            @map("custom_category_label")
@@ -82,7 +82,7 @@ model TripVendorAssignment {
   category   VendorCategory
   assignedAt DateTime       @default(now()) @map("assigned_at")
 
-  vendor  Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vendor  Vendor         @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   payment VendorPayment?
 
   @@index([tripId])
@@ -100,15 +100,15 @@ enum VendorPaymentStatus {
 }
 
 model VendorPayment {
-  id          String              @id @default(uuid())
-  assignmentId String             @unique @map("assignment_id")
-  totalAmount Decimal             @map("total_amount")
-  paidAmount  Decimal             @default(0) @map("paid_amount")
-  dueDate     DateTime?           @map("due_date")
-  status      VendorPaymentStatus @default(pending)
-  recordedAt  DateTime            @default(now()) @map("recorded_at")
+  id           String              @id @default(uuid())
+  assignmentId String              @unique @map("assignment_id")
+  totalAmount  Decimal             @map("total_amount")
+  paidAmount   Decimal             @default(0) @map("paid_amount")
+  dueDate      DateTime?           @map("due_date")
+  status       VendorPaymentStatus @default(pending)
+  recordedAt   DateTime            @default(now()) @map("recorded_at")
 
-  assignment TripVendorAssignment  @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  assignment TripVendorAssignment   @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   history    VendorPaymentHistory[]
 
   @@map("vendor_payments")
@@ -380,18 +380,18 @@ enum ReviewTag {
 // a race between two concurrent requests, and it is skipped entirely by any write
 // that does not go through .save(). It is @@unique here.
 model Review {
-  id         String     @id @default(uuid())
-  reviewerId String     @map("reviewer_id")
-  targetId   String     @map("target_id")
-  reviewType ReviewType @map("review_type")
+  id         String      @id @default(uuid())
+  reviewerId String      @map("reviewer_id")
+  targetId   String      @map("target_id")
+  reviewType ReviewType  @map("review_type")
   rating     Int
-  title      String     @db.VarChar(100)
-  comment    String     @db.VarChar(1000)
-  images     String[]   @default([])
+  title      String      @db.VarChar(100)
+  comment    String      @db.VarChar(1000)
+  images     String[]    @default([])
   // The Mongoose tags were a closed list, so they are an enum rather than free
   // text: a typo used to be stored happily and silently never matched a filter.
   tags       ReviewTag[] @default([])
-  isVerified Boolean    @default(false) @map("is_verified")
+  isVerified Boolean     @default(false) @map("is_verified")
 
   // organizerResponse was a nested object of a fixed shape, so it is two columns
   // rather than JSON - both are queryable and neither can drift from the other.
@@ -520,20 +520,20 @@ enum AuditStatus {
 // without bound, so the retention is a scheduled job instead -
 // scripts/prune-audit-logs.ts, which must actually be scheduled to run.
 model AuditLog {
-  id           String        @id @default(uuid())
-  userId       String        @map("user_id")
-  userEmail    String?       @map("user_email")
-  action       AuditAction
-  resource     AuditResource
-  resourceId   String?       @map("resource_id")
-  changesBefore Json?        @map("changes_before")
-  changesAfter  Json?        @map("changes_after")
-  metadata     Json          @default("{}")
-  timestamp    DateTime      @default(now())
-  status       AuditStatus   @default(SUCCESS)
-  errorMessage String?       @map("error_message")
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
+  id            String        @id @default(uuid())
+  userId        String        @map("user_id")
+  userEmail     String?       @map("user_email")
+  action        AuditAction
+  resource      AuditResource
+  resourceId    String?       @map("resource_id")
+  changesBefore Json?         @map("changes_before")
+  changesAfter  Json?         @map("changes_after")
+  metadata      Json          @default("{}")
+  timestamp     DateTime      @default(now())
+  status        AuditStatus   @default(SUCCESS)
+  errorMessage  String?       @map("error_message")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
 
   @@index([userId, timestamp])
   @@index([resource, action, timestamp])
@@ -669,25 +669,25 @@ model SiteSettings {
   id  String @id @default(uuid())
   key String @unique @default("global")
 
-  homeHeroImages            String[]         @default([]) @map("home_hero_images")
-  homeOverlayStyle          SiteOverlayStyle @default(light) @map("home_overlay_style")
-  homeFontFamily            String           @default("system-ui, -apple-system, Segoe UI, Roboto, sans-serif") @map("home_font_family")
-  homeDiscoverColumnsDesktop Int             @default(3) @map("home_discover_columns_desktop")
-  homeDiscoverColumnsMobile  Int             @default(2) @map("home_discover_columns_mobile")
+  homeHeroImages             String[]         @default([]) @map("home_hero_images")
+  homeOverlayStyle           SiteOverlayStyle @default(light) @map("home_overlay_style")
+  homeFontFamily             String           @default("system-ui, -apple-system, Segoe UI, Roboto, sans-serif") @map("home_font_family")
+  homeDiscoverColumnsDesktop Int              @default(3) @map("home_discover_columns_desktop")
+  homeDiscoverColumnsMobile  Int              @default(2) @map("home_discover_columns_mobile")
 
-  contactSupportEmail String @default("support@trektribe.com") @map("contact_support_email")
-  contactOtpFromEmail String @default("support@trektribe.com") @map("contact_otp_from_email")
+  contactSupportEmail     String @default("support@trektribe.com") @map("contact_support_email")
+  contactOtpFromEmail     String @default("support@trektribe.com") @map("contact_otp_from_email")
   contactBookingFromEmail String @default("support@trektribe.com") @map("contact_booking_from_email")
 
-  notificationsEmailEnabled        Boolean @default(true) @map("notifications_email_enabled")
-  notificationsSmsEnabled          Boolean @default(false) @map("notifications_sms_enabled")
-  notificationsSendFollowerAlerts  Boolean @default(true) @map("notifications_send_follower_alerts")
-  notificationsTripReminderHours   Int     @default(24) @map("notifications_trip_reminder_hours")
+  notificationsEmailEnabled       Boolean @default(true) @map("notifications_email_enabled")
+  notificationsSmsEnabled         Boolean @default(false) @map("notifications_sms_enabled")
+  notificationsSendFollowerAlerts Boolean @default(true) @map("notifications_send_follower_alerts")
+  notificationsTripReminderHours  Int     @default(24) @map("notifications_trip_reminder_hours")
 
-  integrationsPaymentProvider String  @default("razorpay") @map("integrations_payment_provider")
-  integrationsEmailProvider   String  @default("sendgrid") @map("integrations_email_provider")
-  integrationsSmsProvider     String  @default("disabled") @map("integrations_sms_provider")
-  integrationsTwilioFromNumber String  @default("") @map("integrations_twilio_from_number")
+  integrationsPaymentProvider  String @default("razorpay") @map("integrations_payment_provider")
+  integrationsEmailProvider    String @default("sendgrid") @map("integrations_email_provider")
+  integrationsSmsProvider      String @default("disabled") @map("integrations_sms_provider")
+  integrationsTwilioFromNumber String @default("") @map("integrations_twilio_from_number")
 
   updatedBy String?  @map("updated_by")
   createdAt DateTime @default(now()) @map("created_at")
@@ -764,10 +764,10 @@ model Lead {
   pipelineStage LeadPipelineStage @default(new) @map("pipeline_stage")
 
   // Flat columns for the parts that are queried or reported on...
-  tripViewCount  Int       @default(0) @map("trip_view_count")
-  lastVisitedAt  DateTime? @map("last_visited_at")
-  inquiryMessage String?   @map("inquiry_message")
-  tags           String[]  @default([])
+  tripViewCount  Int           @default(0) @map("trip_view_count")
+  lastVisitedAt  DateTime?     @map("last_visited_at")
+  inquiryMessage String?       @map("inquiry_message")
+  tags           String[]      @default([])
   notes          String?
   kycStatus      LeadKycStatus @default(pending) @map("kyc_status")
 
@@ -881,13 +881,13 @@ model ImportedDatabase {
   uploadedAt  DateTime       @default(now()) @map("uploaded_at")
   status      ImportStatus   @default(pending)
 
-  statsTotalRecords     Int @default(0) @map("stats_total_records")
-  statsSuccessfulImports Int @default(0) @map("stats_successful_imports")
-  statsFailedImports    Int @default(0) @map("stats_failed_imports")
-  statsDuplicatesSkipped Int @default(0) @map("stats_duplicates_skipped")
+  statsTotalRecords      Int  @default(0) @map("stats_total_records")
+  statsSuccessfulImports Int  @default(0) @map("stats_successful_imports")
+  statsFailedImports     Int  @default(0) @map("stats_failed_imports")
+  statsDuplicatesSkipped Int  @default(0) @map("stats_duplicates_skipped")
   // Milliseconds the run took. Nullable, because a job still in flight has not
   // taken any time yet.
-  statsProcessingTime   Int? @map("stats_processing_time")
+  statsProcessingTime    Int? @map("stats_processing_time")
 
   // Variable-shaped lists read back whole by the UI, so JSON rather than
   // child tables nobody joins to.
@@ -1212,8 +1212,8 @@ model Ticket {
   subject     String
   description String
   category    TicketCategory
-  priority    SupportPriority     @default(medium)
-  status      TicketStatus        @default(pending)
+  priority    SupportPriority @default(medium)
+  status      TicketStatus    @default(pending)
 
   requesterId   String              @map("requester_id")
   requesterType TicketRequesterType @map("requester_type")
@@ -1511,16 +1511,16 @@ model AIConversation {
   // summary and context are read back whole by the assistant and never filtered
   // on, so they stay JSON.
   summary Json?
-  context Json @default("{}")
+  context Json  @default("{}")
 
   // escalation is different: the Mongoose schema indexed
   // { 'escalation.escalated': 1, 'escalation.assignedAgent': 1 } and the service
   // queries both, so these are columns. I had them as JSON first, which would
   // have turned "which escalations are unassigned" into a scan through documents.
-  escalated         Boolean   @default(false)
-  escalatedAt       DateTime? @map("escalated_at")
-  escalationReason  String?   @map("escalation_reason")
-  assignedAgentId   String?   @map("assigned_agent_id")
+  escalated        Boolean   @default(false)
+  escalatedAt      DateTime? @map("escalated_at")
+  escalationReason String?   @map("escalation_reason")
+  assignedAgentId  String?   @map("assigned_agent_id")
 
   // metrics was a nested object. messageCount is a count of the message rows now,
   // so it is not stored; the other three are values nothing derives.
@@ -1557,4 +1557,604 @@ model AIConversationMessage {
 
   @@index([conversationId, timestamp])
   @@map("ai_conversation_messages")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// WAVE 7 - MONEY
+//
+// Every amount here is Decimal, not Float. The Mongoose schemas all said Number,
+// which in Postgres would be double precision, and money in binary floating point
+// is wrong in a way that only shows up once: a total that is off by a paisa and
+// cannot be explained. Decimal(14,2) holds every amount this system deals in
+// (marketplace amounts are integer paise; subscriptions and expenses are rupees)
+// and adds exactly.
+//
+// The cost is that Prisma hands back Decimal objects, so `a + b` on two amounts
+// would concatenate strings rather than add. Consumers convert at the boundary -
+// see src/lib/money.ts.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+enum ExpenseCategory {
+  transport
+  stay
+  food
+  guide
+  permits
+  marketing
+  platform_fee
+  miscellaneous
+
+  @@map("expense_category")
+}
+
+model Expense {
+  id          String          @id @default(uuid())
+  organizerId String          @map("organizer_id")
+  tripId      String          @map("trip_id")
+  category    ExpenseCategory
+  amount      Decimal         @db.Decimal(14, 2)
+  description String?         @db.VarChar(500)
+  date        DateTime        @default(now())
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([tripId, category])
+  @@index([organizerId, date])
+  @@map("expenses")
+}
+
+enum LedgerEntryType {
+  credit
+  debit
+
+  @@map("ledger_entry_type")
+}
+
+enum LedgerSource {
+  order
+  transfer
+  refund
+  adjustment
+
+  @@map("ledger_source")
+}
+
+// The ledger is the record of what an organizer is owed, so an entry written
+// twice is money counted twice. It was being written twice: razorpayRouteService
+// .createTransfer() credits the payout when the transfer is created, and the
+// transfer.processed webhook credits the same payoutAmount again when Razorpay
+// confirms it. Same for refunds - initiateRefund() debits, refund.processed
+// debits again.
+//
+// @@unique([source, referenceId, type]) makes the second write impossible: one
+// credit per transfer id, one debit per refund id. The callers treat P2002 as
+// "already recorded" rather than as an error, which is what they meant all along.
+//
+// referenceId is required for that reason. Adjustments, which have no external
+// id, get one from the caller.
+model PayoutLedger {
+  id          String          @id @default(uuid())
+  organizerId String          @map("organizer_id")
+  type        LedgerEntryType
+  source      LedgerSource
+  referenceId String          @map("reference_id")
+  amount      Decimal         @db.Decimal(14, 2)
+  currency    String          @default("INR") @db.VarChar(3)
+  description String?
+
+  // balanceAfter was on the Mongoose model and no caller ever set it, so every
+  // document had it undefined and nothing read it. Not carried over: a running
+  // balance that is never written is worse than no column, because the next
+  // person to read the schema believes there is one.
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([source, referenceId, type])
+  @@index([organizerId, createdAt])
+  @@map("payout_ledger")
+}
+
+enum MarketplaceOrderStatus {
+  created
+  paid
+  failed
+  refunded
+  partial_refund
+
+  @@map("marketplace_order_status")
+}
+
+enum SplitStatus {
+  pending
+  processed
+  failed
+
+  @@map("split_status")
+}
+
+enum OrderRefundStatus {
+  none
+  requested
+  processed
+  partial
+
+  @@map("order_refund_status")
+}
+
+model MarketplaceOrder {
+  id          String                 @id @default(uuid())
+  orderId     String                 @unique @map("order_id") // Razorpay order id
+  paymentId   String?                @unique @map("payment_id")
+  userId      String                 @map("user_id")
+  organizerId String                 @map("organizer_id")
+  tripId      String?                @map("trip_id")
+  amount      Decimal                @db.Decimal(14, 2)
+  currency    String                 @default("INR") @db.VarChar(3)
+  notes       Json?
+  status      MarketplaceOrderStatus @default(created)
+
+  commissionAmount      Decimal @default(0) @map("commission_amount") @db.Decimal(14, 2)
+  commissionRate        Decimal @default(5) @map("commission_rate") @db.Decimal(5, 2)
+  organizerPayoutAmount Decimal @default(0) @map("organizer_payout_amount") @db.Decimal(14, 2)
+  razorpayFeeAmount     Decimal @default(0) @map("razorpay_fee_amount") @db.Decimal(14, 2)
+
+  splitStatus  SplitStatus       @default(pending) @map("split_status")
+  refundStatus OrderRefundStatus @default(none) @map("refund_status")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  transfers MarketplaceTransfer[]
+  refunds   MarketplaceRefund[]
+
+  @@index([organizerId, createdAt])
+  @@index([userId, createdAt])
+  @@map("marketplace_orders")
+}
+
+enum TransferStatus {
+  pending
+  initiated
+  processed
+  failed
+  reversed
+
+  @@map("transfer_status")
+}
+
+// The split is amount = commission + razorpay fee + payout, by construction in
+// calculateSplit(). A CHECK says so, which means a transfer whose parts do not
+// add up to the whole cannot be recorded - a wrong commission rate is refused at
+// the point of the mistake rather than found later in a reconciliation.
+model MarketplaceTransfer {
+  id          String  @id @default(uuid())
+  orderId     String  @map("order_id")
+  organizerId String  @map("organizer_id")
+  paymentId   String  @map("payment_id")
+  transferId  String? @unique @map("transfer_id") // Razorpay transfer id
+
+  amount            Decimal @db.Decimal(14, 2)
+  commissionAmount  Decimal @map("commission_amount") @db.Decimal(14, 2)
+  razorpayFeeAmount Decimal @map("razorpay_fee_amount") @db.Decimal(14, 2)
+  payoutAmount      Decimal @map("payout_amount") @db.Decimal(14, 2)
+
+  status        TransferStatus @default(pending)
+  holdUntil     DateTime?      @map("hold_until")
+  processedAt   DateTime?      @map("processed_at")
+  failureReason String?        @map("failure_reason")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  order MarketplaceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, status])
+  @@index([organizerId, createdAt])
+  @@map("marketplace_transfers")
+}
+
+enum RefundStatus {
+  pending
+  processed
+  failed
+
+  @@map("refund_status")
+}
+
+model MarketplaceRefund {
+  id        String  @id @default(uuid())
+  orderId   String  @map("order_id")
+  paymentId String  @map("payment_id")
+  refundId  String? @unique @map("refund_id") // Razorpay refund id
+
+  amount           Decimal      @db.Decimal(14, 2)
+  currency         String       @default("INR") @db.VarChar(3)
+  reason           String?
+  reversedTransfer Boolean      @default(false) @map("reversed_transfer")
+  status           RefundStatus @default(pending)
+  createdBy        String?      @map("created_by")
+  processedAt      DateTime?    @map("processed_at")
+  failureReason    String?      @map("failure_reason")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  order MarketplaceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+  @@map("marketplace_refunds")
+}
+
+enum PayoutOnboardingStatus {
+  pending
+  connected
+  activated
+  rejected
+
+  @@map("payout_onboarding_status")
+}
+
+enum PayoutKycStatus {
+  pending
+  submitted
+  under_review
+  approved
+  rejected
+
+  @@map("payout_kyc_status")
+}
+
+// bankDetails was a required sub-document. Flattened, because "required nested
+// object with four fields" and "four columns, three of them NOT NULL" are the
+// same statement, and only one of them is actually enforced.
+model OrganizerPayoutConfig {
+  id                String                 @id @default(uuid())
+  organizerId       String                 @unique @map("organizer_id")
+  razorpayAccountId String?                @map("razorpay_account_id")
+  onboardingStatus  PayoutOnboardingStatus @default(pending) @map("onboarding_status")
+
+  accountNumberEncrypted String  @map("account_number_encrypted")
+  ifscCode               String  @map("ifsc_code") @db.VarChar(11)
+  accountHolderName      String  @map("account_holder_name")
+  bankName               String? @map("bank_name")
+
+  kycStatus      PayoutKycStatus @default(pending) @map("kyc_status")
+  commissionRate Decimal         @default(5) @map("commission_rate") @db.Decimal(5, 2)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("organizer_payout_configs")
+}
+
+// ─── Subscriptions ────────────────────────────────────────────────────────────
+
+enum SubscriptionPlan {
+  trial
+  free_trial   @map("free-trial")
+  starter
+  basic
+  pro
+  professional
+  premium
+  enterprise
+
+  @@map("subscription_plan")
+}
+
+enum SubscriptionStatus {
+  pending_payment
+  active
+  expired
+  cancelled
+  trial
+
+  @@map("subscription_status")
+}
+
+enum PaymentRecordStatus {
+  pending
+  completed
+  failed
+  refunded
+
+  @@map("payment_record_status")
+}
+
+enum TripUsageStatus {
+  active
+  completed
+  cancelled
+
+  @@map("trip_usage_status")
+}
+
+enum SubscriptionNotificationType {
+  trial_ending
+  trial_ended
+  payment_due
+  payment_failed
+  trips_exhausted
+  subscription_renewed
+
+  @@map("subscription_notification_type")
+}
+
+// tripsRemaining and totalPaid are both gone.
+//
+// tripsRemaining was stored and also recomputed in a pre-save hook as
+// tripsPerCycle - tripsUsed, so the column only ever held a value the other two
+// columns already determined - and only while something happened to save the
+// document. It is computed in the mapper now.
+//
+// totalPaid was incremented by addPayment(). It is the sum of the completed
+// payment rows, which is a query. CRMSubscription had the same field as a
+// virtual, computed exactly that way, which is a fair sign of which of the two
+// was right.
+//
+// The CHECK on trips_used <= trips_per_cycle is what makes useTripSlot safe.
+// The Mongoose version read tripsRemaining, compared it to zero, incremented
+// and saved; two trips created at once both read the same number and both got a
+// slot. The port increments conditionally and lets the database refuse.
+model OrganizerSubscription {
+  id          String @id @default(uuid())
+  organizerId String @unique @map("organizer_id")
+
+  plan          SubscriptionPlan   @default(free_trial)
+  planType      String?            @map("plan_type") // config id, e.g. 'PROFESSIONAL'
+  status        SubscriptionStatus @default(pending_payment)
+  isTrialActive Boolean            @default(false) @map("is_trial_active")
+
+  crmAccess          Boolean  @default(false) @map("crm_access")
+  crmBundleHasAccess Boolean  @default(false) @map("crm_bundle_has_access")
+  crmBundlePrice     Decimal  @default(0) @map("crm_bundle_price") @db.Decimal(14, 2)
+  crmBundleFeatures  String[] @map("crm_bundle_features")
+
+  subscriptionStartDate DateTime? @map("subscription_start_date")
+  subscriptionEndDate   DateTime? @map("subscription_end_date")
+  trialStartDate        DateTime? @map("trial_start_date")
+  trialEndDate          DateTime? @map("trial_end_date")
+  currentPeriodStart    DateTime? @map("current_period_start")
+  currentPeriodEnd      DateTime? @map("current_period_end")
+
+  tripsPerCycle Int @default(5) @map("trips_per_cycle")
+  tripsUsed     Int @default(0) @map("trips_used")
+
+  pricePerCycle Decimal @default(1499) @map("price_per_cycle") @db.Decimal(14, 2)
+  currency      String  @default("INR") @db.VarChar(3)
+
+  lastPaymentDate DateTime? @map("last_payment_date")
+  nextPaymentDue  DateTime? @map("next_payment_due")
+
+  razorpayOrderId   String? @map("razorpay_order_id")
+  razorpayPaymentId String? @map("razorpay_payment_id")
+
+  autoRenew          Boolean  @default(false) @map("auto_renew")
+  paymentMethodId    String?  @map("payment_method_id")
+  // paymentMethodValid is in the Mongoose schema but not in its TypeScript
+  // interface, so it was invisible to every consumer that used the typed model.
+  paymentMethodValid Boolean? @map("payment_method_valid")
+
+  notes String? @db.VarChar(1000)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  payments          SubscriptionPayment[]
+  tripUsageHistory  SubscriptionTripUsage[]
+  notificationsSent SubscriptionNotification[]
+
+  @@index([status])
+  @@index([status, nextPaymentDue])
+  @@map("organizer_subscriptions")
+}
+
+// transactionId is unique across every subscription. Recording the same gateway
+// transaction twice is what would make a total wrong, and the total is now a sum
+// of these rows, so the constraint and the number it protects are the same thing.
+model SubscriptionPayment {
+  id             String              @id @default(uuid())
+  subscriptionId String              @map("subscription_id")
+  amount         Decimal             @db.Decimal(14, 2)
+  currency       String              @default("INR") @db.VarChar(3)
+  paymentMethod  String              @map("payment_method")
+  transactionId  String              @unique @map("transaction_id")
+  paymentDate    DateTime            @default(now()) @map("payment_date")
+  status         PaymentRecordStatus @default(pending)
+  receiptUrl     String?             @map("receipt_url")
+
+  subscription OrganizerSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId, paymentDate])
+  @@index([subscriptionId, status])
+  @@map("subscription_payments")
+}
+
+// One slot per trip. useTripSlot() pushed onto an array without looking, so a
+// retried request spent two slots on one trip and the organizer paid for it.
+model SubscriptionTripUsage {
+  id             String          @id @default(uuid())
+  subscriptionId String          @map("subscription_id")
+  tripId         String          @map("trip_id")
+  tripTitle      String          @map("trip_title")
+  status         TripUsageStatus @default(active)
+  createdAt      DateTime        @default(now()) @map("created_at")
+
+  subscription OrganizerSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriptionId, tripId])
+  @@index([subscriptionId, createdAt])
+  @@map("subscription_trip_usage")
+}
+
+model SubscriptionNotification {
+  id             String                       @id @default(uuid())
+  subscriptionId String                       @map("subscription_id")
+  type           SubscriptionNotificationType
+  message        String
+  sentAt         DateTime                     @default(now()) @map("sent_at")
+
+  subscription OrganizerSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId, sentAt])
+  @@map("subscription_notifications")
+}
+
+// ─── CRM subscriptions ────────────────────────────────────────────────────────
+
+enum CRMPlanType {
+  trip_package_5
+  trip_package_10
+  trip_package_20
+  trip_package_50
+  crm_bundle
+  trial
+
+  @@map("crm_plan_type")
+}
+
+enum CRMSubscriptionStatus {
+  active
+  expired
+  cancelled
+  pending_payment
+
+  @@map("crm_subscription_status")
+}
+
+// Prisma enum members cannot start with a digit; the stored values do, and they
+// are what Mongo holds, so the names are prefixed and the values mapped back.
+enum CRMPackageType {
+  trips_5  @map("5_trips")
+  trips_10 @map("10_trips")
+  trips_20 @map("20_trips")
+  trips_50 @map("50_trips")
+
+  @@map("crm_package_type")
+}
+
+enum CRMPaymentAttemptStatus {
+  attempted
+  success
+  failed
+
+  @@map("crm_payment_attempt_status")
+}
+
+// Four nested objects flattened: tripPackage, crmBundle, trial and
+// notifications. They were nested for grouping, not because anything queried
+// them as a unit, and nesting is what let tripPackage.remainingTrips exist as a
+// third number beside two that determine it.
+// totalPaid was already a virtual here - the sum of completed payments - so it
+// is not a column, exactly as before. OrganizerSubscription stored the same
+// quantity and drifted; this model is the one that had it right.
+//
+// tripPackage.remainingTrips is gone for the same reason as tripsRemaining:
+// totalTrips - usedTrips, with a CHECK so it cannot go negative.
+model CRMSubscription {
+  id          String                @id @default(uuid())
+  organizerId String                @map("organizer_id")
+  planType    CRMPlanType           @map("plan_type")
+  status      CRMSubscriptionStatus @default(active)
+
+  // tripPackage
+  packageType     CRMPackageType @default(trips_5) @map("package_type")
+  totalTrips      Int            @default(5) @map("total_trips")
+  usedTrips       Int            @default(0) @map("used_trips")
+  pricePerPackage Decimal        @default(1499) @map("price_per_package") @db.Decimal(14, 2)
+
+  // crmBundle
+  crmBundleHasAccess Boolean  @default(false) @map("crm_bundle_has_access")
+  crmBundlePrice     Decimal  @default(2100) @map("crm_bundle_price") @db.Decimal(14, 2)
+  crmBundleFeatures  String[] @map("crm_bundle_features")
+
+  // trial
+  trialIsActive        Boolean   @default(false) @map("trial_is_active")
+  trialStartDate       DateTime? @map("trial_start_date")
+  trialEndDate         DateTime? @map("trial_end_date")
+  trialMonthsRemaining Int       @default(2) @map("trial_months_remaining")
+
+  // notifications
+  trialEndingIn7Days Boolean   @default(false) @map("trial_ending_in_7_days")
+  trialEndingIn1Day  Boolean   @default(false) @map("trial_ending_in_1_day")
+  trialExpired       Boolean   @default(false) @map("trial_expired")
+  paymentReminder    Boolean   @default(false) @map("payment_reminder")
+  lastReminderSentAt DateTime? @map("last_reminder_sent_at")
+
+  startDate          DateTime  @default(now()) @map("start_date")
+  endDate            DateTime? @map("end_date")
+  expiryReminderSent Boolean   @default(false) @map("expiry_reminder_sent")
+
+  autoRenew          Boolean   @default(false) @map("auto_renew")
+  cancelledAt        DateTime? @map("cancelled_at")
+  cancellationReason String?   @map("cancellation_reason")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  payments        CRMSubscriptionPayment[]
+  paymentAttempts CRMPaymentAttempt[]
+  billingHistory  CRMBillingEntry[]
+
+  @@index([organizerId, createdAt])
+  @@index([status])
+  @@index([endDate])
+  @@map("crm_subscriptions")
+}
+
+model CRMSubscriptionPayment {
+  id                String              @id @default(uuid())
+  subscriptionId    String              @map("subscription_id")
+  razorpayOrderId   String?             @map("razorpay_order_id")
+  razorpayPaymentId String?             @map("razorpay_payment_id")
+  razorpaySignature String?             @map("razorpay_signature")
+  transactionId     String              @unique @map("transaction_id")
+  amount            Decimal             @db.Decimal(14, 2)
+  currency          String              @default("INR") @db.VarChar(3)
+  paymentMethod     String              @map("payment_method")
+  status            PaymentRecordStatus @default(pending)
+  paidAt            DateTime?           @map("paid_at")
+  metadata          Json?
+
+  subscription CRMSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId, status])
+  @@map("crm_subscription_payments")
+}
+
+// The Mongoose comment says these exist "for audit and retry idempotency", and
+// attemptId is what would provide it - but nothing stopped two rows sharing one.
+// Now nothing can, so a retried charge finds its own earlier attempt instead of
+// writing a second one.
+model CRMPaymentAttempt {
+  id                String                  @id @default(uuid())
+  subscriptionId    String                  @map("subscription_id")
+  attemptId         String                  @unique @map("attempt_id")
+  razorpayOrderId   String?                 @map("razorpay_order_id")
+  razorpayPaymentId String?                 @map("razorpay_payment_id")
+  amount            Decimal?                @db.Decimal(14, 2)
+  status            CRMPaymentAttemptStatus @default(attempted)
+  errorMessage      String?                 @map("error_message")
+  createdAt         DateTime                @default(now()) @map("created_at")
+
+  subscription CRMSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId, createdAt])
+  @@map("crm_payment_attempts")
+}
+
+model CRMBillingEntry {
+  id             String   @id @default(uuid())
+  subscriptionId String   @map("subscription_id")
+  date           DateTime @default(now())
+  amount         Decimal  @db.Decimal(14, 2)
+  description    String
+  invoiceUrl     String?  @map("invoice_url")
+
+  subscription CRMSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId, date])
+  @@map("crm_billing_entries")
 }

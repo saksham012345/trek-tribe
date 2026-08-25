@@ -1,6 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from './roleCheck';
-import CRMSubscription from '../models/CRMSubscription';
+import { prisma } from '../lib/prisma';
+import { remainingTrips } from '../services/crmSubscriptionService';
 import { User } from '../models/User';
 
 /**
@@ -84,9 +85,8 @@ export const requireTripSlots = async (
       });
     }
 
-    const subscription = await CRMSubscription.findOne({
-      organizerId: req.user.id,
-      status: 'active',
+    const subscription = await prisma.cRMSubscription.findFirst({
+      where: { organizerId: req.user.id, status: 'active' },
     });
 
     if (!subscription) {
@@ -98,17 +98,18 @@ export const requireTripSlots = async (
     }
 
     // Check trial period
-    if (subscription.trial?.isActive && subscription.trial.endDate > new Date()) {
+    if (subscription.trialIsActive && subscription.trialEndDate && subscription.trialEndDate > new Date()) {
       return next();
     }
 
-    // Check trip package
-    if (!subscription.tripPackage || subscription.tripPackage.remainingTrips <= 0) {
+    // Check trip package. The nested object could be absent, which is what the
+    // first half of this test was for; the columns are always there.
+    if (remainingTrips(subscription) <= 0) {
       return res.status(403).json({
         success: false,
         message: 'No remaining trip slots. Please purchase a trip package.',
-        usedTrips: subscription.tripPackage?.usedTrips || 0,
-        totalTrips: subscription.tripPackage?.totalTrips || 0,
+        usedTrips: subscription.usedTrips,
+        totalTrips: subscription.totalTrips,
         upgradeUrl: '/crm/purchase-trips',
       });
     }

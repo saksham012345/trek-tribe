@@ -5,7 +5,6 @@ import { authenticateJwt, requireRole } from '../middleware/auth';
 import { databaseImportService } from '../services/databaseImportService';
 import { importQueue } from '../workers/importWorker';
 import { prisma } from '../lib/prisma';
-import CRMSubscription from '../models/CRMSubscription';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -49,10 +48,10 @@ const checkCRMAccess = async (req: any, res: any, next: any) => {
     const organizerId = req.auth.userId;
     
     // Check if organizer has CRM access
-    const subscription = await CRMSubscription.findOne({
-      organizerId,
-      status: 'active',
-      'crmBundle.hasAccess': true
+    // 'crmBundle.hasAccess' was a dotted path into a nested object; it is a
+    // column now, so this is an ordinary indexable predicate.
+    const subscription = await prisma.cRMSubscription.findFirst({
+      where: { organizerId, status: 'active', crmBundleHasAccess: true }
     });
 
     if (!subscription) {
