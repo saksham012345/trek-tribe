@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { authenticateJwt, requireRole } from '../middleware/auth';
 import { User } from '../models/User';
-import { Trip } from '../models/Trip';
-import { GroupBooking } from '../models/GroupBooking';
+import { shapeTrip, shapeTrips } from '../services/tripShapeService';
+import { shapeBooking } from '../services/bookingShapeService';
+import { toNumber } from '../lib/money';
 import { prisma } from '../lib/prisma';
 import { remainingTrips } from '../services/crmSubscriptionService';
 import { logger } from '../utils/logger';
@@ -10,12 +11,44 @@ import { logger } from '../utils/logger';
 const router = Router();
 
 /**
+ * Attach the organizer that .populate('organizerId') used to supply.
+ *
+ * Trips are Postgres rows and users are still Mongo documents, so this is a
+ * second query rather than a join - one for the whole page, not one per trip.
+ */
+async function withOrganizers(rows: any[], select: string): Promise<any[]> {
+  if (rows.length === 0) return [];
+  const ids = Array.from(new Set(rows.map(r => r.organizerId)));
+  const users = await User.find({ _id: { $in: ids } }, select).lean();
+  const byId = new Map(users.map((u: any) => [u._id.toString(), u]));
+  return rows.map(row => {
+    const trip = shapeTrip(row);
+    trip.organizerId = byId.get(row.organizerId) ?? row.organizerId;
+    return trip;
+  });
+}
+
+/** The same, for the main booker on a list of bookings. */
+async function withBookers(rows: any[], select: string): Promise<any[]> {
+  if (rows.length === 0) return [];
+  const ids = Array.from(new Set(rows.map(r => r.mainBookerId)));
+  const users = await User.find({ _id: { $in: ids } }, select).lean();
+  const byId = new Map(users.map((u: any) => [u._id.toString(), u]));
+  return rows.map(row => {
+    const booking: any = shapeBooking(row);
+    booking.tripId = row.trip ? shapeTrip(row.trip) : row.tripId;
+    booking.mainBookerId = byId.get(row.mainBookerId) ?? row.mainBookerId;
+    return booking;
+  });
+}
+
+/**
  * Get comprehensive organizer dashboard
  */
 router.get('/organizer', authenticateJwt, requireRole(['organizer']), async (req, res) => {
   try {
     const organizerId = (req as any).auth.userId;
-    
+
     // Get user profile with auto-pay status
     const user = await User.findById(organizerId).select('-passwordHash');
     if (!user) {
@@ -33,27 +66,34 @@ router.get('/organizer', authenticateJwt, requireRole(['organizer']), async (req
       completedTrips,
       upcomingTrips
     ] = await Promise.all([
-      Trip.countDocuments({ organizerId }),
-      Trip.countDocuments({ organizerId, status: 'active' }),
-      Trip.countDocuments({ organizerId, status: 'draft' }),
-      Trip.countDocuments({ organizerId, status: 'completed' }),
-      Trip.countDocuments({ 
-        organizerId, 
-        status: 'active',
-        startDate: { $gte: new Date() }
+      prisma.trip.count({ where: { organizerId } }),
+      prisma.trip.count({ where: { organizerId, status: 'active' } }),
+      // 'draft' is not one of the four statuses a trip can have - they are
+      // pending, active, cancelled and completed - so this count has always
+      // been zero and the organizer's dashboard has always shown no drafts.
+      // Postgres will not accept the value at all, so it is answered with the
+      // zero it was already returning rather than a query that cannot run.
+      Promise.resolve(0),
+      prisma.trip.count({ where: { organizerId, status: 'completed' } }),
+      prisma.trip.count({
+        where: { organizerId, status: 'active', startDate: { gte: new Date() } }
       })
     ]);
 
     // Get recent trips
-    const recentTrips = await Trip.find({ organizerId })
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .select('title destination status startDate endDate capacity participants images')
-      .lean();
+    const recentTripRows = await prisma.trip.findMany({
+      where: { organizerId },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      include: { participants: { select: { userId: true } } }
+    });
+    const recentTrips = shapeTrips(recentTripRows as any);
 
-    // Get booking statistics
-    const tripIds = await Trip.find({ organizerId }).distinct('_id');
-    
+    // Booking statistics. `trip: { organizerId }` is the same filter as the
+    // list of trip ids the counts used to be given, so the extra query that
+    // fetched every id is gone.
+    const byOrganizer = { trip: { organizerId } };
+
     const [
       totalBookings,
       pendingVerifications,
@@ -61,69 +101,68 @@ router.get('/organizer', authenticateJwt, requireRole(['organizer']), async (req
       cancelledBookings,
       todayBookings
     ] = await Promise.all([
-      GroupBooking.countDocuments({ tripId: { $in: tripIds } }),
-      GroupBooking.countDocuments({ 
-        tripId: { $in: tripIds }, 
-        paymentVerificationStatus: 'pending' 
+      prisma.groupBooking.count({ where: byOrganizer }),
+      prisma.groupBooking.count({
+        where: { ...byOrganizer, paymentVerificationStatus: 'pending' }
       }),
-      GroupBooking.countDocuments({ 
-        tripId: { $in: tripIds }, 
-        bookingStatus: 'confirmed' 
-      }),
-      GroupBooking.countDocuments({ 
-        tripId: { $in: tripIds }, 
-        bookingStatus: 'cancelled' 
-      }),
-      GroupBooking.countDocuments({
-        tripId: { $in: tripIds },
-        createdAt: {
-          $gte: new Date(new Date().setHours(0, 0, 0, 0)),
-          $lt: new Date(new Date().setHours(23, 59, 59, 999))
+      prisma.groupBooking.count({ where: { ...byOrganizer, bookingStatus: 'confirmed' } }),
+      prisma.groupBooking.count({ where: { ...byOrganizer, bookingStatus: 'cancelled' } }),
+      prisma.groupBooking.count({
+        where: {
+          ...byOrganizer,
+          createdAt: {
+            gte: new Date(new Date().setHours(0, 0, 0, 0)),
+            lt: new Date(new Date().setHours(23, 59, 59, 999))
+          }
         }
       })
     ]);
 
     // Get recent bookings
-    const recentBookings = await GroupBooking.find({ tripId: { $in: tripIds } })
-      .populate('tripId', 'title destination')
-      .populate('mainBookerId', 'name email')
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .lean();
+    const recentBookingRows = await prisma.groupBooking.findMany({
+      where: byOrganizer,
+      include: { trip: true },
+      orderBy: { createdAt: 'desc' },
+      take: 5
+    });
 
-    // Calculate total revenue
-    const revenueData = await GroupBooking.aggregate([
-      { $match: { tripId: { $in: tripIds }, bookingStatus: 'confirmed' } },
-      { $group: { 
-        _id: null, 
-        totalRevenue: { $sum: '$finalAmount' },
-        monthlyRevenue: {
-          $sum: {
-            $cond: [
-              { 
-                $gte: ['$createdAt', new Date(new Date().setDate(1))] 
-              },
-              '$finalAmount',
-              0
-            ]
-          }
-        }
-      }}
+    const recentBookerIds = Array.from(new Set(recentBookingRows.map(b => b.mainBookerId)));
+    const recentBookers = recentBookerIds.length
+      ? await User.find({ _id: { $in: recentBookerIds } }, 'name email').lean()
+      : [];
+    const recentBookerById = new Map(recentBookers.map((u: any) => [u._id.toString(), u]));
+
+    const recentBookings = recentBookingRows.map(row => {
+      const booking: any = shapeBooking(row);
+      booking.tripId = row.trip;
+      booking.mainBookerId = recentBookerById.get(row.mainBookerId) ?? row.mainBookerId;
+      return booking;
+    });
+
+    // Total and month-to-date revenue. The $cond inside the $sum was summing
+    // finalAmount conditionally in one pass; two aggregates say the same thing
+    // and neither needs the condition spelled out as an expression tree.
+    const startOfMonth = new Date(new Date().setDate(1));
+    const [totalRevenueAgg, monthlyRevenueAgg] = await Promise.all([
+      prisma.groupBooking.aggregate({
+        where: { ...byOrganizer, bookingStatus: 'confirmed' },
+        _sum: { finalAmount: true }
+      }),
+      prisma.groupBooking.aggregate({
+        where: { ...byOrganizer, bookingStatus: 'confirmed', createdAt: { gte: startOfMonth } },
+        _sum: { finalAmount: true }
+      })
     ]);
 
     const revenue = {
-      total: revenueData[0]?.totalRevenue || 0,
-      monthly: revenueData[0]?.monthlyRevenue || 0
+      total: toNumber(totalRevenueAgg._sum.finalAmount),
+      monthly: toNumber(monthlyRevenueAgg._sum.finalAmount)
     };
 
-    // Get participants count
-    const participantsData = await Trip.aggregate([
-      { $match: { organizerId: user._id } },
-      { $project: { participantCount: { $size: '$participants' } } },
-      { $group: { _id: null, totalParticipants: { $sum: '$participantCount' } } }
-    ]);
-
-    const totalParticipants = participantsData[0]?.totalParticipants || 0;
+    // Was $size over the participants array; it is a count of rows.
+    const totalParticipants = await prisma.tripParticipant.count({
+      where: { trip: { organizerId } }
+    });
 
     // Auto-pay status
     const autoPayStatus = user.organizerProfile?.autoPay ? {
@@ -170,7 +209,7 @@ router.get('/organizer', authenticateJwt, requireRole(['organizer']), async (req
 
     // Alerts & notifications
     const alerts = [];
-    
+
     if (pendingVerifications > 0) {
       alerts.push({
         type: 'warning',
@@ -288,7 +327,7 @@ router.get('/organizer', authenticateJwt, requireRole(['organizer']), async (req
 router.get('/agent', authenticateJwt, requireRole(['agent', 'admin']), async (req, res) => {
   try {
     const agentId = (req as any).auth.userId;
-    
+
     const user = await User.findById(agentId).select('-passwordHash');
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -325,11 +364,11 @@ router.get('/agent', authenticateJwt, requireRole(['agent', 'admin']), async (re
       completedTrips,
       tripsToday
     ] = await Promise.all([
-      Trip.countDocuments(),
-      Trip.countDocuments({ status: 'active' }),
-      Trip.countDocuments({ status: 'pending' }),
-      Trip.countDocuments({ status: 'completed' }),
-      Trip.countDocuments({ createdAt: { $gte: today, $lt: tomorrow } })
+      prisma.trip.count(),
+      prisma.trip.count({ where: { status: 'active' } }),
+      prisma.trip.count({ where: { status: 'pending' } }),
+      prisma.trip.count({ where: { status: 'completed' } }),
+      prisma.trip.count({ where: { createdAt: { gte: today, lt: tomorrow } } })
     ]);
 
     // Get all bookings statistics
@@ -339,10 +378,10 @@ router.get('/agent', authenticateJwt, requireRole(['agent', 'admin']), async (re
       confirmedBookings,
       bookingsToday
     ] = await Promise.all([
-      GroupBooking.countDocuments(),
-      GroupBooking.countDocuments({ bookingStatus: 'pending' }),
-      GroupBooking.countDocuments({ bookingStatus: 'confirmed' }),
-      GroupBooking.countDocuments({ createdAt: { $gte: today, $lt: tomorrow } })
+      prisma.groupBooking.count(),
+      prisma.groupBooking.count({ where: { bookingStatus: 'pending' } }),
+      prisma.groupBooking.count({ where: { bookingStatus: 'confirmed' } }),
+      prisma.groupBooking.count({ where: { createdAt: { gte: today, lt: tomorrow } } })
     ]);
 
     // Get recent users
@@ -353,22 +392,21 @@ router.get('/agent', authenticateJwt, requireRole(['agent', 'admin']), async (re
       .lean();
 
     // Get recent trips
-    const recentTrips = await Trip.find()
-      .populate('organizerId', 'name email')
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .select('title destination status organizerId createdAt')
-      .lean();
+    const recentTripRows = await prisma.trip.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 10
+    });
+    const recentTrips = await withOrganizers(recentTripRows, 'name email');
 
-    // Get pending verifications
-    const pendingVerifications = await GroupBooking.find({
-      paymentVerificationStatus: 'pending'
-    })
-      .populate('tripId', 'title destination')
-      .populate('mainBookerId', 'name email')
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .lean();
+    // Get pending verifications. tripId was a populate and is a join now; the
+    // booker is still a Mongo document.
+    const pendingRows = await prisma.groupBooking.findMany({
+      where: { paymentVerificationStatus: 'pending' },
+      include: { trip: true },
+      orderBy: { createdAt: 'desc' },
+      take: 10
+    });
+    const pendingVerifications = await withBookers(pendingRows, 'name email');
 
     // Get subscriptions requiring attention
     // "One trip or fewer left" compares two columns, which Prisma's where cannot
@@ -399,7 +437,7 @@ router.get('/agent', authenticateJwt, requireRole(['agent', 'admin']), async (re
 
     // Alerts for agents
     const alerts = [];
-    
+
     if (unverifiedOrganizers > 0) {
       alerts.push({
         type: 'info',
@@ -514,7 +552,7 @@ router.get('/agent', authenticateJwt, requireRole(['agent', 'admin']), async (re
 router.get('/admin', authenticateJwt, requireRole(['admin']), async (req, res) => {
   try {
     const adminId = (req as any).auth.userId;
-    
+
     const user = await User.findById(adminId).select('-passwordHash');
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -550,10 +588,10 @@ router.get('/admin', authenticateJwt, requireRole(['admin']), async (req, res) =
       completedTrips,
       tripsThisMonth
     ] = await Promise.all([
-      Trip.countDocuments(),
-      Trip.countDocuments({ status: 'active' }),
-      Trip.countDocuments({ status: 'completed' }),
-      Trip.countDocuments({ createdAt: { $gte: thisMonth } })
+      prisma.trip.count(),
+      prisma.trip.count({ where: { status: 'active' } }),
+      prisma.trip.count({ where: { status: 'completed' } }),
+      prisma.trip.count({ where: { createdAt: { gte: thisMonth } } })
     ]);
 
     // Booking statistics
@@ -562,35 +600,33 @@ router.get('/admin', authenticateJwt, requireRole(['admin']), async (req, res) =
       confirmedBookings,
       bookingsThisMonth
     ] = await Promise.all([
-      GroupBooking.countDocuments(),
-      GroupBooking.countDocuments({ bookingStatus: 'confirmed' }),
-      GroupBooking.countDocuments({ createdAt: { $gte: thisMonth } })
+      prisma.groupBooking.count(),
+      prisma.groupBooking.count({ where: { bookingStatus: 'confirmed' } }),
+      prisma.groupBooking.count({ where: { createdAt: { gte: thisMonth } } })
     ]);
 
     // Revenue statistics
-    const revenueData = await GroupBooking.aggregate([
-      { $match: { bookingStatus: 'confirmed' } },
-      { 
-        $facet: {
-          total: [
-            { $group: { _id: null, amount: { $sum: '$finalAmount' } } }
-          ],
-          monthly: [
-            { $match: { createdAt: { $gte: thisMonth } } },
-            { $group: { _id: null, amount: { $sum: '$finalAmount' } } }
-          ],
-          lastMonth: [
-            { $match: { createdAt: { $gte: lastMonth, $lt: thisMonth } } },
-            { $group: { _id: null, amount: { $sum: '$finalAmount' } } }
-          ]
-        }
-      }
+    // Was a $facet running three grouped sums over the same match in one pass.
+    // Three aggregates say it plainly, and they run together.
+    const [totalRev, monthRev, lastMonthRev] = await Promise.all([
+      prisma.groupBooking.aggregate({
+        where: { bookingStatus: 'confirmed' },
+        _sum: { finalAmount: true }
+      }),
+      prisma.groupBooking.aggregate({
+        where: { bookingStatus: 'confirmed', createdAt: { gte: thisMonth } },
+        _sum: { finalAmount: true }
+      }),
+      prisma.groupBooking.aggregate({
+        where: { bookingStatus: 'confirmed', createdAt: { gte: lastMonth, lt: thisMonth } },
+        _sum: { finalAmount: true }
+      })
     ]);
 
     const revenue = {
-      total: revenueData[0]?.total[0]?.amount || 0,
-      thisMonth: revenueData[0]?.monthly[0]?.amount || 0,
-      lastMonth: revenueData[0]?.lastMonth[0]?.amount || 0,
+      total: toNumber(totalRev._sum.finalAmount),
+      thisMonth: toNumber(monthRev._sum.finalAmount),
+      lastMonth: toNumber(lastMonthRev._sum.finalAmount),
       growth: 0
     };
 
@@ -610,8 +646,8 @@ router.get('/admin', authenticateJwt, requireRole(['admin']), async (req, res) =
     ]);
 
     // Growth metrics
-    const userGrowth = usersLastMonth > 0 
-      ? ((usersThisMonth - usersLastMonth) / usersLastMonth) * 100 
+    const userGrowth = usersLastMonth > 0
+      ? ((usersThisMonth - usersLastMonth) / usersLastMonth) * 100
       : 0;
 
     // System health
@@ -623,28 +659,36 @@ router.get('/admin', authenticateJwt, requireRole(['admin']), async (req, res) =
     };
 
     // Top organizers
-    const topOrganizers = await Trip.aggregate([
-      { $group: { 
-        _id: '$organizerId', 
-        tripCount: { $sum: 1 },
-        participants: { $sum: { $size: '$participants' } }
-      }},
-      { $sort: { tripCount: -1 } },
-      { $limit: 5 },
-      { $lookup: {
-        from: 'users',
-        localField: '_id',
-        foreignField: '_id',
-        as: 'organizer'
-      }},
-      { $unwind: '$organizer' },
-      { $project: {
-        name: '$organizer.name',
-        email: '$organizer.email',
-        tripCount: 1,
-        participants: 1
-      }}
-    ]);
+    // Was a group, a sort, a $lookup into users and an $unwind. The grouping
+    // and the participant count are SQL; the $lookup is not, because users are
+    // still Mongo documents - so the organizer names are fetched afterwards
+    // rather than joined.
+    const organizerTotals = await prisma.$queryRaw<Array<{
+      organizer_id: string; trip_count: bigint; participants: bigint;
+    }>>`
+      SELECT t.organizer_id,
+             count(*) AS trip_count,
+             count(p.id) AS participants
+        FROM trips t
+        LEFT JOIN trip_participants p ON p.trip_id = t.id
+       GROUP BY t.organizer_id
+       ORDER BY trip_count DESC
+       LIMIT 5
+    `;
+
+    const topOrganizerUsers = await User.find(
+      { _id: { $in: organizerTotals.map(o => o.organizer_id) } },
+      'name email'
+    ).lean();
+    const topOrganizerById = new Map(topOrganizerUsers.map((u: any) => [u._id.toString(), u]));
+
+    const topOrganizers = organizerTotals.map(o => ({
+      _id: o.organizer_id,
+      name: topOrganizerById.get(o.organizer_id)?.name,
+      email: topOrganizerById.get(o.organizer_id)?.email,
+      tripCount: Number(o.trip_count),
+      participants: Number(o.participants)
+    }));
 
     // Recent activities
     const recentUsers = await User.find()
@@ -653,16 +697,15 @@ router.get('/admin', authenticateJwt, requireRole(['admin']), async (req, res) =
       .select('name email role createdAt')
       .lean();
 
-    const recentTrips = await Trip.find()
-      .populate('organizerId', 'name')
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .select('title destination status createdAt')
-      .lean();
+    const adminRecentTripRows = await prisma.trip.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 5
+    });
+    const recentTrips = await withOrganizers(adminRecentTripRows, 'name');
 
     // Alerts for admin
     const alerts = [];
-    
+
     if (expiredSubscriptions > 5) {
       alerts.push({
         type: 'warning',
@@ -749,30 +792,40 @@ router.get('/admin', authenticateJwt, requireRole(['admin']), async (req, res) =
 router.get('/traveler', authenticateJwt, async (req, res) => {
   try {
     const travelerId = (req as any).auth.userId;
-    
+
     const user = await User.findById(travelerId).select('-passwordHash');
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
     // Get trips the traveler has joined
-    const joinedTrips = await Trip.find({ participants: travelerId })
-      .populate('organizerId', 'name profilePhoto')
-      .sort({ startDate: 1 })
-      .lean();
+    // `{ participants: travelerId }` matched an ObjectId inside an array; it is
+    // a row in trip_participants now, so it is a relation filter.
+    const joinedTripRows = await prisma.trip.findMany({
+      where: { participants: { some: { userId: travelerId } } },
+      include: { participants: { select: { userId: true } } },
+      orderBy: { startDate: 'asc' }
+    });
+    const joinedTrips = await withOrganizers(joinedTripRows, 'name profilePhoto');
 
     // Get traveler's bookings
-    const bookings = await GroupBooking.find({ mainBookerId: travelerId })
-      .populate('tripId', 'title destination startDate endDate images')
-      .sort({ createdAt: -1 })
-      .lean();
+    const bookingRows = await prisma.groupBooking.findMany({
+      where: { mainBookerId: travelerId },
+      include: { trip: true },
+      orderBy: { createdAt: 'desc' }
+    });
+    const bookings = bookingRows.map(row => {
+      const booking: any = shapeBooking(row);
+      booking.tripId = row.trip ? shapeTrip(row.trip as any) : null;
+      return booking;
+    });
 
     // Categorize trips
-    const upcomingTrips = joinedTrips.filter(trip => 
+    const upcomingTrips = joinedTrips.filter(trip =>
       new Date(trip.startDate) > new Date() && trip.status === 'active'
     );
-    
-    const pastTrips = joinedTrips.filter(trip => 
+
+    const pastTrips = joinedTrips.filter(trip =>
       new Date(trip.endDate) < new Date() || trip.status === 'completed'
     );
 
@@ -795,7 +848,7 @@ router.get('/traveler', authenticateJwt, async (req, res) => {
 
     // Alerts
     const alerts = [];
-    
+
     if (!user.phoneVerified) {
       alerts.push({
         type: 'warning',

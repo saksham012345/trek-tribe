@@ -6,13 +6,12 @@
  */
 
 
-import { Trip } from '../../models/Trip';
+import { shapeTrips } from '../../services/tripShapeService';
 import { User } from '../../models/User';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { toNumber } from '../../lib/money';
 
-import { GroupBooking } from '../../models/GroupBooking';
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
@@ -20,7 +19,6 @@ export async function getAdminDashboard() {
   const endDate = new Date();
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - 30);
-  const dateFilter = { createdAt: { $gte: startDate, $lte: endDate } };
 
   const [
     totalTrips,
@@ -37,9 +35,13 @@ export async function getAdminDashboard() {
     recentTrips,
     currentMonthTrips,
   ] = await Promise.all([
-    Trip.countDocuments(),
-    Trip.countDocuments({ isVerified: true }),
-    Trip.countDocuments({ isActive: true, startDate: { $gte: new Date() } }),
+    prisma.trip.count(),
+    // `isVerified` and `isActive` are not fields on Trip. Verification is
+    // `verificationStatus` and liveness is `status`, so both of these counts
+    // have always been zero - the admin dashboard has reported no verified
+    // trips and no active upcoming trips since the day it was written.
+    prisma.trip.count({ where: { verificationStatus: 'approved' } }),
+    prisma.trip.count({ where: { status: 'active', startDate: { gte: new Date() } } }),
     User.countDocuments({ role: 'traveler' }),
     User.countDocuments({ role: 'organizer' }),
     // This has always returned nothing. OrganizerSubscription has no
@@ -62,13 +64,23 @@ export async function getAdminDashboard() {
     // different lifecycle - so half of this count silently matched nothing.
     // Postgres refuses the value outright, which is how it came to light.
     prisma.ticket.count({ where: { status: { in: ['pending', 'in_progress'] } } }),
-    Trip.aggregate([
-      { $group: { _id: '$destination', count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-      { $limit: 10 },
-    ]),
-    Trip.find(dateFilter).sort({ createdAt: -1 }).limit(5).populate('organizer', 'name email'),
-    Trip.countDocuments({ createdAt: { $gte: startDate } }),
+    prisma.trip.groupBy({
+      by: ['destination'],
+      _count: { destination: true },
+      orderBy: { _count: { destination: 'desc' } },
+      take: 10,
+    }),
+    // `.populate('organizer')` names a path that does not exist - the field is
+    // organizerId - so the populate was a no-op and these trips have never
+    // carried an organizer. Nothing in the response read one, which is why it
+    // went unnoticed; it is dropped rather than fixed, because adding data
+    // nobody asked for is not this wave's job.
+    prisma.trip.findMany({
+      where: { createdAt: { gte: startDate, lte: endDate } },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    }),
+    prisma.trip.count({ where: { createdAt: { gte: startDate } } }),
   ]);
 
   const lastMonthStart = new Date();
@@ -78,8 +90,8 @@ export async function getAdminDashboard() {
   lastMonthEnd.setMonth(lastMonthEnd.getMonth() + 1);
   lastMonthEnd.setDate(0);
 
-  const lastMonthTrips = await Trip.countDocuments({
-    createdAt: { $gte: lastMonthStart, $lte: lastMonthEnd },
+  const lastMonthTrips = await prisma.trip.count({
+    where: { createdAt: { gte: lastMonthStart, lte: lastMonthEnd } },
   });
 
   const conversionRate = totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
@@ -130,8 +142,10 @@ export async function getOrganizerDashboard(userId: string) {
     myRevenue,
     mySubscription,
   ] = await Promise.all([
-    Trip.countDocuments({ organizer: userId }),
-    Trip.countDocuments({ organizer: userId, isActive: true }),
+    // `organizer` is not a field either; it is organizerId. Two more counts
+    // that have always been zero, on the organizer's own analytics page.
+    prisma.trip.count({ where: { organizerId: userId } }),
+    prisma.trip.count({ where: { organizerId: userId, status: 'active' } }),
     prisma.lead.count({ where: { assignedTo: userId } }),
     prisma.lead.count({ where: { assignedTo: userId, status: 'converted' } }),
     prisma.ticket.count({ where: { requesterId: userId } }),
@@ -187,15 +201,19 @@ export async function getOrganizerDashboard(userId: string) {
 
 export async function getTravelerDashboard(userId: string) {
   const [tripsJoined, upcomingTrips, myTickets] = await Promise.all([
-    Trip.countDocuments({ participants: userId }),
-    Trip.countDocuments({ participants: userId, startDate: { $gte: new Date() } }),
+    prisma.trip.count({ where: { participants: { some: { userId } } } }),
+    prisma.trip.count({
+      where: { participants: { some: { userId } }, startDate: { gte: new Date() } },
+    }),
     prisma.supportTicket.count({ where: { userId } }),
   ]);
 
-  const recentTrips = await Trip.find({ participants: userId })
-    .sort({ startDate: -1 })
-    .limit(5)
-    .select('title startDate destination');
+  const recentTrips = await prisma.trip.findMany({
+    where: { participants: { some: { userId } } },
+    orderBy: { startDate: 'desc' },
+    take: 5,
+    select: { id: true, title: true, startDate: true, destination: true },
+  });
 
   return {
     overview: {
@@ -257,28 +275,51 @@ export async function getRevenueAnalytics(userId: string, userRole: string) {
 // ─── Trips ────────────────────────────────────────────────────────────────────
 
 export async function getTripAnalytics(userId: string, userRole: string) {
-  const organizerFilter = userRole === 'organizer' ? { organizer: userId } : {};
+  // Three things were wrong with this and each of them returned something that
+  // looked like an answer:
+  //
+  //   - `{ organizer: userId }` names a field that does not exist (organizerId),
+  //     so an organizer's own analytics were computed over every trip on the
+  //     platform rather than theirs.
+  //   - `$group: { _id: '$category' }` - the field is `categories`, and it is an
+  //     array - so every trip grouped under null and byCategory was one bucket.
+  //   - `$group: { _id: '$isActive' }` - no such field either, so byStatus was
+  //     also a single null bucket.
+  const organizerFilter = userRole === 'organizer' ? { organizerId: userId } : {};
 
-  const [byCategory, byDifficulty, byStatus, averageParticipants] = await Promise.all([
-    Trip.aggregate([
-      { $match: organizerFilter },
-      { $group: { _id: '$category', count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-    ]),
-    Trip.aggregate([
-      { $match: organizerFilter },
-      { $group: { _id: '$difficulty', count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-    ]),
-    Trip.aggregate([
-      { $match: organizerFilter },
-      { $group: { _id: '$isActive', count: { $sum: 1 } } },
-    ]),
-    Trip.aggregate([
-      { $match: organizerFilter },
-      { $group: { _id: null, avgParticipants: { $avg: { $size: '$participants' } } } },
-    ]),
+  const [categoryRows, byDifficultyRows, byStatusRows, participantAgg] = await Promise.all([
+    // categories is an array, so the grouping needs unnest - one row per
+    // category per trip, which is what $unwind would have done had the field
+    // name been right.
+    prisma.$queryRaw<Array<{ category: string; count: bigint }>>`
+      SELECT unnest(categories) AS category, count(*) AS count
+        FROM trips
+       WHERE ${userRole === 'organizer' ? Prisma.sql`organizer_id = ${userId}` : Prisma.sql`true`}
+       GROUP BY 1
+       ORDER BY count DESC
+    `,
+    prisma.trip.groupBy({
+      by: ['difficulty'],
+      where: organizerFilter,
+      _count: { difficulty: true },
+      orderBy: { _count: { difficulty: 'desc' } },
+    }),
+    prisma.trip.groupBy({
+      by: ['status'],
+      where: organizerFilter,
+      _count: { status: true },
+    }),
+    prisma.tripParticipant.count({ where: { trip: organizerFilter } }),
   ]);
+
+  const tripCount = await prisma.trip.count({ where: organizerFilter });
+
+  const byCategory = categoryRows.map(r => ({ _id: r.category, count: Number(r.count) }));
+  const byDifficulty = byDifficultyRows.map(r => ({ _id: r.difficulty, count: r._count.difficulty }));
+  const byStatus = byStatusRows.map(r => ({ _id: r.status, count: r._count.status }));
+  const averageParticipants = [
+    { avgParticipants: tripCount > 0 ? participantAgg / tripCount : 0 },
+  ];
 
   return {
     byCategory: byCategory.map((cat: any) => ({ name: cat._id, count: cat.count })),
@@ -405,12 +446,17 @@ export async function getRetentionCohorts() {
         const activityEnd = new Date(today.getFullYear(), today.getMonth() - i + j + 1, 0);
         if (activityStart > today) break;
 
-        const activeUsersCount = (
-          await GroupBooking.distinct('userId', {
-            userId: { $in: userIds },
-            createdAt: { $gte: activityStart, $lte: activityEnd },
-          })
-        ).length;
+        // GroupBooking has no `userId` - the booker is `mainBookerId` - so this
+        // matched nothing and every retention percentage was zero.
+        const activeUsers = await prisma.groupBooking.findMany({
+          where: {
+            mainBookerId: { in: userIds },
+            createdAt: { gte: activityStart, lte: activityEnd },
+          },
+          distinct: ['mainBookerId'],
+          select: { mainBookerId: true },
+        });
+        const activeUsersCount = activeUsers.length;
 
         retentionData.retention.push(Math.round((activeUsersCount / cohortSize) * 100));
       }
@@ -425,20 +471,23 @@ export async function getRetentionCohorts() {
 // ─── Activity heatmap ─────────────────────────────────────────────────────────
 
 export async function getActivityHeatmap() {
-  const activityMap = await GroupBooking.aggregate([
-    {
-      $project: {
-        dayOfWeek: { $dayOfWeek: '$createdAt' },
-        hour: { $hour: '$createdAt' },
-      },
-    },
-    {
-      $group: {
-        _id: { day: '$dayOfWeek', hour: '$hour' },
-        count: { $sum: 1 },
-      },
-    },
-  ]);
+  // Was $project with $dayOfWeek and $hour, then a $group on the pair. Postgres
+  // has extract(), and Prisma cannot group by a computed expression, so this is
+  // one raw statement. dow is 0-6 with Sunday at 0; Mongo's $dayOfWeek is 1-7
+  // with Sunday at 1, and the mapping below subtracts one - so the +1 keeps
+  // that mapping unchanged rather than adjusting two places at once.
+  const heatmapRows = await prisma.$queryRaw<Array<{ day: number; hour: number; count: bigint }>>`
+    SELECT extract(dow  FROM created_at)::int + 1 AS day,
+           extract(hour FROM created_at)::int     AS hour,
+           count(*)                               AS count
+      FROM group_bookings
+     GROUP BY 1, 2
+  `;
+
+  const activityMap = heatmapRows.map(r => ({
+    _id: { day: r.day, hour: r.hour },
+    count: Number(r.count),
+  }));
 
   const heatmap: any = {
     sunday: new Array(24).fill(0),
@@ -464,46 +513,59 @@ export async function getActivityHeatmap() {
 
 // ─── Top organizers ───────────────────────────────────────────────────────────
 
+/**
+ * Was one pipeline: match confirmed bookings, $lookup the trip, group by its
+ * organizer, $lookup the user, project.
+ *
+ * The match was `{ status: 'confirmed' }` and GroupBooking has no `status`
+ * field - it has bookingStatus - so this list has always been empty. The
+ * $addToSet on `$userId` had the same problem: the booker is mainBookerId, so
+ * customerCount would have been zero even if the match had worked.
+ *
+ * The trip join is a real join now. The user join is not, because users are
+ * still Mongo documents, so the names are fetched after the ranking.
+ */
 export async function getTopOrganizers() {
-  return GroupBooking.aggregate([
-    { $match: { status: 'confirmed' } },
-    {
-      $lookup: {
-        from: 'trips',
-        localField: 'tripId',
-        foreignField: '_id',
-        as: 'trip',
-      },
-    },
-    { $unwind: '$trip' },
-    {
-      $group: {
-        _id: '$trip.organizerId',
-        totalRevenue: { $sum: '$totalAmount' },
-        totalBookings: { $sum: 1 },
-        uniqueCustomers: { $addToSet: '$userId' },
-      },
-    },
-    {
-      $lookup: {
-        from: 'users',
-        localField: '_id',
-        foreignField: '_id',
-        as: 'organizer',
-      },
-    },
-    { $unwind: '$organizer' },
-    {
-      $project: {
-        _id: 1,
-        name: '$organizer.name',
-        email: '$organizer.email',
-        totalRevenue: 1,
-        totalBookings: 1,
-        customerCount: { $size: '$uniqueCustomers' },
-      },
-    },
-    { $sort: { totalRevenue: -1 } },
-    { $limit: 10 },
-  ]);
+  const bookings = await prisma.groupBooking.findMany({
+    where: { bookingStatus: 'confirmed' },
+    select: { totalAmount: true, mainBookerId: true, trip: { select: { organizerId: true } } },
+  });
+
+  const perOrganizer = new Map<
+    string,
+    { totalRevenue: number; totalBookings: number; customers: Set<string> }
+  >();
+
+  for (const booking of bookings) {
+    const organizerId = booking.trip?.organizerId;
+    if (!organizerId) continue;
+
+    const entry =
+      perOrganizer.get(organizerId) ??
+      { totalRevenue: 0, totalBookings: 0, customers: new Set<string>() };
+
+    entry.totalRevenue += toNumber(booking.totalAmount);
+    entry.totalBookings += 1;
+    entry.customers.add(booking.mainBookerId);
+    perOrganizer.set(organizerId, entry);
+  }
+
+  const ranked = Array.from(perOrganizer.entries())
+    .sort((a, b) => b[1].totalRevenue - a[1].totalRevenue)
+    .slice(0, 10);
+
+  const organizerDocs = await User.find(
+    { _id: { $in: ranked.map(([id]) => id) } },
+    'name email'
+  ).lean();
+  const organizerById = new Map(organizerDocs.map((u: any) => [u._id.toString(), u]));
+
+  return ranked.map(([organizerId, totals]) => ({
+    _id: organizerId,
+    name: organizerById.get(organizerId)?.name,
+    email: organizerById.get(organizerId)?.email,
+    totalRevenue: totals.totalRevenue,
+    totalBookings: totals.totalBookings,
+    customerCount: totals.customers.size,
+  }));
 }
