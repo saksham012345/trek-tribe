@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { User } from '../models/User';
-import { Trip } from '../models/Trip';
 import { prisma } from '../lib/prisma';
 
 const router = Router();
@@ -35,7 +34,7 @@ router.get('/stats', async (req, res) => {
     // Get basic counts
     const [totalUsers, totalTrips, totalReviews] = await Promise.all([
       User.countDocuments(),
-      Trip.countDocuments(),
+      prisma.trip.count(),
       prisma.review.count()
     ]);
 
@@ -45,13 +44,9 @@ router.get('/stats', async (req, res) => {
       { $project: { role: '$_id', count: 1, _id: 0 } }
     ]);
 
-    // Calculate total bookings from trip participants
-    const tripsWithParticipants = await Trip.find({}, 'participants');
-    let totalBookings = 0;
-
-    tripsWithParticipants.forEach(trip => {
-      totalBookings += trip.participants.length;
-    });
+    // Calculate total bookings from trip participants. Was every trip loaded so
+    // the participant arrays could be summed in JavaScript; it is a count.
+    const totalBookings = await prisma.tripParticipant.count();
 
     // Get organizer count
     const organizerCount = usersByRole.find(role => role.role === 'organizer')?.count || 0;

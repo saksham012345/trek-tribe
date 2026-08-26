@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { withMongoId, withMongoIds, asPopulated } from '../lib/apiShape';
 import { User } from '../models/User';
-import { Trip } from '../models/Trip';
+import { shapeTrip, shapeTrips } from '../services/tripShapeService';
 import { authenticateJwt } from '../middleware/auth';
 import { whatsappService } from '../services/whatsappService';
 import { emailService } from '../services/emailService';
@@ -36,6 +36,23 @@ const requireAgent = (req: any, res: any, next: any) => {
 };
 
 // Apply auth and agent check to all routes
+/**
+ * Attach the organizer that .populate('organizerId') supplied. Trips are
+ * Postgres rows; users are still Mongo documents.
+ */
+async function withOrganizers(rows: any[], select: string): Promise<any[]> {
+  const present = rows.filter(Boolean);
+  if (present.length === 0) return [];
+  const ids = Array.from(new Set(present.map(r => r.organizerId)));
+  const users = await User.find({ _id: { $in: ids } }, select).lean();
+  const byId = new Map(users.map((u: any) => [u._id.toString(), u]));
+  return present.map(row => {
+    const trip = shapeTrip(row);
+    trip.organizerId = byId.get(row.organizerId) ?? row.organizerId;
+    return trip;
+  });
+}
+
 router.use(authenticateJwt);
 router.use(requireAgent);
 
@@ -593,10 +610,15 @@ router.get('/customers/:userId', async (req, res) => {
     }
 
     // Get customer's trips
-    const trips = await Trip.find({ participants: userId })
-      .populate('organizerId', 'name email phone')
-      .sort({ createdAt: -1 })
-      .limit(10);
+    const trips = await withOrganizers(
+      await prisma.trip.findMany({
+        where: { participants: { some: { userId } } },
+        include: { participants: { select: { userId: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 10
+      }),
+      'name email phone'
+    );
 
     // Get customer's support tickets
     const ticketRows = await prisma.supportTicket.findMany({
@@ -700,10 +722,11 @@ router.get('/queries', async (req, res) => {
 router.get('/ai-recommendations', async (req, res) => {
   try {
     // Get recent active trips and create mock AI recommendations
-    const trips = await Trip.find({ status: 'active' })
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .lean();
+    const trips = shapeTrips(await prisma.trip.findMany({
+      where: { status: 'active' },
+      orderBy: { createdAt: 'desc' },
+      take: 10
+    }) as any);
 
     const recommendations = trips.map(trip => ({
       tripId: trip._id,
@@ -750,17 +773,18 @@ router.post('/generate-recommendations', async (req, res) => {
     }
 
     if (searchQuery) {
-      query.$or = [
-        { title: { $regex: searchQuery, $options: 'i' } },
-        { destination: { $regex: searchQuery, $options: 'i' } },
-        { description: { $regex: searchQuery, $options: 'i' } }
+      query.OR = [
+        { title: { contains: searchQuery, mode: 'insensitive' } },
+        { destination: { contains: searchQuery, mode: 'insensitive' } },
+        { description: { contains: searchQuery, mode: 'insensitive' } }
       ];
     }
 
-    const trips = await Trip.find(query)
-      .sort({ createdAt: -1 })
-      .limit(12)
-      .lean();
+    const trips = shapeTrips(await prisma.trip.findMany({
+      where: query,
+      orderBy: { createdAt: 'desc' },
+      take: 12
+    }) as any);
 
     const recommendations = trips.map(trip => ({
       tripId: trip._id,
@@ -867,50 +891,6 @@ router.get('/pending-tickets', async (req, res) => {
   }
 });
 
-// Assign ticket to agent (claim ticket)
-router.post('/tickets/:ticketId/assign', async (req, res) => {
-  try {
-    const agentId = (req as any).auth.userId;
-    const { ticketId } = req.params;
-
-    const claimable = await prisma.supportTicket.findUnique({ where: { ticketId } });
-    if (!claimable) {
-      return res.status(404).json({ error: 'Ticket not found' });
-    }
-
-    // Check if already assigned
-    if (claimable.assignedAgentId) {
-      return res.status(400).json({
-        error: 'Ticket already assigned',
-        assignedTo: claimable.assignedAgentId
-      });
-    }
-
-    // Claim it only if it is still unassigned. Scoping the update on
-    // assignedAgentId: null means two agents clicking at once cannot both win -
-    // the second one updates zero rows and is told so.
-    const claimed = await prisma.supportTicket.updateMany({
-      where: { ticketId, assignedAgentId: null },
-      data: { assignedAgentId: agentId, status: 'in_progress' }
-    });
-
-    if (claimed.count === 0) {
-      return res.status(400).json({ error: 'Ticket already assigned' });
-    }
-
-    // The status was set in the same scoped update that claimed the ticket,
-    // so this is only a read-back for the response.
-    const ticket = await prisma.supportTicket.findUnique({ where: { ticketId } });
-
-    logger.info('Ticket assigned', { ticketId, agentId });
-
-    res.json({ ticket, message: 'Ticket assigned successfully' });
-
-  } catch (error: any) {
-    logger.error('Error assigning pending ticket', { error: error.message });
-    res.status(500).json({ error: 'Failed to assign ticket' });
-  }
-});
 
 // ==========================================
 // TRIP MANAGEMENT ROUTES (New Role: Agents)
@@ -943,12 +923,17 @@ router.get('/trips', async (req, res) => {
       query.verificationStatus = 'pending';
     }
 
-    const total = await Trip.countDocuments(query);
-    const trips = await Trip.find(query)
-      .populate('organizerId', 'name email phone organizerProfile')
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
+    const [total, rows] = await Promise.all([
+      prisma.trip.count({ where: query }),
+      prisma.trip.findMany({
+        where: query,
+        include: { participants: { select: { userId: true } } },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit
+      })
+    ]);
+    const trips = await withOrganizers(rows, 'name email phone organizerProfile');
 
     res.json({
       trips,
@@ -972,20 +957,26 @@ router.post('/trips/:id/verify', async (req, res) => {
     const agentId = (req as any).auth.userId;
     const { notes } = req.body;
 
-    const trip = await Trip.findById(id).populate('organizerId', 'name email');
-    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    // The status check and the write are one statement: two agents approving
+    // the same trip both passed the check and both sent the organizer an email.
+    const claimed = await prisma.trip.updateMany({
+      where: { id, verificationStatus: { not: 'approved' } },
+      data: {
+        verificationStatus: 'approved',
+        verifiedBy: agentId,
+        verifiedAt: new Date(),
+        ...(notes ? { adminNotes: notes } : {}), // Reusing adminNotes for agent notes
+        status: 'active' // Trip goes live
+      }
+    });
 
-    if (trip.verificationStatus === 'approved') {
+    const row = await prisma.trip.findUnique({ where: { id } });
+    if (!row) return res.status(404).json({ error: 'Trip not found' });
+    if (claimed.count === 0) {
       return res.status(400).json({ error: 'Trip already approved' });
     }
 
-    trip.verificationStatus = 'approved';
-    trip.verifiedBy = agentId;
-    trip.verifiedAt = new Date();
-    if (notes) trip.adminNotes = notes; // Reusing adminNotes field for agent notes
-    trip.status = 'active'; // Trip goes live
-
-    await trip.save();
+    const [trip] = await withOrganizers([row], 'name email');
 
     // Notify organizer
     try {
@@ -1019,16 +1010,23 @@ router.post('/trips/:id/reject', async (req, res) => {
 
     if (!reason) return res.status(400).json({ error: 'Rejection reason is required' });
 
-    const trip = await Trip.findById(id).populate('organizerId', 'name email');
-    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    const rejected = await prisma.trip.updateMany({
+      where: { id },
+      data: {
+        verificationStatus: 'rejected',
+        rejectionReason: reason,
+        verifiedBy: agentId,
+        verifiedAt: new Date(),
+        status: 'cancelled'
+      }
+    });
 
-    trip.verificationStatus = 'rejected';
-    trip.rejectionReason = reason;
-    trip.verifiedBy = agentId;
-    trip.verifiedAt = new Date();
-    trip.status = 'cancelled';
+    if (rejected.count === 0) return res.status(404).json({ error: 'Trip not found' });
 
-    await trip.save();
+    const [trip] = await withOrganizers(
+      [await prisma.trip.findUnique({ where: { id } })],
+      'name email'
+    );
 
     // Notify organizer
     try {
@@ -1059,15 +1057,17 @@ router.post('/trips/:id/complete', async (req, res) => {
     const { id } = req.params;
     const agentId = (req as any).auth.userId;
 
-    const trip = await Trip.findById(id);
-    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    // Same claim-and-check: only an active trip can be completed, and only once.
+    const completed = await prisma.trip.updateMany({
+      where: { id, status: 'active' },
+      data: { status: 'completed' }
+    });
 
-    if (trip.status !== 'active') {
+    const trip = shapeTrip(await prisma.trip.findUnique({ where: { id } }) as any);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    if (completed.count === 0) {
       return res.status(400).json({ error: 'Only active trips can be marked as completed' });
     }
-
-    trip.status = 'completed';
-    await trip.save();
 
     logger.info('Trip marked as completed by agent', { tripId: id, agentId });
     res.json({ message: 'Trip marked as completed', trip });
@@ -1081,130 +1081,8 @@ router.post('/trips/:id/complete', async (req, res) => {
 // Trip Verification Routes (Agent)
 // -----------------------------------------------------------------------------
 
-// Get trips for agent review (pending, active, etc.)
-router.get('/trips', async (req, res) => {
-  try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
-    const status = req.query.status as string;
-    const search = req.query.search as string;
 
-    const query: any = {};
 
-    if (status && status !== 'all') {
-      if (status === 'pending') {
-        query.verificationStatus = 'pending';
-      } else {
-        query.status = status;
-      }
-    }
 
-    if (search) {
-      query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { destination: { $regex: search, $options: 'i' } }
-      ];
-    }
-
-    const total = await Trip.countDocuments(query);
-    const trips = await Trip.find(query)
-      .populate({
-        path: 'organizerId',
-        select: 'name email phone organizerProfile'
-      })
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
-
-    res.json({
-      trips,
-      pagination: {
-        current: page,
-        pages: Math.ceil(total / limit),
-        total
-      }
-    });
-  } catch (error: any) {
-    logger.error('Error fetching trips for agent', { error: error.message });
-    res.status(500).json({ error: 'Failed to fetch trips' });
-  }
-});
-
-// Verify (Approve) a trip
-router.post('/trips/:id/verify', async (req, res) => {
-  try {
-    const tripId = req.params.id;
-    const agentId = (req as any).auth.userId;
-    const { notes } = req.body;
-
-    const trip = await Trip.findById(tripId);
-    if (!trip) return res.status(404).json({ error: 'Trip not found' });
-
-    trip.verificationStatus = 'approved';
-    trip.status = 'active'; // Make it live immediately
-    trip.verifiedBy = agentId;
-    trip.verifiedAt = new Date();
-
-    // Add internal note if provided (requires schema update or use existing field)
-    // For now we just log it
-    logger.info(`Trip verified by agent ${agentId}: ${notes}`);
-
-    await trip.save();
-
-    // Notify organizer (TODO: Add NotificationService call here)
-
-    res.json({ message: 'Trip verified successfully', trip });
-  } catch (error: any) {
-    logger.error('Error verifying trip', { error: error.message });
-    res.status(500).json({ error: 'Failed to verify trip' });
-  }
-});
-
-// Reject a trip
-router.post('/trips/:id/reject', async (req, res) => {
-  try {
-    const tripId = req.params.id;
-    const agentId = (req as any).auth.userId;
-    const { reason } = req.body;
-
-    if (!reason) return res.status(400).json({ error: 'Rejection reason is required' });
-
-    const trip = await Trip.findById(tripId);
-    if (!trip) return res.status(404).json({ error: 'Trip not found' });
-
-    trip.verificationStatus = 'rejected';
-    trip.status = 'cancelled'; // Or keep as pending with 'rejected' flag? Usually cancelled.
-    trip.rejectionReason = reason;
-    trip.verifiedBy = agentId;
-    trip.verifiedAt = new Date();
-
-    await trip.save();
-
-    // Notify organizer with reason
-
-    res.json({ message: 'Trip rejected successfully', trip });
-  } catch (error: any) {
-    logger.error('Error rejecting trip', { error: error.message });
-    res.status(500).json({ error: 'Failed to reject trip' });
-  }
-});
-
-// Mark trip as completed
-router.post('/trips/:id/complete', async (req, res) => {
-  try {
-    const tripId = req.params.id;
-
-    const trip = await Trip.findById(tripId);
-    if (!trip) return res.status(404).json({ error: 'Trip not found' });
-
-    trip.status = 'completed';
-    await trip.save();
-
-    res.json({ message: 'Trip marked as completed', trip });
-  } catch (error: any) {
-    logger.error('Error completing trip', { error: error.message });
-    res.status(500).json({ error: 'Failed to complete trip' });
-  }
-});
 
 export default router;

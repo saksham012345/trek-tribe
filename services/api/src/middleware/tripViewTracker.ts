@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 
 import { prisma } from '../lib/prisma';
-import { Trip } from '../models/Trip';
 import { logger } from '../utils/logger';
 
 interface TripViewData {
@@ -134,7 +133,7 @@ async function autoCreateLeadFromViews(userId: string, tripId: string, viewCount
       });
     } else {
       // Get trip details
-      const trip = await Trip.findById(tripId).lean();
+      const trip = await prisma.trip.findUnique({ where: { id: tripId } });
 
       // metadata was one nested blob. The parts that get filtered and reported
       // on are columns now; travelerDetails stays JSON because nothing queries
@@ -179,7 +178,7 @@ async function autoCreateLeadFromViews(userId: string, tripId: string, viewCount
       });
 
       // Send notification to organizer
-      const tripForNotification = await Trip.findById(tripId);
+      const tripForNotification = await prisma.trip.findUnique({ where: { id: tripId } });
       
       if (tripForNotification && tripForNotification.organizerId) {
         const notificationService = require('../services/notificationService').default;

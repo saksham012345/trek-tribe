@@ -10,8 +10,7 @@
 import { prisma } from '../../lib/prisma';
 import { withMongoId, withMongoIds } from '../../lib/apiShape';
 import { leadScoringService } from '../../services/leadScoringService';
-import { Trip } from '../../models/Trip';
-import { GroupBooking } from '../../models/GroupBooking';
+import { toNumber } from '../../lib/money';
 import { User } from '../../models/User';
 import { databaseImportService } from '../../services/databaseImportService';
 import analyticsService from '../../services/analyticsService';
@@ -63,24 +62,34 @@ export async function getCrmStats(userId: string, isAdmin: boolean): Promise<Crm
   if (!isAdmin && userId) {
     leadQuery.assignedTo = userId;
     tripQuery.organizerId = userId;
-    const organizerTripIds = await Trip.find({ organizerId: userId }).distinct('_id');
-    bookingQuery.tripId = { $in: organizerTripIds };
+    // Was: fetch every trip id, then filter bookings by that list.
+    // `trip: { organizerId }` is the same restriction as a join condition.
+    bookingQuery.trip = { organizerId: userId };
   }
 
   const leads = await prisma.lead.findMany({ where: leadQuery });
-  const trips = await Trip.find(tripQuery).select('_id price participants status').lean();
+  const trips = await prisma.trip.findMany({
+    where: tripQuery,
+    select: { id: true, price: true, status: true, _count: { select: { participants: true } } },
+  });
 
-  bookingQuery.paymentStatus = { $in: ['completed', 'partial'] };
-  bookingQuery.bookingStatus = { $in: ['confirmed', 'completed'] };
-  const bookings = await GroupBooking.find(bookingQuery)
-    .select('finalAmount paymentStatus bookingStatus createdAt advanceAmount')
-    .lean();
+  bookingQuery.paymentStatus = { in: ['completed', 'partial'] };
+  bookingQuery.bookingStatus = { in: ['confirmed', 'completed'] };
+  const bookings = await prisma.groupBooking.findMany({
+    where: bookingQuery,
+    select: {
+      finalAmount: true, paymentStatus: true, bookingStatus: true,
+      createdAt: true, advanceAmount: true,
+    },
+  });
 
+  // finalAmount and advanceAmount are Decimal columns; `s + b.finalAmount` in
+  // the reduce below would concatenate strings rather than add.
   const calcRevenue = (b: any) =>
     b.paymentStatus === 'completed'
-      ? b.finalAmount || 0
+      ? toNumber(b.finalAmount)
       : b.paymentStatus === 'partial'
-      ? b.advanceAmount || 0
+      ? toNumber(b.advanceAmount)
       : 0;
 
   const totalRevenue = bookings.reduce((s, b) => s + calcRevenue(b), 0);
@@ -153,17 +162,17 @@ export async function getBookingsOverTime(
   const tripQuery: any = {};
   if (!isAdmin && userId) tripQuery.organizerId = userId;
 
-  const tripIds = await Trip.find(tripQuery).distinct('_id');
   const endDate = new Date();
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);
 
-  const bookings = await GroupBooking.find({
-    tripId: { $in: tripIds },
-    createdAt: { $gte: startDate, $lte: endDate },
-  })
-    .select('createdAt finalAmount paymentStatus')
-    .lean();
+  const bookings = await prisma.groupBooking.findMany({
+    where: {
+      ...(Object.keys(tripQuery).length ? { trip: tripQuery } : {}),
+      createdAt: { gte: startDate, lte: endDate },
+    },
+    select: { createdAt: true, finalAmount: true, paymentStatus: true },
+  });
 
   const byDate: Record<string, { count: number; revenue: number }> = {};
   bookings.forEach(b => {
@@ -171,7 +180,7 @@ export async function getBookingsOverTime(
     if (!byDate[date]) byDate[date] = { count: 0, revenue: 0 };
     byDate[date].count++;
     if (b.paymentStatus === 'completed' || b.paymentStatus === 'partial') {
-      byDate[date].revenue += b.finalAmount || 0;
+      byDate[date].revenue += toNumber(b.finalAmount);
     }
   });
 
@@ -193,36 +202,43 @@ export async function getPaymentStatusBreakdown(userId: string, isAdmin: boolean
   const tripQuery: any = {};
   if (!isAdmin && userId) tripQuery.organizerId = userId;
 
-  const tripIds = await Trip.find(tripQuery).distinct('_id');
-  const bookings = await GroupBooking.find({ tripId: { $in: tripIds } })
-    .select('paymentStatus')
-    .lean();
-
-  const counts: Record<string, number> = {};
-  bookings.forEach(b => {
-    counts[b.paymentStatus] = (counts[b.paymentStatus] || 0) + 1;
+  // Was: load every booking's paymentStatus and tally them in JavaScript.
+  const groups = await prisma.groupBooking.groupBy({
+    by: ['paymentStatus'],
+    where: Object.keys(tripQuery).length ? { trip: tripQuery } : {},
+    _count: { paymentStatus: true },
   });
 
-  return Object.entries(counts).map(([status, count]) => ({ status, count }));
+  return groups.map(g => ({ status: g.paymentStatus, count: g._count.paymentStatus }));
 }
 
 export async function getRevenuePerTrip(userId: string, isAdmin: boolean) {
   const tripQuery: any = {};
   if (!isAdmin && userId) tripQuery.organizerId = userId;
 
-  const trips = await Trip.find(tripQuery).select('_id title').lean();
-  const tripIds = trips.map(t => t._id);
+  const trips = await prisma.trip.findMany({
+    where: tripQuery,
+    select: { id: true, title: true },
+  });
+  const titleById = new Map(trips.map(t => [t.id, t.title]));
 
-  const bookings = await GroupBooking.aggregate([
-    { $match: { tripId: { $in: tripIds }, paymentStatus: { $in: ['completed', 'partial'] } } },
-    { $group: { _id: '$tripId', revenue: { $sum: '$finalAmount' }, bookings: { $sum: 1 } } },
-  ]);
+  const grouped = await prisma.groupBooking.groupBy({
+    by: ['tripId'],
+    where: {
+      tripId: { in: trips.map(t => t.id) },
+      paymentStatus: { in: ['completed', 'partial'] },
+    },
+    _sum: { finalAmount: true },
+    _count: { _all: true },
+  });
 
-  return bookings
-    .map(b => {
-      const trip = trips.find(t => t._id.toString() === b._id.toString());
-      return { tripId: b._id, tripName: trip?.title || 'Unknown Trip', revenue: b.revenue, bookings: b.bookings };
-    })
+  return grouped
+    .map(g => ({
+      tripId: g.tripId,
+      tripName: titleById.get(g.tripId) || 'Unknown Trip',
+      revenue: toNumber(g._sum.finalAmount),
+      bookings: g._count._all,
+    }))
     .sort((a, b) => b.revenue - a.revenue);
 }
 
@@ -294,7 +310,7 @@ export async function exportLeadsToCsv(
   // are fetched in one query and looked up, rather than one round trip per row.
   const tripIds = Array.from(new Set(data.map((l: any) => l.tripId).filter(Boolean)));
   const trips = tripIds.length
-    ? await Trip.find({ _id: { $in: tripIds } }).select('title').lean()
+    ? await prisma.trip.findMany({ where: { id: { in: tripIds } }, select: { id: true, title: true } })
     : [];
   const tripTitleById = new Map(trips.map((t: any) => [t._id.toString(), t.title]));
 

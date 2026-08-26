@@ -73,14 +73,13 @@ import databaseImportRoutes from './routes/databaseImport';
 import { apiLimiter, authLimiter, otpLimiter, registrationLimiter, verificationLimiter } from './middleware/rateLimiter';
 import { cronScheduler } from './services/cronScheduler';
 import { chargeRetryWorker } from './services/chargeRetryWorker';
-import { Trip } from './models/Trip';
+import { prisma } from './lib/prisma';
 import fs from 'fs';
 import path from 'path';
 import { logger } from './utils/logger';
 import errorHandler from './middleware/errorHandler';
 import metrics from './middleware/metrics';
 import { authenticateJwt, requireRole } from './middleware/auth';
-import { prisma } from './lib/prisma';
 
 
 const app = express();
@@ -509,9 +508,10 @@ app.get('/robots.txt', (req, res) => {
 // 2. Sitemap.xml
 app.get('/sitemap.xml', async (req, res) => {
   try {
-    const trips = await Trip.find({ status: { $ne: 'cancelled' }, verificationStatus: 'approved' })
-      .select('slug updatedAt')
-      .lean();
+    const trips = await prisma.trip.findMany({
+      where: { status: { not: 'cancelled' }, verificationStatus: 'approved' },
+      select: { slug: true, updatedAt: true },
+    });
 
     const baseUrl = 'https://trektribe.in';
 
@@ -558,7 +558,7 @@ app.get('/trips/:slug', async (req, res, next) => {
   if (req.params.slug.includes('.')) return next();
 
   try {
-    const trip = await Trip.findOne({ slug: req.params.slug }).lean();
+    const trip = await prisma.trip.findUnique({ where: { slug: req.params.slug } });
 
     if (!trip) return next(); // Fallback to React app 404 handling
 

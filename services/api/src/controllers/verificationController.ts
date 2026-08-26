@@ -40,11 +40,14 @@ async function attachVerificationRefs(rows: any[]): Promise<any[]> {
 
   const [users, trips] = await Promise.all([
     User.find({ _id: { $in: userIds } }, 'name email phone').lean(),
-    Trip.find({ _id: { $in: tripIds } }, 'title destination price').lean(),
+    prisma.trip.findMany({
+      where: { id: { in: tripIds } },
+      select: { id: true, title: true, destination: true, price: true },
+    }),
   ]);
 
   const userById = new Map(users.map((u: any) => [u._id.toString(), u]));
-  const tripById = new Map(trips.map((t: any) => [t._id.toString(), t]));
+  const tripById = new Map(trips.map((t: any) => [t.id, t]));
 
   return rows.map(row => ({
     ...row,
