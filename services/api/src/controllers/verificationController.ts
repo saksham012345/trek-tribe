@@ -2,7 +2,6 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/roleCheck';
 import { prisma } from '../lib/prisma';
 import { User } from '../models/User';
-import { Trip } from '../models/Trip';
 import notificationService from '../services/notificationService';
 
 /** Load a verification with its three child tables, in the shape callers read. */

@@ -188,8 +188,7 @@ class ChatLeadService {
    */
   private async notifyOrganizerOfChatLead(lead: any, tripId: string): Promise<void> {
     try {
-      const { Trip } = require('../models/Trip');
-      const trip = await Trip.findById(tripId);
+      const trip = await prisma.trip.findUnique({ where: { id: tripId } });
       
       if (!trip || !trip.organizerId) return;
 
@@ -222,14 +221,15 @@ class ChatLeadService {
 
       // tripId used to arrive populated. It is a foreign-key string now, so the
       // trip is fetched from Mongo where it still lives.
-      const { Trip } = require('../models/Trip');
-      const trip = lead.tripId ? await Trip.findById(lead.tripId).lean() : null;
+      const trip = lead.tripId
+        ? await prisma.trip.findUnique({ where: { id: lead.tripId } })
+        : null;
       const { emailTemplates } = require('../templates/emailTemplates');
       
       const emailHtml = emailTemplates.chatFollowUp({
         userName: lead.name || 'Traveler',
         tripTitle: trip?.title || 'our adventure trips',
-        tripUrl: trip ? `${process.env.FRONTEND_URL}/trips/${trip._id}` : `${process.env.FRONTEND_URL}/trips`,
+        tripUrl: trip ? `${process.env.FRONTEND_URL}/trips/${trip.id}` : `${process.env.FRONTEND_URL}/trips`,
         chatSummary: lead.inquiryMessage || 'You recently chatted with us',
       });
 
@@ -239,7 +239,7 @@ class ChatLeadService {
         subject: `Following up on your interest in ${trip?.title || 'Trek-Tribe'}`,
         html: emailHtml,
         leadId: lead.id,
-        tripId: trip?._id?.toString(),
+        tripId: trip?.id,
       }, delayMs);
 
       logger.info('Scheduled chat follow-up', { leadId, delayHours: delayMs / (1000 * 60 * 60) });
@@ -266,7 +266,7 @@ class ChatLeadService {
         const emailHtml = emailTemplates.chatFollowUp({
           userName: lead.name || 'Traveler',
           tripTitle: trip?.title || 'our adventure trips',
-          tripUrl: trip ? `${process.env.FRONTEND_URL}/trips/${trip._id}` : `${process.env.FRONTEND_URL}/trips`,
+          tripUrl: trip ? `${process.env.FRONTEND_URL}/trips/${trip.id}` : `${process.env.FRONTEND_URL}/trips`,
           chatSummary: lead.inquiryMessage || 'You recently chatted with us',
         });
 

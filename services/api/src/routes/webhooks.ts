@@ -2,7 +2,6 @@ import { Router, Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import crypto from 'crypto';
 import { razorpayService } from '../services/razorpayService';
-import { GroupBooking } from '../models/GroupBooking';
 import { User } from '../models/User';
 import { emailService } from '../services/emailService';
 import { emailTemplates } from '../templates/emailTemplates';
@@ -11,6 +10,7 @@ import { auditLogService } from '../services/auditLogService';
 import { prisma } from '../lib/prisma';
 import { upsertRacingSafely } from '../lib/upsert';
 import { toNumber } from '../lib/money';
+import { shapeBooking } from '../services/bookingShapeService';
 import { recordLedgerEntry } from '../services/payoutLedgerService';
 import { razorpayRouteService } from '../services/razorpayRouteService';
 
@@ -270,28 +270,38 @@ async function handlePaymentCaptured(payment: any) {
 
     // Check if this is a booking payment
     if (notes?.type === 'booking') {
-      const booking = await GroupBooking.findOne({
-        razorpayOrderId: orderId
-      }).populate('mainBookerId', 'name email')
-        .populate('tripId', 'title destination startDate endDate organizerId');
+      const bookingRow = await prisma.groupBooking.findFirst({
+        where: { razorpayOrderId: orderId },
+        include: { trip: true }
+      });
 
-      if (booking) {
-        booking.paymentStatus = 'completed';
-        booking.bookingStatus = 'confirmed';
-        booking.razorpayPaymentId = paymentId;
-        booking.paymentVerificationStatus = 'verified';
-        booking.verifiedAt = new Date();
-        await booking.save();
+      if (bookingRow) {
+        // Razorpay retries webhooks, so this must be idempotent: the update is
+        // conditional on the booking not already being confirmed, and the email
+        // below only goes out to the delivery that actually made the change.
+        const confirmed = await prisma.groupBooking.updateMany({
+          where: { id: bookingRow.id, bookingStatus: { not: 'confirmed' } },
+          data: {
+            paymentStatus: 'completed',
+            bookingStatus: 'confirmed',
+            razorpayPaymentId: paymentId,
+            paymentVerificationStatus: 'verified',
+            verifiedAt: new Date()
+          }
+        });
+
+        const booking: any = shapeBooking(bookingRow);
 
         logger.info('Booking payment confirmed via webhook', {
-          bookingId: booking._id,
-          paymentId
+          bookingId: bookingRow.id,
+          paymentId,
+          alreadyConfirmed: confirmed.count === 0
         });
 
         // Send booking confirmation email
-        if (emailService.isServiceReady()) {
-          const user = booking.mainBookerId as any;
-          const trip = booking.tripId as any;
+        if (emailService.isServiceReady() && confirmed.count > 0) {
+          const user: any = await User.findById(bookingRow.mainBookerId).select('name email').lean();
+          const trip: any = bookingRow.trip;
           const organizer = await User.findById(trip.organizerId);
 
           const emailHtml = emailTemplates.bookingConfirmation({
@@ -305,7 +315,7 @@ async function handlePaymentCaptured(payment: any) {
             organizerName: organizer?.name || 'Trek-Tribe',
             organizerEmail: organizer?.email || 'support@trek-tribe.com',
             organizerPhone: organizer?.phone || 'N/A',
-            bookingId: booking._id.toString()
+            bookingId: booking.id.toString()
           });
 
           await emailService.sendEmail({
@@ -320,7 +330,7 @@ async function handlePaymentCaptured(payment: any) {
           userId: (booking.mainBookerId as any)._id.toString(),
           action: 'PAYMENT',
           resource: 'Booking',
-          resourceId: booking._id.toString(),
+          resourceId: booking.id.toString(),
           metadata: { type: 'booking.payment_captured', paymentId, orderId, amount: amount / 100 }
         });
       }
@@ -404,23 +414,24 @@ async function handlePaymentFailed(payment: any) {
 
     // Update booking if applicable
     if (notes?.type === 'booking') {
-      const booking = await GroupBooking.findOne({
-        razorpayOrderId: orderId
+      const booking = await prisma.groupBooking.findFirst({
+        where: { razorpayOrderId: orderId }
       });
 
       if (booking) {
-        booking.paymentStatus = 'failed';
-        booking.bookingStatus = 'cancelled';
-        await booking.save();
+        await prisma.groupBooking.update({
+          where: { id: booking.id },
+          data: { paymentStatus: 'failed', bookingStatus: 'cancelled' }
+        });
 
-        logger.info('Booking payment failed', { bookingId: booking._id });
+        logger.info('Booking payment failed', { bookingId: booking.id });
 
         // Audit log
         await auditLogService.log({
           userId: booking.mainBookerId.toString(),
           action: 'PAYMENT',
           resource: 'Booking',
-          resourceId: booking._id.toString(),
+          resourceId: booking.id.toString(),
           metadata: { type: 'booking.payment_failed', paymentId, orderId, error: error_description },
           status: 'FAILURE',
           errorMessage: error_description
@@ -509,16 +520,22 @@ async function handleRefundProcessed(refund: any) {
     logger.info('Refund processed', { refundId, paymentId, amount });
 
     // Find and update booking
-    const booking = await GroupBooking.findOne({
-      razorpayPaymentId: paymentId
-    }).populate('mainBookerId', 'name email');
+    // razorpayPaymentId is unique on this table, so there is at most one.
+    const bookingRow = await prisma.groupBooking.findUnique({
+      where: { razorpayPaymentId: paymentId }
+    });
 
-    if (booking) {
-      booking.paymentStatus = 'refunded';
-      booking.bookingStatus = 'cancelled';
-      await booking.save();
+    if (bookingRow) {
+      await prisma.groupBooking.update({
+        where: { id: bookingRow.id },
+        data: { paymentStatus: 'refunded', bookingStatus: 'cancelled' }
+      });
 
-      logger.info('Booking refunded', { bookingId: booking._id, refundId });
+      const booking: any = shapeBooking(bookingRow);
+      booking.mainBookerId =
+        (await User.findById(bookingRow.mainBookerId).select('name email').lean()) ?? bookingRow.mainBookerId;
+
+      logger.info('Booking refunded', { bookingId: booking.id, refundId });
 
       // Send refund notification email
       if (emailService.isServiceReady()) {
@@ -542,7 +559,7 @@ async function handleRefundProcessed(refund: any) {
         userId: (booking.mainBookerId as any)._id.toString(),
         action: 'PAYMENT',
         resource: 'Booking',
-        resourceId: booking._id.toString(),
+        resourceId: booking.id.toString(),
         metadata: { type: 'booking.refund_processed', refundId, paymentId, amount: amount / 100 }
       });
     }

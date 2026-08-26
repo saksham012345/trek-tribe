@@ -12,7 +12,6 @@ import {
 import { addPaidParticipant, leaveTrip } from '../services/tripParticipationService';
 import { toNumber } from '../lib/money';
 import { User } from '../models/User';
-import { GroupBooking, GroupParticipant, GroupBookingDocumentWithMethods } from '../models/GroupBooking';
 import { logger } from '../utils/logger';
 import mongoose from 'mongoose';
 

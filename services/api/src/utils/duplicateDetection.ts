@@ -1,6 +1,8 @@
 import crypto from 'crypto';
 import { hashWithSalt } from './cryptoUtils';
-import { Trip } from '../models/Trip';
+import { prisma } from '../lib/prisma';
+import { shapeTrip } from '../services/tripShapeService';
+import { User } from '../models/User';
 import { Types } from 'mongoose';
 
 /**
@@ -38,20 +40,24 @@ export async function detectDuplicateTrip(tripData: {
 
   const query: any = {
     contentHash,
-    organizerId: { $ne: tripData.organizerId }, // Only check for duplicates from other organizers
-    status: { $in: ['active', 'completed'] }
+    organizerId: { not: String(tripData.organizerId) }, // Only check for duplicates from other organizers
+    status: { in: ['active', 'completed'] }
   };
 
   // Exclude current trip if updating
   if (tripData._id) {
-    query._id = { $ne: tripData._id };
+    query.id = { not: String(tripData._id) };
   }
 
-  const existingTrip = await Trip.findOne(query)
-    .select('title destination startDate organizerId createdAt')
-    .populate('organizerId', 'name email organizerProfile.companyName');
+  const existingTrip = await prisma.trip.findFirst({ where: query });
+  if (!existingTrip) return null;
 
-  return existingTrip;
+  // populate('organizerId') is gone; the organizer is a Mongo document.
+  const organizer = await User.findById(existingTrip.organizerId)
+    .select('name email organizerProfile.companyName')
+    .lean();
+
+  return { ...shapeTrip(existingTrip), organizerId: organizer ?? existingTrip.organizerId };
 }
 
 /**
@@ -86,14 +92,29 @@ export async function detectSimilarTrips(tripData: {
   const dateRangeEnd = new Date(endDateObj);
   dateRangeEnd.setDate(dateRangeEnd.getDate() + dateDifferenceThreshold);
 
-  const similarTrips = await Trip.find({
-    destination: new RegExp(tripData.destination, 'i'),
-    startDate: { $gte: dateRangeStart, $lte: dateRangeEnd },
-    organizerId: { $ne: tripData.organizerId },
-    status: 'active'
-  })
-    .select('title destination startDate endDate price organizerId averageRating reviewCount')
-    .populate('organizerId', 'name email');
+  // new RegExp(destination, 'i') read a user-supplied destination as a regular
+  // expression: a value containing metacharacters was a pattern rather than
+  // text, and could be made expensive to evaluate. `contains` with insensitive
+  // mode is the same match, on text.
+  const similarTripRows = await prisma.trip.findMany({
+    where: {
+      destination: { contains: tripData.destination, mode: 'insensitive' },
+      startDate: { gte: dateRangeStart, lte: dateRangeEnd },
+      organizerId: { not: String(tripData.organizerId) },
+      status: 'active'
+    }
+  });
+
+  const similarOrganizerIds = Array.from(new Set(similarTripRows.map(t => t.organizerId)));
+  const similarOrganizers = similarOrganizerIds.length
+    ? await User.find({ _id: { $in: similarOrganizerIds } }, 'name email').lean()
+    : [];
+  const similarOrganizerById = new Map(similarOrganizers.map((u: any) => [u._id.toString(), u]));
+
+  const similarTrips = similarTripRows.map(row => ({
+    ...shapeTrip(row),
+    organizerId: similarOrganizerById.get(row.organizerId) ?? row.organizerId
+  }));
 
   const results = similarTrips.map(trip => {
     // Calculate title similarity (Levenshtein distance)
@@ -239,38 +260,74 @@ export async function markAsDuplicate(
   tripId: Types.ObjectId,
   originalTripId: Types.ObjectId
 ) {
-  const trip = await Trip.findById(tripId);
-  if (!trip) {
+  const updated = await prisma.trip.update({
+    where: { id: String(tripId) },
+    data: {
+      isDuplicate: true,
+      originalTripId: String(originalTripId),
+      status: 'cancelled' // Automatically cancel duplicate trips
+    }
+  }).catch((error: any) => {
+    if (error?.code === 'P2025') return null;
+    throw error;
+  });
+
+  if (!updated) {
     throw new Error('Trip not found');
   }
 
-  trip.isDuplicate = true;
-  trip.originalTripId = originalTripId;
-  trip.status = 'cancelled'; // Automatically cancel duplicate trips
-
-  await trip.save();
-
-  return trip;
+  return shapeTrip(updated);
 }
 
 /**
  * Get duplicate statistics for admin dashboard
  */
 export async function getDuplicateStats() {
-  const totalDuplicates = await Trip.countDocuments({ isDuplicate: true });
-
-  const recentDuplicates = await Trip.find({ isDuplicate: true })
-    .sort({ createdAt: -1 })
-    .limit(10)
-    .populate('organizerId', 'name email')
-    .populate('originalTripId', 'title destination');
-
-  const duplicatesByOrganizer = await Trip.aggregate([
-    { $match: { isDuplicate: true } },
-    { $group: { _id: '$organizerId', count: { $sum: 1 } } },
-    { $sort: { count: -1 } },
-    { $limit: 10 }
+  const [totalDuplicates, recentRows, byOrganizerGroups] = await Promise.all([
+    prisma.trip.count({ where: { isDuplicate: true } }),
+    prisma.trip.findMany({
+      where: { isDuplicate: true },
+      orderBy: { createdAt: 'desc' },
+      take: 10
+    }),
+    prisma.trip.groupBy({
+      by: ['organizerId'],
+      where: { isDuplicate: true },
+      _count: { organizerId: true },
+      orderBy: { _count: { organizerId: 'desc' } },
+      take: 10
+    })
   ]);
+
+  // originalTripId is a plain column rather than a populated ref, so the
+  // originals are fetched by id.
+  const originalIds = recentRows.map(t => t.originalTripId).filter(Boolean) as string[];
+  const [dupOrganizers, originals] = await Promise.all([
+    User.find(
+      { _id: { $in: recentRows.map(t => t.organizerId) } },
+      'name email'
+    ).lean(),
+    originalIds.length
+      ? prisma.trip.findMany({
+          where: { id: { in: originalIds } },
+          select: { id: true, title: true, destination: true }
+        })
+      : []
+  ]);
+
+  const dupOrganizerById = new Map<string, any>(dupOrganizers.map((u: any) => [u._id.toString(), u] as [string, any]));
+  const originalById = new Map<string, any>(originals.map(t => [t.id, t] as [string, any]));
+
+  const recentDuplicates = recentRows.map(row => ({
+    ...shapeTrip(row),
+    organizerId: dupOrganizerById.get(row.organizerId) ?? row.organizerId,
+    originalTripId: row.originalTripId ? originalById.get(row.originalTripId) ?? row.originalTripId : null
+  }));
+
+  const duplicatesByOrganizer = byOrganizerGroups.map(g => ({
+    _id: g.organizerId,
+    count: g._count.organizerId
+  }));
 
   return {
     total: totalDuplicates,

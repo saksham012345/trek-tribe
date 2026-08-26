@@ -1,11 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { authenticateJwt } from '../middleware/auth';
 import { pdfService } from '../services/pdfService';
-import { GroupBooking } from '../models/GroupBooking';
 import { prisma } from '../lib/prisma';
+import { shapeBooking } from '../services/bookingShapeService';
 import { toNumber } from '../lib/money';
 import { User } from '../models/User';
-import { Trip } from '../models/Trip';
 import { logger } from '../utils/logger';
 import mongoose from 'mongoose';
 
@@ -25,18 +24,26 @@ router.get('/booking/:bookingId', authenticateJwt, async (req: Request, res: Res
     }
 
     // Find the booking
-    const booking = await GroupBooking.findById(bookingId)
-      .populate('mainBookerId', 'name email phone')
-      .populate('tripId', 'title destination startDate endDate organizerId');
+    const bookingRow = await prisma.groupBooking.findUnique({
+      where: { id: bookingId },
+      include: { trip: true, participants: true }
+    });
 
-    if (!booking) {
+    if (!bookingRow) {
       return res.status(404).json({ error: 'Booking not found' });
     }
 
-    // Validate populated fields
-    if (!booking.mainBookerId || !booking.tripId) {
+    // The trip is a foreign key, so "populated but missing" is a state the
+    // database no longer allows; the booker is still a Mongo document and can
+    // genuinely be gone.
+    const mainBookerDoc = await User.findById(bookingRow.mainBookerId).select('name email phone').lean();
+    if (!mainBookerDoc || !bookingRow.trip) {
       return res.status(404).json({ error: 'Booking data incomplete' });
     }
+
+    const booking: any = shapeBooking(bookingRow);
+    booking.mainBookerId = mainBookerDoc;
+    booking.tripId = bookingRow.trip;
 
     // Check authorization - user must be the booker, organizer, or admin
     const user = await User.findById(userId);
@@ -207,18 +214,26 @@ router.get('/booking/:bookingId/preview', authenticateJwt, async (req: Request, 
       return res.status(400).json({ error: 'Invalid booking id' });
     }
 
-    const booking = await GroupBooking.findById(bookingId)
-      .populate('mainBookerId', 'name email phone')
-      .populate('tripId', 'title destination startDate endDate organizerId');
+    const bookingRow = await prisma.groupBooking.findUnique({
+      where: { id: bookingId },
+      include: { trip: true, participants: true }
+    });
 
-    if (!booking) {
+    if (!bookingRow) {
       return res.status(404).json({ error: 'Booking not found' });
     }
 
-    // Validate populated fields
-    if (!booking.mainBookerId || !booking.tripId) {
+    // The trip is a foreign key, so "populated but missing" is a state the
+    // database no longer allows; the booker is still a Mongo document and can
+    // genuinely be gone.
+    const mainBookerDoc = await User.findById(bookingRow.mainBookerId).select('name email phone').lean();
+    if (!mainBookerDoc || !bookingRow.trip) {
       return res.status(404).json({ error: 'Booking data incomplete' });
     }
+
+    const booking: any = shapeBooking(bookingRow);
+    booking.mainBookerId = mainBookerDoc;
+    booking.tripId = bookingRow.trip;
 
     // Check authorization
     const user = await User.findById(userId);

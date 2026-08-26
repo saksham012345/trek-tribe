@@ -1,9 +1,7 @@
 import express from 'express';
-import { Trip } from '../models/Trip';
 import { prisma } from '../lib/prisma';
 import { toNumber } from '../lib/money';
 import { withMongoIds } from '../lib/apiShape';
-import { GroupBooking } from '../models/GroupBooking'; // Used for Revenue calculation
 import { authenticateJwt } from '../middleware/auth';
 import { logger } from '../utils/logger';
 import mongoose from 'mongoose';
@@ -46,39 +44,27 @@ router.get('/overview', async (req, res) => {
         const dateFilter = getDateFilter(period);
 
         // 1. Calculate Total Revenue from GroupBookings
-        const revenueMatch: any = {
-            'trip.organizerId': new mongoose.Types.ObjectId(organizerId),
-            paymentStatus: { $in: ['completed', 'partial'] } // Only count real money
+        // The $lookup into trips and the $unwind after it existed only so the
+        // bookings could be filtered by their trip's organizer. Trip is a
+        // relation now, so that is a join condition and both stages disappear.
+        const revenueWhere: any = {
+            trip: { organizerId },
+            paymentStatus: { in: ['completed', 'partial'] } // Only count real money
         };
 
         // Apply date filter to revenue (using createdAt as proxy for booking time)
         if (dateFilter) {
-            revenueMatch['createdAt'] = dateFilter;
+            revenueWhere.createdAt = { gte: dateFilter.$gte };
         }
 
-        const revenueAgg = await GroupBooking.aggregate([
-            // Lookup Trip to filter by organizer
-            {
-                $lookup: {
-                    from: 'trips',
-                    localField: 'tripId',
-                    foreignField: '_id',
-                    as: 'trip'
-                }
-            },
-            { $unwind: '$trip' },
-            { $match: revenueMatch },
-            {
-                $group: {
-                    _id: null,
-                    totalRevenue: { $sum: '$paidAmount' }, // Use actual paid amount
-                    totalDiscounts: { $sum: '$discountAmount' } // Track discounts given
-                }
-            }
-        ]);
+        const revenueAgg = await prisma.groupBooking.aggregate({
+            where: revenueWhere,
+            _sum: { paidAmount: true, discountAmount: true }
+        });
 
-        const totalRevenue = revenueAgg.length > 0 ? revenueAgg[0].totalRevenue : 0;
-        const totalDiscounts = revenueAgg.length > 0 ? revenueAgg[0].totalDiscounts : 0;
+        // Both are Decimal columns and everything below is numeric arithmetic.
+        const totalRevenue = toNumber(revenueAgg._sum.paidAmount);
+        const totalDiscounts = toNumber(revenueAgg._sum.discountAmount);
 
         // 2. Calculate Total Expenses
         const expenseWhere: any = { organizerId };
@@ -132,30 +118,23 @@ router.get('/trips/:tripId', async (req, res) => {
         const { tripId } = req.params;
         const organizerId = (req as any).auth.userId;
 
-        const trip = await Trip.findOne({ _id: tripId, organizerId });
+        const trip = await prisma.trip.findFirst({ where: { id: tripId, organizerId } });
         if (!trip) return res.status(404).json({ error: 'Trip not found' });
 
         // 1. Trip Revenue
-        const revenueAgg = await GroupBooking.aggregate([
-            {
-                $match: {
-                    tripId: new mongoose.Types.ObjectId(tripId),
-                    paymentStatus: { $in: ['completed', 'partial'] }
-                }
+        const revenueAgg = await prisma.groupBooking.aggregate({
+            where: {
+                tripId,
+                paymentStatus: { in: ['completed', 'partial'] }
             },
-            {
-                $group: {
-                    _id: null,
-                    totalRevenue: { $sum: '$paidAmount' },
-                    totalDiscounts: { $sum: '$discountAmount' },
-                    participantCount: { $sum: '$numberOfGuests' } // approximate
-                }
-            }
-        ]);
+            _sum: { paidAmount: true, discountAmount: true, numberOfGuests: true }
+        });
 
-        const tripRevenue = revenueAgg.length > 0 ? revenueAgg[0].totalRevenue : 0;
-        const tripDiscounts = revenueAgg.length > 0 ? revenueAgg[0].totalDiscounts : 0;
-        const participantCount = revenueAgg.length > 0 ? revenueAgg[0].participantCount : 0;
+        // paidAmount and discountAmount are Decimal columns; numberOfGuests is
+        // an integer. All three feed arithmetic below, so they convert here.
+        const tripRevenue = toNumber(revenueAgg._sum.paidAmount);
+        const tripDiscounts = toNumber(revenueAgg._sum.discountAmount);
+        const participantCount = revenueAgg._sum.numberOfGuests ?? 0; // approximate
 
         // 2. Trip Expenses
         const expenseRows = await prisma.expense.findMany({
