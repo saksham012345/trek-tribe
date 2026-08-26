@@ -4,7 +4,6 @@ import jwt from 'jsonwebtoken';
 import app from '../index';
 import { prisma } from '../lib/prisma';
 import { User } from '../models/User';
-import { Trip } from '../models/Trip';
 
 function tokenFor(id: string, role = 'traveler') {
   return jwt.sign({ id, role }, process.env.JWT_SECRET as string);
@@ -30,20 +29,20 @@ describe('Reviews on Postgres', () => {
     await User.create({ _id: organizerId, name: 'Org', email: organizerId + '@t.com', passwordHash: 'x', role: 'organizer' });
     await User.create({ _id: adminId, name: 'Admin', email: adminId + '@t.com', passwordHash: 'x', role: 'admin' });
 
-    await Trip.create({
-      _id: endedTripId, title: 'Ended Trip', description: 'd', organizerId,
+    await prisma.trip.create({ data: {
+      id: endedTripId, title: 'Ended Trip', description: 'd', organizerId,
       destination: 'Manali', startDate: past, endDate: past, price: 1000, capacity: 10,
       categories: ['adventure'], images: [], status: 'completed',
       // The Trip schema requires a live photo once startDate has passed.
       livePhotos: [{ url: 'https://example.com/p.jpg', filename: 'p.jpg' }],
       participants: [reviewerId, otherId]
-    });
+    } });
   });
 
   afterAll(async () => {
     await prisma.review.deleteMany({ where: { reviewerId: { in: [reviewerId, otherId] } } });
     await User.deleteMany({ _id: { $in: [reviewerId, otherId, organizerId, adminId] } });
-    await Trip.deleteMany({ _id: endedTripId });
+    await prisma.trip.deleteMany({ where: { id: endedTripId } });
   });
 
   beforeEach(async () => {

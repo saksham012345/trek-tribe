@@ -1,10 +1,29 @@
 import { Router, Request, Response } from 'express';
 import { authenticateJwt } from '../middleware/auth';
 import { User } from '../models/User';
-import { Trip } from '../models/Trip';
+import { prisma } from '../lib/prisma';
+import { shapeTrips } from '../services/tripShapeService';
 import { z } from 'zod';
 
 const router = Router();
+
+/**
+ * Attach the organizer. Trips are Postgres rows; users are still Mongo
+ * documents, so this is a second query rather than a join.
+ *
+ * The populate() calls this replaces all named 'organizer' rather than
+ * 'organizerId', so none of them ever attached anything.
+ */
+async function tripsWithOrganizers(rows: any[], select: string): Promise<any[]> {
+  if (rows.length === 0) return [];
+  const ids = Array.from(new Set(rows.map(r => r.organizerId)));
+  const users = await User.find({ _id: { $in: ids } }, select).lean();
+  const byId = new Map<string, any>(users.map((u: any) => [u._id.toString(), u] as [string, any]));
+  return shapeTrips(rows).map(trip => ({
+    ...trip,
+    organizerId: byId.get(trip.organizerId) ?? trip.organizerId
+  }));
+}
 
 // Schema for recommendation request
 const recommendationSchema = z.object({
@@ -25,20 +44,20 @@ const recommendationSchema = z.object({
 router.get('/', authenticateJwt, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.userId;
-    
+
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
     // Get user profile and preferences
     const user = await User.findById(userId).select('preferences travelStats');
-    
+
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
     // Build recommendation query based on user preferences
-    const query: any = { 
+    const query: any = {
       isActive: true,
       startDate: { $gte: new Date() } // Only future trips
     };
@@ -50,9 +69,9 @@ router.get('/', authenticateJwt, async (req: Request, res: Response) => {
       }
 
       if (user.preferences.budgetRange && user.preferences.budgetRange.length === 2) {
-        query.price = { 
-          $gte: user.preferences.budgetRange[0], 
-          $lte: user.preferences.budgetRange[1] 
+        query.price = {
+          $gte: user.preferences.budgetRange[0],
+          $lte: user.preferences.budgetRange[1]
         };
       }
 
@@ -66,11 +85,20 @@ router.get('/', authenticateJwt, async (req: Request, res: Response) => {
     }
 
     // Get recommended trips
-    const trips = await Trip.find(query)
-      .populate('organizer', 'name profilePhoto organizerProfile')
-      .sort({ rating: -1, createdAt: -1 })
-      .limit(10)
-      .lean();
+    // Two dead references here, both silent:
+    //   - .populate('organizer') names a path that does not exist (the field is
+    //     organizerId), so it was a no-op and these trips never carried one.
+    //   - .sort({ rating: -1 }) sorts on a field the model does not have; the
+    //     column is averageRating, which the scoring below already reads. So the
+    //     "recommended" list was ordered by createdAt alone.
+    const trips = await tripsWithOrganizers(
+      await prisma.trip.findMany({
+        where: query,
+        orderBy: [{ averageRating: 'desc' }, { createdAt: 'desc' }],
+        take: 10
+      }),
+      'name profilePhoto organizerProfile'
+    );
 
     // AI-enhanced scoring (simple algorithm - can be replaced with actual AI model)
     const scoredTrips = trips.map(trip => {
@@ -80,8 +108,8 @@ router.get('/', authenticateJwt, async (req: Request, res: Response) => {
       score += ((trip as any).averageRating || 0) * 10;
 
       // Bonus for matching user's travel stats
-      const locationName = typeof (trip as any).location === 'string' 
-        ? (trip as any).location 
+      const locationName = typeof (trip as any).location === 'string'
+        ? (trip as any).location
         : (trip as any).destination || '';
       if (user.travelStats?.favoriteDestinations?.includes(locationName)) {
         score += 15;
@@ -120,9 +148,9 @@ router.get('/', authenticateJwt, async (req: Request, res: Response) => {
 
   } catch (error: any) {
     console.error('❌ Error generating recommendations:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to generate recommendations',
-      message: error.message 
+      message: error.message
     });
   }
 });
@@ -134,18 +162,18 @@ router.get('/', authenticateJwt, async (req: Request, res: Response) => {
 router.post('/custom', async (req: Request, res: Response) => {
   try {
     const parsed = recommendationSchema.safeParse(req.body);
-    
+
     if (!parsed.success) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Validation error',
-        details: parsed.error.flatten().fieldErrors 
+        details: parsed.error.flatten().fieldErrors
       });
     }
 
     const { preferences, limit } = parsed.data;
 
     // Build query based on provided preferences
-    const query: any = { 
+    const query: any = {
       isActive: true,
       startDate: { $gte: new Date() }
     };
@@ -176,11 +204,17 @@ router.post('/custom', async (req: Request, res: Response) => {
     }
 
     // Get matching trips
-    const trips = await Trip.find(query)
-      .populate('organizer', 'name profilePhoto organizerProfile')
-      .sort({ rating: -1, participants: -1 })
-      .limit(limit || 5)
-      .lean();
+    // `participants: -1` sorted on an array of ObjectIds, which orders by the
+    // array's contents rather than its length - so "most popular" was not what
+    // it returned. Ordered by the participant count and the rating that exist.
+    const trips = await tripsWithOrganizers(
+      await prisma.trip.findMany({
+        where: query,
+        orderBy: [{ averageRating: 'desc' }, { participants: { _count: 'desc' } }],
+        take: limit || 5
+      }),
+      'name profilePhoto organizerProfile'
+    );
 
     return res.json({
       recommendations: trips,
@@ -190,9 +224,9 @@ router.post('/custom', async (req: Request, res: Response) => {
 
   } catch (error: any) {
     console.error('❌ Error generating custom recommendations:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to generate recommendations',
-      message: error.message 
+      message: error.message
     });
   }
 });
@@ -203,14 +237,16 @@ router.post('/custom', async (req: Request, res: Response) => {
  */
 router.get('/popular', async (_req: Request, res: Response) => {
   try {
-    const trips = await Trip.find({ 
-      isActive: true,
-      startDate: { $gte: new Date() }
-    })
-      .populate('organizer', 'name profilePhoto isVerified')
-      .sort({ participants: -1, rating: -1 })
-      .limit(10)
-      .lean();
+    // `isActive` is not a field either - liveness is `status` - so this filter
+    // matched nothing and /popular has always returned an empty list.
+    const trips = await tripsWithOrganizers(
+      await prisma.trip.findMany({
+        where: { status: 'active', startDate: { gte: new Date() } },
+        orderBy: [{ participants: { _count: 'desc' } }, { averageRating: 'desc' }],
+        take: 10
+      }),
+      'name profilePhoto isVerified'
+    );
 
     return res.json({
       popular: trips,
@@ -219,9 +255,9 @@ router.get('/popular', async (_req: Request, res: Response) => {
 
   } catch (error: any) {
     console.error('❌ Error fetching popular trips:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to fetch popular trips',
-      message: error.message 
+      message: error.message
     });
   }
 });

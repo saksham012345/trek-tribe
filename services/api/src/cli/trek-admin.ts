@@ -6,7 +6,7 @@ import mongoose from 'mongoose';
 import fs from 'fs/promises';
 import path from 'path';
 import { User } from '../models/User';
-import { Trip } from '../models/Trip';
+import { shapeTrips, tripInclude } from '../services/tripShapeService';
 
 import { prisma } from '../lib/prisma';
 import { fileHandler } from '../utils/fileHandler';
@@ -55,12 +55,12 @@ async function disconnectDatabase(): Promise<void> {
 // User management commands
 async function listUsers(options: any) {
   await connectDatabase();
-  
+
   try {
     const query: any = {};
     if (options.role) query.role = options.role;
     if (options.email) query.email = new RegExp(options.email, 'i');
-    
+
     const users = await User.find(query)
       .select('-passwordHash')
       .limit(options.limit || 10)
@@ -68,7 +68,7 @@ async function listUsers(options: any) {
 
     console.log('\n📋 Users:');
     console.log('━'.repeat(80));
-    
+
     users.forEach(user => {
       console.log(`🆔 ${user._id}`);
       console.log(`👤 Name: ${user.name}`);
@@ -88,11 +88,11 @@ async function listUsers(options: any) {
 
 async function createUser(email: string, name: string, role: string, password: string) {
   await connectDatabase();
-  
+
   try {
     const bcrypt = require('bcryptjs');
     const passwordHash = await bcrypt.hash(password, 10);
-    
+
     const user = await User.create({
       email,
       name,
@@ -115,7 +115,7 @@ async function createUser(email: string, name: string, role: string, password: s
 
 async function deleteUser(email: string, options: any) {
   await connectDatabase();
-  
+
   try {
     if (!options.force) {
       colorLog('yellow', '⚠️  This will permanently delete the user and all associated data');
@@ -132,10 +132,7 @@ async function deleteUser(email: string, options: any) {
     // Clean up related data
     await prisma.review.deleteMany({ where: { reviewerId: String(user._id) } });
     await prisma.wishlist.deleteMany({ where: { userId: String(user._id) } });
-    await Trip.updateMany(
-      { participants: user._id },
-      { $pull: { participants: user._id } }
-    );
+    await prisma.tripParticipant.deleteMany({ where: { userId: String(user._id) } });
 
     colorLog('green', `✅ Deleted user: ${user.name} (${user.email})`);
   } catch (error) {
@@ -148,20 +145,35 @@ async function deleteUser(email: string, options: any) {
 // Trip management commands
 async function listTrips(options: any) {
   await connectDatabase();
-  
+
   try {
     const query: any = {};
     if (options.status) query.status = options.status;
-    if (options.destination) query.destination = new RegExp(options.destination, 'i');
-    
-    const trips = await Trip.find(query)
-      .populate('organizerId', 'name email')
-      .limit(options.limit || 10)
-      .sort({ createdAt: -1 });
+    if (options.destination) {
+      query.destination = { contains: options.destination, mode: 'insensitive' };
+    }
+
+    const tripRows = await prisma.trip.findMany({
+      where: query,
+      take: options.limit || 10,
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const organizerIds = Array.from(new Set(tripRows.map(t => t.organizerId)));
+    const organizerDocs = organizerIds.length
+      ? await User.find({ _id: { $in: organizerIds } }, 'name email').lean()
+      : [];
+    const organizerById = new Map<string, any>(
+      organizerDocs.map((u: any) => [u._id.toString(), u] as [string, any])
+    );
+    const trips = shapeTrips(tripRows as any).map(trip => ({
+      ...trip,
+      organizerId: organizerById.get(trip.organizerId) ?? trip.organizerId
+    }));
 
     console.log('\n🗺️  Trips:');
     console.log('━'.repeat(80));
-    
+
     trips.forEach(trip => {
       console.log(`🆔 ${trip._id}`);
       console.log(`📍 ${trip.title} - ${trip.destination}`);
@@ -184,7 +196,7 @@ async function listTrips(options: any) {
 // Database statistics command
 async function showStats() {
   await connectDatabase();
-  
+
   try {
     // Node.js Concept: Promise.all for parallel database queries
     const [
@@ -198,43 +210,41 @@ async function showStats() {
       storageStats
     ] = await Promise.all([
       User.countDocuments(),
-      Trip.countDocuments(),
+      prisma.trip.count(),
       prisma.review.count(),
       prisma.wishlist.count(),
       User.aggregate([
         { $group: { _id: '$role', count: { $sum: 1 } } }
       ]),
-      Trip.aggregate([
-        { $group: { _id: '$status', count: { $sum: 1 } } }
-      ]),
+      prisma.trip.groupBy({ by: ['status'], _count: { status: true } }),
       prisma.review.aggregate({ _avg: { rating: true } }),
       fileHandler.getStorageStats()
     ]);
 
     console.log('\n📊 Trek Tribe Statistics');
     console.log('━'.repeat(50));
-    
+
     colorLog('cyan', `👥 Total Users: ${totalUsers}`);
     usersByRole.forEach(role => {
       console.log(`   ${role._id}: ${role.count}`);
     });
-    
+
     colorLog('cyan', `\n🗺️  Total Trips: ${totalTrips}`);
     tripsByStatus.forEach(status => {
-      console.log(`   ${status._id}: ${status.count}`);
+      console.log(`   ${status.status}: ${status._count.status}`);
     });
-    
+
     colorLog('cyan', `\n⭐ Total Reviews: ${totalReviews}`);
     if (avgRating._avg.rating !== null) {
       console.log(`   Average Rating: ${avgRating._avg.rating.toFixed(1)}/5`);
     }
-    
+
     colorLog('cyan', `\n❤️  Wishlist Items: ${totalWishlistItems}`);
-    
+
     colorLog('cyan', `\n📁 File Storage:`);
     console.log(`   Total Files: ${storageStats.totalFiles}`);
     console.log(`   Total Size: ${(storageStats.totalSize / 1024 / 1024).toFixed(2)} MB`);
-    
+
     console.log('\n📈 Database Health:');
     if (mongoose.connection.db) {
       const dbStats = await mongoose.connection.db.stats();
@@ -244,7 +254,7 @@ async function showStats() {
     } else {
       console.log('   Database connection not available');
     }
-    
+
   } catch (error) {
     colorLog('red', `❌ Error getting stats: ${error}`);
   } finally {
@@ -256,13 +266,13 @@ async function showStats() {
 // Node.js Concept: File system operations for data export
 async function backupData(outputPath: string) {
   await connectDatabase();
-  
+
   try {
     colorLog('yellow', '📦 Starting data backup...');
-    
+
     const [users, trips, reviews, wishlists] = await Promise.all([
       User.find().select('-passwordHash').lean(),
-      Trip.find().lean(),
+      prisma.trip.findMany({ include: tripInclude }),
       prisma.review.findMany(),
       prisma.wishlist.findMany()
     ]);
@@ -283,17 +293,17 @@ async function backupData(outputPath: string) {
 
     const backupPath = outputPath || `backup_${Date.now()}.json`;
     await fs.writeFile(backupPath, JSON.stringify(backup, null, 2));
-    
+
     colorLog('green', `✅ Backup completed: ${backupPath}`);
     colorLog('cyan', `📊 Exported ${backup.metadata.totalRecords} records`);
-    
+
     // Create backup summary
     console.log('\n📋 Backup Summary:');
     console.log(`   Users: ${users.length}`);
     console.log(`   Trips: ${trips.length}`);
     console.log(`   Reviews: ${reviews.length}`);
     console.log(`   Wishlist Items: ${wishlists.length}`);
-    
+
   } catch (error) {
     colorLog('red', `❌ Error creating backup: ${error}`);
   } finally {
@@ -304,7 +314,7 @@ async function backupData(outputPath: string) {
 // Data restoration command
 async function restoreData(inputPath: string, options: any) {
   await connectDatabase();
-  
+
   try {
     if (!options.force) {
       colorLog('yellow', '⚠️  This will overwrite existing data');
@@ -313,34 +323,44 @@ async function restoreData(inputPath: string, options: any) {
     }
 
     colorLog('yellow', '📦 Starting data restoration...');
-    
+
     const backupData = JSON.parse(await fs.readFile(inputPath, 'utf-8'));
     const { collections } = backupData;
-    
+
     // Clear existing data
     await Promise.all([
       User.deleteMany({}),
-      Trip.deleteMany({}),
+      prisma.trip.deleteMany({}),
       prisma.review.deleteMany({}),
       prisma.wishlist.deleteMany({})
     ]);
-    
+
     // Restore data
     const results = await Promise.all([
       User.insertMany(collections.users),
-      Trip.insertMany(collections.trips),
+      // Restoring trips is not a straight insert any more: the schedule,
+      // packages, stops, photos and participants are separate tables, and a
+      // backup taken from the Mongo document has them nested. Restore is
+      // therefore refused rather than silently dropping five relations.
+      Promise.reject(new Error(
+        'Trip restore is not supported yet: trips now span six tables and this ' +
+        'backup format holds them as one nested document. Restore the other ' +
+        'collections first, then import trips with a purpose-built script.'
+      )),
       prisma.review.createMany({ data: collections.reviews, skipDuplicates: true }),
       prisma.wishlist.createMany({ data: collections.wishlists, skipDuplicates: true })
     ]);
-    
+
     colorLog('green', `✅ Data restored successfully`);
-    
+
     console.log('\n📋 Restoration Summary:');
     console.log(`   Users: ${results[0].length}`);
-    console.log(`   Trips: ${results[1].length}`);
+    // Trip restore is refused above, so this line is unreachable in practice;
+    // it is kept so the summary still lines up if that changes.
+    console.log(`   Trips: see error above`);
     console.log(`   Reviews: ${results[2].count}`);
     console.log(`   Wishlist Items: ${results[3].count}`);
-    
+
   } catch (error) {
     colorLog('red', `❌ Error restoring data: ${error}`);
   } finally {
@@ -351,40 +371,38 @@ async function restoreData(inputPath: string, options: any) {
 // System maintenance commands
 async function cleanupSystem() {
   await connectDatabase();
-  
+
   try {
     colorLog('yellow', '🧹 Starting system cleanup...');
-    
+
     // Reviews moved to Postgres (D10/D11 wave 2), where reviewer_id and
     // target_id are NOT NULL, so a row missing either cannot exist.
     colorLog('cyan', '   Reviews: nothing to clean (columns are NOT NULL)');
-    
+
     // Wishlists moved to Postgres (D10/D11 wave 2), where user_id and trip_id
     // are NOT NULL, so a row missing either one cannot exist to be cleaned up.
     colorLog('cyan', '   Wishlist items: nothing to clean (columns are NOT NULL)');
-    
+
     // Cleanup expired trips
-    const expiredTrips = await Trip.find({
-      endDate: { $lt: new Date() },
-      status: 'active'
+    // Was a find followed by an updateMany over the ids it returned; the
+    // predicate is the same in both, so it is one statement.
+    const expired = await prisma.trip.updateMany({
+      where: { endDate: { lt: new Date() }, status: 'active' },
+      data: { status: 'completed' }
     });
-    
-    if (expiredTrips.length > 0) {
-      await Trip.updateMany(
-        { _id: { $in: expiredTrips.map(t => t._id) } },
-        { status: 'completed' }
-      );
-      colorLog('green', `📅 Updated ${expiredTrips.length} expired trips to completed`);
+
+    if (expired.count > 0) {
+      colorLog('green', `📅 Updated ${expired.count} expired trips to completed`);
     }
-    
+
     // Cleanup temporary files
     const cleanedFiles = await fileHandler.cleanupTempFiles();
     if (cleanedFiles > 0) {
       colorLog('green', `🗑️  Cleaned up ${cleanedFiles} temporary files`);
     }
-    
+
     colorLog('green', '✅ System cleanup completed');
-    
+
   } catch (error) {
     colorLog('red', `❌ Error during cleanup: ${error}`);
   } finally {
@@ -396,23 +414,23 @@ async function cleanupSystem() {
 async function analyzeLogs(options: any) {
   try {
     colorLog('yellow', '📊 Analyzing application logs...');
-    
+
     const logFiles = await logger.getLogFiles();
     const stats = await logger.getLogStats();
-    
+
     console.log('\n📋 Log Analysis:');
     console.log('━'.repeat(50));
     console.log(`📁 Total log files: ${stats.totalFiles}`);
     console.log(`📦 Total size: ${(stats.totalSize / 1024 / 1024).toFixed(2)} MB`);
     console.log(`📅 Oldest log: ${stats.oldestLog}`);
     console.log(`📅 Newest log: ${stats.newestLog}`);
-    
+
     if (options.errors && stats.newestLog) {
       const errorFile = stats.newestLog.replace('.log', '-errors.log');
       try {
         const errorLogs = await logger.readLogFile(errorFile);
         console.log(`\n🚨 Recent errors (${errorLogs.length}):`);
-        
+
         errorLogs.slice(-5).forEach(log => {
           console.log(`   ${log.timestamp}: ${log.message}`);
         });
@@ -420,7 +438,7 @@ async function analyzeLogs(options: any) {
         colorLog('yellow', '⚠️  No error log file found');
       }
     }
-    
+
   } catch (error) {
     colorLog('red', `❌ Error analyzing logs: ${error}`);
   }
@@ -515,7 +533,7 @@ process.on('uncaughtException', (error) => {
 // Node.js Concept: Parse command line arguments
 if (require.main === module) {
   program.parse(process.argv);
-  
+
   // Show help if no command provided
   if (!process.argv.slice(2).length) {
     program.outputHelp();

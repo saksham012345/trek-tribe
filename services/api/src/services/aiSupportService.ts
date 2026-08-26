@@ -1,9 +1,9 @@
 import { logger } from '../utils/logger';
-import { prisma } from '../lib/prisma';
-import { Trip } from '../models/Trip';
+import { prisma } from '../lib/prisma';
+import { shapeTrip } from './tripShapeService';
+import { shapeBooking } from './bookingShapeService';
 import { User } from '../models/User';
 import { sanitizeText } from '../utils/sanitize';
-import { GroupBooking } from '../models/GroupBooking';
 import mongoose from 'mongoose';
 
 // RAG integration - lazy import to avoid circular dependencies
@@ -752,11 +752,19 @@ class TrekTribeAI {
       }
 
       // Fetch real-time data
-      const trip = await Trip.findById(tripId).select('title capacity participants startDate endDate');
+      const trip = await prisma.trip.findUnique({
+        where: { id: tripId },
+        include: { _count: { select: { participants: true } } }
+      });
       if (!trip) return null;
 
-      const bookingCount = await GroupBooking.countDocuments({ tripId, status: 'confirmed' });
-      const availableSpots = trip.capacity - trip.participants.length;
+      // Was `{ tripId, status: 'confirmed' }`. GroupBooking has no `status`
+      // field - it has bookingStatus - so this count has always been zero, and
+      // every availability answer the assistant gave reported no bookings.
+      const bookingCount = await prisma.groupBooking.count({
+        where: { tripId, bookingStatus: 'confirmed' }
+      });
+      const availableSpots = trip.capacity - trip._count.participants;
 
       const availability: TripAvailability = {
         tripId,
@@ -791,7 +799,7 @@ class TrekTribeAI {
       if (!organizer) return null;
 
       // Get organizer stats
-      const totalTrips = await Trip.countDocuments({ organizerId });
+      const totalTrips = await prisma.trip.count({ where: { organizerId: String(organizerId) } });
       // Was Review.find({ organizerId }). Review has no organizerId field, so
       // that query matched nothing and every organizer scored 0 reviews and a
       // 0 average. Organizer reviews are targetId + reviewType 'organizer'.
@@ -803,7 +811,14 @@ class TrekTribeAI {
       const avgRating = totalReviews > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews : 0;
 
       // Get organizer trips to determine specialties
-      const organizerTrips = await Trip.find({ organizerId }).select('categories destination difficultyLevel');
+      // 'difficultyLevel' is not a field - the column is 'difficulty' - so the
+      // select never returned it. The line below derives difficulty from the
+      // categories array instead and does not read it, so it is simply not
+      // selected rather than renamed.
+      const organizerTrips = await prisma.trip.findMany({
+        where: { organizerId: String(organizerId) },
+        select: { categories: true, destination: true }
+      });
       const categories = organizerTrips.flatMap(t => t.categories);
       const destinations = organizerTrips.map(t => t.destination);
       const difficulties = organizerTrips.map(t => t.categories.find(c => ['beginner', 'intermediate', 'advanced', 'easy', 'moderate', 'difficult'].includes(c.toLowerCase())) || 'intermediate');
@@ -855,10 +870,18 @@ class TrekTribeAI {
       }
 
       // Fetch trips
-      const trips = await Trip.find(query)
-        .populate('organizerId', 'name')
-        .select('title destination price categories difficultyLevel duration organizerId')
-        .limit(10);
+      // 'difficultyLevel' and 'duration' are both absent from the model, so
+      // neither was ever selected.
+      const tripRows = await prisma.trip.findMany({ where: query, take: 10 });
+      const recOrganizerIds = Array.from(new Set(tripRows.map(t => t.organizerId)));
+      const recOrganizers = recOrganizerIds.length
+        ? await User.find({ _id: { $in: recOrganizerIds } }, 'name').lean()
+        : [];
+      const recOrganizerById = new Map(recOrganizers.map((u: any) => [u._id.toString(), u]));
+      const trips = tripRows.map(row => ({
+        ...shapeTrip(row),
+        organizerId: recOrganizerById.get(row.organizerId) ?? row.organizerId
+      }));
 
       const recommendations: TripRecommendation[] = [];
 
@@ -906,9 +929,11 @@ class TrekTribeAI {
         }
 
         // Trending bonus
-        const recentBookings = await GroupBooking.countDocuments({
-          tripId: trip._id,
-          createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
+        const recentBookings = await prisma.groupBooking.count({
+          where: {
+            tripId: trip.id,
+            createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
+          }
         });
         if (recentBookings > 5) {
           score += 15;
@@ -948,10 +973,16 @@ class TrekTribeAI {
       }
 
       // Fetch user's booking history
-      const bookings = await GroupBooking.find({ mainBookerId: userId })
-        .populate('tripId', 'destination price categories difficultyLevel')
-        .select('tripId createdAt totalAmount')
-        .sort({ createdAt: -1 });
+      // 'difficultyLevel' was in the populate select and is not a field, so it
+      // was never returned. tripId is a join now.
+      const bookings = (await prisma.groupBooking.findMany({
+        where: { mainBookerId: userId },
+        include: { trip: true },
+        orderBy: { createdAt: 'desc' }
+      })).map(row => ({
+        ...shapeBooking(row),
+        tripId: row.trip ? shapeTrip(row.trip as any) : null
+      }));
 
       if (bookings.length === 0) {
         return null; // New user
@@ -1259,11 +1290,17 @@ What would you like to know?`;
       }
 
       // Fetch from database - include organizerId for organizer profile
-      const trip = await Trip.findById(tripId)
-        .populate('organizerId', 'name email')
-        .select('title price pickupPoints dropOffPoints difficulty duration organizerId categories destination');
+      // pickupPoints and dropOffPoints are rows now, so they are included
+      // rather than selected; 'duration' was never a field.
+      const tripRow = await prisma.trip.findUnique({
+        where: { id: tripId },
+        include: { stops: { orderBy: { sortOrder: 'asc' } } }
+      });
 
+      const trip: any = tripRow ? shapeTrip(tripRow as any) : null;
       if (trip) {
+        trip.organizerId =
+          (await User.findById(tripRow!.organizerId).select('name email').lean()) ?? tripRow!.organizerId;
         // Cache for 10 minutes
         this.tripCache.set(tripId, trip);
         setTimeout(() => this.tripCache.delete(tripId), 10 * 60 * 1000);

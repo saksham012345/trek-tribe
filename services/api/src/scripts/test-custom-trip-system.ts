@@ -3,11 +3,11 @@ process.env.NODE_ENV = 'test';
 process.env.DISABLE_AUTO_START = 'true';
 
 import mongoose from 'mongoose';
+import { prisma } from '../lib/prisma';
 import request from 'supertest';
 // REMOVED static import
 import { User } from '../models/User';
 import { CustomTripRequest } from '../models/CustomTripRequest';
-import { Trip } from '../models/Trip';
 import jwt from 'jsonwebtoken';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 
@@ -42,7 +42,7 @@ async function runTest() {
         // Cleanup
         await User.deleteMany({});
         await CustomTripRequest.deleteMany({});
-        await Trip.deleteMany({});
+        await prisma.trip.deleteMany({});
 
         console.log('✅ Cleaned up old test data.');
 
@@ -185,7 +185,7 @@ async function runTest() {
         }
 
         // 7. Verify Trip Data
-        const trip = await Trip.findById(selectRes.body.tripId);
+        const trip = await prisma.trip.findUnique({ where: { id: selectRes.body.tripId } });
         if (trip && trip.isPrivate && trip.status === 'active') {
             console.log('✅ Private Trip Entity Verified.');
         } else {

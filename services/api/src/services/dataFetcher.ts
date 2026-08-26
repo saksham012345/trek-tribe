@@ -1,5 +1,6 @@
 import axios from 'axios';
-import { Trip } from '../models/Trip';
+import { prisma } from '../lib/prisma';
+import { shapeTrip, shapeTrips, tripInclude } from '../services/tripShapeService';
 import { User } from '../models/User';
 
 interface FetchedTrip {
@@ -55,7 +56,7 @@ export class DataFetcherService {
   private lastFetchTime: Date | null = null;
   private cachedTrips: FetchedTrip[] = [];
   private cachedOrganizers: FetchedOrganizer[] = [];
-  
+
   constructor() {
     // Use configurable base; defaults to local API
     this.apiBase = process.env.API_BASE_URL || 'http://localhost:4000';
@@ -64,16 +65,30 @@ export class DataFetcherService {
   async fetchAllTrips(): Promise<FetchedTrip[]> {
     try {
       console.log('🔄 Fetching trips from local DB...');
-      
+
       // Fetch directly from database for reliability
-      const trips = await Trip.find({ status: { $ne: 'cancelled' } })
-        .populate('organizerId', 'name email phone profilePhoto location bio')
-        .lean()
-        .limit(200);
-      
+      const tripRows = await prisma.trip.findMany({
+        where: { status: { not: 'cancelled' } },
+        include: tripInclude,
+        take: 200
+      });
+
+      // populate('organizerId') is gone; users are still Mongo documents, so
+      // they are fetched once for the batch rather than per trip.
+      const organizerIds = Array.from(new Set(tripRows.map(t => t.organizerId)));
+      const organizerDocs = organizerIds.length
+        ? await User.find(
+            { _id: { $in: organizerIds } },
+            'name email phone profilePhoto location bio'
+          ).lean()
+        : [];
+      const organizerById = new Map(organizerDocs.map((u: any) => [u._id.toString(), u]));
+
+      const trips = shapeTrips(tripRows as any);
+
       const fetchedTrips: FetchedTrip[] = trips.map((trip: any) => {
-        const organizer = trip.organizerId;
-        const durationDays = trip.startDate && trip.endDate 
+        const organizer = organizerById.get(trip.organizerId) ?? null;
+        const durationDays = trip.startDate && trip.endDate
           ? Math.ceil((new Date(trip.endDate).getTime() - new Date(trip.startDate).getTime()) / (1000 * 60 * 60 * 24))
           : undefined;
 
@@ -116,7 +131,7 @@ export class DataFetcherService {
       this.cachedTrips = fetchedTrips;
       this.lastFetchTime = new Date();
       console.log(`✅ Fetched ${fetchedTrips.length} trips from database`);
-      
+
       return fetchedTrips;
     } catch (error: any) {
       console.error('❌ Error fetching trips:', error.message);
@@ -128,13 +143,13 @@ export class DataFetcherService {
   async fetchAllOrganizers(): Promise<FetchedOrganizer[]> {
     try {
       console.log('🔄 Fetching organizers from local DB...');
-      
+
       // Fetch directly from database
       const organizers = await User.find({ role: 'organizer' })
         .select('name email profilePhoto location bio')
         .lean()
         .limit(100);
-      
+
       const fetchedOrganizers: FetchedOrganizer[] = organizers.map((org: any) => ({
         id: org._id.toString(),
         name: org.name,
@@ -150,7 +165,7 @@ export class DataFetcherService {
 
       this.cachedOrganizers = fetchedOrganizers;
       console.log(`✅ Fetched ${fetchedOrganizers.length} organizers from database`);
-      
+
       return fetchedOrganizers;
     } catch (error: any) {
       console.error('❌ Error fetching organizers:', error.message);
@@ -161,14 +176,18 @@ export class DataFetcherService {
 
   async fetchTripById(tripId: string): Promise<FetchedTrip | null> {
     try {
-      const trip = await Trip.findById(tripId)
-        .populate('organizerId', 'name email phone profilePhoto location bio')
-        .lean();
-      
-      if (!trip) return null;
+      const tripRow = await prisma.trip.findUnique({
+        where: { id: tripId },
+        include: tripInclude
+      });
 
-      const organizer = trip.organizerId as any;
-      const durationDays = trip.startDate && trip.endDate 
+      if (!tripRow) return null;
+
+      const trip: any = shapeTrip(tripRow as any);
+      const organizer = await User.findById(tripRow.organizerId)
+        .select('name email phone profilePhoto location bio')
+        .lean();
+      const durationDays = trip.startDate && trip.endDate
         ? Math.ceil((new Date(trip.endDate).getTime() - new Date(trip.startDate).getTime()) / (1000 * 60 * 60 * 24))
         : undefined;
 

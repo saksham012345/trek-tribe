@@ -2,7 +2,6 @@ import express, { Request, Response } from 'express';
 import { auth, requireRole, AuthPayload } from '../middleware/auth';
 import { Prisma, ReviewType } from '@prisma/client';
 import { prisma } from '../lib/prisma';
-import { Trip } from '../models/Trip';
 import { User } from '../models/User';
 import { logger } from '../utils/logger';
 import mongoose from 'mongoose';
@@ -45,7 +44,7 @@ async function decorate(rows: any[]) {
       .select('name email profilePhoto')
       .lean(),
     tripTargets.length
-      ? Trip.find({ _id: { $in: tripTargets } }).select('title').lean()
+      ? prisma.trip.findMany({ where: { id: { in: tripTargets } }, select: { id: true, title: true } })
       : Promise.resolve([])
   ]);
 
@@ -421,22 +420,30 @@ router.put('/:reviewId/verify', auth, requireRole(['admin']), async (req: Authen
 
     // Roll the trip and organizer averages forward. Both still live in Mongo,
     // so the ratings are aggregated in Postgres and written across.
-    const trip = await Trip.findById(review.targetId || review.tripId);
+    // review.tripId is a column no code path writes, so the fallback has never
+    // resolved to anything; targetId is where a trip review points.
+    const trip = await prisma.trip.findUnique({
+      where: { id: review.targetId || review.tripId || '' }
+    });
     if (trip && review.reviewType === 'trip') {
+      // trips.average_rating and trips.review_count are maintained by the
+      // reviews_maintain_trip_rating trigger, so recomputing them here would
+      // be a second writer for the same two numbers - which is exactly the
+      // drift this wave removed. The aggregate stays only to decide whether
+      // there is anything to tell the organizer about.
       const tripAgg = await prisma.review.aggregate({
-        where: { targetId: String(trip._id), reviewType: 'trip', isVerified: true },
+        where: { targetId: trip.id, reviewType: 'trip', isVerified: true },
         _avg: { rating: true },
         _count: { rating: true }
       });
 
       if (tripAgg._count.rating > 0) {
-        trip.averageRating = tripAgg._avg.rating ?? 0;
-        trip.reviewCount = tripAgg._count.rating;
-        await trip.save();
-
         const organizer = await User.findById(trip.organizerId);
         if (organizer) {
-          const organizerTripIds = (await Trip.find({ organizerId: trip.organizerId }).distinct('_id'))
+          const organizerTripIds = ((await prisma.trip.findMany({
+            where: { organizerId: trip.organizerId },
+            select: { id: true }
+          })).map(t => t.id))
             .map((id: any) => String(id));
 
           const orgAgg = await prisma.review.aggregate({

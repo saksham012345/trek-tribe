@@ -3,7 +3,6 @@ import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
 import app from '../index';
 import { prisma } from '../lib/prisma';
-import { Trip } from '../models/Trip';
 
 function organizerToken(id: string) {
   return jwt.sign({ id, role: 'organizer' }, process.env.JWT_SECRET as string);
@@ -16,7 +15,7 @@ describe('Trip-vendor assignment', () => {
   let vendorId: string;
 
   beforeAll(async () => {
-    const trip = await Trip.create({
+    const trip = await prisma.trip.create({ data: {
       title: 'Spiti Expedition',
       description: 'Test trip',
       organizerId,
@@ -27,8 +26,8 @@ describe('Trip-vendor assignment', () => {
       capacity: 20,
       categories: ['adventure'],
       images: []
-    });
-    tripId = trip._id.toString();
+    } });
+    tripId = trip.id.toString();
 
     const vendorRes = await request(app).post('/api/vendors').set('Authorization', `Bearer ${token}`)
       .send({ businessName: 'ABC Travels', category: 'transport' });
@@ -38,7 +37,7 @@ describe('Trip-vendor assignment', () => {
   afterAll(async () => {
     await prisma.tripVendorAssignment.deleteMany({ where: { tripId } });
     await prisma.vendor.deleteMany({ where: { organizerId } });
-    await Trip.deleteOne({ _id: tripId });
+    await prisma.trip.deleteMany({ where: { id: tripId } });
   });
 
   it('assigns a vendor to a trip', async () => {
@@ -63,7 +62,7 @@ describe('Trip-vendor assignment', () => {
   });
 
   it('rejects assignment to a trip owned by a different organizer', async () => {
-    const otherTrip = await Trip.create({
+    const otherTrip = await prisma.trip.create({ data: {
       title: 'Other Organizer Trip',
       description: 'Test trip',
       organizerId: new mongoose.Types.ObjectId().toString(),
@@ -74,15 +73,15 @@ describe('Trip-vendor assignment', () => {
       capacity: 20,
       categories: ['adventure'],
       images: []
-    });
+    } });
 
     const res = await request(app)
-      .post(`/api/trips/${otherTrip._id}/vendors`)
+      .post(`/api/trips/${otherTrip.id}/vendors`)
       .set('Authorization', `Bearer ${token}`)
       .send({ vendorId, category: 'transport' });
 
     expect(res.status).toBe(403);
-    await Trip.deleteOne({ _id: otherTrip._id });
+    await prisma.trip.deleteMany({ where: { id: otherTrip.id } });
   });
 
   it('allows multiple vendors in the same category on one trip', async () => {

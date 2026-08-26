@@ -3,7 +3,6 @@ import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
 import app from '../index';
 import { prisma } from '../lib/prisma';
-import { Trip } from '../models/Trip';
 
 function organizerToken(id: string) {
   return jwt.sign({ id, role: 'organizer' }, process.env.JWT_SECRET as string);
@@ -15,7 +14,7 @@ describe('Vendor payment tracking', () => {
   let assignmentId: string;
 
   beforeAll(async () => {
-    const trip = await Trip.create({
+    const trip = await prisma.trip.create({ data: {
       title: 'Payment Test Trip',
       description: 'Test trip',
       organizerId,
@@ -26,10 +25,10 @@ describe('Vendor payment tracking', () => {
       capacity: 20,
       categories: ['adventure'],
       images: []
-    });
+    } });
     const vendorRes = await request(app).post('/api/vendors').set('Authorization', `Bearer ${token}`)
       .send({ businessName: 'Mountain Nest Homestay', category: 'homestay' });
-    const assignRes = await request(app).post(`/api/trips/${trip._id}/vendors`).set('Authorization', `Bearer ${token}`)
+    const assignRes = await request(app).post(`/api/trips/${trip.id}/vendors`).set('Authorization', `Bearer ${token}`)
       .send({ vendorId: vendorRes.body.id, category: 'homestay' });
     assignmentId = assignRes.body.id;
   });
@@ -61,7 +60,7 @@ describe('Vendor payment tracking', () => {
   it('rejects a first payment without totalAmount', async () => {
     const vendorRes = await request(app).post('/api/vendors').set('Authorization', `Bearer ${token}`)
       .send({ businessName: 'No Total Vendor', category: 'guide' });
-    const trip = await Trip.create({
+    const trip = await prisma.trip.create({ data: {
       title: 'No Total Trip',
       description: 'Test trip',
       organizerId,
@@ -72,8 +71,8 @@ describe('Vendor payment tracking', () => {
       capacity: 20,
       categories: ['adventure'],
       images: []
-    });
-    const assignRes = await request(app).post(`/api/trips/${trip._id}/vendors`).set('Authorization', `Bearer ${token}`)
+    } });
+    const assignRes = await request(app).post(`/api/trips/${trip.id}/vendors`).set('Authorization', `Bearer ${token}`)
       .send({ vendorId: vendorRes.body.id, category: 'guide' });
 
     const res = await request(app)
@@ -82,11 +81,11 @@ describe('Vendor payment tracking', () => {
       .send({ amount: 5000 });
 
     expect(res.status).toBe(400);
-    await Trip.deleteOne({ _id: trip._id });
+    await prisma.trip.deleteMany({ where: { id: trip.id } });
   });
 
   it('writes a vendor_payment_completed event in the same transaction as the payment', async () => {
-    const trip = await Trip.create({
+    const trip = await prisma.trip.create({ data: {
       title: 'Event Trigger Test Trip',
       description: 'Test trip',
       organizerId,
@@ -97,10 +96,10 @@ describe('Vendor payment tracking', () => {
       capacity: 20,
       categories: ['adventure'],
       images: []
-    });
+    } });
     const vendorRes = await request(app).post('/api/vendors').set('Authorization', `Bearer ${token}`)
       .send({ businessName: 'Event Test Vendor', category: 'food' });
-    const assignRes = await request(app).post(`/api/trips/${trip._id}/vendors`).set('Authorization', `Bearer ${token}`)
+    const assignRes = await request(app).post(`/api/trips/${trip.id}/vendors`).set('Authorization', `Bearer ${token}`)
       .send({ vendorId: vendorRes.body.id, category: 'food' });
 
     await request(app)
@@ -115,6 +114,6 @@ describe('Vendor payment tracking', () => {
     expect(event).not.toBeNull();
     expect((event?.payload as any).assignmentId).toBe(assignRes.body.id);
 
-    await Trip.deleteOne({ _id: trip._id });
+    await prisma.trip.deleteMany({ where: { id: trip.id } });
   });
 });

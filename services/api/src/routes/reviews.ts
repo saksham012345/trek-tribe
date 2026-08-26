@@ -2,8 +2,8 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { Types } from 'mongoose';
 import { Prisma, ReviewType, ReviewTag } from '@prisma/client';
-import { prisma } from '../lib/prisma';
-import { Trip } from '../models/Trip';
+import { prisma } from '../lib/prisma';
+import { isParticipant } from '../services/tripParticipationService';
 import { User } from '../models/User';
 import { authenticateJwt } from '../middleware/auth';
 import { withMongoId, asPopulated } from '../lib/apiShape';
@@ -75,12 +75,21 @@ const validateReviewPermission = async (req: Request, res: Response, next: NextF
     const userId = (req as any).auth.userId;
 
     if (reviewType === 'trip') {
-      const trip = await Trip.findById(targetId);
+      const trip = await prisma.trip.findUnique({
+        where: { id: targetId },
+        select: { endDate: true }
+      });
       if (!trip) {
         return res.status(404).json({ error: 'Trip not found' });
       }
 
-      const participated = trip.participants.includes(new Types.ObjectId(userId));
+      // `trip.participants.includes(new Types.ObjectId(userId))` was false for
+      // every caller: two ObjectId instances holding the same value are not
+      // equal under SameValueZero, so a freshly constructed one never matches
+      // anything in the array. This is the fourth place that idiom appears, and
+      // the consequence here is that nobody has ever been able to review a trip
+      // they went on - the route answered 403 to everyone.
+      const participated = await isParticipant(targetId, userId);
       if (!participated) {
         return res.status(403).json({ error: 'You can only review trips you have participated in' });
       }
@@ -94,10 +103,14 @@ const validateReviewPermission = async (req: Request, res: Response, next: NextF
         return res.status(404).json({ error: 'Organizer not found' });
       }
 
-      const hasBookedTrips = await Trip.findOne({
-        organizerId: targetId,
-        participants: userId,
-        endDate: { $lt: new Date() }
+      // This one worked: a find() on an ObjectId array casts the string, unlike
+      // the in-memory includes() above.
+      const hasBookedTrips = await prisma.trip.findFirst({
+        where: {
+          organizerId: targetId,
+          participants: { some: { userId } },
+          endDate: { lt: new Date() }
+        }
       });
 
       if (!hasBookedTrips) {
@@ -450,8 +463,11 @@ router.post('/:id/respond',
         return res.status(403).json({ error: 'You can only respond to reviews about yourself' });
       }
     } else if (review.reviewType === 'trip') {
-      const trip = await Trip.findById(review.targetId);
-      if (!trip || !trip.organizerId.equals(userId)) {
+      const trip = await prisma.trip.findUnique({
+        where: { id: review.targetId },
+        select: { organizerId: true }
+      });
+      if (!trip || trip.organizerId !== userId) {
         return res.status(403).json({ error: 'You can only respond to reviews of your trips' });
       }
     }
