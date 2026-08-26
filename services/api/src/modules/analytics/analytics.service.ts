@@ -122,9 +122,14 @@ export async function getAdminDashboard() {
       openTickets,
       responseTime: '2.5 hours',
     },
-    topDestinations: topDestinations.map((dest: any) => ({ name: dest._id, count: dest.count })),
+    // groupBy rows carry the grouped column and a _count, not a Mongo-style
+    // _id/count pair.
+    topDestinations: topDestinations.map((dest: any) => ({
+      name: dest.destination,
+      count: dest._count.destination
+    })),
     recentActivity: recentTrips.map((trip: any) => ({
-      id: trip._id,
+      id: trip.id,
       name: trip.name || trip.title || 'Untitled Trip',
       organizer: trip.organizerId?.name || 'Unknown',
       createdAt: trip.createdAt,

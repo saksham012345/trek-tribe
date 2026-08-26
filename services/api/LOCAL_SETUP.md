@@ -82,3 +82,27 @@ exactly as written: with no `REDIS_URL`, ioredis connects to localhost:6379,
 reaches a different project's Redis, and reports what looks like a wrong
 password for this one. The suites that failed were the ones using bullmq, and
 nothing about their names suggests Redis.
+
+## When the whole suite fails at once
+
+```
+PrismaClientInitializationError: Can.t reach database server at `localhost:5433`
+```
+
+This is almost never the code. It means Docker Desktop stopped, taking both
+containers with it - `docker ps` then fails with
+`open //./pipe/dockerDesktopLinuxEngine: The system cannot find the file
+specified`, which is the engine being gone rather than a container being down.
+
+It has happened twice during this migration, both times partway through a full
+test run, and both times the run was worthless afterwards: every suite from
+that point on fails for a reason that has nothing to do with what changed.
+Before believing a batch of failures, check:
+
+```bash
+docker ps --filter name=vendor-management
+```
+
+If the engine is down, start Docker Desktop, wait for `docker ps` to answer,
+`docker start vendor-management-postgres-1 vendor-management-redis`, and run
+the suite again from the beginning.

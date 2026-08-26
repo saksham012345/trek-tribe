@@ -2480,6 +2480,16 @@ model TripStop {
   @@map("trip_stops")
 }
 
+// NOT CARRIED OVER: the Mongoose schema validated that a trip has at least one
+// live photo once its startDate has passed. That is a condition on this table
+// evaluated against a column on trips, which a CHECK cannot express - it would
+// need a trigger, or a scheduled job that flags trips in breach.
+//
+// Nothing enforces it today, and nothing enforced it reliably before either:
+// Mongoose validators run on save(), so a trip that started after its last
+// save was never re-checked. Recording it here rather than pretending the rule
+// survived the move.
+//
 // isThumbnail was a flag on each photo with "first uploaded photo is thumbnail"
 // as the rule, maintained by whoever uploaded. A partial unique index makes at
 // most one photo per trip the thumbnail; the rule is in the database.

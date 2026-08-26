@@ -49,7 +49,9 @@ async function decorate(rows: any[]) {
   ]);
 
   const personById = new Map(people.map((u: any) => [u._id.toString(), u]));
-  const tripById = new Map(trips.map((t: any) => [t._id.toString(), t]));
+  // Prisma rows key on id, not _id - t._id.toString() here threw for every
+  // review with a trip target, which is what turned unflagging into a 500.
+  const tripById = new Map<string, any>(trips.map((t: any) => [t.id, t] as [string, any]));
 
   return rows.map(r => {
     const { _count, ...rest } = r;

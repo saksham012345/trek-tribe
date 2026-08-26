@@ -33,9 +33,21 @@ describe('Reviews on Postgres', () => {
       id: endedTripId, title: 'Ended Trip', description: 'd', organizerId,
       destination: 'Manali', startDate: past, endDate: past, price: 1000, capacity: 10,
       categories: ['adventure'], images: [], status: 'completed',
-      // The Trip schema requires a live photo once startDate has passed.
-      livePhotos: [{ url: 'https://example.com/p.jpg', filename: 'p.jpg' }],
-      participants: [reviewerId, otherId]
+      // livePhotos and participants are tables now, so they are written through
+      // the relation rather than assigned as arrays.
+      //
+      // The Mongoose schema had a validator requiring at least one live photo
+      // once startDate had passed, which is why this fixture supplies one. That
+      // validator is NOT carried over: it is a condition on a child table
+      // evaluated against a parent column, which a CHECK cannot express - it
+      // would need a trigger. Nothing enforces it today. See the note in
+      // prisma/schema.prisma on TripLivePhoto.
+      livePhotos: {
+        create: [{ url: 'https://example.com/p.jpg', filename: 'p.jpg' }]
+      },
+      participants: {
+        create: [{ userId: reviewerId }, { userId: otherId }]
+      }
     } });
   });
 
