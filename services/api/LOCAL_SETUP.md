@@ -106,3 +106,21 @@ docker ps --filter name=vendor-management
 If the engine is down, start Docker Desktop, wait for `docker ps` to answer,
 `docker start vendor-management-postgres-1 vendor-management-redis`, and run
 the suite again from the beginning.
+
+## Typecheck the tests too
+
+```bash
+npm run typecheck        # src, excluding tests
+npm run typecheck:tests  # src AND tests
+```
+
+`tsconfig.json` excludes `**/__tests__/**` and `**/*.test.ts`, so
+`tsc --noEmit` reports a clean build while a test file is broken. ts-jest
+compiles the tests separately at run time, which means the error only appears
+partway through a twenty-minute suite, reported as a suite that "failed to
+run" rather than as a compile error.
+
+That blind spot hid two breakages during this migration: the wave 2
+lead-scoring regression, and a wave 8 fixture that assigned relations as plain
+arrays. `tsconfig.jest.json` already covered the tests and nothing ran it - run
+`typecheck:tests` before a full suite and both would have surfaced in seconds.

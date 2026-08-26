@@ -5,6 +5,37 @@ import { beforeAll, afterAll, jest } from '@jest/globals';
 import { prisma } from '../lib/prisma';
 
 let mongoServer: MongoMemoryServer;
+/**
+ * Start an in-memory MongoDB on a port Windows will let us bind, retrying if
+ * the one we picked is taken.
+ *
+ * Windows reserves whole blocks of high ports for Hyper-V and WSL - see
+ * `netsh interface ipv4 show excludedportrange protocol=tcp`. Landing inside
+ * one gives EACCES. 27100+ is below every reserved block on this machine and
+ * above the default mongod port, so a real local mongod does not collide.
+ */
+async function startMongo(attempts = 5): Promise<MongoMemoryServer> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const port = 27100 + Math.floor(Math.random() * 400);
+    try {
+      const server = await MongoMemoryServer.create({ instance: { port } });
+      if (attempt > 1) {
+        console.log(`mongodb-memory-server started on port ${port} after ${attempt} attempts`);
+      }
+      return server;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw new Error(
+    `Could not start mongodb-memory-server after ${attempts} attempts. ` +
+    `Last error: ${(lastError as Error)?.message}`
+  );
+}
+
 
 // Set a generous timeout before any hooks run (Windows/CI friendly)
 jest.setTimeout(60000);
@@ -13,19 +44,16 @@ jest.setTimeout(60000);
 beforeAll(async () => {
   // Create in-memory MongoDB instance (downloads binaries if needed).
   //
-  // The port is pinned to a range Windows will actually let us bind. By default
-  // mongodb-memory-server picks a random high port, and Windows reserves whole
-  // blocks up there for Hyper-V and WSL - `netsh interface ipv4 show
-  // excludedportrange protocol=tcp` lists them. Landing inside one gives
-  // "listen EACCES: permission denied", which surfaces as a suite that fails
-  // for no reason and passes on the next run. That is what was happening here:
-  // ports 46584 and 46632 both sit inside the reserved 46540-46639 block.
+  // A single random port with no retry was not enough. Twenty-nine suites each
+  // start their own instance one after another, and a port the previous suite
+  // just released can still be in TIME_WAIT - the new mongod then dies with
+  // "Instance closed unexpectedly with code 14" and takes the whole suite with
+  // it. That is a flake that looks exactly like a real failure, and it cost a
+  // full verification run to identify.
   //
-  // 27100+ is below every reserved block on this machine and above the default
-  // Mongo port, so a real local mongod does not collide with it either.
-  mongoServer = await MongoMemoryServer.create({
-    instance: { port: 27100 + Math.floor(Math.random() * 400) }
-  });
+  // So: try a few ports before giving up, and say which one worked if it took
+  // more than one attempt.
+  mongoServer = await startMongo();
   const mongoUri = mongoServer.getUri();
 
   // Share URI with application code (including serverless handlers) to avoid
