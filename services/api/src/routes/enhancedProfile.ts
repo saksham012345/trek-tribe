@@ -1,7 +1,6 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth';
 import { User } from '../models/User';
-import { Trip } from '../models/Trip';
 import { prisma } from '../lib/prisma';
 import { logger } from '../utils/logger';
 import { extractTokenFromHeaders } from '../utils/tokenHelper';
@@ -519,8 +518,10 @@ router.get('/me/stats', authenticateToken, async (req, res) => {
     const userId = req.user!.id;
 
     const [tripsJoined, upcomingTrips, openTickets] = await Promise.all([
-      Trip.countDocuments({ participants: userId }),
-      Trip.countDocuments({ participants: userId, startDate: { $gte: new Date() } }),
+      prisma.trip.count({ where: { participants: { some: { userId } } } }),
+      prisma.trip.count({
+        where: { participants: { some: { userId } }, startDate: { gte: new Date() } }
+      }),
       prisma.supportTicket.count({ where: { userId } })
     ]);
 

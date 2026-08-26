@@ -1,9 +1,28 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { body, validationResult, query } from 'express-validator';
 import { authenticateToken } from '../middleware/auth';
-import { Trip } from '../models/Trip';
+import { shapeTrip, shapeTrips } from '../services/tripShapeService';
+import { shapeBooking } from '../services/bookingShapeService';
+
+/**
+ * Attach the organizer that .populate('organizerId') supplied.
+ *
+ * Trips are Postgres rows and users are still Mongo documents, so this is a
+ * second query per page rather than a join.
+ */
+async function tripsWithOrganizers(rows: any[], select: string): Promise<any[]> {
+  const present = rows.filter(Boolean);
+  if (present.length === 0) return [];
+  const ids = Array.from(new Set(present.map(r => r.organizerId)));
+  const users = await User.find({ _id: { $in: ids } }, select).lean();
+  const byId = new Map(users.map((u: any) => [u._id.toString(), u]));
+  return present.map(row => {
+    const trip = shapeTrip(row);
+    trip.organizerId = byId.get(row.organizerId) ?? row.organizerId;
+    return trip;
+  });
+}
 import { User } from '../models/User';
-import { GroupBooking } from '../models/GroupBooking';
 import { prisma } from '../lib/prisma';
 import { aiConfig, getScaledScore, isHighConfidence } from '../config/ai';
 import { aiCacheService } from '../services/aiCacheService';
@@ -75,10 +94,16 @@ class TrekTribeAI {
     }
 
     // Perform search
-    const trips = await Trip.find(searchCriteria)
-      .populate('organizerId', 'name profilePhoto')
-      .sort({ averageRating: -1, createdAt: -1 })
-      .limit(aiConfig.maxSearchResults);
+    // averageRating is a real column maintained by a trigger now, so this sort
+    // finally orders by something that is kept up to date.
+    const trips = await tripsWithOrganizers(
+      await prisma.trip.findMany({
+        where: searchCriteria,
+        orderBy: [{ averageRating: 'desc' }, { createdAt: 'desc' }],
+        take: aiConfig.maxSearchResults
+      }),
+      'name profilePhoto'
+    );
 
     // AI scoring and ranking
     const scoredTrips = trips.map(trip => {
@@ -133,7 +158,16 @@ class TrekTribeAI {
 
     // Get user's booking history and preferences
     const user = await User.findById(userId);
-    const userBookings = await GroupBooking.find({ mainBookerId: userId }).populate('tripId');
+    // populate('tripId') is a join now; analyzeUserPreferences reads
+    // booking.tripId.categories and booking.tripId.destination, so the trip is
+    // attached under the same key.
+    const userBookings = (await prisma.groupBooking.findMany({
+      where: { mainBookerId: String(userId) },
+      include: { trip: true }
+    })).map(row => ({
+      ...shapeBooking(row),
+      tripId: row.trip ? shapeTrip(row.trip as any) : null
+    }));
 
     if (!user) {
       throw new Error('User not found');
@@ -160,10 +194,14 @@ class TrekTribeAI {
     // Skip difficulty filter since Trip model doesn't have this field
 
     // Get recommended trips
-    const trips = await Trip.find(criteria)
-      .populate('organizerId', 'name profilePhoto')
-      .sort({ averageRating: -1, createdAt: -1 })
-      .limit(Math.min(limit * 2, aiConfig.maxRecommendations * 2)); // Get more to filter and rank
+    const trips = await tripsWithOrganizers(
+      await prisma.trip.findMany({
+        where: criteria,
+        orderBy: [{ averageRating: 'desc' }, { createdAt: 'desc' }],
+        take: Math.min(limit * 2, aiConfig.maxRecommendations * 2) // Get more to filter and rank
+      }),
+      'name profilePhoto'
+    );
 
     // AI-powered ranking
     const rankedTrips = trips.map(trip => {
@@ -230,7 +268,16 @@ class TrekTribeAI {
     }
 
     const user = await User.findById(userId);
-    const userBookings = await GroupBooking.find({ mainBookerId: userId }).populate('tripId');
+    // populate('tripId') is a join now; analyzeUserPreferences reads
+    // booking.tripId.categories and booking.tripId.destination, so the trip is
+    // attached under the same key.
+    const userBookings = (await prisma.groupBooking.findMany({
+      where: { mainBookerId: String(userId) },
+      include: { trip: true }
+    })).map(row => ({
+      ...shapeBooking(row),
+      tripId: row.trip ? shapeTrip(row.trip as any) : null
+    }));
     // Was Review.find({ user: userId }). Review has no `user` field - the
     // author is reviewerId - so this matched nothing and averageRating was
     // always 0.
@@ -541,11 +588,10 @@ class TrekTribeAI {
         }
       }
 
-      const trips = await Trip.find(query)
-        .populate('organizerId', 'name email profilePhoto')
-        .limit(5);
-
-      return trips;
+      return await tripsWithOrganizers(
+        await prisma.trip.findMany({ where: query, take: 5 }),
+        'name email profilePhoto'
+      );
     } catch (error) {
       console.error('Error fetching trip from DB:', error);
       return [];
@@ -555,10 +601,16 @@ class TrekTribeAI {
   // Check if multiple organizers offer the same trip
   private async checkMultipleOrganizers(tripName: string): Promise<{ hasMultiple: boolean; organizers: string[] }> {
     try {
-      const trips = await Trip.find({
-        title: new RegExp(tripName, 'i'),
-        status: 'active'
-      }).populate('organizerId', 'name');
+      // new RegExp(name, 'i') was an unanchored case-insensitive match, which
+      // is `contains` with insensitive mode. It also meant a trip name
+      // containing regex metacharacters was interpreted as a pattern; `contains`
+      // treats it as text.
+      const trips = await tripsWithOrganizers(
+        await prisma.trip.findMany({
+          where: { title: { contains: tripName, mode: 'insensitive' }, status: 'active' }
+        }),
+        'name'
+      );
 
       const uniqueOrganizers = [...new Set(trips.map((t: any) => t.organizerId?.name).filter(Boolean))];
 
@@ -587,11 +639,15 @@ class TrekTribeAI {
         };
       }
 
-      const trip = await Trip.findOne({
-        title: new RegExp(tripName, 'i'),
-        organizerId: organizer._id,
-        status: 'active'
-      }).populate('organizerId', 'name email');
+      const tripRow = await prisma.trip.findFirst({
+        where: {
+          title: { contains: tripName, mode: 'insensitive' },
+          organizerId: organizer._id.toString(),
+          status: 'active'
+        },
+        include: { schedule: { orderBy: { day: 'asc' } }, packages: true }
+      });
+      const [trip] = tripRow ? await tripsWithOrganizers([tripRow], 'name email') : [null];
 
       if (!trip) {
         return {
@@ -1092,16 +1148,17 @@ class TrekTribeAI {
       // First try specific category search
       let results = [];
       if (searchCategory.length > 0) {
-        const categoryResults = await Trip.find({
-          categories: { $in: searchCategory },
-          status: 'active'
-        })
-          .populate('organizerId', 'name profilePhoto')
-          .sort({ averageRating: -1, createdAt: -1 })
-          .limit(10);
+        const categoryResults = await tripsWithOrganizers(
+          await prisma.trip.findMany({
+            where: { categories: { hasSome: searchCategory }, status: 'active' },
+            orderBy: [{ averageRating: 'desc' }, { createdAt: 'desc' }],
+            take: 10
+          }),
+          'name profilePhoto'
+        );
 
         results = categoryResults.map(trip => ({
-          ...trip.toObject(),
+          ...trip,
           relevanceScore: 85, // High relevance for category matches
           aiInsights: {
             matchReason: `Perfect match for ${searchCategory.join(', ').toLowerCase()} trips`,
@@ -1162,13 +1219,17 @@ class TrekTribeAI {
 
   public async getPopularTrips(limit: number = 3) {
     try {
-      const popularTrips = await Trip.find({ status: 'active' })
-        .populate('organizerId', 'name profilePhoto')
-        .sort({ averageRating: -1, reviewCount: -1 })
-        .limit(limit);
+      const popularTrips = await tripsWithOrganizers(
+        await prisma.trip.findMany({
+          where: { status: 'active' },
+          orderBy: [{ averageRating: 'desc' }, { reviewCount: 'desc' }],
+          take: limit
+        }),
+        'name profilePhoto'
+      );
 
       return popularTrips.map(trip => ({
-        ...trip.toObject(),
+        ...trip,
         relevanceScore: 75,
         aiInsights: {
           matchReason: 'Popular choice among travelers',

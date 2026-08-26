@@ -2,12 +2,28 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
 import { User } from '../models/User';
-import { Trip } from '../models/Trip';
+import { shapeTrip, shapeTrips } from '../services/tripShapeService';
 import { prisma } from '../lib/prisma';
 
 import { logger } from '../utils/logger';
 
 const router = express.Router();
+
+/**
+ * Attach the organizer that .populate('organizerId') supplied. Trips are
+ * Postgres rows; users are still Mongo documents.
+ */
+async function tripsWithOrganizers(rows: any[], select: string): Promise<any[]> {
+  if (rows.length === 0) return [];
+  const ids = Array.from(new Set(rows.map(r => r.organizerId)));
+  const users = await User.find({ _id: { $in: ids } }, select).lean();
+  const byId = new Map(users.map((u: any) => [u._id.toString(), u]));
+  return rows.map(row => {
+    const trip = shapeTrip(row);
+    trip.organizerId = byId.get(row.organizerId) ?? row.organizerId;
+    return trip;
+  });
+}
 
 /**
  * @route GET /api/public/:uniqueUrl
@@ -42,7 +58,7 @@ router.get('/:uniqueUrl', async (req, res) => {
     }
 
     // Find user by unique URL or username
-    const user = await User.findOne({ 
+    const user = await User.findOne({
       $or: [
         { uniqueUrl },
         { username: uniqueUrl.toLowerCase() }
@@ -90,28 +106,28 @@ router.get('/:uniqueUrl', async (req, res) => {
     // Get user's organized trips (if organizer)
     let organizedTrips: any[] = [];
     if (user.role === 'organizer') {
-      organizedTrips = await Trip.find({ 
-        organizerId: user._id,
-        status: 'active'
-      })
-      .select('title description destination price startDate endDate images coverImage categories difficulty capacity participants')
-      .sort({ startDate: 1 })
-      .limit(20)
-      .lean();
+      organizedTrips = shapeTrips(await prisma.trip.findMany({
+        where: { organizerId: user._id.toString(), status: 'active' },
+        include: { participants: { select: { userId: true } } },
+        orderBy: { startDate: 'asc' },
+        take: 20
+      }) as any);
     }
 
     // Get user's participation in trips (for travelers)
     let participatedTrips: any[] = [];
     if (user.role === 'traveler') {
-      participatedTrips = await Trip.find({
-        participants: user._id,
-        status: { $in: ['active', 'completed'] }
-      })
-      .select('title destination startDate endDate images coverImage organizerId')
-      .populate('organizerId', 'name uniqueUrl profilePhoto')
-      .sort({ startDate: -1 })
-      .limit(10)
-      .lean();
+      participatedTrips = await tripsWithOrganizers(
+        await prisma.trip.findMany({
+          where: {
+            participants: { some: { userId: user._id.toString() } },
+            status: { in: ['active', 'completed'] }
+          },
+          orderBy: { startDate: 'desc' },
+          take: 10
+        }),
+        'name uniqueUrl profilePhoto'
+      );
     }
 
     // If the requester is the owner of this profile, include owner-only lists
@@ -130,11 +146,11 @@ router.get('/:uniqueUrl', async (req, res) => {
           take: 20
         });
         const trips = rows.length
-          ? await Trip.find({ _id: { $in: rows.map(r => r.tripId) }, status: 'active' })
-              .select('title description destination price startDate endDate capacity images coverImage categories')
-              .lean()
+          ? shapeTrips(await prisma.trip.findMany({
+              where: { id: { in: rows.map(r => r.tripId) }, status: 'active' }
+            }) as any)
           : [];
-        const tripById = new Map(trips.map((t: any) => [t._id.toString(), t]));
+        const tripById = new Map(trips.map((t: any) => [t.id, t]));
         wishlistData = {
           items: rows
             .map(r => ({ ...r, trip: tripById.get(r.tripId) }))
@@ -146,15 +162,17 @@ router.get('/:uniqueUrl', async (req, res) => {
 
       try {
         // Past trips: trips where user participated and trip ended in past or marked completed
-        pastTrips = await Trip.find({
-          participants: user._id,
-          $or: [ { status: 'completed' }, { endDate: { $lt: new Date() } } ]
-        })
-        .select('title destination startDate endDate coverImage organizerId price')
-        .populate('organizerId', 'name uniqueUrl profilePhoto')
-        .sort({ endDate: -1 })
-        .limit(20)
-        .lean();
+        pastTrips = await tripsWithOrganizers(
+          await prisma.trip.findMany({
+            where: {
+              participants: { some: { userId: user._id.toString() } },
+              OR: [{ status: 'completed' }, { endDate: { lt: new Date() } }]
+            },
+            orderBy: { endDate: 'desc' },
+            take: 20
+          }),
+          'name uniqueUrl profilePhoto'
+        );
       } catch (e) {
         logger.warn('Failed to load past trips for owner view', { userId: user._id, err: e });
       }
@@ -209,11 +227,11 @@ router.get('/:uniqueUrl', async (req, res) => {
     });
 
   } catch (error: any) {
-    logger.error('Error fetching public profile', { 
-      error: error.message, 
-      uniqueUrl: req.params.uniqueUrl 
+    logger.error('Error fetching public profile', {
+      error: error.message,
+      uniqueUrl: req.params.uniqueUrl
     });
-    
+
     res.status(500).json({
       success: false,
       message: 'Failed to fetch profile'
@@ -228,7 +246,7 @@ router.get('/:uniqueUrl', async (req, res) => {
  */
 router.get('/search/organizers', async (req, res) => {
   try {
-    const { 
+    const {
       q,        // General search query
       location,
       specialty,
@@ -261,8 +279,8 @@ router.get('/search/organizers', async (req, res) => {
     }
 
     if (specialty) {
-      searchQuery['organizerProfile.specialties'] = { 
-        $in: [new RegExp(specialty as string, 'i')] 
+      searchQuery['organizerProfile.specialties'] = {
+        $in: [new RegExp(specialty as string, 'i')]
       };
     }
 
@@ -275,8 +293,8 @@ router.get('/search/organizers', async (req, res) => {
     }
 
     if (language) {
-      searchQuery['organizerProfile.languages'] = { 
-        $in: [new RegExp(language as string, 'i')] 
+      searchQuery['organizerProfile.languages'] = {
+        $in: [new RegExp(language as string, 'i')]
       };
     }
 
@@ -286,15 +304,15 @@ router.get('/search/organizers', async (req, res) => {
     const organizers = await User.find(searchQuery)
       .select(`
         name bio location profilePhoto coverPhoto uniqueUrl
-        organizerProfile.bio organizerProfile.specialties organizerProfile.languages 
+        organizerProfile.bio organizerProfile.specialties organizerProfile.languages
         organizerProfile.yearsOfExperience organizerProfile.totalTripsOrganized
         organizerProfile.businessInfo.companyName
         travelStats.averageRating travelStats.reviewCount
         socialLinks createdAt
       `)
-      .sort({ 
+      .sort({
         'travelStats.averageRating': -1,
-        'organizerProfile.totalTripsOrganized': -1 
+        'organizerProfile.totalTripsOrganized': -1
       })
       .skip(skip)
       .limit(parseInt(limit as string))
@@ -303,16 +321,18 @@ router.get('/search/organizers', async (req, res) => {
     // Get trip counts for each organizer
     const organizersWithStats = await Promise.all(
       organizers.map(async (organizer) => {
-        const activeTrips = await Trip.countDocuments({
-          organizerId: organizer._id,
-          status: 'active'
-        });
-
-        const upcomingTrips = await Trip.countDocuments({
-          organizerId: organizer._id,
-          status: 'active',
-          startDate: { $gte: new Date() }
-        });
+        const [activeTrips, upcomingTrips] = await Promise.all([
+          prisma.trip.count({
+            where: { organizerId: organizer._id.toString(), status: 'active' }
+          }),
+          prisma.trip.count({
+            where: {
+              organizerId: organizer._id.toString(),
+              status: 'active',
+              startDate: { gte: new Date() }
+            }
+          })
+        ]);
 
         return {
           ...organizer,
@@ -351,7 +371,7 @@ router.get('/search/organizers', async (req, res) => {
 
   } catch (error: any) {
     logger.error('Error searching organizers', { error: error.message, query: req.query });
-    
+
     res.status(500).json({
       success: false,
       message: 'Failed to search organizers'
@@ -376,14 +396,14 @@ router.get('/featured/organizers', async (req, res) => {
     })
     .select(`
       name bio location profilePhoto uniqueUrl
-      organizerProfile.specialties organizerProfile.yearsOfExperience 
+      organizerProfile.specialties organizerProfile.yearsOfExperience
       organizerProfile.totalTripsOrganized
       travelStats.averageRating travelStats.reviewCount
     `)
-    .sort({ 
+    .sort({
       'travelStats.averageRating': -1,
       'travelStats.reviewCount': -1,
-      'organizerProfile.totalTripsOrganized': -1 
+      'organizerProfile.totalTripsOrganized': -1
     })
     .limit(parseInt(limit as string))
     .lean();
@@ -397,7 +417,7 @@ router.get('/featured/organizers', async (req, res) => {
 
   } catch (error: any) {
     logger.error('Error fetching featured organizers', { error: error.message });
-    
+
     res.status(500).json({
       success: false,
       message: 'Failed to fetch featured organizers'
@@ -447,7 +467,7 @@ router.post('/generate-url/:userId', async (req, res) => {
       }
       suggestion = `${sanitizedBase}-${counter}`;
       counter++;
-      
+
       if (counter > 999) {
         return res.status(400).json({
           success: false,
@@ -461,7 +481,7 @@ router.post('/generate-url/:userId', async (req, res) => {
 
     res.json({
       success: true,
-      data: { 
+      data: {
         suggestion,
         fullUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/u/${suggestion}`
       }
@@ -469,7 +489,7 @@ router.post('/generate-url/:userId', async (req, res) => {
 
   } catch (error: any) {
     logger.error('Error generating unique URL', { error: error.message });
-    
+
     res.status(500).json({
       success: false,
       message: 'Failed to generate unique URL'

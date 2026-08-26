@@ -1,4 +1,5 @@
 import express from 'express';
+import { prisma } from '../lib/prisma';
 import { z } from 'zod';
 import { User } from '../models/User';
 import { authenticateJwt } from '../middleware/auth';
@@ -46,20 +47,20 @@ const updateProfileSchema = z.object({
 router.get('/search', async (req, res) => {
   try {
     const { q, role, location } = req.query;
-    
+
     const query: any = {};
-    
+
     if (q) {
       query.$or = [
         { name: { $regex: q, $options: 'i' } },
         { bio: { $regex: q, $options: 'i' } }
       ];
     }
-    
+
     if (role && role !== 'all') {
       query.role = role;
     }
-    
+
     if (location) {
       query.location = { $regex: location, $options: 'i' };
     }
@@ -81,7 +82,7 @@ router.get('/me', authenticateJwt, async (req, res) => {
   try {
     const userId = (req as any).auth.userId;
     const user = await User.findById(userId).select('-passwordHash');
-    
+
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -97,7 +98,7 @@ router.get('/me', authenticateJwt, async (req, res) => {
 router.get('/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    
+
     // Check if user is authenticated and viewing their own profile
     const token = req.headers.authorization?.split(' ')[1];
     let isOwnProfile = false;
@@ -118,7 +119,7 @@ router.get('/:userId', async (req, res) => {
     // If viewing own profile, return full data (excluding sensitive fields)
     if (isOwnProfile) {
       const user = await User.findById(userId).select('-passwordHash');
-      
+
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
       }
@@ -136,7 +137,7 @@ router.get('/:userId', async (req, res) => {
         await user.save();
       }
 
-      return res.json({ 
+      return res.json({
         profile: user,
         isOwnProfile: true,
         success: true
@@ -146,7 +147,7 @@ router.get('/:userId', async (req, res) => {
     // Otherwise return public profile data only
     const user = await User.findById(userId)
       .select('-passwordHash -email -phone -lastActive');
-    
+
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -165,9 +166,9 @@ router.get('/:userId', async (req, res) => {
       createdAt: user.createdAt
     };
 
-    res.json({ 
+    res.json({
       profile: publicProfile,
-      isOwnProfile: false 
+      isOwnProfile: false
     });
   } catch (error: any) {
     logger.error('Error fetching profile', { error: error.message });
@@ -179,12 +180,12 @@ router.get('/:userId', async (req, res) => {
 router.put('/me', authenticateJwt, async (req, res) => {
   try {
     const userId = (req as any).auth.userId;
-    
+
     const parsed = updateProfileSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ 
-        error: 'Invalid profile data', 
-        details: parsed.error.flatten() 
+      return res.status(400).json({
+        error: 'Invalid profile data',
+        details: parsed.error.flatten()
       });
     }
 
@@ -192,19 +193,19 @@ router.put('/me', authenticateJwt, async (req, res) => {
 
     // Check if username is being changed and if it's already taken
     if (updateData.username) {
-      const existingUsername = await User.findOne({ 
+      const existingUsername = await User.findOne({
         username: updateData.username.toLowerCase(),
         _id: { $ne: userId } // Exclude current user
       });
-      
+
       if (existingUsername) {
-        return res.status(409).json({ 
+        return res.status(409).json({
           error: 'Username already taken',
           message: 'This username is already in use. Please choose a different one.',
           field: 'username'
         });
       }
-      
+
       // Convert to lowercase for consistency
       (updateData as any).username = updateData.username.toLowerCase();
     }
@@ -229,9 +230,9 @@ router.put('/me', authenticateJwt, async (req, res) => {
 
     logger.info('User profile updated', { userId, updatedFields: Object.keys(updateData) });
 
-    res.json({ 
+    res.json({
       message: 'Profile updated successfully',
-      user: updatedUser 
+      user: updatedUser
     });
   } catch (error: any) {
     logger.error('Error updating profile', { error: error.message });
@@ -260,13 +261,13 @@ router.post('/photo', authenticateJwt, async (req, res) => {
 
     if (photo === '') {
       logger.info('Profile photo deleted', { userId });
-      res.json({ 
+      res.json({
         message: 'Profile photo deleted successfully',
         profilePhoto: ''
       });
     } else {
       logger.info('Profile photo updated', { userId });
-      res.json({ 
+      res.json({
         message: 'Profile photo updated successfully',
         profilePhoto: updatedUser.profilePhoto
       });
@@ -281,7 +282,7 @@ router.post('/photo', authenticateJwt, async (req, res) => {
 router.get('/me/stats', authenticateJwt, async (req, res) => {
   try {
     const userId = (req as any).auth.userId;
-    
+
     // Get user with basic info
     const user = await User.findById(userId).select('role createdAt organizerProfile');
     if (!user) {
@@ -305,26 +306,25 @@ router.get('/me/stats', authenticateJwt, async (req, res) => {
     }
 
     if (user.role === 'organizer') {
-      // Import Trip model here to avoid circular dependency
-      const { Trip } = await import('../models/Trip');
-      
+      // The dynamic import existed to avoid a circular dependency with the
+      // Mongoose model registry; prisma has no such cycle, so it is a normal
+      // import at the top of the file.
       const [tripsOrganized, totalParticipants] = await Promise.all([
-        Trip.countDocuments({ organizerId: userId }),
-        Trip.aggregate([
-          { $match: { organizerId: userId } },
-          { $project: { participantCount: { $size: '$participants' } } },
-          { $group: { _id: null, total: { $sum: '$participantCount' } } }
-        ])
+        prisma.trip.count({ where: { organizerId: userId } }),
+        // Was  over the participants array summed by ; it is a count
+        // of rows on the organizer's trips.
+        prisma.tripParticipant.count({ where: { trip: { organizerId: userId } } })
       ]);
 
       stats.tripsOrganized = tripsOrganized;
-      stats.totalParticipants = totalParticipants[0]?.total || 0;
+      stats.totalParticipants = totalParticipants;
       stats.organizerRating = 4.5; // This would come from reviews in a real system
     } else {
       // For travelers
-      const { Trip } = await import('../models/Trip');
-      
-      const tripsJoined = await Trip.countDocuments({ participants: userId });
+
+      const tripsJoined = await prisma.trip.count({
+        where: { participants: { some: { userId } } }
+      });
       stats.tripsJoined = tripsJoined;
     }
 
@@ -339,13 +339,13 @@ router.get('/me/stats', authenticateJwt, async (req, res) => {
 router.post('/me/share', authenticateJwt, async (req, res) => {
   try {
     const userId = (req as any).auth.userId;
-    
+
     // Generate a shareable link for the profile
     const shareableLink = `${req.protocol}://${req.get('host')}/profile/${userId}`;
-    
+
     logger.info('Shareable profile link generated', { userId });
 
-    res.json({ 
+    res.json({
       message: 'Shareable link generated',
       shareableLink,
       socialShareText: `Check out my Trek Tribe adventure profile!`
