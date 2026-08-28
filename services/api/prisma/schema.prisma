@@ -3003,3 +3003,331 @@ model VerificationRequestDocument {
   @@index([requestId])
   @@map("verification_request_documents")
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Wave 9: User
+//
+// The last model, and the one the other forty point at. 519 lines of Mongoose
+// with six levels of nesting flatten to one wide table and three child tables.
+//
+// Three enums already in this schema describe exactly the values User uses, so
+// they are reused rather than duplicated: ParticipantGender (the participant
+// gender was copied off the user in the first place), PayoutKycStatus, and
+// ExperienceLevel for the difficulty levels a traveller prefers.
+//
+// The foreign keys are NOT here. Every user id in the other tables is still a
+// bare String column, and it stays that way until every writer is on Postgres -
+// adding the constraints while something still writes users to Mongo would mean
+// rows in Postgres with no parent. They land as their own migration, last.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  traveler
+  organizer
+  admin
+  agent
+
+  @@map("user_role")
+}
+
+enum IdVerificationStatus {
+  not_verified
+  pending
+  verified
+  rejected
+
+  @@map("id_verification_status")
+}
+
+enum IdDocumentType {
+  aadhaar
+  pan
+  passport
+  driving_license
+  voter_id
+
+  @@map("id_document_type")
+}
+
+enum ProfileVisibility {
+  public
+  private
+  friends
+
+  @@map("profile_visibility")
+}
+
+enum OrganizerVerificationStatus {
+  pending
+  approved
+  rejected
+
+  @@map("organizer_verification_status")
+}
+
+enum VerificationBadge {
+  none
+  bronze
+  silver
+  gold
+  platinum
+
+  @@map("verification_badge")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  username     String?  @unique
+  role         UserRole @default(traveler)
+
+  phone        String?
+  bio          String?
+  profilePhoto String?            @map("profile_photo")
+  coverPhoto   String?            @map("cover_photo")
+  location     String?
+  dateOfBirth  DateTime?          @map("date_of_birth") @db.Date
+  gender       ParticipantGender?
+  occupation   String?
+  uniqueUrl    String?            @unique @map("unique_url")
+
+  // emergencyContact was a nested object whose three inner fields were required
+  // while the object itself was optional - which means "either all three or
+  // none", a rule Mongoose cannot state and a CHECK can.
+  emergencyContactName         String? @map("emergency_contact_name")
+  emergencyContactRelationship String? @map("emergency_contact_relationship")
+  emergencyContactPhone        String? @map("emergency_contact_phone")
+  emergencyContactEmail        String? @map("emergency_contact_email")
+
+  // travelStats. reviewCount and averageRating are maintained by a trigger off
+  // the reviews table - they are counts of rows that exist, not numbers the
+  // application is trusted to keep in step.
+  tripsCompleted       Int      @default(0) @map("trips_completed")
+  totalDistance        Float    @default(0) @map("total_distance")
+  favoriteDestinations String[] @map("favorite_destinations")
+  travelBadges         String[] @map("travel_badges")
+  reviewCount          Int      @default(0) @map("review_count")
+  averageRating        Decimal  @default(0) @map("average_rating") @db.Decimal(3, 2)
+
+  // preferences. budgetRange was [Number] with a validator saying "exactly two
+  // or empty" - two nullable columns say the same thing and cannot hold three.
+  preferredCategories         String[]          @map("preferred_categories")
+  budgetMin                   Decimal?          @map("budget_min") @db.Decimal(14, 2)
+  budgetMax                   Decimal?          @map("budget_max") @db.Decimal(14, 2)
+  preferredLocations          String[]          @map("preferred_locations")
+  preferredDifficultyLevels   ExperienceLevel[] @map("preferred_difficulty_levels")
+  preferredAccommodationTypes String[]          @map("preferred_accommodation_types")
+  preferredTripDurations      String[]          @map("preferred_trip_durations")
+  notifyEmail                 Boolean           @default(true) @map("notify_email")
+  notifySms                   Boolean           @default(false) @map("notify_sms")
+  notifyPush                  Boolean           @default(true) @map("notify_push")
+  notifyTripUpdates           Boolean           @default(true) @map("notify_trip_updates")
+  notifyPromotions            Boolean           @default(false) @map("notify_promotions")
+
+  socialInstagram String? @map("social_instagram")
+  socialFacebook  String? @map("social_facebook")
+  socialTwitter   String? @map("social_twitter")
+  socialLinkedin  String? @map("social_linkedin")
+  socialWebsite   String? @map("social_website")
+
+  // ── organizerProfile, flattened ────────────────────────────────────────────
+  organizerBio          String?  @map("organizer_bio")
+  organizerExperience   String?  @map("organizer_experience")
+  specialties           String[]
+  certifications        String[]
+  languages             String[]
+  yearsOfExperience     Int?     @map("years_of_experience")
+  totalTripsOrganized   Int      @default(0) @map("total_trips_organized")
+  organizerAchievements String[] @map("organizer_achievements")
+  organizerUniqueUrl    String?  @unique @map("organizer_unique_url")
+  companyName           String?  @map("company_name")
+  licenseNumber         String?  @map("license_number")
+  insuranceDetails      String?  @map("insurance_details")
+  paymentQr             String?  @map("payment_qr")
+
+  // autoPay. This one really was in the Mongoose schema and really does persist.
+  autoPaySetupRequired    Boolean   @default(true) @map("auto_pay_setup_required")
+  autoPaySetupCompleted   Boolean   @default(false) @map("auto_pay_setup_completed")
+  autoPayFirstLoginDate   DateTime? @map("auto_pay_first_login_date")
+  autoPaySetupCompletedAt DateTime? @map("auto_pay_setup_completed_at")
+  autoPayScheduledDate    DateTime? @map("auto_pay_scheduled_date")
+  autoPayAmount           Decimal?  @map("auto_pay_amount") @db.Decimal(14, 2)
+  autoPayCustomerId       String?   @map("auto_pay_customer_id")
+  autoPayMethodId         String?   @map("auto_pay_method_id")
+  autoPayLastPaymentDate  DateTime? @map("auto_pay_last_payment_date")
+  autoPayNextPaymentDate  DateTime? @map("auto_pay_next_payment_date")
+  autoPayEnabled          Boolean   @default(false) @map("auto_pay_enabled")
+
+  // ── The five that were never stored ────────────────────────────────────────
+  //
+  // trustScore, verificationBadge, routingEnabled, razorpayRouteId and
+  // bankDetails were declared on the TypeScript interface but not on the
+  // Mongoose schema. Every write typechecked and every write was discarded by
+  // strict mode - verified against a real mongod, which kept bio and dropped
+  // the rest, and did not even create the parent object on a dotted-path update.
+  //
+  // So: trust scores computed by admin.service.ts at three sites never
+  // persisted; verification badges never persisted; the admin routing toggle
+  // did nothing; and the routingService filter on trustScore.overall has matched
+  // zero organizers for its entire life.
+  //
+  // As columns they simply work. bankDetails is the exception and is absent on
+  // purpose - see the note below the model.
+  trustScoreOverall        Decimal?           @map("trust_score_overall") @db.Decimal(5, 2)
+  trustDocumentVerified    Decimal?           @map("trust_document_verified") @db.Decimal(5, 2)
+  trustBankVerified        Decimal?           @map("trust_bank_verified") @db.Decimal(5, 2)
+  trustExperienceYears     Decimal?           @map("trust_experience_years") @db.Decimal(5, 2)
+  trustCompletedTrips      Decimal?           @map("trust_completed_trips") @db.Decimal(5, 2)
+  trustUserReviews         Decimal?           @map("trust_user_reviews") @db.Decimal(5, 2)
+  trustResponseTime        Decimal?           @map("trust_response_time") @db.Decimal(5, 2)
+  trustRefundRate          Decimal?           @map("trust_refund_rate") @db.Decimal(5, 2)
+  trustScoreLastCalculated DateTime?          @map("trust_score_last_calculated")
+  verificationBadge        VerificationBadge? @map("verification_badge")
+  routingEnabled           Boolean            @default(false) @map("routing_enabled")
+  razorpayRouteId          String?            @map("razorpay_route_id")
+
+  // ── verification ───────────────────────────────────────────────────────────
+  //
+  // emailVerificationOtp (the plaintext one) and emailVerificationExpiry (no
+  // trailing s) are both gone. The first had no consumer at all; the second was
+  // written by nothing and read by routes/emailVerification.ts, which therefore
+  // reported "no active OTP" to every caller regardless of the truth.
+  isVerified                  Boolean   @default(false) @map("is_verified")
+  emailVerified               Boolean   @default(false) @map("email_verified")
+  emailVerificationOtpHash    String?   @map("email_verification_otp_hash")
+  emailVerificationExpires    DateTime? @map("email_verification_expires")
+  emailVerificationAttempts   Int       @default(0) @map("email_verification_attempts")
+  emailVerificationLastSentAt DateTime? @map("email_verification_last_sent_at")
+  phoneVerified               Boolean   @default(false) @map("phone_verified")
+  phoneVerificationOtpHash    String?   @map("phone_verification_otp_hash")
+  phoneVerificationExpires    DateTime? @map("phone_verification_expires")
+  phoneVerificationAttempts   Int       @default(0) @map("phone_verification_attempts")
+  phoneVerificationLastSentAt DateTime? @map("phone_verification_last_sent_at")
+
+  kycStatus             PayoutKycStatus @default(pending) @map("kyc_status")
+  kycVerified           Boolean         @default(false) @map("kyc_verified")
+  kycSubmittedAt        DateTime?       @map("kyc_submitted_at")
+  kycApprovedAt         DateTime?       @map("kyc_approved_at")
+  kycRejectionReason    String?         @map("kyc_rejection_reason")
+  razorpayAccountId     String?         @map("razorpay_account_id")
+  razorpayStakeholderId String?         @map("razorpay_stakeholder_id")
+
+  idVerificationStatus IdVerificationStatus @default(not_verified) @map("id_verification_status")
+  idDocumentType       IdDocumentType?      @map("id_document_type")
+  idDocumentNumber     String?              @map("id_document_number")
+  idDocumentFront      String?              @map("id_document_front")
+  idDocumentBack       String?              @map("id_document_back")
+  idVerified           Boolean              @default(false) @map("id_verified")
+  idVerifiedAt         DateTime?            @map("id_verified_at")
+  idExpiryDate         DateTime?            @map("id_expiry_date")
+  idRejectionReason    String?              @map("id_rejection_reason")
+
+  profileVisibility ProfileVisibility @default(public) @map("profile_visibility")
+  showEmail         Boolean           @default(false) @map("show_email")
+  showPhone         Boolean           @default(false) @map("show_phone")
+  showLocation      Boolean           @default(true) @map("show_location")
+
+  // socialStats. Wave 1 kept these as plain stored counters and said why: the
+  // Follow rows had moved to Postgres but User had not, so a Mongo-side sort on
+  // followersCount could not be answered by counting Postgres rows. Both sides
+  // are here now, so they become what they always claimed to be - maintained by
+  // triggers on follows and posts. The sort still needs a column; a column that
+  // cannot drift is the whole point.
+  followersCount Int @default(0) @map("followers_count")
+  followingCount Int @default(0) @map("following_count")
+  postsCount     Int @default(0) @map("posts_count")
+
+  organizerVerificationStatus          OrganizerVerificationStatus? @map("organizer_verification_status")
+  organizerVerificationSubmittedAt     DateTime?                    @map("organizer_verification_submitted_at")
+  organizerVerificationApprovedAt      DateTime?                    @map("organizer_verification_approved_at")
+  organizerVerificationApprovedBy      String?                      @map("organizer_verification_approved_by")
+  organizerVerificationRejectedAt      DateTime?                    @map("organizer_verification_rejected_at")
+  organizerVerificationRejectionReason String?                      @map("organizer_verification_rejection_reason")
+  organizerVerificationReviewedBy      String?                      @map("organizer_verification_reviewed_by")
+
+  reputationPoints    Int      @default(0) @map("reputation_points")
+  reputationLevel     Int      @default(1) @map("reputation_level")
+  reputationLevelName String   @default("Explorer") @map("reputation_level_name")
+  reputationBadges    String[] @map("reputation_badges")
+
+  resetPasswordToken   String?   @map("reset_password_token")
+  resetPasswordExpires DateTime? @map("reset_password_expires")
+  firstOrganizerLogin  DateTime? @map("first_organizer_login")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  qrCodes               UserQrCode[]
+  achievements          UserAchievement[]
+  verificationDocuments UserVerificationDocument[]
+
+  @@index([role, followersCount(sort: Desc)])
+  @@index([location])
+  @@map("users")
+}
+
+// bankDetails is deliberately not a column here.
+//
+// It was one of the five the Mongoose schema never declared, so the User copy
+// has never held a single byte and there is nothing to migrate. Wave 7 already
+// gave bank details a real home in organizer_payout_configs, with the account
+// number encrypted and an IFSC CHECK on the code. Recreating a plaintext
+// duplicate of an encrypted store, to hold data that does not exist, would be a
+// strange thing to do on purpose.
+//
+// bankDetailsController and subscriptions.service read and write the User path
+// today and silently lose everything. They move to organizer_payout_configs,
+// which means bank details begin persisting for the first time.
+
+// followers[] and following[] are gone: the Follow table replaced them in wave 1
+// and nothing has written them since. activityLog[] is gone too - nothing has
+// ever written it, anywhere in the codebase.
+
+model UserQrCode {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  filename      String
+  originalName  String   @map("original_name")
+  path          String
+  paymentMethod String   @default("UPI") @map("payment_method")
+  description   String   @default("")
+  uploadedAt    DateTime @default(now()) @map("uploaded_at")
+  isActive      Boolean  @default(true) @map("is_active")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_qr_codes")
+}
+
+model UserAchievement {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  type        String
+  description String
+  earnedAt    DateTime @default(now()) @map("earned_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_achievements")
+}
+
+model UserVerificationDocument {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  filename     String
+  originalName String   @map("original_name")
+  path         String
+  size         Int
+  mimetype     String
+  uploadedAt   DateTime @default(now()) @map("uploaded_at")
+  verified     Boolean  @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_verification_documents")
+}
