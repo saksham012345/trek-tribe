@@ -39,13 +39,21 @@ export const apiLimiter = rateLimit({
  * Limits: 3 login attempts per 15 minutes
  */
 export const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 35 minutes
+  windowMs: 15 * 60 * 1000,
   max: 3, // limit each IP to 3 requests per windowMs
   skipSuccessfulRequests: true, // Don't count successful requests
   message: 'Too many login attempts, please try again after 15 minutes.',
   standardHeaders: true,
   legacyHeaders: false,
   store: getRedisStore('auth'),
+  // This guards the whole /auth router, not just /login - so a 400 from
+  // /auth/complete-profile counts against it exactly as a wrong password does.
+  // Three mistyped phone numbers lock the caller out for fifteen minutes, which
+  // makes local testing impractical.
+  //
+  // apiLimiter already skips itself for 'test'; this does the same for local
+  // development. Anything deployed sets NODE_ENV=production and is unaffected.
+  skip: () => process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test'
 });
 
 /**
