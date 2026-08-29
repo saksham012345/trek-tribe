@@ -4159,3 +4159,176 @@ model CouponRedemption {
   @@index([bookingId])
   @@map("coupon_redemptions")
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Sprint 9 — AI
+//
+// O8 is unanswered: no LLM provider has been chosen or paid for. Six of this
+// sprint's eight gate conditions are about the harness around the model rather
+// than the model itself — quota, caching, the draft/accept split, and the
+// escalation rule — and every one of them is cheaper to get right before the
+// first invoice than after it.
+//
+// So the harness is built provider-agnostic and fails closed: with no provider
+// configured, generation refuses and nothing is spent. Choosing a provider then
+// becomes configuration, the same shape as the discount floor in Sprint 7.
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum AiRequestStatus {
+  /** Served from cache. Tokens are null - nothing was sent to a provider. */
+  cache_hit
+  /** Sent to a provider and answered. */
+  completed
+  /** Refused before any provider call, by quota or by missing configuration. */
+  refused
+  /** Sent and failed. */
+  failed
+
+  @@map("ai_request_status")
+}
+
+enum AiFeature {
+  trip_description
+  trip_itinerary
+  marketing_copy
+  campaign_subject
+  insight_summary
+
+  @@map("ai_feature")
+}
+
+/**
+ * Every attempt, whether or not it reached a provider.
+ *
+ * The gate says the first provider invoice must reconcile against token totals
+ * here, which only works if refusals and cache hits are logged too - an invoice
+ * that disagrees with this table is either a billing error or a call this
+ * system does not know it made, and telling those apart needs the whole record.
+ *
+ * promptTokens and completionTokens are NULL for cache_hit and refused, not
+ * zero. Zero would say "we called the provider and it charged nothing"; null
+ * says "there was no call".
+ */
+model AiGenerationRequest {
+  id          String @id @default(uuid())
+  organizerId String @map("organizer_id")
+  userId      String @map("user_id")
+
+  feature AiFeature
+  status  AiRequestStatus
+
+  /** {feature}:{hash of scoped inputs} — the gate's key shape. */
+  cacheKey String @map("cache_key")
+
+  provider String?
+  model    String?
+
+  promptTokens     Int? @map("prompt_tokens")
+  completionTokens Int? @map("completion_tokens")
+
+  /** Cost in paise, when a provider was called and priced it. */
+  costPaise Int? @map("cost_paise")
+
+  latencyMs   Int?    @map("latency_ms")
+  refusalCode String? @map("refusal_code")
+  errorText   String? @map("error_text")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([organizerId, createdAt])
+  @@index([cacheKey])
+  @@index([status, createdAt])
+  @@map("ai_generation_requests")
+}
+
+/**
+ * A cached answer.
+ *
+ * shareable decides whether the cache is keyed to the organizer or global.
+ * Marketing copy for a public trip can be shared; anything computed over one
+ * organizer's private numbers cannot, and the difference is stored rather than
+ * inferred at read time so a later caller cannot get it wrong.
+ */
+model AiCacheEntry {
+  id       String @id @default(uuid())
+  cacheKey String @unique @map("cache_key")
+
+  feature   AiFeature
+  shareable Boolean
+
+  /** Null for a shareable entry, set for a personal one. */
+  organizerId String? @map("organizer_id")
+
+  content   String
+  provider  String?
+  model     String?
+
+  hits       Int      @default(0)
+  lastHitAt  DateTime? @map("last_hit_at")
+  expiresAt  DateTime? @map("expires_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([feature])
+  @@map("ai_cache_entries")
+}
+
+/**
+ * Generated content, held apart from the thing it is about.
+ *
+ * The gate: generating writes a draft row and does not touch `trips`.
+ * Accepting is what mutates, and it goes through the normal trip-update path so
+ * validation, ownership and audit behave exactly as they do for a human edit.
+ *
+ * That separation is why a bad generation costs nothing: it is a row somebody
+ * can ignore, not an edit somebody has to undo.
+ */
+model AiDraft {
+  id          String @id @default(uuid())
+  organizerId String @map("organizer_id")
+  createdBy   String @map("created_by")
+
+  feature AiFeature
+
+  /** What this draft is about. Never written to until accepted. */
+  tripId String? @map("trip_id")
+
+  content String
+
+  requestId String? @map("request_id")
+
+  acceptedAt DateTime? @map("accepted_at")
+  acceptedBy String?   @map("accepted_by")
+  discardedAt DateTime? @map("discarded_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([organizerId, createdAt])
+  @@index([tripId])
+  @@map("ai_drafts")
+}
+
+/**
+ * Per-organizer spending limit, checked BEFORE any provider call.
+ *
+ * The gate insists on that ordering and on it being verified against the
+ * provider's own logs — because a quota checked after the call is a quota that
+ * has already spent the money it was meant to prevent.
+ */
+model AiQuota {
+  id          String @id @default(uuid())
+  organizerId String @unique @map("organizer_id")
+
+  monthlyRequestLimit Int  @default(0) @map("monthly_request_limit")
+  monthlyTokenLimit   Int? @map("monthly_token_limit")
+
+  /** Window the counters below belong to, as YYYY-MM. */
+  periodMonth    String @map("period_month")
+  requestsUsed   Int    @default(0) @map("requests_used")
+  tokensUsed     Int    @default(0) @map("tokens_used")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("ai_quotas")
+}
