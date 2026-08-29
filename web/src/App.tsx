@@ -93,6 +93,7 @@ const Reconciliation = React.lazy(() => retryLazyLoad(() => import('./pages/orga
 
 // Sprint 8 — team and roles
 const Team = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/Team')));
+const Leaders = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/Leaders')));
 
 const MarketplaceCheckout = React.lazy(() => retryLazyLoad(() => import('./pages/MarketplaceCheckout')));
 const JoinTheTribe = React.lazy(() => retryLazyLoad(() => import('./pages/JoinTheTribe')));
@@ -453,6 +454,14 @@ function AppContent() {
                 element={
                   !user ? <Navigate to="/login" /> :
                     user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><Team /></EmailVerificationGuard> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+              <Route
+                path="/organizer/leaders"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><Leaders /></EmailVerificationGuard> :
                       <Navigate to="/home?error=organizer-required" />
                 }
               />

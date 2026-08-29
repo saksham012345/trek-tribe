@@ -59,8 +59,8 @@ const TripsManage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiClient.get('/trips?mine=true&includeUnpublished=true');
-      setTrips(Array.isArray(res.data) ? res.data : res.data?.trips ?? []);
+      const res = await apiClient.get('/trips/mine');
+      setTrips(res.data ?? []);
     } catch (e: any) {
       setError(e?.response?.data?.error || e?.message || 'Request failed');
     } finally {

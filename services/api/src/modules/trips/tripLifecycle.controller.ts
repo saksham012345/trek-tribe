@@ -150,3 +150,24 @@ export async function createSeries(req: Request, res: Response) {
     return fail(res, error, 'creating series');
   }
 }
+
+// ─── The organizer's own list ────────────────────────────────────────────────
+
+export async function listMyTrips(req: Request, res: Response) {
+  const userId = actorId(req);
+  const role = (req as any).user?.role;
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+  // An admin may read another organizer's list; an organizer always reads their
+  // own, and the param is ignored for them rather than honoured.
+  const organizerId =
+    role === 'admin' && typeof req.query.organizerId === 'string'
+      ? req.query.organizerId
+      : userId;
+
+  try {
+    return res.json(await lifecycle.listMyTrips(organizerId));
+  } catch (error: any) {
+    return fail(res, error, 'listing your trips');
+  }
+}

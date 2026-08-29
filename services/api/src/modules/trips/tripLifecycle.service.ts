@@ -292,3 +292,46 @@ export async function setPublication(
     },
   });
 }
+
+// ─── The organizer's own list ────────────────────────────────────────────────
+
+/**
+ * Trips belonging to one organizer, drafts included, with derived state.
+ *
+ * Deliberately not a flag on listTrips. That endpoint serves the public browse
+ * page, where the whole point of Sprint 4 was that drafts and scheduled trips
+ * are absent by construction. Adding an includeUnpublished parameter to it
+ * would put the draft leak one query-string away, on the endpoint least likely
+ * to be audited for it.
+ *
+ * This also wires deriveTripState, which task 4.4 asked for and nothing was
+ * calling: TripsManage reads effectiveStatus, sellState, confirmedSeats and
+ * fillPct, and until this existed the API never sent them.
+ */
+export async function listMyTrips(organizerId: string) {
+  const trips = await prisma.trip.findMany({
+    where: { organizerId },
+    orderBy: { startDate: 'desc' },
+    select: {
+      id: true,
+      title: true,
+      destination: true,
+      startDate: true,
+      endDate: true,
+      capacity: true,
+      price: true,
+      status: true,
+      publicationStatus: true,
+      publishAt: true,
+      duplicatedFromTripId: true,
+      templateId: true,
+      seriesId: true,
+    },
+  });
+
+  const withState = await withDerivedState(trips);
+
+  // price is Decimal across the Prisma boundary; the screen does arithmetic on
+  // it, and a string there turns a sum into a concatenation.
+  return withState.map((t) => ({ ...t, price: toNumber(t.price) }));
+}

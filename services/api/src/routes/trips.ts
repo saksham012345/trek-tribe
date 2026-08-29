@@ -34,6 +34,7 @@ router.get('/by-slug/:slug', cacheMiddleware(300), trackTripView, asyncHandler(t
 // parameter swallows it — '/templates' would arrive as a trip with id
 // "templates". The two-segment names below happen not to collide today, but
 // the ordering is what keeps that true when someone adds '/templates' later.
+router.get('/mine', authenticateJwt, requireRole(['organizer', 'admin']), asyncHandler(lifecycleController.listMyTrips));
 router.get('/templates/list', authenticateJwt, requireRole(['organizer', 'admin']), asyncHandler(lifecycleController.listTemplates));
 router.post('/templates', authenticateJwt, requireRole(['organizer', 'admin']), asyncHandler(lifecycleController.createTemplate));
 router.delete('/templates/:id', authenticateJwt, requireRole(['organizer', 'admin']), asyncHandler(lifecycleController.deleteTemplate));
