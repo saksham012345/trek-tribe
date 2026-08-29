@@ -3796,3 +3796,127 @@ model Certification {
   @@index([organizerId])
   @@map("certifications")
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Sprint 8 — team, roles and invites
+//
+// An organizer's staff are not a new kind of user. They are Users with a
+// membership row against an organizer, which is what lets the same person work
+// for two operators without two logins, and what makes "remove them" a single
+// row change rather than an account deletion.
+//
+// trip_leader is the role the sprint gate cares about: a leader sees only the
+// trips they are assigned to, and the gate insists that is enforced server-side
+// and checked with a direct request rather than by whether the UI drew a link.
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum TeamRole {
+  owner
+  manager
+  trip_leader
+  viewer
+
+  @@map("team_role")
+}
+
+enum MembershipStatus {
+  active
+  suspended
+  removed
+
+  @@map("membership_status")
+}
+
+// One active membership per person per organizer, enforced by a partial unique
+// index in the migration - Prisma has no syntax for a WHERE on a unique index,
+// so @@unique cannot express it. It has to be partial: a person removed and
+// re-hired must be able to have a second row, and a plain unique on
+// (organizerId, userId) would refuse that forever.
+model TeamMembership {
+  id          String @id @default(uuid())
+  organizerId String @map("organizer_id")
+  userId      String @map("user_id")
+
+  role   TeamRole         @default(viewer)
+  status MembershipStatus @default(active)
+
+  invitedBy String?   @map("invited_by")
+  joinedAt  DateTime  @default(now()) @map("joined_at")
+  removedAt DateTime? @map("removed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  assignments TripLeaderAssignment[]
+
+  @@index([organizerId, status])
+  @@index([userId])
+  @@map("team_memberships")
+}
+
+// An invite carries a token and an expiry. Accepting clears the token and fills
+// user_id, so the same link cannot be used twice: there is no token left to
+// match on. Expiry is a timestamp and never a status - "expired" is derived,
+// the same way permits work in Sprint 5, because a status column goes stale at
+// midnight with nothing watching it.
+model TeamInvite {
+  id          String @id @default(uuid())
+  organizerId String @map("organizer_id")
+
+  email String
+  role  TeamRole @default(viewer)
+
+  // Null once accepted. The unique index is partial in the migration so that
+  // several spent invites can coexist while a live token stays unique.
+  token     String?   @unique
+  expiresAt DateTime  @map("expires_at")
+
+  invitedBy  String?   @map("invited_by")
+  acceptedAt DateTime? @map("accepted_at")
+  userId     String?   @map("user_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([organizerId])
+  @@index([email])
+  @@map("team_invites")
+}
+
+// Which trips a trip_leader may see. Absence of a row is the whole access
+// decision - there is no "all trips" flag a leader could be given by accident,
+// and removing the row removes the access in the same statement.
+model TripLeaderAssignment {
+  id           String @id @default(uuid())
+  membershipId String @map("membership_id")
+  tripId       String @map("trip_id")
+
+  assignedAt DateTime @default(now()) @map("assigned_at")
+  assignedBy String?  @map("assigned_by")
+
+  membership TeamMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, tripId])
+  @@index([tripId])
+  @@map("trip_leader_assignments")
+}
+
+// Calendar pushes are keyed by (trip, provider) so a repeat push updates the
+// row it already wrote instead of adding another. The sprint gate is "repeat
+// calendar push updates, never duplicates"; the unique constraint is what makes
+// that true even when two pushes race.
+model CalendarSync {
+  id       String @id @default(uuid())
+  tripId   String @map("trip_id")
+  provider String
+
+  externalEventId String   @map("external_event_id")
+  lastPushedAt    DateTime @default(now()) @map("last_pushed_at")
+  lastPayloadHash String?  @map("last_payload_hash")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([tripId, provider])
+  @@map("calendar_syncs")
+}

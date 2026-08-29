@@ -91,6 +91,9 @@ const Payouts = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-o
 const CashFlow = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/CashFlow')));
 const Reconciliation = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/Reconciliation')));
 
+// Sprint 8 — team and roles
+const Team = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/Team')));
+
 const MarketplaceCheckout = React.lazy(() => retryLazyLoad(() => import('./pages/MarketplaceCheckout')));
 const JoinTheTribe = React.lazy(() => retryLazyLoad(() => import('./pages/JoinTheTribe')));
 const Subscribe = React.lazy(() => retryLazyLoad(() => import('./pages/Subscribe')));
@@ -440,6 +443,16 @@ function AppContent() {
                 element={
                   !user ? <Navigate to="/login" /> :
                     user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><Reconciliation /></EmailVerificationGuard> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+
+              {/* Sprint 8 — team */}
+              <Route
+                path="/organizer/team"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><Team /></EmailVerificationGuard> :
                       <Navigate to="/home?error=organizer-required" />
                 }
               />
