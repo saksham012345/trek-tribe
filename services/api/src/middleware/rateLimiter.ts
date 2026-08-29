@@ -28,10 +28,16 @@ export const apiLimiter = rateLimit({
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   store: getRedisStore('api'),
-  skip: (req) => {
-    // Skip rate limiting in test environment
-    return process.env.NODE_ENV === 'test';
-  }
+  // Skipped for test and for local development, matching authLimiter.
+  //
+  // The end-to-end suite makes about fifty requests in a run, so a 100-per-15
+  // minutes limit refuses the second run and every request in it — which reads
+  // as forty failing endpoints rather than as one rate limit, and sent this
+  // session chasing an outage that was not there.
+  //
+  // Anything deployed sets NODE_ENV=production and is unaffected.
+  skip: () =>
+    process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development'
 });
 
 /**
