@@ -2726,6 +2726,10 @@ model GroupBooking {
   trip         Trip                 @relation(fields: [tripId], references: [id], onDelete: Cascade)
   participants BookingParticipant[]
 
+  // Sprint 5 — checklists are per booking, not per person: they track what the
+  // organiser needs from the party as a whole.
+  checklistItems BookingChecklistItem[]
+
   @@unique([mainBookerId, tripId])
   @@index([tripId, createdAt])
   @@index([mainBookerId, createdAt])
@@ -2759,6 +2763,14 @@ model BookingParticipant {
   isMainBooker          Boolean         @default(false) @map("is_main_booker")
 
   booking GroupBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  // Sprint 5 — the per-person operations records. These key here rather than to
+  // the booking, which is what lets a party of four split across two rooms.
+  roomAssignment       RoomAssignment?
+  transportAssignments TransportAssignment[]
+  attendanceRecords    AttendanceRecord[]
+  equipmentAssignments EquipmentAssignment[]
+  medicalDeclaration   MedicalDeclaration?
 
   @@unique([bookingId, email])
   @@index([bookingId])
@@ -3422,4 +3434,365 @@ model UserVerificationDocument {
 
   @@index([userId])
   @@map("user_verification_documents")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Sprint 5 — bookings and operations
+//
+// O7 in the plan reads: "Per-participant records — every ops table keys to
+// bookings.id. A party of four cannot split across two rooms."
+//
+// booking_participants already exists and holds one row per traveller, so the
+// answer here is to key the per-person tables to the participant, not the
+// booking. Rooms, transport seats, attendance, equipment and medical
+// declarations are things that happen to a person; documents and checklists
+// are things that happen to a booking; permits, equipment stock and the
+// emergency plan are things that belong to a trip. Each table keys to whichever
+// of those it actually describes.
+//
+// This is strictly more expressive than keying everything to the booking, and
+// forecloses nothing - a party of four can be split across two rooms, or all
+// put in one. O7 as a product question is still the user's to close; this is
+// the engineering shape that does not make the wrong answer permanent.
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum AccommodationKind {
+  hotel
+  homestay
+  camp
+  hostel
+  guesthouse
+
+  @@map("accommodation_kind")
+}
+
+model Accommodation {
+  id     String @id @default(uuid())
+  tripId String @map("trip_id")
+
+  name    String
+  kind    AccommodationKind @default(hotel)
+  address String?
+  phone   String?
+
+  checkIn  DateTime? @map("check_in")
+  checkOut DateTime? @map("check_out")
+
+  notes String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  rooms Room[]
+
+  @@index([tripId])
+  @@map("accommodations")
+}
+
+model Room {
+  id              String @id @default(uuid())
+  accommodationId String @map("accommodation_id")
+
+  label    String
+  capacity Int
+  notes    String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  accommodation Accommodation    @relation(fields: [accommodationId], references: [id], onDelete: Cascade)
+  assignments   RoomAssignment[]
+
+  @@index([accommodationId])
+  @@map("rooms")
+}
+
+// Over-capacity warns and allows; a duplicate assignment is refused.
+//
+// Those are two different rules and they are held in two different places on
+// purpose. "This person is already in a room" is a fact the database can settle
+// - hence the unique constraint on the participant. "This room now holds five
+// people in four beds" is a judgement the organiser may have a reason for at
+// 11pm in a hill station, so it is a warning the API returns, not a constraint
+// that stops the night.
+model RoomAssignment {
+  id            String @id @default(uuid())
+  roomId        String @map("room_id")
+  participantId String @map("participant_id")
+
+  assignedAt DateTime @default(now()) @map("assigned_at")
+  assignedBy String?  @map("assigned_by")
+
+  room        Room               @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  participant BookingParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@unique([participantId])
+  @@index([roomId])
+  @@map("room_assignments")
+}
+
+enum TransportMode {
+  bus
+  train
+  flight
+  cab
+  self
+
+  @@map("transport_mode")
+}
+
+model TransportSegment {
+  id     String @id @default(uuid())
+  tripId String @map("trip_id")
+
+  mode          TransportMode
+  operator      String?
+  identifier    String?
+  fromLocation  String        @map("from_location")
+  toLocation    String        @map("to_location")
+  departsAt     DateTime?     @map("departs_at")
+  arrivesAt     DateTime?     @map("arrives_at")
+  seatCapacity  Int?          @map("seat_capacity")
+  notes         String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  assignments TransportAssignment[]
+
+  @@index([tripId])
+  @@map("transport_segments")
+}
+
+model TransportAssignment {
+  id            String  @id @default(uuid())
+  segmentId     String  @map("segment_id")
+  participantId String  @map("participant_id")
+  seatLabel     String? @map("seat_label")
+
+  segment     TransportSegment   @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+  participant BookingParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@unique([segmentId, participantId])
+  @@index([segmentId])
+  @@map("transport_assignments")
+}
+
+model ChecklistTemplate {
+  id          String @id @default(uuid())
+  organizerId String @map("organizer_id")
+
+  label       String
+  description String?
+  sortOrder   Int     @default(0) @map("sort_order")
+  isRequired  Boolean @default(false) @map("is_required")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  items BookingChecklistItem[]
+
+  @@index([organizerId])
+  @@map("checklist_templates")
+}
+
+// UNIQUE(booking_id, template_id) is the gate condition: toggling an item three
+// times leaves one row, not three. The toggle is an upsert against this
+// constraint rather than an insert, so the row count cannot climb no matter how
+// many times the button is pressed or how many tabs are open.
+model BookingChecklistItem {
+  id         String @id @default(uuid())
+  bookingId  String @map("booking_id")
+  templateId String @map("template_id")
+
+  isDone      Boolean   @default(false) @map("is_done")
+  completedAt DateTime? @map("completed_at")
+  completedBy String?   @map("completed_by")
+  notes       String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  booking  GroupBooking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  template ChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([bookingId, templateId])
+  @@index([bookingId])
+  @@map("booking_checklist_items")
+}
+
+enum AttendanceState {
+  present
+  absent
+  late
+  excused
+
+  @@map("attendance_state")
+}
+
+model AttendanceRecord {
+  id            String   @id @default(uuid())
+  tripId        String   @map("trip_id")
+  participantId String   @map("participant_id")
+  onDate        DateTime @map("on_date") @db.Date
+
+  state    AttendanceState @default(present)
+  notes    String?
+  markedBy String?         @map("marked_by")
+  markedAt DateTime        @default(now()) @map("marked_at")
+
+  participant BookingParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@unique([participantId, onDate])
+  @@index([tripId, onDate])
+  @@map("attendance_records")
+}
+
+model EquipmentItem {
+  id     String @id @default(uuid())
+  tripId String @map("trip_id")
+
+  name         String
+  totalUnits   Int     @default(0) @map("total_units")
+  notes        String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  assignments EquipmentAssignment[]
+
+  @@index([tripId])
+  @@map("equipment_items")
+}
+
+model EquipmentAssignment {
+  id            String @id @default(uuid())
+  equipmentId   String @map("equipment_id")
+  participantId String @map("participant_id")
+
+  units      Int       @default(1)
+  issuedAt   DateTime  @default(now()) @map("issued_at")
+  returnedAt DateTime? @map("returned_at")
+
+  equipment   EquipmentItem      @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  participant BookingParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@unique([equipmentId, participantId])
+  @@index([participantId])
+  @@map("equipment_assignments")
+}
+
+// Expiry is a date, never a stored status. The gate says an expired permit must
+// read "expired" however it is stored - so it is stored one way only, as
+// expires_on, and "expired" is derived from it. A status column beside the date
+// would be a second source of truth that goes stale at midnight with nothing
+// watching.
+model Permit {
+  id     String @id @default(uuid())
+  tripId String @map("trip_id")
+
+  name          String
+  authority     String?
+  referenceCode String?   @map("reference_code")
+  issuedOn      DateTime? @map("issued_on") @db.Date
+  expiresOn     DateTime? @map("expires_on") @db.Date
+  documentUrl   String?   @map("document_url")
+  notes         String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([tripId])
+  @@map("permits")
+}
+
+model EmergencyPlan {
+  id     String @id @default(uuid())
+  tripId String @unique @map("trip_id")
+
+  nearestHospital     String?  @map("nearest_hospital")
+  hospitalPhone       String?  @map("hospital_phone")
+  hospitalDistanceKm  Decimal? @map("hospital_distance_km") @db.Decimal(6, 2)
+  evacuationPlan      String?  @map("evacuation_plan")
+  localAuthorityPhone String?  @map("local_authority_phone")
+  notes               String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("emergency_plans")
+}
+
+// Exactly one subject. The CHECK is written in the migration because Prisma has
+// no syntax for it, and it is a CHECK rather than three nullable columns left
+// to convention because "a document about nothing" and "a document about a trip
+// and a participant at once" are both unanswerable when someone later asks what
+// this file is for.
+model OpsDocument {
+  id          String @id @default(uuid())
+  organizerId String @map("organizer_id")
+
+  tripId        String? @map("trip_id")
+  bookingId     String? @map("booking_id")
+  participantId String? @map("participant_id")
+
+  title       String
+  category    String?
+  fileUrl     String  @map("file_url")
+  fileName    String? @map("file_name")
+  mimeType    String? @map("mime_type")
+  sizeBytes   Int?    @map("size_bytes")
+  uploadedBy  String? @map("uploaded_by")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([tripId])
+  @@index([bookingId])
+  @@index([participantId])
+  @@map("ops_documents")
+}
+
+model MedicalDeclaration {
+  id            String @id @default(uuid())
+  participantId String @unique @map("participant_id")
+
+  hasConditions     Boolean   @default(false) @map("has_conditions")
+  conditions        String?
+  medications       String?
+  allergies         String?
+  bloodGroup        String?   @map("blood_group")
+  physicianName     String?   @map("physician_name")
+  physicianPhone    String?   @map("physician_phone")
+  declaredAt        DateTime? @map("declared_at")
+  declarationSigned Boolean   @default(false) @map("declaration_signed")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  participant BookingParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@map("medical_declarations")
+}
+
+// Certifications expire the same way permits do, and for the same reason are
+// stored as a date rather than a status.
+model Certification {
+  id          String @id @default(uuid())
+  organizerId String @map("organizer_id")
+
+  name          String
+  issuingBody   String?   @map("issuing_body")
+  referenceCode String?   @map("reference_code")
+  issuedOn      DateTime? @map("issued_on") @db.Date
+  expiresOn     DateTime? @map("expires_on") @db.Date
+  documentUrl   String?   @map("document_url")
+  verifiedAt    DateTime? @map("verified_at")
+  verifiedBy    String?   @map("verified_by")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([organizerId])
+  @@map("certifications")
 }
