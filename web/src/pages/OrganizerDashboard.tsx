@@ -10,6 +10,7 @@ import TripsListSection from '../components/organizer/dashboard/TripsListSection
 import PaymentVerificationSection from '../components/organizer/dashboard/PaymentVerificationSection';
 
 import { FinanceSummary } from '../types/finance';
+import OrganizerNav from './organizer-os/OrganizerNav';
 
 // Types (should eventually be moved to shared types)
 interface TripSummary {
@@ -346,6 +347,16 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
             />
           </div>
           <CRMPreviewSection hasCRMAccess={hasCRMAccess} crmSubscription={crmSubscription} />
+
+          {/* Sprint 8 — the way into everything else.
+              Ten organizer screens were added across sprints 3 to 8 with no
+              navigation anywhere in the app, reachable only by typing a URL.
+              This is the only addition to this page; the sections above are
+              untouched. */}
+          <div className="max-w-7xl mx-auto mt-8 rounded-xl bg-white p-6 shadow-sm">
+            <h2 className="font-medium text-gray-900 mb-4">Everything else</h2>
+            <OrganizerNav />
+          </div>
         </>
       )}
     </div>

@@ -91,9 +91,17 @@ const Payouts = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-o
 const CashFlow = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/CashFlow')));
 const Reconciliation = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/Reconciliation')));
 
-// Sprint 8 — team and roles
+// Sprint 8 — team, roles, account
 const Team = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/Team')));
 const Leaders = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/Leaders')));
+const OrganizerSettings = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/OrganizerSettings')));
+const AnalyticsOverview = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/AnalyticsOverview')));
+
+// Revived rather than rewritten. This page is 354 lines of working sections
+// (trips, CRM preview, payment verification, expense stats) that nothing
+// imported, so an organizer signing in had no home at all. Sprint 8 asks for a
+// dashboard; this was already one.
+const OrganizerDashboard = React.lazy(() => retryLazyLoad(() => import('./pages/OrganizerDashboard')));
 
 const MarketplaceCheckout = React.lazy(() => retryLazyLoad(() => import('./pages/MarketplaceCheckout')));
 const JoinTheTribe = React.lazy(() => retryLazyLoad(() => import('./pages/JoinTheTribe')));
@@ -462,6 +470,32 @@ function AppContent() {
                 element={
                   !user ? <Navigate to="/login" /> :
                     user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><Leaders /></EmailVerificationGuard> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+              <Route
+                path="/organizer/settings"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><OrganizerSettings /></EmailVerificationGuard> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+              <Route
+                path="/organizer/analytics"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><AnalyticsOverview /></EmailVerificationGuard> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+              {/* The organizer's home. Registered last of the /organizer/* set
+                  so the specific paths above are matched first. */}
+              <Route
+                path="/organizer"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><OrganizerDashboard user={user} /></EmailVerificationGuard> :
                       <Navigate to="/home?error=organizer-required" />
                 }
               />
