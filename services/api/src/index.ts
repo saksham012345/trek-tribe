@@ -49,6 +49,7 @@ import recommendationsRoutes from './routes/recommendations';
 import notificationRoutes from './routes/notifications';
 import subscriptionRoutes from './routes/subscriptions';
 import analyticsRoutes from './routes/analytics';
+import opsRoutes from './routes/ops';
 import receiptRoutes from './routes/receipts';
 import webhookRoutes from './routes/webhooks';
 import autoPayRoutes from './routes/autoPay';
@@ -365,6 +366,7 @@ console.log('✅ Custom Trip routes mounted at /api/custom-trips');
 
 // Analytics Routes
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/ops', opsRoutes);
 console.log('✅ Analytics routes mounted at /api/analytics');
 
 // Receipt Generation Routes

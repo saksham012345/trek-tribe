@@ -19,7 +19,7 @@ interface OccupancyRow {
 }
 
 const AnalyticsOccupancy: React.FC = () => {
-  const { data, error, loading } = useAnalytics<OccupancyRow[]>('/analytics/occupancy');
+  const { data, error, loading } = useAnalytics<OccupancyRow[]>('/api/analytics/occupancy');
   const rows = data ?? [];
 
   const totalCapacity = rows.reduce((s, r) => s + r.capacity, 0);

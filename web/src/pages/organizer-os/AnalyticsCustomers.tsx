@@ -39,7 +39,7 @@ const rowsOf = (rows: Row[]) =>
   ));
 
 const AnalyticsCustomers: React.FC = () => {
-  const { data, error, loading } = useAnalytics<Payload>('/analytics/customers');
+  const { data, error, loading } = useAnalytics<Payload>('/api/analytics/customers');
   const placed = data?.placed ?? [];
   const unplaced = data?.unplaced ?? [];
   const t = data?.totals;

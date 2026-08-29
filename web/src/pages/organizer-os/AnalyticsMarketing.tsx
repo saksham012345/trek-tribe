@@ -16,7 +16,7 @@ interface Payload {
 }
 
 const AnalyticsMarketing: React.FC = () => {
-  const { data, error, loading } = useAnalytics<Payload>('/analytics/marketing');
+  const { data, error, loading } = useAnalytics<Payload>('/api/analytics/marketing');
   const sources = data?.sources ?? [];
   const t = data?.totals;
 

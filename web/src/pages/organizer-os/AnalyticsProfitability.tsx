@@ -31,7 +31,7 @@ interface Payload {
 }
 
 const AnalyticsProfitability: React.FC = () => {
-  const { data, error, loading } = useAnalytics<Payload>('/analytics/profitability');
+  const { data, error, loading } = useAnalytics<Payload>('/api/analytics/profitability');
   const trips = data?.trips ?? [];
   const t = data?.totals;
 

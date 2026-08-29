@@ -78,6 +78,11 @@ const AnalyticsMarketing = React.lazy(() => retryLazyLoad(() => import('./pages/
 const TripsManage = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/TripsManage')));
 const TripTemplates = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/TripTemplates')));
 
+// Sprint 5 — bookings and operations
+const OpsConsole = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/OpsConsole')));
+const OpsDocuments = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/OpsDocuments')));
+const Certifications = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/Certifications')));
+
 const MarketplaceCheckout = React.lazy(() => retryLazyLoad(() => import('./pages/MarketplaceCheckout')));
 const JoinTheTribe = React.lazy(() => retryLazyLoad(() => import('./pages/JoinTheTribe')));
 const Subscribe = React.lazy(() => retryLazyLoad(() => import('./pages/Subscribe')));
@@ -374,6 +379,33 @@ function AppContent() {
                 element={
                   !user ? <Navigate to="/login" /> :
                     user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><TripTemplates /></EmailVerificationGuard> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+
+              {/* Sprint 5 — operations. The ops console is per trip; documents
+                  and certifications are organiser-wide. */}
+              <Route
+                path="/organizer/trips/:tripId/ops"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><OpsConsole /></EmailVerificationGuard> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+              <Route
+                path="/organizer/documents"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><OpsDocuments /></EmailVerificationGuard> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+              <Route
+                path="/organizer/certifications"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><Certifications /></EmailVerificationGuard> :
                       <Navigate to="/home?error=organizer-required" />
                 }
               />
