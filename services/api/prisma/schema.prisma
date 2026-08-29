@@ -2215,6 +2215,20 @@ enum TripStatus {
   @@map("trip_status")
 }
 
+// Publication is a separate axis from lifecycle. TripStatus says what is
+// happening to a trip - it is running, it was cancelled, it finished. This says
+// whether the public can see it. Folding the two into one column would mean
+// backfilling every existing trip to 'published' and losing which ones were
+// cancelled or completed, on the most load-bearing table in the product.
+enum TripPublicationStatus {
+  draft
+  scheduled
+  published
+  archived
+
+  @@map("trip_publication_status")
+}
+
 enum TripApprovalStatus {
   pending
   approved
@@ -2343,6 +2357,25 @@ model Trip {
 
   slug String? @unique
 
+  // ── Sprint 4: publication, series, templates, duplication ──────────────────
+  //
+  // publicationStatus defaults to draft so a newly created or duplicated trip
+  // is never accidentally live. Existing rows are backfilled to published by
+  // the migration, because they are already selling.
+  //
+  // duplicatedFromTripId is deliberately not originalTripId: that column and
+  // isDuplicate belong to duplicateDetection.ts, which flags likely spam by
+  // similarity score. Reusing it would conflate "someone copied this listing"
+  // with "the organizer pressed Duplicate".
+  publicationStatus    TripPublicationStatus @default(draft) @map("publication_status")
+  publishAt            DateTime?             @map("publish_at")
+  seriesId             String?               @map("series_id")
+  templateId           String?               @map("template_id")
+  duplicatedFromTripId String?               @map("duplicated_from_trip_id")
+
+  series   TripSeries?   @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  template TripTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
   // These five were written by the application and stored by nothing.
   //
   // setupPaymentRouting() assigns trip.paymentRoutingStatus, trip.paymentQR,
@@ -2396,6 +2429,65 @@ model Trip {
 // that only existed on the unused half are carried here where they can actually
 // be filled in.
 //
+// A template is not a trip. It holds the fields a trip would copy, in its own
+// table, so it cannot appear in any query that reads `trips` - which is the
+// sprint gate "templates never appear as trips", enforced by there being no row
+// to find rather than by every listing query remembering to filter.
+model TripTemplate {
+  id          String @id @default(uuid())
+  organizerId String @map("organizer_id")
+
+  name        String
+  title       String
+  description String?
+  destination String?
+  difficulty  TripDifficulty @default(moderate)
+  categories  String[]
+
+  capacity   Int?
+  price      Decimal? @db.Decimal(14, 2)
+  durationDays Int?   @map("duration_days")
+
+  itinerary       String?
+  includedItems   String[] @map("included_items")
+  excludedItems   String[] @map("excluded_items")
+  safetyEquipment String[] @map("safety_equipment")
+
+  timesUsed Int       @default(0) @map("times_used")
+  lastUsedAt DateTime? @map("last_used_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  trips Trip[]
+
+  @@index([organizerId])
+  @@map("trip_templates")
+}
+
+// A series groups recurring departures of the same trip. Trips point at it;
+// deleting a series leaves its trips standing (SetNull) because the departures
+// are real and sold, and the grouping is only a convenience.
+model TripSeries {
+  id          String @id @default(uuid())
+  organizerId String @map("organizer_id")
+
+  name        String
+  description String?
+
+  recurrenceRule String?   @map("recurrence_rule")
+  startsOn       DateTime? @map("starts_on")
+  endsOn         DateTime? @map("ends_on")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  trips Trip[]
+
+  @@index([organizerId])
+  @@map("trip_series")
+}
+
 // @@unique([tripId, userId]) is the constraint that fixes the `includes` bug:
 // joining a trip twice is refused by the database rather than by a comparison
 // that never worked.

@@ -74,6 +74,10 @@ const AnalyticsOccupancy = React.lazy(() => retryLazyLoad(() => import('./pages/
 const AnalyticsCustomers = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/AnalyticsCustomers')));
 const AnalyticsMarketing = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/AnalyticsMarketing')));
 
+// Sprint 4 — trips depth
+const TripsManage = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/TripsManage')));
+const TripTemplates = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/TripTemplates')));
+
 const MarketplaceCheckout = React.lazy(() => retryLazyLoad(() => import('./pages/MarketplaceCheckout')));
 const JoinTheTribe = React.lazy(() => retryLazyLoad(() => import('./pages/JoinTheTribe')));
 const Subscribe = React.lazy(() => retryLazyLoad(() => import('./pages/Subscribe')));
@@ -351,6 +355,25 @@ function AppContent() {
                 element={
                   !user ? <Navigate to="/login" /> :
                     user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><AnalyticsMarketing /></EmailVerificationGuard> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+
+              {/* Sprint 4 — trips depth. /organizer/trips is the organizer's own
+                  list including drafts; /trips stays the public browse page. */}
+              <Route
+                path="/organizer/trips"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><TripsManage /></EmailVerificationGuard> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+              <Route
+                path="/organizer/trip-templates"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><TripTemplates /></EmailVerificationGuard> :
                       <Navigate to="/home?error=organizer-required" />
                 }
               />
