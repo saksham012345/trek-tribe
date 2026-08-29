@@ -21,4 +21,10 @@ router.get('/retention', authenticateJwt, requireRole(['admin']), analyticsContr
 router.get('/activity', authenticateJwt, requireRole(['admin']), analyticsController.getActivity);
 router.get('/top-organizers', authenticateJwt, requireRole(['admin']), analyticsController.getTopOrganizers);
 
+// Sprint 3 — read-only analytics screens, served from SQL views
+router.get('/occupancy', authenticateJwt, requireRole(['admin', 'organizer']), analyticsController.getOccupancy);
+router.get('/profitability', authenticateJwt, requireRole(['admin', 'organizer']), analyticsController.getProfitability);
+router.get('/customers', authenticateJwt, requireRole(['admin', 'organizer']), analyticsController.getCustomers);
+router.get('/marketing', authenticateJwt, requireRole(['admin', 'organizer']), analyticsController.getMarketing);
+
 export default router;

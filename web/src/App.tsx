@@ -8,7 +8,6 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import AIChatWidget from './components/AIChatWidgetClean';
 import CookieConsent from './components/CookieConsent';
-import APIDebugger from './components/APIDebugger';
 import FloatingJoinCTA from './components/FloatingJoinCTA';
 import { Trip } from './types';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -16,6 +15,7 @@ import { NotificationProvider } from './contexts/NotificationContext';
 import { preloadRazorpay } from './utils/razorpay';
 import PhoneRequirementGuard from './components/auth/PhoneRequirementGuard';
 import EmailVerificationGuard from './components/auth/EmailVerificationGuard';
+import SmoothScrollProvider from './components/SmoothScrollProvider';
 
 // Retry logic for lazy loading chunks
 const retryLazyLoad = (
@@ -67,6 +67,13 @@ const CRMDashboard = React.lazy(() => retryLazyLoad(() => import('./pages/CRMDas
 const PaymentVerificationDashboard = React.lazy(() => retryLazyLoad(() => import('./pages/PaymentVerificationDashboard')));
 const OrganizerRouteOnboarding = React.lazy(() => retryLazyLoad(() => import('./pages/OrganizerRouteOnboarding')));
 const OrganizerSettlements = React.lazy(() => retryLazyLoad(() => import('./pages/OrganizerSettlements')));
+
+// Sprint 3 — Organizer OS read-only analytics screens
+const AnalyticsProfitability = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/AnalyticsProfitability')));
+const AnalyticsOccupancy = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/AnalyticsOccupancy')));
+const AnalyticsCustomers = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/AnalyticsCustomers')));
+const AnalyticsMarketing = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/AnalyticsMarketing')));
+
 const MarketplaceCheckout = React.lazy(() => retryLazyLoad(() => import('./pages/MarketplaceCheckout')));
 const JoinTheTribe = React.lazy(() => retryLazyLoad(() => import('./pages/JoinTheTribe')));
 const Subscribe = React.lazy(() => retryLazyLoad(() => import('./pages/Subscribe')));
@@ -81,6 +88,7 @@ const Blogs = React.lazy(() => retryLazyLoad(() => import('./pages/Blogs')));
 const BlogDetails = React.lazy(() => retryLazyLoad(() => import('./pages/BlogDetails')));
 const AdminBlogs = React.lazy(() => retryLazyLoad(() => import('./pages/AdminBlogs')));
 const AdminContentManager = React.lazy(() => retryLazyLoad(() => import('./pages/AdminContentManager')));
+const VendorManagement = React.lazy(() => retryLazyLoad(() => import('./pages/VendorManagement')));
 
 // Error Boundary for lazy loading failures
 type ChunkErrorBoundaryProps = { children?: React.ReactNode };
@@ -139,6 +147,7 @@ function AppContent() {
   }
 
   return (
+    <SmoothScrollProvider>
     <Router>
       <PhoneRequirementGuard />
       <div className="min-h-screen bg-forest-50 flex flex-col font-sans text-forest-900 selection:bg-earth-200 selection:text-forest-900">
@@ -310,11 +319,55 @@ function AppContent() {
                       <Navigate to="/home?error=organizer-required" />
                 }
               />
+
+              {/* Sprint 3 — read-only analytics. Same organizer/admin guard as
+                  the rest of the organizer surface. */}
+              <Route
+                path="/organizer/analytics/profitability"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><AnalyticsProfitability /></EmailVerificationGuard> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+              <Route
+                path="/organizer/analytics/occupancy"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><AnalyticsOccupancy /></EmailVerificationGuard> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+              <Route
+                path="/organizer/analytics/customers"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><AnalyticsCustomers /></EmailVerificationGuard> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+              <Route
+                path="/organizer/analytics/marketing"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><AnalyticsMarketing /></EmailVerificationGuard> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+
               <Route
                 path="/organizer/trips/:tripId/finance"
                 element={
                   !user ? <Navigate to="/login" /> :
                     user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><TripFinancePage /></EmailVerificationGuard> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+              <Route
+                path="/organizer/vendors"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><VendorManagement /></EmailVerificationGuard> :
                       <Navigate to="/home?error=organizer-required" />
                 }
               />
@@ -350,11 +403,9 @@ function AppContent() {
 
         {/* Cookie Consent Banner */}
         <CookieConsent />
-
-        {/* API Debugger - Remove in production */}
-        {process.env.NODE_ENV === 'development' && <APIDebugger />}
       </div>
-    </Router >
+    </Router>
+    </SmoothScrollProvider>
   );
 }
 

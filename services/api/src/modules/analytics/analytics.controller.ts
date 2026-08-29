@@ -136,3 +136,63 @@ export async function getTopOrganizers(req: Request, res: Response) {
     return res.status(500).json({ error: 'Failed to fetch top organizers' });
   }
 }
+
+// ─── Sprint 3: read-only analytics ───────────────────────────────────────────
+//
+// Organizer-scoped. An admin may pass ?organizerId= to read someone else's;
+// an organizer always reads their own, and the query param is ignored for them
+// so it cannot be used to read across accounts.
+
+function resolveOrganizerId(req: Request): string | null {
+  const userId = (req as any).user?.userId;
+  const role = (req as any).user?.role;
+  if (!userId) return null;
+  if (role === 'admin' && typeof req.query.organizerId === 'string') {
+    return req.query.organizerId;
+  }
+  return userId;
+}
+
+export async function getOccupancy(req: Request, res: Response) {
+  try {
+    const organizerId = resolveOrganizerId(req);
+    if (!organizerId) return res.status(401).json({ error: 'Unauthorized' });
+    return res.json(await analyticsService.getOccupancyByTrip(organizerId));
+  } catch (error: any) {
+    console.error('❌ Error fetching occupancy:', error);
+    return res.status(500).json({ error: 'Failed to fetch occupancy', message: error.message });
+  }
+}
+
+export async function getProfitability(req: Request, res: Response) {
+  try {
+    const organizerId = resolveOrganizerId(req);
+    if (!organizerId) return res.status(401).json({ error: 'Unauthorized' });
+    return res.json(await analyticsService.getTripProfitability(organizerId));
+  } catch (error: any) {
+    console.error('❌ Error fetching profitability:', error);
+    return res.status(500).json({ error: 'Failed to fetch profitability', message: error.message });
+  }
+}
+
+export async function getCustomers(req: Request, res: Response) {
+  try {
+    const organizerId = resolveOrganizerId(req);
+    if (!organizerId) return res.status(401).json({ error: 'Unauthorized' });
+    return res.json(await analyticsService.getCustomerGeography(organizerId));
+  } catch (error: any) {
+    console.error('❌ Error fetching customer geography:', error);
+    return res.status(500).json({ error: 'Failed to fetch customer geography', message: error.message });
+  }
+}
+
+export async function getMarketing(req: Request, res: Response) {
+  try {
+    const organizerId = resolveOrganizerId(req);
+    if (!organizerId) return res.status(401).json({ error: 'Unauthorized' });
+    return res.json(await analyticsService.getMarketingPerformance(organizerId));
+  } catch (error: any) {
+    console.error('❌ Error fetching marketing performance:', error);
+    return res.status(500).json({ error: 'Failed to fetch marketing performance', message: error.message });
+  }
+}

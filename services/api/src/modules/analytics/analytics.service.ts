@@ -574,3 +574,161 @@ export async function getTopOrganizers() {
     customerCount: totals.customers.size,
   }));
 }
+
+// ─── Sprint 3: read-only analytics, served from SQL views ────────────────────
+//
+// These four read v_* views rather than recomputing in TypeScript. The gate
+// conditions the views encode - seats not booking rows, geography reconciling
+// to total spend - hold at the database, so they cannot drift when a second
+// caller appears.
+//
+// Postgres returns numeric as string to preserve precision; toNumber converts
+// at the edge so the API contract is plain numbers.
+
+export interface OccupancyRow {
+  tripId: string;
+  title: string;
+  destination: string;
+  startDate: Date;
+  endDate: Date;
+  status: string;
+  capacity: number;
+  seatsBooked: number;
+  seatsRemaining: number;
+  bookingCount: number;
+  fillRatePct: number;
+}
+
+export async function getOccupancyByTrip(organizerId: string): Promise<OccupancyRow[]> {
+  const rows = await prisma.$queryRaw<any[]>`
+    SELECT trip_id, title, destination, start_date, end_date, status,
+           capacity, seats_booked, seats_remaining, booking_count, fill_rate_pct
+    FROM v_occupancy_by_trip
+    WHERE organizer_id = ${organizerId}
+    ORDER BY start_date DESC
+  `;
+
+  return rows.map((r) => ({
+    tripId: r.trip_id,
+    title: r.title,
+    destination: r.destination,
+    startDate: r.start_date,
+    endDate: r.end_date,
+    status: r.status,
+    capacity: Number(r.capacity),
+    seatsBooked: Number(r.seats_booked),
+    seatsRemaining: Number(r.seats_remaining),
+    bookingCount: Number(r.booking_count),
+    fillRatePct: toNumber(r.fill_rate_pct),
+  }));
+}
+
+export async function getTripProfitability(organizerId: string) {
+  const rows = await prisma.$queryRaw<any[]>`
+    SELECT trip_id, title, destination, start_date, status,
+           booked_value, revenue_received, discounts_given, seats_sold,
+           total_expenses, net_profit, margin_pct
+    FROM v_trip_profitability
+    WHERE organizer_id = ${organizerId}
+    ORDER BY start_date DESC
+  `;
+
+  const trips = rows.map((r) => ({
+    tripId: r.trip_id,
+    title: r.title,
+    destination: r.destination,
+    startDate: r.start_date,
+    status: r.status,
+    bookedValue: toNumber(r.booked_value),
+    revenueReceived: toNumber(r.revenue_received),
+    discountsGiven: toNumber(r.discounts_given),
+    seatsSold: Number(r.seats_sold),
+    totalExpenses: toNumber(r.total_expenses),
+    netProfit: toNumber(r.net_profit),
+    marginPct: toNumber(r.margin_pct),
+  }));
+
+  const totals = trips.reduce(
+    (acc, t) => ({
+      bookedValue: acc.bookedValue + t.bookedValue,
+      revenueReceived: acc.revenueReceived + t.revenueReceived,
+      totalExpenses: acc.totalExpenses + t.totalExpenses,
+      netProfit: acc.netProfit + t.netProfit,
+    }),
+    { bookedValue: 0, revenueReceived: 0, totalExpenses: 0, netProfit: 0 }
+  );
+
+  return { trips, totals };
+}
+
+export async function getCustomerGeography(organizerId: string) {
+  const rows = await prisma.$queryRaw<any[]>`
+    SELECT destination, is_placed, latitude, longitude,
+           customer_count, booking_count, seats, lifetime_spend
+    FROM v_customer_geography
+    WHERE organizer_id = ${organizerId}
+    ORDER BY lifetime_spend DESC
+  `;
+
+  const all = rows.map((r) => ({
+    destination: r.destination,
+    isPlaced: Boolean(r.is_placed),
+    latitude: r.latitude === null ? null : toNumber(r.latitude),
+    longitude: r.longitude === null ? null : toNumber(r.longitude),
+    customerCount: Number(r.customer_count),
+    bookingCount: Number(r.booking_count),
+    seats: Number(r.seats),
+    lifetimeSpend: toNumber(r.lifetime_spend),
+  }));
+
+  const placed = all.filter((r) => r.isPlaced);
+  const unplaced = all.filter((r) => !r.isPlaced);
+
+  const placedSpend = placed.reduce((s, r) => s + r.lifetimeSpend, 0);
+  const unplacedSpend = unplaced.reduce((s, r) => s + r.lifetimeSpend, 0);
+
+  // The gate: placed + unplaced must equal the total exactly. Returned so the
+  // screen can show it rather than the reader having to trust it.
+  return {
+    placed,
+    unplaced,
+    totals: {
+      placedSpend,
+      unplacedSpend,
+      totalLifetimeSpend: placedSpend + unplacedSpend,
+    },
+  };
+}
+
+export async function getMarketingPerformance(organizerId: string) {
+  const rows = await prisma.$queryRaw<any[]>`
+    SELECT source, total_leads, converted_leads, lost_leads, open_leads,
+           conversion_rate_pct
+    FROM v_marketing_performance
+    WHERE organizer_id = ${organizerId}
+    ORDER BY total_leads DESC
+  `;
+
+  const sources = rows.map((r) => ({
+    source: r.source,
+    totalLeads: Number(r.total_leads),
+    convertedLeads: Number(r.converted_leads),
+    lostLeads: Number(r.lost_leads),
+    openLeads: Number(r.open_leads),
+    conversionRatePct: toNumber(r.conversion_rate_pct),
+  }));
+
+  const totalLeads = sources.reduce((s, r) => s + r.totalLeads, 0);
+  const convertedLeads = sources.reduce((s, r) => s + r.convertedLeads, 0);
+
+  return {
+    sources,
+    totals: {
+      totalLeads,
+      convertedLeads,
+      conversionRatePct: totalLeads > 0
+        ? Math.round((convertedLeads / totalLeads) * 10000) / 100
+        : 0,
+    },
+  };
+}
