@@ -4053,3 +4053,109 @@ model CustomerNote {
   @@index([customerId, createdAt])
   @@map("customer_notes")
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Sprint 7 — coupons, and the floor that makes them safe
+//
+// O1 is still unanswered: nobody has given the discount floor as a number. The
+// gate says the floor must be "enforced, not just displayed", and D6 says
+// coupons stack off the original amount — so without a floor, two 50% coupons
+// make a trip free and three 40% ones pay the customer to travel.
+//
+// Rather than wait, or guess a number that is a business decision, the floor is
+// made REQUIRED and the system fails closed: a coupon cannot be applied at all
+// until an organizer has configured one. An unconfigured account sells at full
+// price, which is wrong in the safe direction. Guessing a number would be wrong
+// in the direction that costs money.
+//
+// Setting the number is then a configuration action rather than a code change,
+// which is what O1 always was.
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum DiscountFloorKind {
+  /** Never discount more than this percentage of the original amount. */
+  max_total_percent
+  /** Never let the payable amount fall below this many paise. */
+  min_net_amount
+
+  @@map("discount_floor_kind")
+}
+
+model DiscountFloor {
+  id          String @id @default(uuid())
+  organizerId String @unique @map("organizer_id")
+
+  kind DiscountFloorKind
+
+  /** Percentage, when kind is max_total_percent. */
+  maxTotalPercent Decimal? @map("max_total_percent") @db.Decimal(5, 2)
+  /** Integer paise, when kind is min_net_amount. */
+  minNetPaise     Int?     @map("min_net_paise")
+
+  setBy String?  @map("set_by")
+  setAt DateTime @default(now()) @map("set_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("discount_floors")
+}
+
+enum CouponKind {
+  percent
+  fixed_amount
+
+  @@map("coupon_kind")
+}
+
+model Coupon {
+  id          String @id @default(uuid())
+  organizerId String @map("organizer_id")
+
+  code String
+  kind CouponKind
+
+  /** Percentage off the ORIGINAL amount, per D6 — never off a shrinking base. */
+  percentOff   Decimal? @map("percent_off") @db.Decimal(5, 2)
+  /** Integer paise off, when kind is fixed_amount. */
+  amountOffPaise Int?   @map("amount_off_paise")
+
+  startsAt DateTime  @map("starts_at")
+  endsAt   DateTime? @map("ends_at")
+
+  maxRedemptions Int? @map("max_redemptions")
+  timesRedeemed  Int  @default(0) @map("times_redeemed")
+
+  isPaused Boolean @default(false) @map("is_paused")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  redemptions CouponRedemption[]
+
+  @@unique([organizerId, code])
+  @@index([organizerId])
+  @@map("coupons")
+}
+
+// What was actually taken off, recorded per booking so a reconciliation can
+// tell later why a booking cost what it cost. Stacking is allowed, so a booking
+// may carry several of these.
+model CouponRedemption {
+  id        String @id @default(uuid())
+  couponId  String @map("coupon_id")
+  bookingId String @map("booking_id")
+
+  /** Paise actually deducted by THIS coupon, after the floor was applied. */
+  discountPaise Int @map("discount_paise")
+  /** The amount the percentage was taken off — the original, per D6. */
+  basePaise     Int @map("base_paise")
+
+  redeemedAt DateTime @default(now()) @map("redeemed_at")
+
+  coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+
+  @@unique([couponId, bookingId])
+  @@index([bookingId])
+  @@map("coupon_redemptions")
+}

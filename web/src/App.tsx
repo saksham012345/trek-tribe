@@ -94,6 +94,12 @@ const Reconciliation = React.lazy(() => retryLazyLoad(() => import('./pages/orga
 // Sprint 8 — team, roles, account
 const Team = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/Team')));
 const Leaders = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/Leaders')));
+
+// Sprint 7 — marketing and growth. coupons carries the discount floor, which
+// is what makes any of the codes usable at all.
+const Coupons = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/Coupons')));
+const Banners = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/Banners')));
+const CrmCustomers = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/CrmCustomers')));
 const OrganizerSettings = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/OrganizerSettings')));
 const AnalyticsOverview = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/AnalyticsOverview')));
 
@@ -478,6 +484,32 @@ function AppContent() {
                 element={
                   !user ? <Navigate to="/login" /> :
                     user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><OrganizerSettings /></EmailVerificationGuard> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+
+              {/* Sprint 7 — marketing and growth */}
+              <Route
+                path="/organizer/coupons"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><Coupons /></EmailVerificationGuard> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+              <Route
+                path="/organizer/banners"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><Banners /></EmailVerificationGuard> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+              <Route
+                path="/organizer/customers"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><CrmCustomers /></EmailVerificationGuard> :
                       <Navigate to="/home?error=organizer-required" />
                 }
               />

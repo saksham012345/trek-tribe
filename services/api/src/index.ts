@@ -52,6 +52,7 @@ import analyticsRoutes from './routes/analytics';
 import opsRoutes from './routes/ops';
 import sprint6FinanceRoutes from './routes/finance.sprint6';
 import teamRoutes from './routes/team';
+import marketingRoutes from './routes/marketing';
 import receiptRoutes from './routes/receipts';
 import webhookRoutes from './routes/webhooks';
 import autoPayRoutes from './routes/autoPay';
@@ -378,6 +379,7 @@ app.use('/api/ops', opsRoutes);
 // disjoint.
 app.use('/api/finance', sprint6FinanceRoutes);
 app.use('/api/team', teamRoutes);
+app.use('/api/marketing', marketingRoutes);
 console.log('✅ Analytics routes mounted at /api/analytics');
 
 // Receipt Generation Routes

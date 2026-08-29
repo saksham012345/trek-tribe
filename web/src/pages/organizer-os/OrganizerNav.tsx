@@ -68,8 +68,16 @@ export const ORGANIZER_NAV: Group[] = [
     ],
   },
   {
+    title: 'Marketing',
+    items: [
+      { label: 'Coupons', to: '/organizer/coupons' },
+      { label: 'Banners', to: '/organizer/banners' },
+    ],
+  },
+  {
     title: 'People',
     items: [
+      { label: 'Customers', to: '/organizer/customers' },
       { label: 'Team', to: '/organizer/team' },
       { label: 'Trip leaders', to: '/organizer/leaders' },
       { label: 'CRM', to: '/organizer/crm' },
