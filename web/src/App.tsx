@@ -60,9 +60,11 @@ const CookieSettings = React.lazy(() => retryLazyLoad(() => import('./components
 const PrivacyPolicy = React.lazy(() => retryLazyLoad(() => import('./pages/PrivacyPolicy')));
 const TermsConditions = React.lazy(() => retryLazyLoad(() => import('./pages/TermsConditions')));
 const AIShowcase = React.lazy(() => retryLazyLoad(() => import('./pages/AIShowcase')));
-const OrganizerCRM = React.lazy(() => retryLazyLoad(() => import('./pages/OrganizerCRM')));
-const ProfessionalCRMDashboard = React.lazy(() => retryLazyLoad(() => import('./pages/ProfessionalCRMDashboard')));
-const EnhancedCRMDashboard = React.lazy(() => retryLazyLoad(() => import('./pages/EnhancedCRMDashboard')));
+// D2 — one CRM dashboard, serving both routes. CRMDashboard is the survivor:
+// it is the only one of the three that calls crm/analytics/{lead-sources,
+// payment-status,revenue-per-trip,bookings-over-time}, verified in this repo
+// rather than taken from the decision record. The other two called none of them,
+// so keeping either would have lost those four views.
 const CRMDashboard = React.lazy(() => retryLazyLoad(() => import('./pages/CRMDashboard')));
 const PaymentVerificationDashboard = React.lazy(() => retryLazyLoad(() => import('./pages/PaymentVerificationDashboard')));
 const OrganizerRouteOnboarding = React.lazy(() => retryLazyLoad(() => import('./pages/OrganizerRouteOnboarding')));
@@ -297,7 +299,7 @@ function AppContent() {
                 path="/organizer/crm"
                 element={
                   !user ? <Navigate to="/login" /> :
-                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><ProfessionalCRMDashboard /></EmailVerificationGuard> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><CRMDashboard /></EmailVerificationGuard> :
                       <Navigate to="/home?error=organizer-required" />
                 }
               />
