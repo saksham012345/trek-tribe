@@ -6,6 +6,7 @@ import { upsertRacingSafely } from '../lib/upsert';
 import { toNumber } from '../lib/money';
 import { recordLedgerEntry } from './payoutLedgerService';
 import { logger } from '../utils/logger';
+import { calculatePayoutSplit } from '../modules/finance/payoutSplit';
 
 interface OnboardParams {
   organizerId: string;
@@ -85,12 +86,18 @@ class RazorpayRouteService {
     return !!this.razorpay;
   }
 
-  /** Calculate platform/organizer split */
+  /**
+   * Calculate platform/organizer split.
+   *
+   * The arithmetic moved to modules/finance/payoutSplit so it could be tested.
+   * The sprint gate asks for the remainder to be exact to the paisa on
+   * Rs 1,00,001, and a private method can only be checked by reading it.
+   *
+   * Behaviour is unchanged: payout is still the remainder, so the three parts
+   * still sum to the whole by construction, for every input.
+   */
   private calculateSplit(amount: number, commissionRate: number) {
-    const commissionAmount = Math.round(amount * (commissionRate / 100));
-    const razorpayFeeAmount = Math.round(amount * 0.018); // Approx 1.8% fee
-    const payoutAmount = amount - commissionAmount - razorpayFeeAmount;
-    return { commissionAmount, razorpayFeeAmount, payoutAmount };
+    return calculatePayoutSplit(amount, commissionRate);
   }
 
   async onboardOrganizer(params: OnboardParams) {
