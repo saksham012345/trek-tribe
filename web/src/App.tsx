@@ -100,6 +100,12 @@ const Leaders = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-o
 const Coupons = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/Coupons')));
 const Banners = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/Banners')));
 const CrmCustomers = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/CrmCustomers')));
+
+// Sprint 9 — AI. The harness is built and tested; no provider is configured,
+// so every screen here says so rather than offering a button that spends.
+const AiStudio = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/AiStudio')));
+const AiMarketing = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/AiMarketing')));
+const AiInsights = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/AiInsights')));
 const OrganizerSettings = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/OrganizerSettings')));
 const AnalyticsOverview = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/AnalyticsOverview')));
 
@@ -510,6 +516,32 @@ function AppContent() {
                 element={
                   !user ? <Navigate to="/login" /> :
                     user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><CrmCustomers /></EmailVerificationGuard> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+
+              {/* Sprint 9 — AI */}
+              <Route
+                path="/organizer/ai-studio"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><AiStudio /></EmailVerificationGuard> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+              <Route
+                path="/organizer/ai-marketing"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><AiMarketing /></EmailVerificationGuard> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+              <Route
+                path="/organizer/ai-insights"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><AiInsights /></EmailVerificationGuard> :
                       <Navigate to="/home?error=organizer-required" />
                 }
               />

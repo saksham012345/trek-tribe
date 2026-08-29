@@ -75,6 +75,14 @@ export const ORGANIZER_NAV: Group[] = [
     ],
   },
   {
+    title: 'AI',
+    items: [
+      { label: 'Studio', to: '/organizer/ai-studio' },
+      { label: 'Marketing', to: '/organizer/ai-marketing' },
+      { label: 'Insights', to: '/organizer/ai-insights' },
+    ],
+  },
+  {
     title: 'People',
     items: [
       { label: 'Customers', to: '/organizer/customers' },
