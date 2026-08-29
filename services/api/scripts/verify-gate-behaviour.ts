@@ -308,6 +308,101 @@ async function main() {
         const syncs = await tx.calendarSync.count({ where: { tripId: trip.id } });
         check('three pushes leave one calendar row', syncs === 1, `${syncs} rows`);
 
+        console.log('\n=== Sprint 7: banner state derived from its window ===');
+        const past = await tx.banner.create({
+          data: {
+            organizerId, title: 'Old sale',
+            startsAt: new Date(Date.now() - 86400000 * 10),
+            endsAt: new Date(Date.now() - 86400000 * 2),
+          },
+        });
+        const future = await tx.banner.create({
+          data: {
+            organizerId, title: 'Next sale',
+            startsAt: new Date(Date.now() + 86400000 * 2),
+          },
+        });
+        const live = await tx.banner.create({
+          data: {
+            organizerId, title: 'Running now',
+            startsAt: new Date(Date.now() - 3600000),
+            endsAt: new Date(Date.now() + 86400000),
+          },
+        });
+        const states = await tx.$queryRaw<any[]>`
+          SELECT id, state FROM v_banner_state WHERE organizer_id = ${organizerId}
+        `;
+        const stateOf = (id: string) => states.find((s) => s.id === id)?.state;
+        check('a finished window reads "expired"', stateOf(past.id) === 'expired', String(stateOf(past.id)));
+        check('a future window reads "scheduled"', stateOf(future.id) === 'scheduled', String(stateOf(future.id)));
+        check('a current window reads "live"', stateOf(live.id) === 'live', String(stateOf(live.id)));
+
+        await refuses(tx, 'a banner ending before it starts is refused', () =>
+          tx.banner.create({
+            data: {
+              organizerId, title: 'Backwards',
+              startsAt: new Date(Date.now() + 86400000),
+              endsAt: new Date(Date.now()),
+            },
+          })
+        );
+
+        console.log('\n=== Sprint 7: review requests are idempotent ===');
+        for (let i = 0; i < 3; i++) {
+          await tx.reviewRequest.upsert({
+            where: { bookingId: booking.id },
+            create: { organizerId, bookingId: booking.id, tripId: trip.id },
+            update: { reminderCount: { increment: 1 }, remindedAt: new Date() },
+          });
+        }
+        const requests = await tx.reviewRequest.count({ where: { bookingId: booking.id } });
+        check('asking three times leaves one review request', requests === 1, `${requests} rows`);
+        await refuses(tx, 'a second request for the same booking is refused', () =>
+          tx.reviewRequest.create({
+            data: { organizerId, bookingId: booking.id, tripId: trip.id },
+          })
+        );
+        await refuses(tx, 'a response without a review id is refused', () =>
+          tx.$executeRaw`
+            UPDATE review_requests SET responded_at = NOW() WHERE booking_id = ${booking.id}
+          `
+        );
+
+        console.log('\n=== Sprint 7: notes are append-only ===');
+        const note = await tx.customerNote.create({
+          data: { organizerId, bookingId: booking.id, body: 'Called, no answer', authorId: organizerId },
+        });
+        await tx.customerNote.create({
+          data: { organizerId, bookingId: booking.id, body: 'Called again, spoke', authorId: organizerId },
+        });
+        const reread = await tx.customerNote.findUnique({ where: { id: note.id } });
+        check(
+          'adding a note leaves the earlier one byte-identical',
+          reread?.body === 'Called, no answer' &&
+            reread?.createdAt.getTime() === note.createdAt.getTime()
+        );
+        await refuses(tx, 'updating a note is refused by the database itself', () =>
+          tx.$executeRaw`UPDATE customer_notes SET body = 'rewritten' WHERE id = ${note.id}`
+        );
+        await refuses(tx, 'deleting a note is refused by the database itself', () =>
+          tx.$executeRaw`DELETE FROM customer_notes WHERE id = ${note.id}`
+        );
+        await refuses(tx, 'a note with no subject is refused', () =>
+          tx.customerNote.create({ data: { organizerId, body: 'orphan', authorId: organizerId } })
+        );
+
+        console.log('\n=== Sprint 7: CRM list is derived from bookings ===');
+        // main_booker_id here is a made-up id with no users row, which is
+        // exactly the gate: a customer with no profile must still appear.
+        const crm = await tx.$queryRaw<any[]>`
+          SELECT customer_id, profile_missing, bookings, seats, lifetime_spend
+          FROM v_crm_customers WHERE organizer_id = ${organizerId}
+        `;
+        const row = crm.find((c) => c.customer_id === booker);
+        check('a customer with no profile row still appears', Boolean(row));
+        check('and is flagged as having no profile', row?.profile_missing === true);
+        check('with seats counted from the booking', Number(row?.seats) === 3, `seats=${row?.seats}`);
+
         throw new Rollback();
       },
       { timeout: 120000 }

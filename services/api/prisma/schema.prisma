@@ -3920,3 +3920,136 @@ model CalendarSync {
   @@unique([tripId, provider])
   @@map("calendar_syncs")
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Sprint 7 — marketing and growth, minus anything that needs the discount floor
+//
+// coupons and discount_rules are absent. O1 asks for the floor as a number and
+// the gate says it must be "enforced, not just displayed" - so the enforcement
+// cannot be written before the number exists, and a coupon table without it
+// would be the uncapped stacking the plan already warns about, sitting in the
+// schema waiting to be used.
+//
+// Everything here carries its own gate condition and none of them touch price.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Banner status is derived from its window, never stored. The gate says so, and
+// the reason is that a stored 'active' flag is wrong at exactly the moment it
+// matters - the minute the window closes, with nothing watching. Two dates and
+// a derivation cannot drift.
+model Banner {
+  id          String @id @default(uuid())
+  organizerId String @map("organizer_id")
+
+  title       String
+  bodyText    String? @map("body_text")
+  imageUrl    String? @map("image_url")
+  linkUrl     String? @map("link_url")
+  placement   String  @default("home")
+
+  startsAt DateTime  @map("starts_at")
+  endsAt   DateTime? @map("ends_at")
+
+  // Paused is a decision someone made; expired is arithmetic. Only the
+  // decision is stored.
+  isPaused Boolean @default(false) @map("is_paused")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([organizerId, startsAt])
+  @@map("banners")
+}
+
+model Campaign {
+  id          String @id @default(uuid())
+  organizerId String @map("organizer_id")
+
+  name    String
+  channel String
+  subject String?
+  body    String?
+
+  scheduledFor DateTime? @map("scheduled_for")
+  sentAt       DateTime? @map("sent_at")
+  recipients   Int       @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([organizerId])
+  @@map("campaigns")
+}
+
+model Referral {
+  id          String @id @default(uuid())
+  organizerId String @map("organizer_id")
+
+  code        String  @unique
+  referrerId  String  @map("referrer_id")
+  referredId  String? @map("referred_id")
+
+  bookingId  String?   @map("booking_id")
+  rewardedAt DateTime? @map("rewarded_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([organizerId])
+  @@index([referrerId])
+  @@map("referrals")
+}
+
+// A review request is sent once per booking and matched back when the review
+// arrives. The gate is "matches reviews back and is idempotent" - so the unique
+// key is the booking, and asking twice updates the one row rather than sending
+// a second email to somebody who already got one.
+model ReviewRequest {
+  id          String @id @default(uuid())
+  organizerId String @map("organizer_id")
+  bookingId   String @unique @map("booking_id")
+  tripId      String @map("trip_id")
+
+  sentAt      DateTime  @default(now()) @map("sent_at")
+  remindedAt  DateTime? @map("reminded_at")
+  reminderCount Int     @default(0) @map("reminder_count")
+
+  // Filled when the review lands. Null means still waiting, and that is the
+  // whole state - there is no 'pending'/'complete' column to disagree with it.
+  reviewId    String?   @unique @map("review_id")
+  respondedAt DateTime? @map("responded_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([organizerId])
+  @@index([tripId])
+  @@map("review_requests")
+}
+
+// Notes are append-only. The gate: adding one leaves earlier ones
+// byte-identical. There is no update path in the service and no updated_at
+// column here - a note carries the words someone wrote at a moment, and an
+// editable note is a different thing that should be called something else.
+//
+// A correction is a new note, which is also how the trail stays honest when
+// somebody wants an earlier one to have said something different.
+model CustomerNote {
+  id          String @id @default(uuid())
+  organizerId String @map("organizer_id")
+
+  // Exactly one subject, enforced by a CHECK in the migration - the same shape
+  // as ops_documents in Sprint 5, for the same reason.
+  leadId     String? @map("lead_id")
+  bookingId  String? @map("booking_id")
+  customerId String? @map("customer_id")
+
+  body      String
+  authorId  String   @map("author_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([leadId, createdAt])
+  @@index([bookingId, createdAt])
+  @@index([customerId, createdAt])
+  @@map("customer_notes")
+}
