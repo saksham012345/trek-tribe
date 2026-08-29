@@ -83,6 +83,12 @@ const OpsConsole = React.lazy(() => retryLazyLoad(() => import('./pages/organize
 const OpsDocuments = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/OpsDocuments')));
 const Certifications = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/Certifications')));
 
+// Sprint 6 — the money screens that carry no GST. invoices and gst-profile are
+// not here: they are blocked on the sprint's entry gate (O2, O3, Rule 46).
+const Payouts = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/Payouts')));
+const CashFlow = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/CashFlow')));
+const Reconciliation = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/Reconciliation')));
+
 const MarketplaceCheckout = React.lazy(() => retryLazyLoad(() => import('./pages/MarketplaceCheckout')));
 const JoinTheTribe = React.lazy(() => retryLazyLoad(() => import('./pages/JoinTheTribe')));
 const Subscribe = React.lazy(() => retryLazyLoad(() => import('./pages/Subscribe')));
@@ -406,6 +412,32 @@ function AppContent() {
                 element={
                   !user ? <Navigate to="/login" /> :
                     user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><Certifications /></EmailVerificationGuard> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+
+              {/* Sprint 6 — money, minus anything touching GST. */}
+              <Route
+                path="/organizer/payouts"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><Payouts /></EmailVerificationGuard> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+              <Route
+                path="/organizer/cash-flow"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><CashFlow /></EmailVerificationGuard> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+              <Route
+                path="/organizer/reconciliation"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><Reconciliation /></EmailVerificationGuard> :
                       <Navigate to="/home?error=organizer-required" />
                 }
               />

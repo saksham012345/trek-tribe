@@ -50,6 +50,7 @@ import notificationRoutes from './routes/notifications';
 import subscriptionRoutes from './routes/subscriptions';
 import analyticsRoutes from './routes/analytics';
 import opsRoutes from './routes/ops';
+import sprint6FinanceRoutes from './routes/finance.sprint6';
 import receiptRoutes from './routes/receipts';
 import webhookRoutes from './routes/webhooks';
 import autoPayRoutes from './routes/autoPay';
@@ -367,6 +368,14 @@ console.log('✅ Custom Trip routes mounted at /api/custom-trips');
 // Analytics Routes
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/ops', opsRoutes);
+// Two routers share /api/finance, and the split is deliberate rather than an
+// accident of history: routes/finance.ts is organizer-only (it rejects admins)
+// and covers trip finance; finance.sprint6 is organizer-and-admin and covers
+// organizer-level money. Paths do not overlap - /overview, /trips/:tripId and
+// /expenses against /reconciliation, /cash-flow and /payout-readiness - but
+// this one is registered first, so anything added to it wins. Keep the two sets
+// disjoint.
+app.use('/api/finance', sprint6FinanceRoutes);
 console.log('✅ Analytics routes mounted at /api/analytics');
 
 // Receipt Generation Routes
