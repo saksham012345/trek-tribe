@@ -71,7 +71,11 @@ export const ORGANIZER_NAV: Group[] = [
     title: 'Marketing',
     items: [
       { label: 'Coupons', to: '/organizer/coupons' },
+      { label: 'Discount rules', to: '/organizer/discount-rules' },
+      { label: 'Campaigns', to: '/organizer/campaigns' },
       { label: 'Banners', to: '/organizer/banners' },
+      { label: 'Referrals', to: '/organizer/referrals' },
+      { label: 'Review requests', to: '/organizer/review-requests' },
     ],
   },
   {
