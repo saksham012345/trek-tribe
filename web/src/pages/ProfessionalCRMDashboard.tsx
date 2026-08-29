@@ -3,6 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../config/api';
 import { useToast, ToastContainer } from '../components/Toast';
+import {
+  Sparkles, Eye, Users, Star, CheckCircle2, Target, RotateCw, ClipboardList,
+  Filter, LayoutDashboard, TrendingUp, BarChart3, ArrowRight, XCircle, MessageCircleMore,
+  type LucideIcon
+} from 'lucide-react';
 
 interface Lead {
   _id: string;
@@ -264,15 +269,15 @@ const ProfessionalCRMDashboard: React.FC = () => {
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
 
-  const getStatusIcon = (status: string) => {
-    const icons: Record<string, string> = {
-      new: '⭐',
-      contacted: '📞',
-      interested: '💭',
-      qualified: '✅',
-      lost: '❌',
+  const getStatusIcon = (status: string): LucideIcon => {
+    const icons: Record<string, LucideIcon> = {
+      new: Star,
+      contacted: MessageCircleMore,
+      interested: MessageCircleMore,
+      qualified: CheckCircle2,
+      lost: XCircle,
     };
-    return icons[status] || '•';
+    return icons[status] || Target;
   };
 
   if (loading) {
@@ -327,7 +332,7 @@ const ProfessionalCRMDashboard: React.FC = () => {
           <div className="mb-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl p-6 shadow-xl">
             <div className="flex items-start justify-between">
               <div>
-                <h2 className="text-2xl font-bold mb-2">✨ CRM Preview Mode</h2>
+                <h2 className="text-2xl font-bold mb-2 flex items-center gap-2"><Sparkles size={24} strokeWidth={2} />CRM Preview Mode</h2>
                 <p className="text-blue-100 mb-4">
                   You're viewing a sample CRM dashboard. Upgrade to Premium or Enterprise to unlock live data, real-time updates, and advanced analytics.
                 </p>
@@ -339,7 +344,7 @@ const ProfessionalCRMDashboard: React.FC = () => {
                 </button>
               </div>
               <div className="text-right">
-                <div className="text-4xl mb-2">👁️</div>
+                <Eye size={40} strokeWidth={1.75} className="mx-auto mb-2" />
                 <p className="text-xs text-blue-100">Preview Only</p>
               </div>
             </div>
@@ -348,14 +353,14 @@ const ProfessionalCRMDashboard: React.FC = () => {
           {/* Sample Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {[
-              { title: 'Total Leads', value: sampleCRMData.stats.totalLeads, icon: '👥', color: 'from-blue-500 to-blue-600' },
-              { title: 'New Leads', value: sampleCRMData.stats.newLeads, icon: '⭐', color: 'from-purple-500 to-purple-600' },
-              { title: 'Qualified', value: sampleCRMData.stats.qualifiedLeads, icon: '✅', color: 'from-green-500 to-green-600' },
-              { title: 'Conversion Rate', value: `${sampleCRMData.stats.conversionRate}%`, icon: '🎯', color: 'from-orange-500 to-orange-600' },
+              { title: 'Total Leads', value: sampleCRMData.stats.totalLeads, Icon: Users, color: 'from-blue-500 to-blue-600' },
+              { title: 'New Leads', value: sampleCRMData.stats.newLeads, Icon: Star, color: 'from-purple-500 to-purple-600' },
+              { title: 'Qualified', value: sampleCRMData.stats.qualifiedLeads, Icon: CheckCircle2, color: 'from-green-500 to-green-600' },
+              { title: 'Conversion Rate', value: `${sampleCRMData.stats.conversionRate}%`, Icon: Target, color: 'from-orange-500 to-orange-600' },
             ].map((card, idx) => (
               <div key={idx} className={`bg-gradient-to-br ${card.color} rounded-xl p-6 text-white shadow-lg`}>
                 <div className="flex justify-between items-start mb-4">
-                  <span className="text-3xl">{card.icon}</span>
+                  <card.Icon size={30} strokeWidth={1.75} />
                   <span className="text-xs bg-white bg-opacity-20 px-2 py-1 rounded-full">Sample</span>
                 </div>
                 <p className="text-sm opacity-90">{card.title}</p>
@@ -365,7 +370,7 @@ const ProfessionalCRMDashboard: React.FC = () => {
           </div>
 
           {/* Sample Leads Table */}
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+          <div className="glass-card p-6 mb-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold text-slate-900">Sample Leads (Preview)</h3>
               <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-semibold">Preview Mode</span>
@@ -392,8 +397,8 @@ const ProfessionalCRMDashboard: React.FC = () => {
                         <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">{lead.tripName}</span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`px-3 py-2 rounded-lg font-medium ${getStatusColor(lead.status)}`}>
-                          {getStatusIcon(lead.status)} {lead.status}
+                        <span className={`px-3 py-2 rounded-lg font-medium inline-flex items-center gap-1.5 ${getStatusColor(lead.status)}`}>
+                          {(() => { const StIcon = getStatusIcon(lead.status); return <StIcon size={14} strokeWidth={2.25} />; })()} {lead.status}
                         </span>
                       </td>
                     </tr>
@@ -405,14 +410,14 @@ const ProfessionalCRMDashboard: React.FC = () => {
               <p className="text-sm text-blue-800">
                 <strong>Unlock Premium Features:</strong> Get real-time lead tracking, conversion analytics, automated follow-ups, and priority support. 
                 <button onClick={() => navigate('/subscribe')} className="ml-2 text-blue-600 font-semibold hover:underline">
-                  Upgrade Now →
+                  <span className="inline-flex items-center gap-1">Upgrade Now<ArrowRight size={14} strokeWidth={2.25} /></span>
                 </button>
               </p>
             </div>
           </div>
 
           {/* Sample Analytics */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="glass-card p-6">
             <h3 className="text-xl font-bold text-slate-900 mb-4">Sample Analytics (Preview)</h3>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-xl p-6 border-2 border-dashed border-slate-300">
@@ -480,7 +485,7 @@ const ProfessionalCRMDashboard: React.FC = () => {
                 onClick={() => navigate('/my-profile')}
                 className="text-yellow-700 hover:text-yellow-900 font-semibold text-xs whitespace-nowrap ml-4"
               >
-                Complete →
+                <span className="inline-flex items-center gap-1">Complete<ArrowRight size={12} strokeWidth={2.25} /></span>
               </button>
             </div>
           </div>
@@ -503,28 +508,29 @@ const ProfessionalCRMDashboard: React.FC = () => {
                 onClick={() => { fetchLeads(); fetchStats(); setLastRefresh(new Date()); }}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition"
               >
-                ↻ Refresh
+                <span className="inline-flex items-center gap-1.5"><RotateCw size={14} strokeWidth={2.25} />Refresh</span>
               </button>
             </div>
           </div>
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex gap-2 mb-6 border-b border-slate-200 bg-white rounded-t-xl">
+        <div className="flex gap-2 mb-6 border-b border-slate-200 glass-panel !rounded-t-glass !rounded-b-none">
           {[
-            { id: 'dashboard', label: '📊 Dashboard', icon: 'dashboard' },
-            { id: 'leads', label: '👥 Leads', icon: 'leads', badge: leads.length },
-            { id: 'analytics', label: '📈 Analytics', icon: 'analytics' },
+            { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
+            { id: 'leads', label: 'Leads', Icon: Users, badge: leads.length },
+            { id: 'analytics', label: 'Analytics', Icon: TrendingUp },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`px-6 py-3 font-semibold transition-colors flex items-center gap-2 ${
+              className={`px-6 py-3 font-semibold transition-all duration-300 ease-spring flex items-center gap-2 ${
                 activeTab === tab.id
-                  ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                  ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/60'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
+              <tab.Icon size={16} strokeWidth={2} />
               {tab.label}
               {tab.badge && <span className="bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center">{tab.badge}</span>}
             </button>
@@ -537,14 +543,14 @@ const ProfessionalCRMDashboard: React.FC = () => {
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {[
-                { title: 'Total Leads', value: stats?.totalLeads || 0, icon: '👥', color: 'from-blue-500 to-blue-600', trend: '+12%' },
-                { title: 'New Leads', value: stats?.newLeads || 0, icon: '⭐', color: 'from-purple-500 to-purple-600', trend: '+5%' },
-                { title: 'Qualified', value: stats?.qualifiedLeads || 0, icon: '✅', color: 'from-green-500 to-green-600', trend: '+8%' },
-                { title: 'Conversion Rate', value: `${conversionRate.toFixed(1)}%`, icon: '🎯', color: 'from-orange-500 to-orange-600', trend: '+2%' },
+                { title: 'Total Leads', value: stats?.totalLeads || 0, Icon: Users, color: 'from-blue-500 to-blue-600', trend: '+12%' },
+                { title: 'New Leads', value: stats?.newLeads || 0, Icon: Star, color: 'from-purple-500 to-purple-600', trend: '+5%' },
+                { title: 'Qualified', value: stats?.qualifiedLeads || 0, Icon: CheckCircle2, color: 'from-green-500 to-green-600', trend: '+8%' },
+                { title: 'Conversion Rate', value: `${conversionRate.toFixed(1)}%`, Icon: Target, color: 'from-orange-500 to-orange-600', trend: '+2%' },
               ].map((card, idx) => (
-                <div key={idx} className={`bg-gradient-to-br ${card.color} rounded-xl p-6 text-white shadow-lg transform hover:scale-105 transition-transform`}>
+                <div key={idx} className={`bg-gradient-to-br ${card.color} rounded-xl p-6 text-white shadow-elevation-2 transform hover:scale-105 hover:shadow-elevation-4 transition-all duration-300 ease-spring`}>
                   <div className="flex justify-between items-start mb-4">
-                    <span className="text-3xl">{card.icon}</span>
+                    <card.Icon size={30} strokeWidth={1.75} />
                     <span className="text-xs bg-white bg-opacity-20 px-2 py-1 rounded-full">{card.trend}</span>
                   </div>
                   <p className="text-sm opacity-90">{card.title}</p>
@@ -556,15 +562,15 @@ const ProfessionalCRMDashboard: React.FC = () => {
             {/* Left Sidebar: Recent Activity | Right: Funnel */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Recent Activity */}
-              <div className="lg:col-span-1 bg-white rounded-xl shadow-lg p-6">
-                <h3 className="text-lg font-bold text-slate-900 mb-4">📋 Recent Activity</h3>
+              <div className="lg:col-span-1 glass-card p-6">
+                <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2"><ClipboardList size={20} strokeWidth={2} />Recent Activity</h3>
                 <div className="space-y-3">
                   {activities.length === 0 ? (
                     <p className="text-slate-500 text-sm">No recent activity</p>
                   ) : (
                     activities.slice(0, 5).map((activity, idx) => (
                       <div key={idx} className="flex gap-3 pb-3 border-b border-slate-100 last:border-b-0">
-                        <span className="text-xl flex-shrink-0">{getStatusIcon(activity.type)}</span>
+                        {(() => { const ActIcon = getStatusIcon(activity.type); return <ActIcon size={18} strokeWidth={2} className="flex-shrink-0 text-slate-500 mt-0.5" />; })()}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-slate-900 truncate">{activity.leadName}</p>
                           <p className="text-xs text-slate-500">{activity.details}</p>
@@ -577,8 +583,8 @@ const ProfessionalCRMDashboard: React.FC = () => {
               </div>
 
               {/* Conversion Funnel */}
-              <div className="lg:col-span-2 bg-white rounded-xl shadow-lg p-6">
-                <h3 className="text-lg font-bold text-slate-900 mb-4">🔄 Conversion Funnel</h3>
+              <div className="lg:col-span-2 glass-card p-6">
+                <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2"><Filter size={20} strokeWidth={2} />Conversion Funnel</h3>
                 {stats ? (
                   <div className="space-y-4">
                     {[
@@ -610,17 +616,17 @@ const ProfessionalCRMDashboard: React.FC = () => {
 
             {/* Quick Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="glass-card p-6">
                 <p className="text-slate-600 text-sm font-medium mb-2">Pipeline Value</p>
                 <p className="text-3xl font-bold text-slate-900">{pipelineValue}</p>
                 <p className="text-xs text-slate-500 mt-2">Total leads in pipeline</p>
               </div>
-              <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="glass-card p-6">
                 <p className="text-slate-600 text-sm font-medium mb-2">Lost Deals</p>
                 <p className="text-3xl font-bold text-red-600">{stats?.lostLeads || 0}</p>
                 <p className="text-xs text-slate-500 mt-2">Needs follow-up</p>
               </div>
-              <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="glass-card p-6">
                 <p className="text-slate-600 text-sm font-medium mb-2">Verified Leads</p>
                 <p className="text-3xl font-bold text-green-600">{leads.filter(l => l.verified).length}</p>
                 <p className="text-xs text-slate-500 mt-2">Ready to convert</p>
@@ -631,7 +637,7 @@ const ProfessionalCRMDashboard: React.FC = () => {
 
         {/* Leads Tab */}
         {activeTab === 'leads' && (
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="glass-card p-6">
             {/* Search & Filter */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
               <div className="md:col-span-2">
@@ -710,7 +716,7 @@ const ProfessionalCRMDashboard: React.FC = () => {
                         </td>
                         <td className="px-6 py-4">
                           {lead.verified ? (
-                            <span className="text-green-600 font-semibold">✅ Verified</span>
+                            <span className="text-green-600 font-semibold inline-flex items-center gap-1"><CheckCircle2 size={16} strokeWidth={2.25} />Verified</span>
                           ) : (
                             <button
                               onClick={() => verifyLead(lead._id)}
@@ -743,8 +749,8 @@ const ProfessionalCRMDashboard: React.FC = () => {
 
         {/* Analytics Tab */}
         {activeTab === 'analytics' && (
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h3 className="text-2xl font-bold text-slate-900 mb-6">📊 Analytics Overview</h3>
+          <div className="glass-card p-6">
+            <h3 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-2"><BarChart3 size={24} strokeWidth={2} />Analytics Overview</h3>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Lead Distribution Chart Placeholder */}
               <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-xl p-8 border-2 border-dashed border-slate-300">
@@ -792,7 +798,7 @@ const ProfessionalCRMDashboard: React.FC = () => {
       {/* Lead Details Modal */}
       {showModal && selectedLead && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+          <div className="glass-panel !rounded-glass shadow-elevation-4 max-w-md w-full p-6">
             <h3 className="text-2xl font-bold text-slate-900 mb-4">{selectedLead.name}</h3>
             <div className="space-y-4 mb-6">
               <div>

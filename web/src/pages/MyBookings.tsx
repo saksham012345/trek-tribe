@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import {
+  CheckCircle2, XCircle, Clock, Upload, PartyPopper, AlertTriangle, Backpack, Mountain,
+  MapPin, Calendar, Users, Wallet, Package, ClipboardList, RefreshCw, UserCircle
+} from 'lucide-react';
 import api from '../config/api';
 import PaymentUpload from '../components/PaymentUpload';
 import BookingDetailsModal from '../components/BookingDetailsModal';
+import { GlassCard, GlassPanel } from '../components/ui/Glass';
 
 interface Booking {
   bookingId: string;
@@ -59,8 +64,8 @@ const MyBookings: React.FC = () => {
   const getStatusBadge = (booking: Booking) => {
     if (booking.bookingStatus === 'confirmed') {
       return (
-        <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-          ✅ Confirmed
+        <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium flex items-center gap-1.5">
+          <CheckCircle2 size={14} strokeWidth={2} /> Confirmed
         </span>
       );
     }
@@ -68,26 +73,26 @@ const MyBookings: React.FC = () => {
     if (booking.bookingStatus === 'pending') {
       if (booking.paymentVerificationStatus === 'verified') {
         return (
-          <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-            ✅ Payment Verified
+          <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium flex items-center gap-1.5">
+            <CheckCircle2 size={14} strokeWidth={2} /> Payment Verified
           </span>
         );
       } else if (booking.paymentVerificationStatus === 'rejected') {
         return (
-          <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium">
-            ❌ Payment Rejected
+          <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium flex items-center gap-1.5">
+            <XCircle size={14} strokeWidth={2} /> Payment Rejected
           </span>
         );
       } else if (booking.paymentScreenshotUploaded) {
         return (
-          <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-            ⏳ Awaiting Verification
+          <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium flex items-center gap-1.5">
+            <Clock size={14} strokeWidth={2} /> Awaiting Verification
           </span>
         );
       } else {
         return (
-          <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">
-            📤 {booking.paymentType === 'advance' ? 'Upload Advance Payment Required' : 'Upload Payment Required'}
+          <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium flex items-center gap-1.5">
+            <Upload size={14} strokeWidth={2} /> {booking.paymentType === 'advance' ? 'Upload Advance Payment Required' : 'Upload Payment Required'}
           </span>
         );
       }
@@ -95,16 +100,16 @@ const MyBookings: React.FC = () => {
     
     if (booking.bookingStatus === 'cancelled') {
       return (
-        <span className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm font-medium">
-          ❌ Cancelled
+        <span className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm font-medium flex items-center gap-1.5">
+          <XCircle size={14} strokeWidth={2} /> Cancelled
         </span>
       );
     }
     
     if (booking.bookingStatus === 'completed') {
       return (
-        <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-          🎉 Completed
+        <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium flex items-center gap-1.5">
+          <PartyPopper size={14} strokeWidth={2} /> Completed
         </span>
       );
     }
@@ -145,15 +150,15 @@ const MyBookings: React.FC = () => {
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6 flex items-center gap-2">
-            <span className="text-xl">⚠️</span>
+          <GlassPanel className="!bg-red-50/80 border-red-200/60 text-red-700 px-4 py-3 rounded-glass-sm mb-6 flex items-center gap-2">
+            <AlertTriangle size={20} strokeWidth={2} />
             <span>{error}</span>
-          </div>
+          </GlassPanel>
         )}
 
         {bookings.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
-            <div className="text-6xl mb-4">🎒</div>
+          <GlassPanel className="rounded-glass p-8 text-center">
+            <Backpack size={56} strokeWidth={1.5} className="mx-auto mb-4 text-forest-300" />
             <h2 className="text-2xl font-semibold text-forest-800 mb-2">No Bookings Yet</h2>
             <p className="text-forest-600 mb-6">
               You haven't booked any trips yet. Start exploring amazing adventures!
@@ -164,11 +169,11 @@ const MyBookings: React.FC = () => {
             >
               Explore Trips
             </a>
-          </div>
+          </GlassPanel>
         ) : (
           <div className="grid gap-6">
             {bookings?.map((booking) => (
-              <div key={booking.bookingId} className="bg-white rounded-2xl shadow-lg overflow-hidden">
+              <GlassCard key={booking.bookingId} className="overflow-hidden p-0">
                 <div className="flex flex-col md:flex-row">
                   {/* Trip Image */}
                   <div className="md:w-64 h-48 md:h-auto">
@@ -180,7 +185,7 @@ const MyBookings: React.FC = () => {
                       />
                     ) : (
                       <div className="w-full h-full bg-gradient-to-br from-forest-200 to-nature-200 flex items-center justify-center">
-                        <span className="text-4xl">🏔️</span>
+                        <Mountain size={40} strokeWidth={1.75} className="text-forest-500" />
                       </div>
                     )}
                   </div>
@@ -192,9 +197,9 @@ const MyBookings: React.FC = () => {
                         <h3 className="text-xl font-bold text-forest-800 mb-1">
                           {booking.tripTitle}
                         </h3>
-                        <p className="text-forest-600 mb-2">📍 {booking.destination}</p>
-                        <p className="text-sm text-gray-600">
-                          📅 {new Date(booking.startDate).toLocaleDateString()} - {new Date(booking.endDate).toLocaleDateString()}
+                        <p className="text-forest-600 mb-2 flex items-center gap-1.5"><MapPin size={15} strokeWidth={2} /> {booking.destination}</p>
+                        <p className="text-sm text-gray-600 flex items-center gap-1.5">
+                          <Calendar size={14} strokeWidth={2} /> {new Date(booking.startDate).toLocaleDateString()} - {new Date(booking.endDate).toLocaleDateString()}
                         </p>
                       </div>
                       {getStatusBadge(booking)}
@@ -202,11 +207,11 @@ const MyBookings: React.FC = () => {
 
                     <div className="grid md:grid-cols-2 gap-4 mb-4">
                       <div>
-                        <p className="text-sm text-gray-600">👥 Travelers</p>
+                        <p className="text-sm text-gray-600 flex items-center gap-1.5"><Users size={14} strokeWidth={2} /> Travelers</p>
                         <p className="font-semibold text-forest-800">{booking.numberOfGuests}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-600">💰 Total Amount</p>
+                        <p className="text-sm text-gray-600 flex items-center gap-1.5"><Wallet size={14} strokeWidth={2} /> Total Amount</p>
                         <p className="font-semibold text-nature-600 text-lg">₹{booking.totalAmount.toLocaleString()}</p>
                         {booking.paymentType === 'advance' && booking.advanceAmount && (
                           <div className="text-xs text-gray-600 mt-1">
@@ -216,18 +221,18 @@ const MyBookings: React.FC = () => {
                         )}
                       </div>
                       <div>
-                        <p className="text-sm text-gray-600">📦 Package</p>
+                        <p className="text-sm text-gray-600 flex items-center gap-1.5"><Package size={14} strokeWidth={2} /> Package</p>
                         <p className="font-semibold text-forest-800">{booking.selectedPackage || 'Standard'}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-600">🗺️ Booked On</p>
+                        <p className="text-sm text-gray-600 flex items-center gap-1.5"><Calendar size={14} strokeWidth={2} /> Booked On</p>
                         <p className="font-semibold text-forest-800">{new Date(booking.createdAt).toLocaleDateString()}</p>
                       </div>
                     </div>
 
                     {/* Organizer Info */}
-                    <div className="bg-forest-50 rounded-lg p-3 mb-4">
-                      <p className="text-sm text-gray-600 mb-1">👨‍💼 Trip Organizer</p>
+                    <div className="bg-forest-50/80 rounded-lg p-3 mb-4">
+                      <p className="text-sm text-gray-600 mb-1 flex items-center gap-1.5"><UserCircle size={14} strokeWidth={2} /> Trip Organizer</p>
                       <p className="font-semibold text-forest-800">{booking.organizer.name}</p>
                       <p className="text-sm text-forest-600">{booking.organizer.phone}</p>
                     </div>
@@ -238,7 +243,7 @@ const MyBookings: React.FC = () => {
                         onClick={() => setSelectedBookingForDetails(booking)}
                         className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 font-medium flex-1 min-w-[120px]"
                       >
-                        📋 View Details
+                        <span className="inline-flex items-center gap-1.5"><ClipboardList size={16} strokeWidth={2} /> View Details</span>
                       </button>
                       
                       {canUploadPayment(booking) && (
@@ -246,13 +251,13 @@ const MyBookings: React.FC = () => {
                           onClick={() => setSelectedBookingForPayment(booking)}
                           className="px-4 py-2 bg-gradient-to-r from-nature-600 to-forest-600 text-white rounded-lg hover:from-nature-700 hover:to-forest-700 transition-all duration-300 font-medium flex-1 min-w-[120px]"
                         >
-                          📤 {booking.paymentType === 'advance' ? 'Upload Advance Payment' : 'Upload Payment'}
+                          <span className="inline-flex items-center gap-1.5"><Upload size={16} strokeWidth={2} /> {booking.paymentType === 'advance' ? 'Upload Advance Payment' : 'Upload Payment'}</span>
                         </button>
                       )}
                       
                       {booking.bookingStatus === 'pending' && booking.paymentScreenshotUploaded && (
-                        <div className="px-4 py-2 bg-blue-50 text-blue-800 rounded-lg text-center font-medium flex-1 min-w-[120px]">
-                          ⏳ Payment Under Review
+                        <div className="px-4 py-2 bg-blue-50 text-blue-800 rounded-lg text-center font-medium flex-1 min-w-[120px] flex items-center justify-center gap-1.5">
+                          <Clock size={16} strokeWidth={2} /> Payment Under Review
                         </div>
                       )}
                       
@@ -261,7 +266,7 @@ const MyBookings: React.FC = () => {
                           onClick={() => setSelectedBookingForPayment(booking)}
                           className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex-1 min-w-[120px]"
                         >
-                          🔄 Re-upload Payment
+                          <span className="inline-flex items-center gap-1.5"><RefreshCw size={16} strokeWidth={2} /> Re-upload Payment</span>
                         </button>
                       )}
                       
@@ -276,14 +281,14 @@ const MyBookings: React.FC = () => {
                     {/* Payment Rejection Notice */}
                     {booking.paymentVerificationStatus === 'rejected' && (
                       <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                        <p className="text-sm text-red-800">
-                          ❌ Your payment was rejected. Please upload a clear payment screenshot to proceed.
+                        <p className="text-sm text-red-800 flex items-start gap-1.5">
+                          <XCircle size={15} strokeWidth={2} className="mt-0.5 flex-shrink-0" /> Your payment was rejected. Please upload a clear payment screenshot to proceed.
                         </p>
                       </div>
                     )}
                   </div>
                 </div>
-              </div>
+              </GlassCard>
             ))}
           </div>
         )}

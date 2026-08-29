@@ -177,7 +177,7 @@ const CompleteProfile: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-forest-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden">
+      <div className="max-w-md w-full glass-panel rounded-glass overflow-hidden">
         <div className="bg-forest-900 p-6 text-center">
           <h2 className="text-2xl font-bold text-white mb-2">Complete Your Profile</h2>
           <p className="text-forest-200 text-sm">
@@ -213,7 +213,7 @@ const CompleteProfile: React.FC = () => {
                     value={username}
                     onChange={handleUsernameChange}
                     placeholder="explorer-jane"
-                    className={`block w-full pl-10 pr-10 py-3 border rounded-xl focus:ring-forest-500 focus:border-forest-500 transition-colors ${usernameAvailable === true ? 'border-green-500' :
+                    className={`block w-full pl-10 pr-10 py-3 border rounded-glass-sm focus:ring-forest-500 focus:border-forest-500 focus-visible:shadow-glow-forest transition-all duration-300 ease-spring ${usernameAvailable === true ? 'border-green-500' :
                       usernameAvailable === false ? 'border-red-500' : 'border-gray-300'
                       }`}
                     required
@@ -237,7 +237,7 @@ const CompleteProfile: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading || !usernameAvailable}
-                className="w-full flex items-center justify-center gap-2 bg-forest-600 hover:bg-forest-700 text-white font-medium py-3 rounded-xl transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 bg-forest-600 hover:bg-forest-700 hover:shadow-glow-forest text-white font-medium py-3 rounded-glass-sm transition-all duration-300 ease-spring shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 'Saving...' : 'Continue'}
                 {!loading && <ArrowRight className="w-4 h-4" />}
@@ -258,7 +258,7 @@ const CompleteProfile: React.FC = () => {
                     value={phone}
                     onChange={(e) => setPhone(e.target.value.replace(/[^0-9+]/g, ''))}
                     placeholder="+91 98765 43210"
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-forest-500 focus:border-forest-500 transition-colors"
+                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-glass-sm focus:ring-forest-500 focus:border-forest-500 focus-visible:shadow-glow-forest transition-all duration-300 ease-spring"
                     required
                   />
                 </div>
@@ -270,7 +270,7 @@ const CompleteProfile: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 bg-forest-600 hover:bg-forest-700 text-white font-medium py-3 rounded-xl transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 bg-forest-600 hover:bg-forest-700 hover:shadow-glow-forest text-white font-medium py-3 rounded-glass-sm transition-all duration-300 ease-spring shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 'Saving...' : 'Save & Continue'}
                 {!loading && <ArrowRight className="w-4 h-4" />}

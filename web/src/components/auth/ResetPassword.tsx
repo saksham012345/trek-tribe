@@ -116,7 +116,7 @@ const ResetPassword: React.FC = () => {
 
   if (isSuccess) {
     return (
-      <div className="max-w-md mx-auto mt-8 p-6 bg-white rounded-lg shadow-md">
+      <div className="max-w-md mx-auto mt-8 p-6 glass-panel rounded-glass">
         <div className="text-center">
           <CheckCircle className="mx-auto mb-4 text-green-500" size={48} />
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Password Reset Successful!</h2>
@@ -139,7 +139,7 @@ const ResetPassword: React.FC = () => {
 
   if (!token || !email) {
     return (
-      <div className="max-w-md mx-auto mt-8 p-6 bg-white rounded-lg shadow-md">
+      <div className="max-w-md mx-auto mt-8 p-6 glass-panel rounded-glass">
         <div className="text-center">
           <AlertCircle className="mx-auto mb-4 text-red-500" size={48} />
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Invalid Reset Link</h2>
@@ -158,7 +158,7 @@ const ResetPassword: React.FC = () => {
   }
 
   return (
-    <div className="max-w-md mx-auto mt-8 p-6 bg-white rounded-lg shadow-md">
+    <div className="max-w-md mx-auto mt-8 p-6 glass-panel rounded-glass">
       <div className="text-center mb-6">
         <Lock className="mx-auto mb-4 text-green-500" size={48} />
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Reset Your Password</h2>
@@ -179,7 +179,7 @@ const ResetPassword: React.FC = () => {
               value={formData.newPassword}
               onChange={handlePasswordChange}
               placeholder="Enter your new password"
-              className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-glass-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent focus-visible:shadow-glow-forest transition-all duration-300 ease-spring"
               required
               disabled={isLoading}
             />
@@ -222,7 +222,7 @@ const ResetPassword: React.FC = () => {
                 setFormData(prev => ({ ...prev, confirmPassword: e.target.value }));
               }}
               placeholder="Confirm your new password"
-              className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-glass-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent focus-visible:shadow-glow-forest transition-all duration-300 ease-spring"
               required
               disabled={isLoading}
             />
@@ -245,7 +245,7 @@ const ResetPassword: React.FC = () => {
         </div>
 
         {error && (
-          <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 p-3 rounded-md">
+          <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 p-3 rounded-glass-sm">
             <AlertCircle size={16} />
             {error}
           </div>
@@ -254,13 +254,13 @@ const ResetPassword: React.FC = () => {
         <button
           type="submit"
           disabled={
-            isLoading || 
-            !formData.newPassword || 
-            !formData.confirmPassword || 
+            isLoading ||
+            !formData.newPassword ||
+            !formData.confirmPassword ||
             formData.newPassword !== formData.confirmPassword ||
             validationErrors.length > 0
           }
-          className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+          className="w-full bg-green-600 text-white py-2 px-4 rounded-glass-sm hover:bg-green-700 hover:shadow-glow-forest disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 ease-spring flex items-center justify-center gap-2"
         >
           {isLoading ? (
             <>

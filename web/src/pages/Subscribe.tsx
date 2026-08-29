@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { CheckCircle2, Info, ShieldCheck, Gift } from 'lucide-react';
 import api from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
 import { ToastProvider, useToast } from '../components/ui/Toast';
 import { Skeleton } from '../components/ui/Skeleton';
 import { useRazorpay } from '../components/payment/RazorpayCheckout';
+import { GlassPanel } from '../components/ui/Glass';
 
 interface Plan {
   id: 'STARTER' | 'BASIC' | 'PROFESSIONAL' | 'PREMIUM' | 'ENTERPRISE';
@@ -208,25 +210,28 @@ const SubscribeInner: React.FC = () => {
         <h1 className="text-3xl sm:text-4xl font-bold mt-2">Subscribe to unlock organizer tools</h1>
         <p className="text-emerald-50 mt-2 max-w-3xl">Access listings, CRM, Route onboarding, and settlements with an active organizer subscription. Payments auto-split via Razorpay Route.</p>
         <div className="flex flex-wrap items-center gap-3 mt-4 text-sm text-emerald-50/90">
-          <span className="px-3 py-1 rounded-full bg-white/15 border border-white/20">Includes free trial where eligible</span>
+          <span className="px-3 py-1 rounded-full bg-white/15 border border-white/20 flex items-center gap-1.5"><ShieldCheck size={14} strokeWidth={2} /> Includes free trial where eligible</span>
           <span className="px-3 py-1 rounded-full bg-white/15 border border-white/20">Auto payouts to your bank</span>
           <span className="px-3 py-1 rounded-full bg-white/15 border border-white/20">Route onboarding required after payment</span>
         </div>
       </div>
 
       {hasActiveSub && (
-        <div className="p-4 rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-900 flex items-center justify-between gap-3">
-          <div>
-            <p className="font-semibold">You already have an active subscription.</p>
-            <p className="text-sm">Head to onboarding to connect Razorpay Route and start receiving payouts.</p>
+        <GlassPanel className="rounded-glass p-4 !bg-emerald-50/70 border-emerald-200/60 text-emerald-900 flex items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 size={20} strokeWidth={2} className="mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-semibold">You already have an active subscription.</p>
+              <p className="text-sm">Head to onboarding to connect Razorpay Route and start receiving payouts.</p>
+            </div>
           </div>
           <button
             onClick={() => navigate('/organizer/dashboard')}
-            className="px-4 py-2.5 rounded-lg bg-emerald-600 text-white font-semibold shadow-md hover:bg-emerald-700 hover:shadow-lg transition-all duration-200"
+            className="px-4 py-2.5 rounded-lg bg-emerald-600 text-white font-semibold shadow-md hover:bg-emerald-700 hover:shadow-glow-forest transition-all duration-300 ease-spring"
           >
             Go to Dashboard
           </button>
-        </div>
+        </GlassPanel>
       )}
 
       {plans.length === 0 && !loadingState ? (
@@ -241,7 +246,7 @@ const SubscribeInner: React.FC = () => {
               <button
                 key={plan.id}
                 onClick={() => setSelectedPlan(plan.id)}
-                className={`text-left p-5 rounded-2xl border transition-all duration-200 shadow-sm hover:shadow-lg hover:-translate-y-0.5 ${selected ? 'border-emerald-500 ring-2 ring-emerald-200 bg-emerald-50' : 'border-gray-200 bg-white'}`}
+                className={`text-left p-5 rounded-glass border transition-all duration-300 ease-spring shadow-elevation-1 hover:shadow-elevation-3 hover:-translate-y-1 ${selected ? 'border-emerald-500 ring-2 ring-emerald-200 bg-emerald-50/80 shadow-glow-forest' : 'glass-card'}`}
               >
                 <div className="flex items-center justify-between">
                   <div>
@@ -268,19 +273,21 @@ const SubscribeInner: React.FC = () => {
         </div>
       )}
 
-      <div className="p-5 rounded-2xl border border-amber-200 bg-amber-50">
-        <p className="text-sm text-amber-900">
-          <span className="font-semibold">Note:</span> A standard Razorpay handling fee of 1.85% applies per transaction. This is a platform standard for payment processing.
+      <GlassPanel className="rounded-glass p-5 !bg-amber-50/70 border-amber-200/60">
+        <p className="text-sm text-amber-900 flex items-start gap-2">
+          <Info size={17} strokeWidth={2} className="mt-0.5 flex-shrink-0" />
+          <span><span className="font-semibold">Note:</span> A standard Razorpay handling fee of 1.85% applies per transaction. This is a platform standard for payment processing.</span>
         </p>
-      </div>
+      </GlassPanel>
 
-      <div className="p-5 rounded-2xl border border-blue-200 bg-blue-50">
-        <p className="text-sm text-blue-900">
-          <span className="font-semibold">Free Service Included:</span> Every subscription plan includes 2 months of free service with your initial payment. After the initial month, you get 2 additional months free.
+      <GlassPanel className="rounded-glass p-5 !bg-blue-50/70 border-blue-200/60">
+        <p className="text-sm text-blue-900 flex items-start gap-2">
+          <Gift size={17} strokeWidth={2} className="mt-0.5 flex-shrink-0" />
+          <span><span className="font-semibold">Free Service Included:</span> Every subscription plan includes 2 months of free service with your initial payment. After the initial month, you get 2 additional months free.</span>
         </p>
-      </div>
+      </GlassPanel>
 
-      <div className="p-5 rounded-2xl border border-gray-200 bg-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <GlassPanel className="rounded-glass p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <p className="font-semibold text-gray-900">Start with the selected plan</p>
           <p className="text-sm text-gray-600">We will redirect you to Razorpay Checkout. On success, you will be sent to Route onboarding.</p>
@@ -301,7 +308,7 @@ const SubscribeInner: React.FC = () => {
             {loading ? 'Starting...' : hasActiveSub ? 'Go to Onboarding' : 'Subscribe & Continue'}
           </button>
         </div>
-      </div>
+      </GlassPanel>
     </div>
   );
 };

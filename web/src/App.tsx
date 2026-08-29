@@ -104,6 +104,8 @@ const Campaigns = React.lazy(() => retryLazyLoad(() => import('./pages/organizer
 const Referrals = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/Referrals')));
 const ReviewRequests = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/ReviewRequests')));
 const DiscountRules = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/DiscountRules')));
+const BookingsList = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/BookingsList')));
+const Leads = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/Leads')));
 
 // Sprint 9 — AI. The harness is built and tested; no provider is configured,
 // so every screen here says so rather than offering a button that spends.
@@ -524,6 +526,22 @@ function AppContent() {
                 }
               />
 
+              <Route
+                path="/organizer/bookings"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><BookingsList /></EmailVerificationGuard> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+              <Route
+                path="/organizer/leads"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><Leads /></EmailVerificationGuard> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
               <Route
                 path="/organizer/campaigns"
                 element={

@@ -4,7 +4,7 @@ import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Pie } from 'react-chartjs-2';
 
 import api from '../config/api';
-import { ArrowLeft, Plus, Trash2, Calendar, IndianRupee } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Calendar, IndianRupee, X } from 'lucide-react';
 import LoadingButton from '../components/ui/LoadingButton';
 import { toast } from 'react-toastify';
 import { Expense, TripFinancials, EXPENSE_CATEGORIES } from '../types/finance';
@@ -131,7 +131,7 @@ const TripFinancePage: React.FC = () => {
                     </div>
                     <button
                         onClick={() => setShowAddModal(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-forest-600 text-white rounded-lg hover:bg-forest-700 transition"
+                        className="flex items-center gap-2 px-4 py-2 bg-forest-600 text-white rounded-lg hover:bg-forest-700 hover:shadow-glow-forest transition-all duration-300 ease-spring"
                     >
                         <Plus size={18} /> Add Expense
                     </button>
@@ -139,25 +139,25 @@ const TripFinancePage: React.FC = () => {
 
                 {/* Summary Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <div className="glass-card p-6">
                         <p className="text-sm text-gray-500 mb-1">Total Revenue</p>
                         <p className="text-2xl font-bold text-gray-900">₹{data.financials.revenue.toLocaleString()}</p>
                     </div>
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <div className="glass-card p-6">
                         <p className="text-sm text-gray-500 mb-1">Total Expenses</p>
                         <p className="text-2xl font-bold text-red-600">₹{data.financials.expenses.toLocaleString()}</p>
                     </div>
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <div className="glass-card p-6">
                         <p className="text-sm text-gray-500 mb-1">Net Profit</p>
                         <p className={`text-2xl font-bold ${data.financials.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                             ₹{data.financials.netProfit.toLocaleString()}
                         </p>
                     </div>
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <div className="glass-card p-6">
                         <p className="text-sm text-gray-500 mb-1">Total Discounts</p>
                         <p className="text-2xl font-bold text-purple-600">₹{(data.financials.discounts || 0).toLocaleString()}</p>
                     </div>
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <div className="glass-card p-6">
                         <p className="text-sm text-gray-500 mb-1">Profit Per Traveler</p>
                         <p className="text-2xl font-bold text-blue-600">₹{data.financials.profitPerTraveler.toLocaleString()}</p>
                     </div>
@@ -165,7 +165,7 @@ const TripFinancePage: React.FC = () => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Expense Breakdown Chart */}
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 lg:col-span-1">
+                    <div className="glass-card p-6 lg:col-span-1">
                         <h3 className="text-lg font-bold text-gray-800 mb-4">Expense Breakdown</h3>
                         {hasChartData ? (
                             <div className="h-64 flex items-center justify-center">
@@ -179,7 +179,7 @@ const TripFinancePage: React.FC = () => {
                     </div>
 
                     {/* Expense List */}
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 lg:col-span-2 overflow-hidden">
+                    <div className="glass-card !p-0 lg:col-span-2 overflow-hidden">
                         <div className="p-6 border-b border-gray-100">
                             <h3 className="text-lg font-bold text-gray-800">Recent Expenses</h3>
                         </div>
@@ -240,14 +240,14 @@ const TripFinancePage: React.FC = () => {
             {/* Add Expense Modal */}
             {showAddModal && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-scale-up">
+                    <div className="glass-panel !rounded-glass shadow-elevation-4 w-full max-w-md overflow-hidden">
                         <div className="p-6 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
                             <h3 className="text-lg font-bold text-gray-900">Add New Expense</h3>
                             <button
                                 onClick={() => setShowAddModal(false)}
                                 className="text-gray-400 hover:text-gray-600"
                             >
-                                ✕
+                                <X size={20} strokeWidth={2.25} />
                             </button>
                         </div>
 

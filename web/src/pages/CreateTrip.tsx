@@ -6,6 +6,12 @@ import { User } from '../types';
 
 
 import { uploadFileToServer } from '../utils/fileUpload';
+import {
+  Sparkles, Target, FileText, MapPin, Zap, IndianRupee, Users, Cake, Calendar, Flag,
+  RotateCcw, Tag, CheckCircle2, ClipboardList, Image as ImageIcon, Camera, Star, Trash2,
+  Map as MapIcon, CreditCard, Smartphone, AlertTriangle, Plus, Gift, Banknote, Bus,
+  Lightbulb, MessageCircle, Mountain, X
+} from 'lucide-react';
 
 interface CreateTripProps {
   user: User;
@@ -478,7 +484,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
         // Don't fail the whole operation if increment fails
       }
 
-      alert(`🎉 Trip "${formData.title}" created successfully! Redirecting...`);
+      alert(`Trip "${formData.title}" created successfully! Redirecting...`);
 
       setTimeout(() => {
         navigate('/trips');
@@ -486,8 +492,8 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
 
     } catch (error: any) {
       // Enhanced error logging for debugging
-      console.error('❌ Error creating trip:', error);
-      console.error('📋 Full error object:', JSON.stringify(error, null, 2));
+      console.error('Error creating trip:', error);
+      console.error('Full error object:', JSON.stringify(error, null, 2));
 
       // Enhanced error handling
       let errorMessage = 'Failed to create trip';
@@ -523,14 +529,14 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-forest-800 mb-2">✨ Basic Information</h2>
+              <h2 className="text-2xl font-bold text-forest-800 mb-2"><Sparkles size={22} className="inline mr-2 -mt-1" strokeWidth={2} />Basic Information</h2>
               <p className="text-forest-600">Tell us about your amazing adventure</p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
                 <label htmlFor="title" className="block text-sm font-semibold text-forest-700 mb-3">
-                  🎯 Adventure Title
+                  <Target size={16} className="inline mr-1.5 -mt-0.5" strokeWidth={2} />Adventure Title
                 </label>
                 <input
                   type="text"
@@ -546,7 +552,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
 
               <div className="md:col-span-2">
                 <label htmlFor="description" className="block text-sm font-semibold text-forest-700 mb-3">
-                  📝 Adventure Description
+                  <FileText size={16} className="inline mr-1.5 -mt-0.5" strokeWidth={2} />Adventure Description
                 </label>
                 <textarea
                   id="description"
@@ -562,7 +568,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
 
               <div>
                 <label htmlFor="destination" className="block text-sm font-semibold text-forest-700 mb-3">
-                  📍 Destination
+                  <MapPin size={16} className="inline mr-1.5 -mt-0.5" strokeWidth={2} />Destination
                 </label>
                 <input
                   type="text"
@@ -578,7 +584,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
 
               <div>
                 <label htmlFor="difficultyLevel" className="block text-sm font-semibold text-forest-700 mb-3">
-                  ⚡ Difficulty Level
+                  <Zap size={16} className="inline mr-1.5 -mt-0.5" strokeWidth={2} />Difficulty Level
                 </label>
                 <select
                   id="difficultyLevel"
@@ -587,9 +593,9 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                   onChange={handleChange}
                   className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
                 >
-                  <option value="beginner">🟢 Beginner - Easy for everyone</option>
-                  <option value="intermediate">🟡 Intermediate - Moderate fitness required</option>
-                  <option value="advanced">🔴 Advanced - High fitness & experience needed</option>
+                  <option value="beginner">Beginner - Easy for everyone</option>
+                  <option value="intermediate">Intermediate - Moderate fitness required</option>
+                  <option value="advanced">Advanced - High fitness & experience needed</option>
                 </select>
               </div>
             </div>
@@ -600,14 +606,14 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-forest-800 mb-2">💰 Pricing & Schedule</h2>
+              <h2 className="text-2xl font-bold text-forest-800 mb-2"><IndianRupee size={22} className="inline mr-2 -mt-1" strokeWidth={2} />Pricing & Schedule</h2>
               <p className="text-forest-600">Set your dates and pricing details</p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">
               <div>
                 <label htmlFor="price" className="block text-sm font-semibold text-forest-700 mb-3">
-                  💰 Price per Person (₹)
+                  <IndianRupee size={16} className="inline mr-1.5 -mt-0.5" strokeWidth={2} />Price per Person (₹)
                 </label>
                 <input
                   type="number"
@@ -625,7 +631,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
 
               <div>
                 <label htmlFor="capacity" className="block text-sm font-semibold text-forest-700 mb-3">
-                  👥 Group Size (Max Participants)
+                  <Users size={16} className="inline mr-1.5 -mt-0.5" strokeWidth={2} />Group Size (Max Participants)
                 </label>
                 <input
                   type="number"
@@ -643,7 +649,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
 
               <div>
                 <label htmlFor="minimumAge" className="block text-sm font-semibold text-forest-700 mb-3">
-                  🎂 Minimum Age Requirement
+                  <Cake size={16} className="inline mr-1.5 -mt-0.5" strokeWidth={2} />Minimum Age Requirement
                 </label>
                 <input
                   type="number"
@@ -663,7 +669,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
 
               <div>
                 <label htmlFor="startDate" className="block text-sm font-semibold text-forest-700 mb-3">
-                  🗓️ Start Date
+                  <Calendar size={16} className="inline mr-1.5 -mt-0.5" strokeWidth={2} />Start Date
                 </label>
                 <input
                   type="date"
@@ -679,7 +685,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
 
               <div>
                 <label htmlFor="endDate" className="block text-sm font-semibold text-forest-700 mb-3">
-                  🏁 End Date
+                  <Flag size={16} className="inline mr-1.5 -mt-0.5" strokeWidth={2} />End Date
                 </label>
                 <input
                   type="date"
@@ -696,7 +702,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
 
             <div>
               <label htmlFor="cancellationPolicy" className="block text-sm font-semibold text-forest-700 mb-3">
-                🔄 Cancellation Policy
+                <RotateCcw size={16} className="inline mr-1.5 -mt-0.5" strokeWidth={2} />Cancellation Policy
               </label>
               <select
                 id="cancellationPolicy"
@@ -717,13 +723,13 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-forest-800 mb-2">🏷️ Categories & Details</h2>
+              <h2 className="text-2xl font-bold text-forest-800 mb-2"><Tag size={22} className="inline mr-2 -mt-1" strokeWidth={2} />Categories & Details</h2>
               <p className="text-forest-600">Choose categories and specify what's included</p>
             </div>
 
             <div>
               <label className="block text-sm font-semibold text-forest-700 mb-4">
-                🎯 Adventure Categories (Select all that apply)
+                <Target size={16} className="inline mr-1.5 -mt-0.5" strokeWidth={2} />Adventure Categories (Select all that apply)
               </label>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {categories.map((category) => (
@@ -745,7 +751,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
             <div className="grid md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-semibold text-forest-700 mb-3">
-                  ✅ What's Included
+                  <CheckCircle2 size={16} className="inline mr-1.5 -mt-0.5" strokeWidth={2} />What's Included
                 </label>
                 <div className="space-y-2 max-h-48 overflow-y-auto border border-forest-200 rounded-xl p-4 bg-forest-50/30">
                   {includedItemsOptions.map((item) => (
@@ -764,7 +770,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
 
               <div>
                 <label className="block text-sm font-semibold text-forest-700 mb-3">
-                  📋 Requirements
+                  <ClipboardList size={16} className="inline mr-1.5 -mt-0.5" strokeWidth={2} />Requirements
                 </label>
                 <div className="space-y-2 max-h-48 overflow-y-auto border border-forest-200 rounded-xl p-4 bg-forest-50/30">
                   {requirementsOptions.map((requirement) => (
@@ -788,14 +794,14 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-forest-800 mb-2">📸 Media & Itinerary</h2>
+              <h2 className="text-2xl font-bold text-forest-800 mb-2"><ImageIcon size={22} className="inline mr-2 -mt-1" strokeWidth={2} />Media & Itinerary</h2>
               <p className="text-forest-600">Add photos and detailed schedule</p>
             </div>
 
             {/* Image Upload */}
             <div>
               <label className="block text-sm font-semibold text-forest-700 mb-3">
-                🖼️ Adventure Photos (Max 10 images)
+                <ImageIcon size={16} className="inline mr-1.5 -mt-0.5" strokeWidth={2} />Adventure Photos (Max 10 images)
               </label>
               <div className="border-2 border-dashed border-forest-300 rounded-xl p-6 text-center hover:border-nature-400 transition-colors">
                 <input
@@ -811,7 +817,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                   onClick={() => fileInputRef.current?.click()}
                   className="inline-flex items-center px-4 py-2 bg-nature-500 text-white rounded-lg hover:bg-nature-600 transition-colors"
                 >
-                  📷 Choose Images
+                  <Camera size={16} className="inline mr-1.5" strokeWidth={2} />Choose Images
                 </button>
                 <p className="mt-2 text-sm text-forest-600">JPG, PNG, WebP up to 10MB each</p>
               </div>
@@ -840,14 +846,14 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                               : 'bg-white text-forest-700'
                               }`}
                           >
-                            {coverImageIndex === index ? '⭐ Cover' : 'Set Cover'}
+                            {coverImageIndex === index ? '<Star size={12} className="inline mr-1" strokeWidth={2} />Cover' : 'Set Cover'}
                           </button>
                           <button
                             type="button"
                             onClick={() => removeImage(index)}
                             className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
                           >
-                            🗑️ Remove
+                            <Trash2 size={14} className="inline mr-1" strokeWidth={2} />Remove
                           </button>
                         </div>
                       </div>
@@ -861,7 +867,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
             <div className="grid md:grid-cols-2 gap-6">
               <div>
                 <label htmlFor="itinerary" className="block text-sm font-semibold text-forest-700 mb-3">
-                  🗺️ Detailed Itinerary
+                  <MapIcon size={16} className="inline mr-1.5 -mt-0.5" strokeWidth={2} />Detailed Itinerary
                 </label>
                 <textarea
                   id="itinerary"
@@ -876,7 +882,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
 
               <div>
                 <label className="block text-sm font-semibold text-forest-700 mb-3">
-                  📄 Itinerary PDF (Optional)
+                  <FileText size={16} className="inline mr-1.5 -mt-0.5" strokeWidth={2} />Itinerary PDF (Optional)
                 </label>
                 <div className="border-2 border-dashed border-forest-300 rounded-xl p-6 text-center hover:border-nature-400 transition-colors">
                   <input
@@ -890,13 +896,13 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                     htmlFor="pdf-upload"
                     className="inline-flex items-center px-4 py-2 bg-forest-500 text-white rounded-lg hover:bg-forest-600 transition-colors cursor-pointer"
                   >
-                    📋 Choose PDF
+                    <ClipboardList size={16} className="inline mr-1.5" strokeWidth={2} />Choose PDF
                   </label>
                   <p className="mt-2 text-sm text-forest-600">Detailed itinerary for participants</p>
 
                   {itineraryPdf && (
                     <div className="mt-3 text-sm text-forest-700 bg-forest-50 p-2 rounded">
-                      ✅ Selected: {itineraryPdf.name}
+                      <CheckCircle2 size={14} className="inline mr-1" strokeWidth={2} />Selected: {itineraryPdf.name}
                     </div>
                   )}
                 </div>
@@ -905,7 +911,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                 {paymentConfig.collectionMode === 'manual' && (
                   <div className="mt-6">
                     <label className="block text-sm font-semibold text-forest-700 mb-3">
-                      💳 Manual Payment QR (Not supervised, lower trust)
+                      <CreditCard size={16} className="inline mr-1.5 -mt-0.5" strokeWidth={2} />Manual Payment QR (Not supervised, lower trust)
                     </label>
                     <div className="border-2 border-dashed border-forest-300 rounded-xl p-6 text-center hover:border-nature-400 transition-colors">
                       <input
@@ -919,17 +925,17 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                         htmlFor="qr-upload"
                         className="inline-flex items-center px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors cursor-pointer"
                       >
-                        📱 Upload Payment QR / Screenshot
+                        <Smartphone size={16} className="inline mr-1.5" strokeWidth={2} />Upload Payment QR / Screenshot
                       </label>
                       <p className="mt-2 text-sm text-forest-600">Travelers upload screenshots; you verify manually.</p>
                       <div className="mt-2 text-xs text-amber-600">
-                        ⚠️ Less trusted. Consider switching to automated Razorpay for higher trust.
+                        <AlertTriangle size={14} className="inline mr-1" strokeWidth={2} />Less trusted. Consider switching to automated Razorpay for higher trust.
                       </div>
 
                       {paymentQR && (
                         <div className="mt-4">
                           <div className="text-sm text-forest-700 bg-amber-50 p-2 rounded mb-2">
-                            ✅ QR Code: {paymentQR.name}
+                            <CheckCircle2 size={14} className="inline mr-1" strokeWidth={2} />QR Code: {paymentQR.name}
                           </div>
                           <img
                             src={URL.createObjectURL(paymentQR)}
@@ -946,14 +952,14 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                 <div className="mt-6">
                   <div className="flex items-center justify-between mb-3">
                     <label className="block text-sm font-semibold text-forest-700">
-                      📅 Day-by-Day Schedule
+                      <Calendar size={16} className="inline mr-1.5 -mt-0.5" strokeWidth={2} />Day-by-Day Schedule
                     </label>
                     <button
                       type="button"
                       onClick={addScheduleDay}
                       className="px-3 py-1 bg-nature-500 text-white text-sm rounded-lg hover:bg-nature-600 transition-colors"
                     >
-                      ➕ Add Day
+                      <Plus size={14} className="inline mr-1" strokeWidth={2} />Add Day
                     </button>
                   </div>
 
@@ -967,7 +973,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                             onClick={() => removeScheduleDay(dayIndex)}
                             className="text-red-500 hover:text-red-700 text-sm"
                           >
-                            🗑️ Remove
+                            <Trash2 size={14} className="inline mr-1" strokeWidth={2} />Remove
                           </button>
                         </div>
 
@@ -998,7 +1004,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                                 onClick={() => removeActivity(dayIndex, activityIndex)}
                                 className="px-2 py-1 text-red-500 hover:text-red-700 text-sm"
                               >
-                                ✕
+                                <X size={14} strokeWidth={2.25} />
                               </button>
                             )}
                           </div>
@@ -1009,7 +1015,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                           onClick={() => addActivity(dayIndex)}
                           className="mt-2 px-3 py-1 text-xs bg-forest-200 text-forest-700 rounded hover:bg-forest-300 transition-colors"
                         >
-                          ➕ Add Activity
+                          <Plus size={12} className="inline mr-1" strokeWidth={2} />Add Activity
                         </button>
                       </div>
                     ))}
@@ -1024,7 +1030,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-forest-800 mb-2">🎁 Package Options & Payment</h2>
+              <h2 className="text-2xl font-bold text-forest-800 mb-2"><Gift size={22} className="inline mr-2 -mt-1" strokeWidth={2} />Package Options & Payment</h2>
               <p className="text-forest-600">Create different package options and configure payment settings</p>
             </div>
 
@@ -1032,14 +1038,14 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
             <div>
               <div className="flex items-center justify-between mb-4">
                 <label className="block text-lg font-semibold text-forest-700">
-                  🎁 Package Options
+                  <Gift size={16} className="inline mr-1.5 -mt-0.5" strokeWidth={2} />Package Options
                 </label>
                 <button
                   type="button"
                   onClick={addPackage}
                   className="px-4 py-2 bg-nature-500 text-white text-sm rounded-lg hover:bg-nature-600 transition-colors"
                 >
-                  ➕ Add Package
+                  <Plus size={14} className="inline mr-1" strokeWidth={2} />Add Package
                 </button>
               </div>
 
@@ -1053,7 +1059,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                         onClick={() => removePackage(pkg.id)}
                         className="text-red-500 hover:text-red-700 text-sm px-2 py-1 rounded hover:bg-red-50"
                       >
-                        🗑️ Remove
+                        <Trash2 size={14} className="inline mr-1" strokeWidth={2} />Remove
                       </button>
                     </div>
 
@@ -1137,7 +1143,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
 
             {/* Payment Configuration */}
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
-              <h3 className="text-lg font-semibold text-forest-700 mb-4">💳 Payment Configuration</h3>
+              <h3 className="text-lg font-semibold text-forest-700 mb-4"><CreditCard size={16} className="inline mr-1.5 -mt-0.5" strokeWidth={2} />Payment Configuration</h3>
 
               <div className="grid md:grid-cols-2 gap-4 mb-4">
                 <button
@@ -1212,7 +1218,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                 {paymentConfig.paymentType === 'advance' && (
                   <div>
                     <label className="block text-sm font-medium text-forest-700 mb-1">
-                      💵 Advance Amount Required (₹)
+                      <Banknote size={16} className="inline mr-1.5 -mt-0.5" strokeWidth={2} />Advance Amount Required (₹)
                     </label>
                     <input
                       type="number"
@@ -1237,7 +1243,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-forest-800 mb-2">🚌 Pickup & Drop-off Points</h2>
+              <h2 className="text-2xl font-bold text-forest-800 mb-2"><Bus size={22} className="inline mr-2 -mt-1" strokeWidth={2} />Pickup & Drop-off Points</h2>
               <p className="text-forest-600">Add convenient pickup and drop-off locations for participants</p>
             </div>
 
@@ -1245,14 +1251,14 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
             <div>
               <div className="flex items-center justify-between mb-4">
                 <label className="block text-lg font-semibold text-forest-700">
-                  📍 Pickup Points
+                  <MapPin size={16} className="inline mr-1.5 -mt-0.5" strokeWidth={2} />Pickup Points
                 </label>
                 <button
                   type="button"
                   onClick={addPickupPoint}
                   className="px-4 py-2 bg-nature-500 text-white text-sm rounded-lg hover:bg-nature-600 transition-colors"
                 >
-                  ➕ Add Pickup Point
+                  <Plus size={14} className="inline mr-1" strokeWidth={2} />Add Pickup Point
                 </button>
               </div>
 
@@ -1266,7 +1272,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                         onClick={() => removePickupPoint(index)}
                         className="text-red-500 hover:text-red-700 text-sm px-2 py-1 rounded hover:bg-red-50"
                       >
-                        🗑️ Remove
+                        <Trash2 size={14} className="inline mr-1" strokeWidth={2} />Remove
                       </button>
                     </div>
 
@@ -1363,14 +1369,14 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
             <div>
               <div className="flex items-center justify-between mb-4">
                 <label className="block text-lg font-semibold text-forest-700">
-                  🏁 Drop-off Points
+                  <Flag size={16} className="inline mr-1.5 -mt-0.5" strokeWidth={2} />Drop-off Points
                 </label>
                 <button
                   type="button"
                   onClick={addDropOffPoint}
                   className="px-4 py-2 bg-forest-500 text-white text-sm rounded-lg hover:bg-forest-600 transition-colors"
                 >
-                  ➕ Add Drop-off Point
+                  <Plus size={14} className="inline mr-1" strokeWidth={2} />Add Drop-off Point
                 </button>
               </div>
 
@@ -1384,7 +1390,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                         onClick={() => removeDropOffPoint(index)}
                         className="text-red-500 hover:text-red-700 text-sm px-2 py-1 rounded hover:bg-red-50"
                       >
-                        🗑️ Remove
+                        <Trash2 size={14} className="inline mr-1" strokeWidth={2} />Remove
                       </button>
                     </div>
 
@@ -1452,7 +1458,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
             </div>
 
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-              <h3 className="font-medium text-blue-800 mb-2">💡 Tips for Pickup & Drop-off Points:</h3>
+              <h3 className="font-medium text-blue-800 mb-2"><Lightbulb size={16} className="inline mr-1.5" strokeWidth={2} />Tips for Pickup & Drop-off Points:</h3>
               <ul className="text-sm text-blue-700 space-y-1">
                 <li>• Choose easily accessible locations with parking</li>
                 <li>• Include major landmarks and clear instructions</li>
@@ -1468,7 +1474,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-forest-800 mb-2">💬 WhatsApp Group</h2>
+              <h2 className="text-2xl font-bold text-forest-800 mb-2"><MessageCircle size={22} className="inline mr-2 -mt-1" strokeWidth={2} />WhatsApp Group</h2>
               <p className="text-forest-600">Create a WhatsApp group for participants to connect before the trip</p>
             </div>
 
@@ -1476,7 +1482,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
               <div className="flex items-start space-x-4">
                 <div className="flex-shrink-0">
                   <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                    <span className="text-2xl">💬</span>
+                    <MessageCircle size={22} strokeWidth={2} className="text-green-700" />
                   </div>
                 </div>
                 <div className="flex-1">
@@ -1578,7 +1584,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
             </div>
 
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-              <h3 className="font-medium text-blue-800 mb-2">💡 Benefits of WhatsApp Groups:</h3>
+              <h3 className="font-medium text-blue-800 mb-2"><Lightbulb size={16} className="inline mr-1.5" strokeWidth={2} />Benefits of WhatsApp Groups:</h3>
               <ul className="text-sm text-blue-700 space-y-1">
                 <li>• Participants can introduce themselves and build connections</li>
                 <li>• Share packing tips, weather updates, and travel advice</li>
@@ -1606,11 +1612,11 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-forest-50 to-nature-50 py-4 sm:py-8">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white/95 backdrop-blur-lg rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden border border-forest-200">
+        <div className="glass-panel rounded-glass sm:rounded-glass shadow-elevation-4 overflow-hidden">
           {/* Header */}
           <div className="bg-gradient-to-r from-forest-600 to-nature-600 px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mb-2">
-              🏔️ Create Epic Adventure
+              <Mountain size={26} className="inline mr-2 -mt-1" strokeWidth={2} />Create Epic Adventure
             </h1>
             <p className="text-sm sm:text-base text-forest-100">Design an unforgettable journey for fellow adventurers</p>
 
@@ -1635,7 +1641,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
               {/* Error Display */}
               {error && (
                 <div className="mb-4 sm:mb-6 bg-red-50 border-l-4 border-red-500 text-red-700 px-4 sm:px-6 py-4 rounded-r-lg flex items-center gap-3 animate-pulse">
-                  <span className="text-xl sm:text-2xl">⚠️</span>
+                  <AlertTriangle size={22} strokeWidth={2} className="text-red-500 flex-shrink-0" />
                   <div>
                     <p className="font-semibold text-sm sm:text-base">Oops! Something went wrong</p>
                     <p className="text-xs sm:text-sm">{error}</p>
@@ -1690,8 +1696,8 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                       type="button"
                       onClick={nextStep}
                       disabled={!isStepValid(currentStep)}
-                      className={`flex-1 sm:flex-none px-4 sm:px-5 py-2.5 rounded-xl text-white transition-colors text-sm sm:text-base ${isStepValid(currentStep)
-                        ? 'bg-nature-600 hover:bg-nature-700'
+                      className={`flex-1 sm:flex-none px-4 sm:px-5 py-2.5 rounded-xl text-white transition-all duration-300 ease-spring text-sm sm:text-base ${isStepValid(currentStep)
+                        ? 'bg-nature-600 hover:bg-nature-700 hover:shadow-glow-forest'
                         : 'bg-nature-300 cursor-not-allowed'
                         }`}
                     >
@@ -1702,7 +1708,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                       type="button"
                       onClick={handleSubmit}
                       disabled={loading}
-                      className="flex-1 sm:flex-none px-4 sm:px-6 py-2.5 bg-forest-700 text-white rounded-xl hover:bg-forest-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
+                      className="flex-1 sm:flex-none px-4 sm:px-6 py-2.5 bg-forest-700 text-white rounded-xl hover:bg-forest-800 hover:shadow-glow-forest disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 ease-spring flex items-center justify-center gap-2 text-sm sm:text-base"
                     >
                       {loading ? (
                         <>
@@ -1712,7 +1718,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ user }) => {
                         </>
                       ) : (
                         <>
-                          🌟 <span className="hidden sm:inline">Create Epic Adventure</span>
+                          <Sparkles size={16} className="inline mr-1" strokeWidth={2} /><span className="hidden sm:inline">Create Epic Adventure</span>
                           <span className="sm:hidden">Create Trip</span>
                         </>
                       )}

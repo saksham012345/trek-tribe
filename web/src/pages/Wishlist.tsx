@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Heart, Trash2, Tag, Calendar, MapPin, Users, DollarSign, Filter } from 'lucide-react';
+import { Heart, Trash2, Tag, Calendar, MapPin, Users, Filter, Lock, Mountain } from 'lucide-react';
 import api from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
+import { GlassCard, GlassPanel } from '../components/ui/Glass';
 
 interface WishlistItem {
   _id: string;
@@ -99,7 +100,7 @@ const Wishlist: React.FC = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-forest-50 to-nature-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-6xl mb-4">🔒</div>
+          <Lock size={56} strokeWidth={1.5} className="mx-auto mb-4 text-forest-400" />
           <h2 className="text-2xl font-bold text-forest-800 mb-2">Login Required</h2>
           <p className="text-forest-600 mb-6">Please login to view your wishlist</p>
           <Link
@@ -127,30 +128,30 @@ const Wishlist: React.FC = () => {
 
         {/* Stats */}
         {stats.totalItems > 0 && (
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+          <GlassPanel className="rounded-glass p-6 mb-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center">
-                <div className="text-3xl font-bold text-forest-800">{stats.totalItems}</div>
+                <div className="text-3xl font-bold text-forest-800 tabular-nums">{stats.totalItems}</div>
                 <div className="text-sm text-forest-600">Total Saved</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-red-600">{stats.priorityBreakdown.high}</div>
+                <div className="text-3xl font-bold text-red-600 tabular-nums">{stats.priorityBreakdown.high}</div>
                 <div className="text-sm text-forest-600">High Priority</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-yellow-600">{stats.priorityBreakdown.medium}</div>
+                <div className="text-3xl font-bold text-yellow-600 tabular-nums">{stats.priorityBreakdown.medium}</div>
                 <div className="text-sm text-forest-600">Medium</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-blue-600">{stats.priorityBreakdown.low}</div>
+                <div className="text-3xl font-bold text-blue-600 tabular-nums">{stats.priorityBreakdown.low}</div>
                 <div className="text-sm text-forest-600">Low</div>
               </div>
             </div>
-          </div>
+          </GlassPanel>
         )}
 
         {/* Filters */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+        <GlassPanel className="rounded-glass p-6 mb-6">
           <div className="flex flex-col md:flex-row gap-4 items-center">
             <div className="flex items-center gap-2">
               <Filter className="w-5 h-5 text-forest-600" />
@@ -180,7 +181,7 @@ const Wishlist: React.FC = () => {
               </select>
             </div>
           </div>
-        </div>
+        </GlassPanel>
 
         {/* Wishlist Items */}
         {loading ? (
@@ -188,21 +189,21 @@ const Wishlist: React.FC = () => {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-nature-600"></div>
           </div>
         ) : wishlistItems.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-lg p-12 text-center">
+          <GlassPanel className="rounded-glass p-12 text-center">
             <Heart className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-2xl font-bold text-forest-800 mb-2">Your Wishlist is Empty</h3>
             <p className="text-forest-600 mb-6">Start saving trips you love to your wishlist</p>
             <Link
               to="/trips"
-              className="inline-block bg-gradient-to-r from-forest-600 to-nature-600 text-white px-6 py-3 rounded-xl font-medium hover:from-forest-700 hover:to-nature-700 transition-all"
+              className="inline-block bg-gradient-to-r from-forest-600 to-nature-600 text-white px-6 py-3 rounded-xl font-medium hover:from-forest-700 hover:to-nature-700 hover:shadow-glow-forest transition-all duration-300 ease-spring"
             >
               Explore Trips
             </Link>
-          </div>
+          </GlassPanel>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {wishlistItems?.map((item) => (
-              <div key={item._id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
+            {wishlistItems?.map((item, i) => (
+              <GlassCard key={item._id} delayMs={i * 40} className="overflow-hidden p-0">
                 <div className="relative h-48">
                   {item.tripId.coverImage || (item.tripId.images && item.tripId.images.length > 0) ? (
                     <img
@@ -212,7 +213,7 @@ const Wishlist: React.FC = () => {
                     />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-forest-400 to-nature-500 flex items-center justify-center">
-                      <span className="text-6xl">🏔️</span>
+                      <Mountain size={48} strokeWidth={1.75} className="text-white" />
                     </div>
                   )}
                   <div className="absolute top-4 right-4 flex gap-2">
@@ -221,7 +222,7 @@ const Wishlist: React.FC = () => {
                     </span>
                   </div>
                   <div className="absolute top-4 left-4">
-                    <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 text-forest-800 text-sm font-semibold">
+                    <div className="glass-panel rounded-full px-3 py-1 text-forest-800 text-sm font-semibold tabular-nums">
                       ₹{item.tripId.price.toLocaleString()}
                     </div>
                   </div>
@@ -278,7 +279,7 @@ const Wishlist: React.FC = () => {
                     </button>
                   </div>
                 </div>
-              </div>
+              </GlassCard>
             ))}
           </div>
         )}

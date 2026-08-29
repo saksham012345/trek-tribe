@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import {
+  PenSquare, Save, Pencil, CheckCircle2, LogOut, Sparkles, Globe, Tent,
+  FileText, Mountain, Link2, Calendar, ArrowUpRight, Wrench, Headphones, Backpack
+} from 'lucide-react';
 import api from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
 import EnhancedProfileCard from '../components/EnhancedProfileCard';
 import PostCreator from '../components/PostCreator';
 import PostCard from '../components/PostCard';
 import ProfilePhotoUpload from '../components/ProfilePhotoUpload';
+import { GlassPanel } from '../components/ui/Glass';
 
 interface RoleBasedData {
   portfolioVisible: boolean;
@@ -425,28 +430,28 @@ const EnhancedProfilePage: React.FC = () => {
             {roleBasedData?.canPost && (
               <button
                 onClick={() => setShowPostCreator(true)}
-                className="px-6 py-3 bg-forest-600 text-white rounded-xl hover:bg-forest-700 transition-all duration-200 flex items-center gap-2 shadow-lg shadow-forest-600/20 transform hover:-translate-y-0.5"
+                className="px-6 py-3 bg-forest-600 text-white rounded-xl hover:bg-forest-700 hover:shadow-glow-forest transition-all duration-300 ease-spring flex items-center gap-2 shadow-lg shadow-forest-600/20 transform hover:-translate-y-0.5"
               >
-                <span className="text-xl">✍️</span>
+                <PenSquare size={18} strokeWidth={2} />
                 <span className="font-semibold">Create Post</span>
               </button>
             )}
             <button
               onClick={() => setEditing(!editing)}
-              className={`px-6 py-3 rounded-xl transition-all duration-200 flex items-center gap-2 border shadow-sm ${editing
+              className={`px-6 py-3 rounded-xl transition-all duration-300 ease-spring flex items-center gap-2 border shadow-sm ${editing
                 ? 'bg-neutral-800 text-white border-neutral-800 hover:bg-neutral-900'
-                : 'bg-white text-neutral-700 border-neutral-200 hover:bg-neutral-50 hover:border-neutral-300'
+                : 'glass-panel text-neutral-700 border-neutral-200 hover:bg-neutral-50 hover:border-neutral-300'
                 }`}
             >
-              <span className="text-xl">{editing ? '💾' : '✏️'}</span>
+              {editing ? <Save size={18} strokeWidth={2} /> : <Pencil size={18} strokeWidth={2} />}
               <span className="font-semibold">{editing ? 'Save Changes' : 'Edit Profile'}</span>
             </button>
             {editing && (
               <button
                 onClick={handleSave}
-                className="px-6 py-3 bg-nature-600 text-white rounded-xl hover:bg-nature-700 transition-all duration-200 flex items-center gap-2 shadow-lg shadow-nature-600/20"
+                className="px-6 py-3 bg-nature-600 text-white rounded-xl hover:bg-nature-700 transition-all duration-300 ease-spring flex items-center gap-2 shadow-lg shadow-nature-600/20"
               >
-                <span className="text-xl">✅</span>
+                <CheckCircle2 size={18} strokeWidth={2} />
                 <span className="font-semibold">Save Profile</span>
               </button>
             )}
@@ -458,17 +463,17 @@ const EnhancedProfilePage: React.FC = () => {
                     navigate('/login');
                   }
                 }}
-                className="px-6 py-3 bg-red-50 text-red-600 border border-red-100 rounded-xl hover:bg-red-100 transition-all duration-200 flex items-center gap-2"
+                className="px-6 py-3 bg-red-50 text-red-600 border border-red-100 rounded-xl hover:bg-red-100 transition-all duration-300 ease-spring flex items-center gap-2"
               >
-                <span className="text-xl">🚪</span>
+                <LogOut size={18} strokeWidth={2} />
                 <span className="font-semibold">Logout</span>
               </button>
             )}
             <button
               onClick={() => navigate('/request-trip')}
-              className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-200 flex items-center gap-2 shadow-lg shadow-blue-600/20"
+              className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 hover:shadow-glow-forest transition-all duration-300 ease-spring flex items-center gap-2 shadow-lg shadow-blue-600/20"
             >
-              <span className="text-xl">✨</span>
+              <Sparkles size={18} strokeWidth={2} />
               <span className="font-semibold">Request Custom Trip</span>
             </button>
           </div>
@@ -476,9 +481,9 @@ const EnhancedProfilePage: React.FC = () => {
 
         {/* Editing form */}
         {editing && (
-          <div className="bg-white rounded-2xl shadow-xl border border-neutral-100 p-8 mb-8 animate-fade-in">
+          <GlassPanel className="rounded-glass p-8 mb-8 animate-fade-in">
             <h3 className="text-2xl font-bold text-gray-900 mb-8 flex items-center gap-3">
-              <span className="p-2 bg-forest-100 rounded-lg text-forest-600 text-xl">✏️</span>
+              <span className="p-2 bg-forest-100 rounded-lg text-forest-600"><Pencil size={20} strokeWidth={2} /></span>
               Edit Profile
             </h3>
 
@@ -558,7 +563,7 @@ const EnhancedProfilePage: React.FC = () => {
             {/* Social Links */}
             <div className="mt-10 pt-8 border-t border-gray-100">
               <h4 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
-                <span className="text-blue-500">🌐</span> Social Links
+                <Globe size={20} strokeWidth={2} className="text-blue-500" /> Social Links
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {['instagram', 'website', 'facebook', 'twitter', 'linkedin'].map((social) => (
@@ -585,7 +590,7 @@ const EnhancedProfilePage: React.FC = () => {
             {profile.role === 'organizer' && (
               <div className="mt-10 pt-8 border-t border-gray-100">
                 <h4 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
-                  <span className="text-nature-600">🏕️</span> Organizer Details
+                  <Tent size={20} strokeWidth={2} className="text-nature-600" /> Organizer Details
                 </h4>
                 <div className="space-y-6">
                   <div>
@@ -623,33 +628,33 @@ const EnhancedProfilePage: React.FC = () => {
                 </div>
               </div>
             )}
-          </div>
+          </GlassPanel>
         )}
 
         {/* Content tabs */}
         {roleBasedData && (roleBasedData.postsVisible || roleBasedData.showPastTrips || roleBasedData.showWishlists) ? (
-          <div className="bg-white rounded-2xl shadow-xl shadow-neutral-200/50 border border-neutral-100 overflow-hidden">
+          <GlassPanel className="rounded-glass overflow-hidden">
             {/* Tab navigation */}
-            <div className="border-b border-gray-100 bg-white">
+            <div className="border-b border-gray-100/60">
               <nav className="flex space-x-8 px-8 overflow-x-auto scroolbar-hide">
                 {[
-                  { id: 'posts', label: 'Adventures', icon: '📝', count: posts?.length || 0, show: roleBasedData.postsVisible },
-                  { id: 'past-trips', label: 'Past Trips', icon: '🏔️', count: pastTrips?.length || 0, show: roleBasedData.showPastTrips && isOwnProfile },
-                  { id: 'links', label: 'Links', icon: '🔗', count: userLinks?.length || 0, show: roleBasedData.showWishlists && isOwnProfile }
+                  { id: 'posts', label: 'Adventures', icon: FileText, count: posts?.length || 0, show: roleBasedData.postsVisible },
+                  { id: 'past-trips', label: 'Past Trips', icon: Mountain, count: pastTrips?.length || 0, show: roleBasedData.showPastTrips && isOwnProfile },
+                  { id: 'links', label: 'Links', icon: Link2, count: userLinks?.length || 0, show: roleBasedData.showWishlists && isOwnProfile }
                 ].filter(tab => tab.show).map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as any)}
-                    className={`py-6 px-1 border-b-2 font-medium text-sm transition-all duration-200 whitespace-nowrap ${activeTab === tab.id
+                    className={`py-6 px-1 border-b-2 font-medium text-sm transition-all duration-300 ease-spring whitespace-nowrap ${activeTab === tab.id
                       ? 'border-forest-600 text-forest-700'
                       : 'border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-200'
                       }`}
                   >
                     <span className="flex items-center gap-2.5">
-                      <span className="text-lg">{tab.icon}</span>
+                      <tab.icon size={18} strokeWidth={2} />
                       <span className="text-base">{tab.label}</span>
                       {tab.count > 0 && (
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${activeTab === tab.id ? 'bg-forest-100 text-forest-700' : 'bg-gray-100 text-gray-600'
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold tabular-nums ${activeTab === tab.id ? 'bg-forest-100 text-forest-700' : 'bg-gray-100 text-gray-600'
                           }`}>
                           {tab.count}
                         </span>
@@ -665,8 +670,8 @@ const EnhancedProfilePage: React.FC = () => {
               {activeTab === 'posts' && (
                 <div className="space-y-8 max-w-3xl mx-auto">
                   {(posts?.length || 0) === 0 ? (
-                    <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
-                      <div className="text-6xl mb-6 opacity-30">📝</div>
+                    <div className="text-center py-20 bg-white/60 rounded-glass border border-dashed border-gray-300">
+                      <FileText size={56} strokeWidth={1.5} className="mx-auto mb-6 text-gray-300" />
                       <h3 className="text-xl font-bold text-gray-900 mb-2">No adventures shared yet</h3>
                       <p className="text-gray-500 mb-8 max-w-md mx-auto">
                         {isOwnProfile ? (roleBasedData?.canPost ? 'Start documenting your journey and share it with the tribe!' : 'Posts are unavailable.') : 'This explorer hasn\'t posted anything yet.'}
@@ -686,9 +691,9 @@ const EnhancedProfilePage: React.FC = () => {
                         <div className="flex justify-end mb-6">
                           <button
                             onClick={() => setShowPostCreator(true)}
-                            className="px-6 py-2.5 bg-forest-600 text-white rounded-xl hover:bg-forest-700 transition-all duration-200 flex items-center gap-2 shadow-md shadow-forest-600/10"
+                            className="px-6 py-2.5 bg-forest-600 text-white rounded-xl hover:bg-forest-700 hover:shadow-glow-forest transition-all duration-300 ease-spring flex items-center gap-2 shadow-md shadow-forest-600/10"
                           >
-                            <span className="text-lg">✍️</span>
+                            <PenSquare size={18} strokeWidth={2} />
                             <span className="font-semibold">New Adventure</span>
                           </button>
                         </div>
@@ -704,8 +709,8 @@ const EnhancedProfilePage: React.FC = () => {
               {activeTab === 'past-trips' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {(pastTrips?.length || 0) === 0 ? (
-                    <div className="col-span-full text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
-                      <div className="text-6xl mb-6 opacity-30">🏔️</div>
+                    <div className="col-span-full text-center py-20 bg-white/60 rounded-glass border border-dashed border-gray-300">
+                      <Mountain size={56} strokeWidth={1.5} className="mx-auto mb-6 text-gray-300" />
                       <h3 className="text-xl font-bold text-gray-900 mb-2">No past trips</h3>
                       <p className="text-gray-500">
                         {isOwnProfile ? 'Your completed expeditions will appear here.' : 'No completed trips found.'}
@@ -713,7 +718,7 @@ const EnhancedProfilePage: React.FC = () => {
                     </div>
                   ) : (
                     pastTrips?.map((trip) => (
-                      <div key={trip._id} className="bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-lg transition-all duration-300 group">
+                      <div key={trip._id} className="glass-card overflow-hidden group">
                         <div className="h-32 bg-gray-200 relative">
                           {/* Placeholder or trip image depending on data */}
                           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
@@ -725,7 +730,7 @@ const EnhancedProfilePage: React.FC = () => {
                         <div className="p-5">
                           <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
                             <span className="flex items-center gap-1">
-                              📅 {new Date(trip.startDate).toLocaleDateString()}
+                              <Calendar size={14} strokeWidth={2} /> {new Date(trip.startDate).toLocaleDateString()}
                             </span>
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${trip.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
                               }`}>
@@ -737,7 +742,7 @@ const EnhancedProfilePage: React.FC = () => {
                             <div className="text-xs text-gray-500">
                               {trip.participants?.length || 0} Travelers
                             </div>
-                            <button className="text-forest-600 text-sm font-semibold hover:text-forest-700">View Details →</button>
+                            <button className="text-forest-600 text-sm font-semibold hover:text-forest-700 flex items-center gap-1">View Details <ArrowUpRight size={14} strokeWidth={2.25} /></button>
                           </div>
                         </div>
                       </div>
@@ -749,8 +754,8 @@ const EnhancedProfilePage: React.FC = () => {
               {activeTab === 'links' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {(userLinks?.length || 0) === 0 ? (
-                    <div className="col-span-full text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
-                      <div className="text-6xl mb-6 opacity-30">🔗</div>
+                    <div className="col-span-full text-center py-20 bg-white/60 rounded-glass border border-dashed border-gray-300">
+                      <Link2 size={56} strokeWidth={1.5} className="mx-auto mb-6 text-gray-300" />
                       <h3 className="text-xl font-bold text-gray-900 mb-2">No links shared</h3>
                       <p className="text-gray-500">
                         {isOwnProfile ? 'Share your resources and findings!' : 'No shared links.'}
@@ -758,7 +763,7 @@ const EnhancedProfilePage: React.FC = () => {
                     </div>
                   ) : (
                     userLinks?.map((link, index) => (
-                      <div key={index} className="bg-white rounded-xl p-5 border border-gray-100 hover:border-blue-200 hover:shadow-md transition-all group">
+                      <div key={index} className="glass-card p-5 group">
                         <div className="flex items-start justify-between">
                           <div className="flex-1 pr-4">
                             <h4 className="font-bold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">{link.title}</h4>
@@ -775,9 +780,9 @@ const EnhancedProfilePage: React.FC = () => {
                             href={link.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="p-3 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-all"
+                            className="p-3 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-all duration-300 ease-spring"
                           >
-                            ↗
+                            <ArrowUpRight size={18} strokeWidth={2.25} />
                           </a>
                         </div>
                       </div>
@@ -786,12 +791,12 @@ const EnhancedProfilePage: React.FC = () => {
                 </div>
               )}
             </div>
-          </div>
+          </GlassPanel>
         ) : (
           /* Non-organizer profile - show basic info card */
-          <div className="bg-white rounded-2xl shadow-xl p-12 text-center max-w-2xl mx-auto border border-neutral-100">
-            <div className="w-24 h-24 mx-auto bg-forest-50 rounded-full flex items-center justify-center text-5xl mb-6">
-              {profile.role === 'admin' ? '🛠️' : profile.role === 'agent' ? '🎧' : '🎒'}
+          <GlassPanel className="rounded-glass p-12 text-center max-w-2xl mx-auto">
+            <div className="w-24 h-24 mx-auto bg-forest-50 rounded-full flex items-center justify-center mb-6">
+              {profile.role === 'admin' ? <Wrench size={40} strokeWidth={1.75} className="text-forest-600" /> : profile.role === 'agent' ? <Headphones size={40} strokeWidth={1.75} className="text-forest-600" /> : <Backpack size={40} strokeWidth={1.75} className="text-forest-600" />}
             </div>
             <h3 className="text-3xl font-bold text-gray-900 mb-3 capitalize">
               {profile.name}
@@ -818,7 +823,7 @@ const EnhancedProfilePage: React.FC = () => {
                 <span className="text-gray-800">{new Date(profile.createdAt).toLocaleDateString()}</span>
               </div>
             </div>
-          </div>
+          </GlassPanel>
         )}
       </div>
 

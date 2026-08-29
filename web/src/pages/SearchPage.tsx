@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Search, Map, Wrench, Headphones, Backpack, UserCircle, MapPin, Share2, Leaf, Bot } from 'lucide-react';
 import ProfileSearch from '../components/ProfileSearch';
 import api from '../config/api';
+import { GlassCard, GlassPanel, TrustBadge } from '../components/ui/Glass';
 
 interface ProfileSearchResult {
   _id: string;
@@ -117,10 +119,10 @@ const SearchPage: React.FC = () => {
 
   const getRoleIcon = (role: string) => {
     switch (role) {
-      case 'organizer': return '🗺️';
-      case 'admin': return '🛠️';
-      case 'agent': return '🎧';
-      default: return '🎒';
+      case 'organizer': return Map;
+      case 'admin': return Wrench;
+      case 'agent': return Headphones;
+      default: return Backpack;
     }
   };
 
@@ -133,13 +135,15 @@ const SearchPage: React.FC = () => {
     }
   };
 
-  const renderProfileCard = (profile: ProfileSearchResult) => (
-    <div
+  const renderProfileCard = (profile: ProfileSearchResult) => {
+    const RoleIcon = getRoleIcon(profile.role);
+    return (
+    <GlassCard
       key={profile._id}
-      onClick={() => handleProfileClick(profile)}
-      className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer border border-gray-200 hover:border-gray-300"
+      delayMs={0}
+      className="p-6 cursor-pointer"
     >
-      <div className="flex items-start space-x-4">
+      <div onClick={() => handleProfileClick(profile)} className="flex items-start space-x-4">
         {/* Profile Photo */}
         <div className="flex-shrink-0">
           <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
@@ -150,7 +154,7 @@ const SearchPage: React.FC = () => {
                 className="w-full h-full object-cover"
               />
             ) : (
-              <span className="text-2xl">👤</span>
+              <UserCircle size={32} strokeWidth={1.75} className="text-gray-400" />
             )}
           </div>
         </div>
@@ -161,20 +165,18 @@ const SearchPage: React.FC = () => {
             <h3 className="text-lg font-semibold text-gray-900 truncate flex-1">
               {profile.name}
             </h3>
-            {profile.isVerified && (
-              <span className="text-blue-500 flex-shrink-0" title="Verified Profile">✅</span>
-            )}
+            {profile.isVerified && <TrustBadge label="Verified" />}
           </div>
 
           <div className="flex items-center gap-2 mb-3">
-            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getRoleColor(profile.role)}`}>
-              <span className="mr-1">{getRoleIcon(profile.role)}</span>
+            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium border ${getRoleColor(profile.role)}`}>
+              <RoleIcon size={14} strokeWidth={2.25} />
               {profile.role}
             </span>
-            
+
             {profile.location && (
-              <span className="text-sm text-gray-500 flex items-center truncate max-w-[200px]">
-                📍 <span className="truncate">{profile.location}</span>
+              <span className="text-sm text-gray-500 flex items-center gap-1 truncate max-w-[200px]">
+                <MapPin size={14} strokeWidth={2} className="flex-shrink-0" /> <span className="truncate">{profile.location}</span>
               </span>
             )}
           </div>
@@ -211,13 +213,14 @@ const SearchPage: React.FC = () => {
               }}
               className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
             >
-              📤 Share Profile
+              <Share2 size={14} strokeWidth={2} /> Share Profile
             </button>
           </div>
         </div>
       </div>
-    </div>
-  );
+    </GlassCard>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 py-8">
@@ -229,7 +232,7 @@ const SearchPage: React.FC = () => {
         </div>
 
         {/* Search Form */}
-        <div className="bg-white rounded-2xl shadow-xl p-6 mb-8">
+        <GlassPanel className="rounded-glass p-6 mb-8">
           <form onSubmit={handleSearch} className="space-y-4">
             <div className="flex gap-4">
               <div className="flex-1">
@@ -238,14 +241,14 @@ const SearchPage: React.FC = () => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search organizers by name, location, or bio..."
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 bg-white/70 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 ease-spring"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={loading || searchQuery.trim().length < 2}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 hover:shadow-glow-forest disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-all duration-300 ease-spring"
               >
                 {loading ? (
                   <>
@@ -254,16 +257,14 @@ const SearchPage: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
+                    <Search size={16} strokeWidth={2.25} />
                     Search
                   </>
                 )}
               </button>
             </div>
           </form>
-        </div>
+        </GlassPanel>
 
         {/* Results */}
         {hasSearched ? (
@@ -284,13 +285,13 @@ const SearchPage: React.FC = () => {
                 {results.map(renderProfileCard)}
               </div>
             ) : (
-              <div className="text-center py-12">
-                <div className="text-6xl mb-4">🔍</div>
+              <GlassPanel className="text-center py-12 rounded-glass">
+                <Search size={48} strokeWidth={1.5} className="mx-auto mb-4 text-gray-400" />
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">No profiles found</h3>
                 <p className="text-gray-600">
                   Try adjusting your search terms or browse our suggestions below.
                 </p>
-              </div>
+              </GlassPanel>
             )}
           </div>
         ) : (
@@ -309,29 +310,29 @@ const SearchPage: React.FC = () => {
 
         {/* Quick Actions */}
         <div className="mt-12 text-center">
-          <div className="bg-white rounded-2xl shadow-xl p-6">
+          <GlassPanel className="rounded-glass p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Can't find what you're looking for?</h3>
             <div className="flex flex-wrap justify-center gap-4">
               <button
                 onClick={() => navigate('/trips')}
-                className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 hover:shadow-glow-forest transition-all duration-300 ease-spring flex items-center gap-2"
               >
-                🌿 Browse Trips
+                <Leaf size={16} strokeWidth={2.25} /> Browse Trips
               </button>
               <button
                 onClick={() => navigate('/ai-showcase')}
-                className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+                className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all duration-300 ease-spring flex items-center gap-2"
               >
-                🤖 AI Features
+                <Bot size={16} strokeWidth={2.25} /> AI Features
               </button>
               <button
                 onClick={() => navigate('/my-profile')}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-300 ease-spring flex items-center gap-2"
               >
-                👤 My Profile
+                <UserCircle size={16} strokeWidth={2.25} /> My Profile
               </button>
             </div>
-          </div>
+          </GlassPanel>
         </div>
       </div>
     </div>

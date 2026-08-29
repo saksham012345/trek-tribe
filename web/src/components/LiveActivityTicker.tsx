@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Rocket, UserPlus, Star, Ticket, LucideIcon } from 'lucide-react';
 import './LiveActivityTicker.css';
 import io from 'socket.io-client';
 
@@ -9,6 +10,13 @@ interface ActivityEvent {
     timestamp: Date;
 }
 
+const TYPE_ICONS: Record<ActivityEvent['type'], LucideIcon> = {
+    trip: Rocket,
+    user: UserPlus,
+    review: Star,
+    booking: Ticket,
+};
+
 const LiveActivityTicker: React.FC = () => {
     const [events, setEvents] = useState<ActivityEvent[]>([]);
     const [currentEventIndex, setCurrentEventIndex] = useState(0);
@@ -16,10 +24,10 @@ const LiveActivityTicker: React.FC = () => {
 
     // Simulated events for demo if socket is quiet
     const demoEvents = [
-        { id: 'd1', message: '🚀 New trip to Manali just added!', type: 'trip' },
-        { id: 'd2', message: '👤 Rahul just joined the tribe.', type: 'user' },
-        { id: 'd3', message: '⭐ 5-star review received for "Kasol Trek"', type: 'review' },
-        { id: 'd4', message: '🎫 New booking for "Goa Beach Bash"', type: 'booking' }
+        { id: 'd1', message: 'New trip to Manali just added!', type: 'trip' },
+        { id: 'd2', message: 'Rahul just joined the tribe.', type: 'user' },
+        { id: 'd3', message: '5-star review received for "Kasol Trek"', type: 'review' },
+        { id: 'd4', message: 'New booking for "Goa Beach Bash"', type: 'booking' }
     ] as const;
 
     useEffect(() => {
@@ -68,12 +76,14 @@ const LiveActivityTicker: React.FC = () => {
     if (events.length === 0) return null;
 
     const currentEvent = events[currentEventIndex];
+    const EventIcon = TYPE_ICONS[currentEvent.type] || Rocket;
 
     return (
         <div className="live-ticker-container">
             <div className="ticker-label">
                 <span className="live-dot"></span> LIVE
             </div>
+            <EventIcon size={14} strokeWidth={2.25} className="text-forest-600 flex-shrink-0" />
             <div className="ticker-content fade-key-{currentEvent.id}">
                 {currentEvent.message}
             </div>

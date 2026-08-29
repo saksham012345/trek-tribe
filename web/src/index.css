@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500;1,9..144,600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -240,6 +240,127 @@ html {
 @media (max-width: 768px) {
   .page-content {
     padding-bottom: calc(56px + env(safe-area-inset-bottom));
+  }
+}
+
+/* ─── Spatial Glass Design System ────────────────────────────────────────── */
+
+/* Frosted glass panel — light surfaces (cards, nav, forms) */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 8px 32px rgba(15, 23, 42, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+/* Frosted glass panel — dark surfaces (hero sections over 3D scenes) */
+.glass-panel-dark {
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Elevated glass card that floats above content with hover lift */
+.glass-card {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 24px;
+  box-shadow: 0 4px 16px rgba(20, 83, 45, 0.08);
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 24px 64px rgba(20, 83, 45, 0.16);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-card {
+    transition: none;
+  }
+  .glass-card:hover {
+    transform: none;
+  }
+}
+
+/* Glow ring for focus/hover on primary interactive elements */
+.glow-ring-forest:hover, .glow-ring-forest:focus-visible {
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.15), 0 8px 24px rgba(34, 197, 94, 0.25);
+}
+
+.glow-ring-earth:hover, .glow-ring-earth:focus-visible {
+  box-shadow: 0 0 0 1px rgba(217, 119, 6, 0.15), 0 8px 24px rgba(217, 119, 6, 0.25);
+}
+
+/* Scroll-reveal entrance — paired with an IntersectionObserver toggling .is-visible */
+.reveal-on-scroll {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reveal-on-scroll.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-on-scroll {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* ─── Immersive Hero Accents ─────────────────────────────────────────────── */
+
+.font-display-serif {
+  font-family: 'Fraunces', Georgia, serif;
+}
+
+/* Decorative viewfinder corner brackets, echoing award-site framing devices */
+.corner-frame {
+  position: relative;
+}
+
+.corner-frame::before,
+.corner-frame::after {
+  content: '';
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border-style: solid;
+  border-color: rgba(74, 222, 128, 0.55);
+  pointer-events: none;
+}
+
+.corner-frame::before {
+  top: 0;
+  left: 0;
+  border-width: 2px 0 0 2px;
+}
+
+.corner-frame::after {
+  bottom: 0;
+  right: 0;
+  border-width: 0 2px 2px 0;
+}
+
+.hero-word-reveal {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(0.4em);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-word-reveal {
+    opacity: 1;
+    transform: none;
   }
 }
 

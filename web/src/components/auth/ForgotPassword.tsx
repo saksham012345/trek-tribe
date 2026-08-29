@@ -43,7 +43,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBack }) => {
 
   if (isSubmitted) {
     return (
-      <div className="max-w-md mx-auto mt-8 p-6 bg-white rounded-lg shadow-md">
+      <div className="max-w-md mx-auto mt-8 p-6 glass-panel rounded-glass">
         <div className="text-center">
           <CheckCircle className="mx-auto mb-4 text-green-500" size={48} />
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Check Your Email</h2>
@@ -77,7 +77,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBack }) => {
   }
 
   return (
-    <div className="max-w-md mx-auto mt-8 p-6 bg-white rounded-lg shadow-md">
+    <div className="max-w-md mx-auto mt-8 p-6 glass-panel rounded-glass">
       <div className="text-center mb-6">
         <Mail className="mx-auto mb-4 text-green-500" size={48} />
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Forgot Password?</h2>
@@ -103,14 +103,14 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBack }) => {
               setEmail(e.target.value);
             }}
             placeholder="Enter your email address"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-glass-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent focus-visible:shadow-glow-forest transition-all duration-300 ease-spring"
             required
             disabled={isLoading}
           />
         </div>
 
         {error && (
-          <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 p-3 rounded-md">
+          <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 p-3 rounded-glass-sm">
             <AlertCircle size={16} />
             {error}
           </div>
@@ -119,7 +119,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBack }) => {
         <button
           type="submit"
           disabled={isLoading || !email.trim()}
-          className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+          className="w-full bg-green-600 text-white py-2 px-4 rounded-glass-sm hover:bg-green-700 hover:shadow-glow-forest disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 ease-spring flex items-center justify-center gap-2"
         >
           {isLoading ? (
             <>

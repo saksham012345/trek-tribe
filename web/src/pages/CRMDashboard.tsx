@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { DashboardLayout } from '../layout/DashboardLayout';
-import { Home, Users, Settings, PlusSquare } from 'lucide-react';
+import { Home, Users, Settings, PlusSquare, Phone, Mail, TrendingUp, PieChart, BarChart3, Compass, RefreshCw } from 'lucide-react';
 import { Badge } from '../components/ui/Badge';
 import api from '../config/api';
 import { useToast, ToastContainer } from '../components/Toast';
@@ -524,11 +524,9 @@ const CRMDashboard: React.FC = () => {
                 }
                 showToast('Dashboard refreshed!', 'success');
               }}
-              className="px-4 py-2 bg-forest-600 text-white rounded-lg hover:bg-forest-700 transition-colors flex items-center gap-2"
+              className="px-4 py-2 bg-forest-600 text-white rounded-lg hover:bg-forest-700 hover:shadow-glow-forest transition-all duration-300 ease-spring flex items-center gap-2"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
+              <RefreshCw size={18} strokeWidth={2} />
               Refresh
             </button>
           </div>
@@ -537,7 +535,7 @@ const CRMDashboard: React.FC = () => {
           <div className="mb-6 flex gap-2 border-b border-forest-200">
             <button
               onClick={() => setActiveTab('dashboard')}
-              className={`px-6 py-3 font-semibold transition-colors ${activeTab === 'dashboard'
+              className={`px-6 py-3 font-semibold transition-all duration-300 ease-spring ${activeTab === 'dashboard'
                 ? 'text-forest-900 border-b-2 border-forest-600'
                 : 'text-forest-600 hover:text-forest-900'
                 }`}
@@ -546,7 +544,7 @@ const CRMDashboard: React.FC = () => {
             </button>
             <button
               onClick={() => setActiveTab('analytics')}
-              className={`px-6 py-3 font-semibold transition-colors ${activeTab === 'analytics'
+              className={`px-6 py-3 font-semibold transition-all duration-300 ease-spring ${activeTab === 'analytics'
                 ? 'text-forest-900 border-b-2 border-forest-600'
                 : 'text-forest-600 hover:text-forest-900'
                 }`}
@@ -653,7 +651,7 @@ const CRMDashboard: React.FC = () => {
                 </>
               ) : (
                 // Show placeholder when stats are loading
-                <div className="bg-white rounded-xl shadow-md p-6 mb-8">
+                <div className="glass-card p-6 mb-8">
                   <div className="text-center py-8">
                     <p className="text-forest-600">Loading statistics...</p>
                   </div>
@@ -661,7 +659,7 @@ const CRMDashboard: React.FC = () => {
               )}
 
               {/* Search & Filter */}
-              <div className="bg-white rounded-xl shadow-md p-6 mb-8">
+              <div className="glass-card p-6 mb-8">
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-forest-700 mb-2">
@@ -696,7 +694,7 @@ const CRMDashboard: React.FC = () => {
               </div>
 
               {/* Responsive Leads List */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="glass-card !rounded-glass overflow-hidden">
                 
                 {/* Desktop View */}
                 <div className="hidden md:block overflow-x-auto">
@@ -764,8 +762,9 @@ const CRMDashboard: React.FC = () => {
                             {lead.status}
                           </Badge>
                         </div>
-                        <div className="text-sm text-gray-600 block">
-                          📞 {lead.phone} <br/> ✉️ {lead.email}
+                        <div className="text-sm text-gray-600 flex flex-col gap-1">
+                          <span className="flex items-center gap-1.5"><Phone size={13} strokeWidth={2} />{lead.phone}</span>
+                          <span className="flex items-center gap-1.5"><Mail size={13} strokeWidth={2} />{lead.email}</span>
                         </div>
                         <div className="flex gap-2 pt-2">
                            <select
@@ -800,7 +799,7 @@ const CRMDashboard: React.FC = () => {
           {activeTab === 'analytics' && (
             <div className="space-y-8">
               {analyticsLoading ? (
-                <div className="bg-white rounded-xl shadow-md p-6">
+                <div className="glass-card p-6">
                   <div className="text-center py-8">
                     <p className="text-forest-600">Loading analytics...</p>
                   </div>
@@ -808,8 +807,8 @@ const CRMDashboard: React.FC = () => {
               ) : (
                 <>
                   {/* Bookings Over Time Chart */}
-                  <div className="bg-white rounded-xl shadow-lg p-6">
-                    <h3 className="text-2xl font-bold text-forest-900 mb-6">📈 Bookings Over Time (30 Days)</h3>
+                  <div className="glass-card p-6">
+                    <h3 className="text-2xl font-bold text-forest-900 mb-6"><TrendingUp size={22} className="inline mr-2 -mt-1" strokeWidth={2} />Bookings Over Time (30 Days)</h3>
                     {bookingsOverTime.length > 0 ? (
                       <Line
                         data={{
@@ -862,8 +861,8 @@ const CRMDashboard: React.FC = () => {
                   {/* Payment Status & Lead Sources */}
                   <div className="grid md:grid-cols-2 gap-8">
                     {/* Payment Status Pie Chart */}
-                    <div className="bg-white rounded-xl shadow-lg p-6">
-                      <h3 className="text-2xl font-bold text-forest-900 mb-6">🍩 Payment Status Breakdown</h3>
+                    <div className="glass-card p-6">
+                      <h3 className="text-2xl font-bold text-forest-900 mb-6"><PieChart size={22} className="inline mr-2 -mt-1" strokeWidth={2} />Payment Status Breakdown</h3>
                       {paymentStatusData.length > 0 ? (
                         <Pie
                           data={{
@@ -893,8 +892,8 @@ const CRMDashboard: React.FC = () => {
                     </div>
 
                     {/* Lead Sources Pie Chart */}
-                    <div className="bg-white rounded-xl shadow-lg p-6">
-                      <h3 className="text-2xl font-bold text-forest-900 mb-6">🧭 Lead Source Distribution</h3>
+                    <div className="glass-card p-6">
+                      <h3 className="text-2xl font-bold text-forest-900 mb-6"><Compass size={22} className="inline mr-2 -mt-1" strokeWidth={2} />Lead Source Distribution</h3>
                       {leadSourcesData.length > 0 ? (
                         <Pie
                           data={{
@@ -926,8 +925,8 @@ const CRMDashboard: React.FC = () => {
                   </div>
 
                   {/* Revenue Per Trip Bar Chart */}
-                  <div className="bg-white rounded-xl shadow-lg p-6">
-                    <h3 className="text-2xl font-bold text-forest-900 mb-6">📊 Revenue Per Trip</h3>
+                  <div className="glass-card p-6">
+                    <h3 className="text-2xl font-bold text-forest-900 mb-6"><BarChart3 size={22} className="inline mr-2 -mt-1" strokeWidth={2} />Revenue Per Trip</h3>
                     {revenuePerTrip.length > 0 ? (
                       <Bar
                         data={{
@@ -966,7 +965,7 @@ const CRMDashboard: React.FC = () => {
       {/* Lead Details Modal */}
       {showModal && selectedLead && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+          <div className="glass-panel !rounded-glass shadow-elevation-4 max-w-md w-full p-6">
             <h2 className="text-2xl font-bold text-forest-900 mb-4">{selectedLead.name}</h2>
 
             <div className="space-y-4 mb-6">

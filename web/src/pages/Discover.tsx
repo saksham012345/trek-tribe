@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
+import { Search } from 'lucide-react';
 import api from '../config/api';
 import { User } from '../types';
+import { GlassCard, GlassPanel, ScarcityBadge } from '../components/ui/Glass';
 
 interface DiscoverTrip {
   _id: string;
@@ -83,48 +85,46 @@ const Discover: React.FC<DiscoverProps> = ({ user: _user }) => {
       </Helmet>
 
       <div className="px-4 sm:px-6 py-6 space-y-6">
-        <div className="bg-white rounded-2xl border border-gray-200 p-5">
+        <GlassPanel className="rounded-glass p-5">
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Discover Adventures</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Desktop grid: {desktopCols} columns, Mobile grid: {mobileCols} columns
-          </p>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search destination, category, or trip..."
-            className="mt-4 w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:ring-2 focus:ring-forest-500"
-          />
-        </div>
+          <div className="relative mt-4">
+            <Search size={18} strokeWidth={2} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search destination, category, or trip..."
+              className="w-full rounded-xl border border-gray-300 bg-white/70 pl-11 pr-4 py-3 outline-none focus:ring-2 focus:ring-forest-500 transition-all duration-300 ease-spring"
+            />
+          </div>
+        </GlassPanel>
 
         {loading ? (
           <div className="text-center py-16 text-gray-500">Loading trips...</div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-2xl border border-gray-200 text-gray-500">
+          <GlassPanel className="text-center py-16 rounded-glass text-gray-500">
             No trips found for this search.
-          </div>
+          </GlassPanel>
         ) : (
           <div className={`grid ${mobileColsClass} ${desktopColsClass} gap-3 md:gap-5`}>
-            {filtered.map((trip) => {
+            {filtered.map((trip, index) => {
               const image = trip.coverImage || trip.images?.[0] || 'https://images.unsplash.com/photo-1464822759844-d150ad6d1f6d?q=80&w=1000&auto=format&fit=crop';
               const filled = trip.participants?.length || 0;
               const seatsLeft = Math.max(trip.capacity - filled, 0);
               return (
-                <Link
-                  key={trip._id}
-                  to={`/trip/${trip._id}`}
-                  className="bg-white rounded-2xl overflow-hidden border border-gray-200 hover:shadow-md transition-shadow"
-                >
-                  <img src={image} alt={trip.title} className="w-full h-28 md:h-40 object-cover" />
-                  <div className="p-3 space-y-1">
-                    <h3 className="font-semibold text-sm md:text-base text-gray-900 line-clamp-2">{trip.title}</h3>
-                    <p className="text-xs md:text-sm text-gray-600">{trip.destination}</p>
-                    <p className="text-xs text-gray-500">{new Date(trip.startDate).toLocaleDateString('en-IN')}</p>
-                    <div className="flex items-center justify-between pt-1">
-                      <span className="text-sm font-bold text-forest-700">INR {trip.price}</span>
-                      <span className="text-[11px] text-gray-500">{seatsLeft} seats left</span>
+                <GlassCard key={trip._id} delayMs={Math.min(index, 8) * 40} className="overflow-hidden p-0">
+                  <Link to={`/trip/${trip._id}`} className="block">
+                    <img src={image} alt={trip.title} className="w-full h-28 md:h-40 object-cover" />
+                    <div className="p-3 space-y-1">
+                      <h3 className="font-semibold text-sm md:text-base text-gray-900 line-clamp-2">{trip.title}</h3>
+                      <p className="text-xs md:text-sm text-gray-600">{trip.destination}</p>
+                      <p className="text-xs text-gray-500">{new Date(trip.startDate).toLocaleDateString('en-IN')}</p>
+                      <div className="flex items-center justify-between pt-1 gap-2">
+                        <span className="text-sm font-bold text-forest-700 tabular-nums">INR {trip.price}</span>
+                        <ScarcityBadge spotsLeft={seatsLeft} className="!py-0.5 !px-2 !text-[10px]" />
+                      </div>
                     </div>
-                  </div>
-                </Link>
+                  </Link>
+                </GlassCard>
               );
             })}
           </div>

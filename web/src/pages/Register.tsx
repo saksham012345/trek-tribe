@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Mountain, AlertTriangle, User, Link2, Mail, Phone, Target, Lock, CheckCircle2, Sprout, ArrowRight, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../config/api';
 import RoleSelectModal from '../components/RoleSelectModal';
@@ -285,7 +286,9 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
             <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight">Join TrekTribe</h1>
             <p className="text-white/90 mt-1 text-sm sm:text-base">Create your adventure profile and start exploring curated treks.</p>
           </div>
-          <div className="hidden sm:block text-5xl">🏔️</div>
+          <div className="hidden sm:block">
+            <Mountain size={56} strokeWidth={1.5} className="text-white/90" />
+          </div>
         </div>
       </div>
 
@@ -293,20 +296,27 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Left: Brand card — desktop only */}
           <div className="hidden lg:block">
-            <div className="bg-white rounded-2xl shadow-xl p-8 border border-forest-200">
+            <div className="glass-panel rounded-glass p-8">
               <h3 className="text-xl font-bold text-forest-800 mb-4">Why TrekTribe?</h3>
               <ul className="space-y-3 text-forest-700">
-                <li>• Verified organizers and real reviews</li>
-                <li>• Curated itineraries and transparent pricing</li>
-                <li>• Secure bookings with support from real agents</li>
-                <li>• Build your adventure profile and earn badges</li>
+                {[
+                  'Verified organizers and real reviews',
+                  'Curated itineraries and transparent pricing',
+                  'Secure bookings with support from real agents',
+                  'Build your adventure profile and earn badges',
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2">
+                    <ShieldCheck size={18} strokeWidth={2.25} className="text-forest-500 flex-shrink-0 mt-0.5" />
+                    {item}
+                  </li>
+                ))}
               </ul>
             </div>
           </div>
 
           {/* Form card — full width on mobile */}
           <div className="w-full space-y-4 sm:space-y-6">
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-5 sm:p-8 border border-forest-200">
+            <div className="glass-panel rounded-glass p-5 sm:p-8">
               {/* Google Sign-Up - only show if not logged in */}
               {!user && (
                 <div className="space-y-3 mb-4">
@@ -339,8 +349,8 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
 
               <form className="space-y-4 sm:space-y-6" onSubmit={handleSubmit}>
                 {error && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2">
-                    <span className="text-xl">⚠️</span>
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-glass-sm flex items-center gap-2">
+                    <AlertTriangle size={20} strokeWidth={2.25} className="flex-shrink-0" />
                     <span className="text-sm">{error}</span>
                   </div>
                 )}
@@ -348,7 +358,7 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
                 <div className="space-y-6">
                   <div>
                     <label htmlFor="name" className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
-                      👤 Full Name
+                      <User size={16} strokeWidth={2.25} /> Full Name
                     </label>
                     <input
                       id="name"
@@ -358,14 +368,14 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
                       required
                       value={formData.name}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
+                      className="w-full px-4 py-3 border-2 border-forest-200 rounded-glass-sm focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 focus-visible:shadow-glow-forest transition-all duration-300 ease-spring bg-forest-50/50"
                       placeholder="Enter your full name"
                     />
                   </div>
 
                   <div>
                     <label htmlFor="username" className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
-                      🔗 Username (profile URL)
+                      <Link2 size={16} strokeWidth={2.25} /> Username (profile URL)
                     </label>
                     <input
                       id="username"
@@ -374,7 +384,7 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
                       value={formData.username}
                       onChange={handleChange}
                       onBlur={() => checkUsernameAvailability(formData.username)}
-                      className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
+                      className="w-full px-4 py-3 border-2 border-forest-200 rounded-glass-sm focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 focus-visible:shadow-glow-forest transition-all duration-300 ease-spring bg-forest-50/50"
                       placeholder="e.g., trekker-jane"
                       required
                     />
@@ -388,7 +398,7 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
 
                   <div>
                     <label htmlFor="email" className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
-                      📧 Email address
+                      <Mail size={16} strokeWidth={2.25} /> Email address
                     </label>
                     <input
                       id="email"
@@ -398,14 +408,14 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
                       required
                       value={formData.email}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
+                      className="w-full px-4 py-3 border-2 border-forest-200 rounded-glass-sm focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 focus-visible:shadow-glow-forest transition-all duration-300 ease-spring bg-forest-50/50"
                       placeholder="Enter your email"
                     />
                   </div>
 
                   <div>
                     <label htmlFor="phoneNumber" className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
-                      📱 Phone Number <span className="text-xs text-red-500">*</span>
+                      <Phone size={16} strokeWidth={2.25} /> Phone Number <span className="text-xs text-red-500">*</span>
                     </label>
                     <input
                       id="phoneNumber"
@@ -415,7 +425,7 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
                       required
                       value={formData.phoneNumber}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
+                      className="w-full px-4 py-3 border-2 border-forest-200 rounded-glass-sm focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 focus-visible:shadow-glow-forest transition-all duration-300 ease-spring bg-forest-50/50"
                       placeholder="+1234567890 (include country code)"
                     />
                     <p className="text-xs text-forest-600 mt-1">Required for trip coordination.</p>
@@ -423,19 +433,19 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
 
                   <div>
                     <label className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
-                      🎯 Join as
+                      <Target size={16} strokeWidth={2.25} /> Join as
                     </label>
                     <div className="flex gap-3">
-                      <button type="button" onClick={() => setShowRoleModal(true)} className="px-4 py-2 border-2 border-forest-200 rounded-xl hover:border-nature-500 hover:bg-nature-50 transition">Select role</button>
+                      <button type="button" onClick={() => setShowRoleModal(true)} className="px-4 py-2 border-2 border-forest-200 rounded-glass-sm hover:border-nature-500 hover:bg-nature-50 transition-all duration-300 ease-spring">Select role</button>
                       {formData.role && (
-                        <span className="px-3 py-2 bg-forest-100 text-forest-700 rounded-xl text-sm">{formData.role === 'traveler' ? 'Adventurer' : 'Organizer'} selected</span>
+                        <span className="px-3 py-2 bg-forest-100 text-forest-700 rounded-glass-sm text-sm">{formData.role === 'traveler' ? 'Adventurer' : 'Organizer'} selected</span>
                       )}
                     </div>
                   </div>
 
                   <div>
                     <label htmlFor="password" className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
-                      🔐 Password
+                      <Lock size={16} strokeWidth={2.25} /> Password
                     </label>
                     <input
                       id="password"
@@ -445,7 +455,7 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
                       required
                       value={formData.password}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
+                      className="w-full px-4 py-3 border-2 border-forest-200 rounded-glass-sm focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 focus-visible:shadow-glow-forest transition-all duration-300 ease-spring bg-forest-50/50"
                       placeholder="Create a secure password"
                     />
                     <p className="text-xs text-forest-600 mt-1">{passwordHint}</p>
@@ -453,7 +463,7 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
 
                   <div>
                     <label htmlFor="confirmPassword" className="block text-sm font-medium text-forest-700 mb-2 flex items-center gap-2">
-                      ✅ Confirm Password
+                      <CheckCircle2 size={16} strokeWidth={2.25} /> Confirm Password
                     </label>
                     <input
                       id="confirmPassword"
@@ -463,7 +473,7 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
                       required
                       value={formData.confirmPassword}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border-2 border-forest-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 transition-all duration-300 bg-forest-50/50"
+                      className="w-full px-4 py-3 border-2 border-forest-200 rounded-glass-sm focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-nature-500 focus-visible:shadow-glow-forest transition-all duration-300 ease-spring bg-forest-50/50"
                       placeholder="Confirm your password"
                     />
                   </div>
@@ -473,7 +483,7 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="group relative w-full flex justify-center py-4 px-6 border border-transparent text-base font-bold rounded-xl text-white bg-gradient-to-r from-nature-600 to-forest-600 hover:from-nature-700 hover:to-forest-700 focus:outline-none focus:ring-4 focus:ring-nature-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl min-h-[52px]"
+                    className="group relative w-full flex justify-center py-4 px-6 border border-transparent text-base font-bold rounded-glass-sm text-white bg-gradient-to-r from-nature-600 to-forest-600 hover:from-nature-700 hover:to-forest-700 hover:shadow-glow-forest focus:outline-none focus:ring-4 focus:ring-nature-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 ease-spring transform hover:scale-105 shadow-lg min-h-[52px]"
                   >
                     {loading ? (
                       <span className="flex items-center gap-2">
@@ -482,10 +492,8 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
                       </span>
                     ) : (
                       <span className="flex items-center gap-2">
-                        🌱 Join the Tribe
-                        <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                        </svg>
+                        <Sprout size={19} strokeWidth={2.25} /> Join the Tribe
+                        <ArrowRight size={19} strokeWidth={2.25} className="group-hover:translate-x-1 transition-transform duration-300 ease-spring" />
                       </span>
                     )}
                   </button>

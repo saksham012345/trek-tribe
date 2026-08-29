@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useParams } from 'react-router-dom';
-import { Filter, Calendar, MapPin, DollarSign, ArrowUpDown } from 'lucide-react';
+import { Filter, Calendar, MapPin, DollarSign, ArrowUpDown, Search, Compass, Mountain, Trees, Waves, Landmark, Tent, Globe2, LucideIcon } from 'lucide-react';
 import api from '../config/api';
 import JoinTripModal from '../components/JoinTripModal';
 import AISmartSearch from '../components/AISmartSearch';
@@ -9,6 +9,7 @@ import AIRecommendations from '../components/AIRecommendations';
 import { User } from '../types';
 import { ConsumerLayout } from '../layout/ConsumerLayout';
 import { TripCard } from '../components/features/TripCard';
+import { GlassPanel } from '../components/ui/Glass';
 
 interface Trip {
   _id: string; title: string; description: string; destination: string;
@@ -85,12 +86,11 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
     const r = await api.get('/trips'); const raw = r.data as any;
     setTrips(Array.isArray(raw?.data) ? raw.data : Array.isArray(raw) ? raw : []);
   };
-  const tripEmoji = (cats: string[]) => {
-    if (cats?.includes('Mountain')) return '🏔️';
-    if (cats?.includes('Nature')) return '🌲';
-    if (cats?.includes('Beach')) return '🏖️';
-    if (cats?.includes('Cultural')) return '🏛️';
-    return '🌍';
+  const categoryIcons: Record<string, LucideIcon> = {
+    Mountain: Mountain,
+    Nature: Trees,
+    Beach: Waves,
+    Cultural: Landmark,
   };
 
   return (
@@ -111,9 +111,9 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
 
         {/* Global Floating Search */}
         <div className="sticky top-0 z-40 -mx-4 px-4 py-2 transition-all duration-300">
-          <div className="relative group max-w-3xl mx-auto shadow-sm rounded-2xl overflow-hidden bg-white/90 backdrop-blur-xl border border-gray-200">
+          <div className="relative group max-w-3xl mx-auto glass-panel rounded-glass overflow-hidden">
             <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
-              <span className="text-gray-400 group-focus-within:text-forest-600 transition-colors text-xl">🔍</span>
+              <Search size={20} strokeWidth={2} className="text-gray-400 group-focus-within:text-forest-600 transition-colors" />
             </div>
             <input type="text" placeholder="Where to?" value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -123,29 +123,33 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
 
         {/* Category Chips - Horizontal Scroll */}
         <div className="chips-scroll flex gap-2 overflow-x-auto pb-4 pt-2 -mx-4 px-4 scrollbar-hide snap-x">
-          {['', ...categories].map((cat) => (
-            <button key={cat || 'all'} onClick={() => setSelectedCategory(cat)}
-              className={`snap-start flex-shrink-0 px-5 py-2.5 rounded-full text-sm font-bold transition-all duration-300 min-h-[44px] shadow-sm transform active:scale-95 border ${selectedCategory === cat ? 'bg-forest-600 text-[#b4d4b4] border-transparent' : 'bg-white text-gray-600 border-gray-200 hover:bg-forest-50'}`}>
-              {cat ? `${tripEmoji([cat])} ${cat}` : '🧭 All'}
-            </button>
-          ))}
+          {['', ...categories].map((cat) => {
+            const ChipIcon = cat ? categoryIcons[cat] || Globe2 : Compass;
+            return (
+              <button key={cat || 'all'} onClick={() => setSelectedCategory(cat)}
+                className={`snap-start flex-shrink-0 flex items-center gap-1.5 px-5 py-2.5 rounded-full text-sm font-bold transition-all duration-300 ease-spring min-h-[44px] shadow-sm transform active:scale-95 border ${selectedCategory === cat ? 'bg-forest-600 text-white border-transparent shadow-glow-forest' : 'glass-panel text-gray-600 border-transparent hover:bg-forest-50'}`}>
+                <ChipIcon size={16} strokeWidth={2.25} />
+                {cat || 'All'}
+              </button>
+            );
+          })}
         </div>
 
         {/* Content Rest Omitted for brevity of testing ConsumerLayout (but re-implementing below) */}
 
         {/* Advanced Filters Toggle */}
         <button onClick={() => setShowFilters(!showFilters)}
-            className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200 rounded-2xl font-bold text-sm min-h-[44px] transition-all active:scale-[0.98]">
+            className="w-full flex items-center justify-center gap-2 px-6 py-3.5 glass-panel text-gray-700 hover:bg-white/80 rounded-glass-sm font-bold text-sm min-h-[44px] transition-all duration-300 ease-spring active:scale-[0.98]">
             <Filter className="w-5 h-5" />{showFilters ? 'Hide Filters' : 'Advanced Filters'}
         </button>
 
         {showFilters && (
-            <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+            <div className="space-y-4 animate-rise-in">
+              <GlassPanel className="p-4 rounded-glass-sm">
                 <label className="flex items-center gap-2 text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Max Price</label>
                 <input type="range" min={0} max={priceRange[1]} step={1000} value={priceRange[1]} onChange={(e) => setPriceRange([0, parseInt(e.target.value)])} className="w-full accent-forest-600" />
-                <div className="text-sm font-bold text-forest-700 mt-2">Up to Rs. {priceRange[1].toLocaleString()}</div>
-              </div>
+                <div className="text-sm font-bold text-forest-700 mt-2 tabular-nums">Up to Rs. {priceRange[1].toLocaleString()}</div>
+              </GlassPanel>
             </div>
         )}
 
@@ -170,14 +174,14 @@ const Trips: React.FC<TripsProps> = ({ user }) => {
 
         {/* Empty State */}
         {filteredTrips.length === 0 && !loading && (
-          <div className="text-center py-20 px-4 bg-white rounded-3xl border border-gray-100 shadow-sm">
-            <div className="text-6xl mb-6 opacity-80">⛺</div>
+          <GlassPanel className="text-center py-20 px-4 rounded-glass">
+            <Tent size={56} strokeWidth={1.5} className="mx-auto mb-6 text-gray-400" />
             <h3 className="text-xl font-extrabold text-gray-900 mb-2">No adventures found</h3>
             <button onClick={() => { setSearchTerm(''); setSelectedCategory(''); setShowFilters(false); }}
               className="mt-6 px-6 py-2 bg-gray-100 text-gray-700 rounded-2xl font-bold active:scale-[0.98]">
               Clear filters
             </button>
-          </div>
+          </GlassPanel>
         )}
 
         {selectedTrip && (

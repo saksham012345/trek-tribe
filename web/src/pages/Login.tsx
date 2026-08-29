@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Mountain, ArrowRight, Tent } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import GoogleLoginButton from '../components/GoogleLoginButton';
 import { useToast, ToastContainer } from '../components/Toast';
@@ -124,8 +125,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         <div className="max-w-md w-full space-y-6 sm:space-y-8 relative z-10">
           {/* Header Section */}
           <div className="text-center animate-fade-in">
-            <div className="mx-auto h-16 w-16 sm:h-20 sm:w-20 bg-gradient-to-br from-forest-600 via-nature-500 to-forest-700 rounded-2xl flex items-center justify-center shadow-2xl transform hover:scale-110 transition-transform duration-300">
-              <span className="text-white font-bold text-2xl sm:text-3xl">🌲</span>
+            <div className="mx-auto h-16 w-16 sm:h-20 sm:w-20 bg-gradient-to-br from-forest-600 via-nature-500 to-forest-700 rounded-2xl flex items-center justify-center shadow-glow-forest transform hover:scale-110 transition-transform duration-300 ease-spring">
+              <Mountain size={30} strokeWidth={2} className="text-white" />
             </div>
             <h2 className="mt-6 sm:mt-8 text-center text-3xl sm:text-4xl font-extrabold text-forest-900">
               Welcome Back,
@@ -143,7 +144,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           </div>
 
           {/* Login Card */}
-          <div className="bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl p-5 sm:p-8 md:p-10 border border-white/20 transform transition-all duration-300 hover:shadow-3xl">
+          <div className="glass-panel rounded-glass p-5 sm:p-8 md:p-10 transform transition-all duration-300 ease-spring">
             {/* Google Sign-In - only show if not logged in */}
             {!user && (
               <div className="space-y-4 mb-6">
@@ -201,9 +202,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     required
                     value={formData.email}
                     onChange={handleChange}
-                    className={`w-full pl-12 pr-4 py-3.5 border-2 rounded-xl focus:outline-none focus:ring-2 transition-all duration-300 bg-white text-forest-900 placeholder-forest-400 ${validationErrors.email
+                    className={`w-full pl-12 pr-4 py-3.5 border-2 rounded-glass-sm focus:outline-none focus:ring-2 transition-all duration-300 ease-spring bg-white/70 text-forest-900 placeholder-forest-400 ${validationErrors.email
                         ? 'border-red-400 focus:ring-red-300 focus:border-red-500'
-                        : 'border-forest-200 focus:ring-nature-500 focus:border-nature-500 hover:border-forest-300'
+                        : 'border-forest-200 focus:ring-nature-500 focus:border-nature-500 focus-visible:shadow-glow-forest hover:border-forest-300'
                       }`}
                     placeholder="username or you@example.com"
                   />
@@ -237,9 +238,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     required
                     value={formData.password}
                     onChange={handleChange}
-                    className={`w-full pl-12 pr-12 py-3.5 border-2 rounded-xl focus:outline-none focus:ring-2 transition-all duration-300 bg-white text-forest-900 placeholder-forest-400 ${validationErrors.password
+                    className={`w-full pl-12 pr-12 py-3.5 border-2 rounded-glass-sm focus:outline-none focus:ring-2 transition-all duration-300 ease-spring bg-white/70 text-forest-900 placeholder-forest-400 ${validationErrors.password
                         ? 'border-red-400 focus:ring-red-300 focus:border-red-500'
-                        : 'border-forest-200 focus:ring-nature-500 focus:border-nature-500 hover:border-forest-300'
+                        : 'border-forest-200 focus:ring-nature-500 focus:border-nature-500 focus-visible:shadow-glow-forest hover:border-forest-300'
                       }`}
                     placeholder="Enter your password"
                   />
@@ -283,7 +284,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="group relative w-full flex justify-center items-center py-4 px-6 text-base font-bold rounded-xl text-white bg-gradient-to-r from-forest-600 via-nature-500 to-forest-600 bg-size-200 bg-pos-0 hover:bg-pos-100 focus:outline-none focus:ring-4 focus:ring-nature-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-500 transform hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl overflow-hidden"
+                  className="group relative w-full flex justify-center items-center py-4 px-6 text-base font-bold rounded-glass-sm text-white bg-gradient-to-r from-forest-600 via-nature-500 to-forest-600 bg-size-200 bg-pos-0 hover:bg-pos-100 hover:shadow-glow-forest focus:outline-none focus:ring-4 focus:ring-nature-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-500 ease-spring transform hover:scale-[1.02] active:scale-[0.98] shadow-xl overflow-hidden"
                 >
                   <span className="absolute inset-0 bg-gradient-to-r from-forest-700 via-nature-600 to-forest-700 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></span>
                   {loading ? (
@@ -293,11 +294,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     </span>
                   ) : (
                     <span className="relative flex items-center gap-2">
-                      <span>🏕️</span>
+                      <Tent size={19} strokeWidth={2.25} />
                       <span>Enter the Tribe</span>
-                      <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
+                      <ArrowRight size={19} strokeWidth={2.25} className="group-hover:translate-x-1 transition-transform duration-300 ease-spring" />
                     </span>
                   )}
                 </button>

@@ -3,6 +3,7 @@ import api from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../components/ui/Toast';
 import { Skeleton } from '../components/ui/Skeleton';
+import { Download, RotateCw, Wallet, Banknote, Clock, TrendingUp } from 'lucide-react';
 
 type Transfer = {
   transferId?: string;
@@ -114,41 +115,55 @@ const OrganizerSettlements: React.FC = () => {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold">Settlements & Payouts</h1>
         <div className="flex gap-2">
-          <button onClick={fetchData} className="rounded-lg bg-blue-600 px-4 py-2 text-white text-sm font-semibold shadow-md hover:bg-blue-700 hover:shadow-lg disabled:opacity-50 transition-all duration-200" disabled={loading}>
+          <button onClick={fetchData} className="rounded-lg bg-blue-600 px-4 py-2 text-white text-sm font-semibold shadow-md hover:bg-blue-700 hover:shadow-glow-forest disabled:opacity-50 transition-all duration-300 ease-spring flex items-center gap-2" disabled={loading}>
+            <RotateCw size={15} strokeWidth={2.25} />
             Refresh
           </button>
-          <button onClick={exportCSV} className="rounded-lg bg-emerald-600 px-4 py-2 text-white text-sm font-semibold shadow-md hover:bg-emerald-700 hover:shadow-lg disabled:opacity-50 transition-all duration-200" disabled={loading || filteredTransfers.length === 0}>
-            📥 Export CSV
+          <button onClick={exportCSV} className="rounded-lg bg-emerald-600 px-4 py-2 text-white text-sm font-semibold shadow-md hover:bg-emerald-700 hover:shadow-glow-forest disabled:opacity-50 transition-all duration-300 ease-spring flex items-center gap-2" disabled={loading || filteredTransfers.length === 0}>
+            <Download size={15} strokeWidth={2.25} />
+            Export CSV
           </button>
         </div>
       </div>
 
       {/* Summary Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
-          <div className="text-sm font-medium text-blue-700">Current Balance</div>
-          <div className="text-2xl font-bold text-blue-900">₹{(metrics.currentBalance / 100).toFixed(2)}</div>
+        <div className="glass-card p-4 !rounded-glass-sm">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-medium text-blue-700">Current Balance</div>
+            <Wallet size={16} strokeWidth={2} className="text-blue-400" />
+          </div>
+          <div className="text-2xl font-bold text-blue-900 tabular-nums">₹{(metrics.currentBalance / 100).toFixed(2)}</div>
           <div className="text-xs text-blue-600 mt-1">Credits - Debits</div>
         </div>
-        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
-          <div className="text-sm font-medium text-green-700">Total Payouts</div>
-          <div className="text-2xl font-bold text-green-900">₹{(metrics.totalPayout / 100).toFixed(2)}</div>
+        <div className="glass-card p-4 !rounded-glass-sm">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-medium text-green-700">Total Payouts</div>
+            <Banknote size={16} strokeWidth={2} className="text-green-400" />
+          </div>
+          <div className="text-2xl font-bold text-green-900 tabular-nums">₹{(metrics.totalPayout / 100).toFixed(2)}</div>
           <div className="text-xs text-green-600 mt-1">{metrics.processedCount} processed</div>
         </div>
-        <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4 border border-orange-200">
-          <div className="text-sm font-medium text-orange-700">Pending Transfers</div>
-          <div className="text-2xl font-bold text-orange-900">{metrics.pendingCount}</div>
+        <div className="glass-card p-4 !rounded-glass-sm">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-medium text-orange-700">Pending Transfers</div>
+            <Clock size={16} strokeWidth={2} className="text-orange-400" />
+          </div>
+          <div className="text-2xl font-bold text-orange-900 tabular-nums">{metrics.pendingCount}</div>
           <div className="text-xs text-orange-600 mt-1">Awaiting processing</div>
         </div>
-        <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200">
-          <div className="text-sm font-medium text-purple-700">Total Credits</div>
-          <div className="text-2xl font-bold text-purple-900">₹{(metrics.totalCredits / 100).toFixed(2)}</div>
+        <div className="glass-card p-4 !rounded-glass-sm">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-medium text-purple-700">Total Credits</div>
+            <TrendingUp size={16} strokeWidth={2} className="text-purple-400" />
+          </div>
+          <div className="text-2xl font-bold text-purple-900 tabular-nums">₹{(metrics.totalCredits / 100).toFixed(2)}</div>
           <div className="text-xs text-purple-600 mt-1">Ledger entries</div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 flex gap-4 items-end flex-wrap">
+      <div className="mb-6 p-4 glass-panel !rounded-glass-sm flex gap-4 items-end flex-wrap">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
           <select
@@ -189,9 +204,9 @@ const OrganizerSettlements: React.FC = () => {
 
       <section className="mb-8">
         <h2 className="text-xl font-semibold mb-4">Recent Transfers</h2>
-        <div className="overflow-auto rounded border border-gray-200">
+        <div className="overflow-auto glass-card !rounded-glass-sm">
           <table className="min-w-full text-sm">
-            <thead className="bg-gray-100 border-b">
+            <thead className="bg-white/40 border-b border-white/50">
               <tr>
                 <th className="p-3 text-left font-semibold text-gray-700">Transfer ID</th>
                 <th className="p-3 text-left font-semibold text-gray-700">Payment</th>
@@ -240,9 +255,9 @@ const OrganizerSettlements: React.FC = () => {
 
       <section>
         <h2 className="text-xl font-semibold mb-4">Ledger</h2>
-        <div className="overflow-auto rounded border border-gray-200">
+        <div className="overflow-auto glass-card !rounded-glass-sm">
           <table className="min-w-full text-sm">
-            <thead className="bg-gray-100 border-b">
+            <thead className="bg-white/40 border-b border-white/50">
               <tr>
                 <th className="p-3 text-left font-semibold text-gray-700">Type</th>
                 <th className="p-3 text-left font-semibold text-gray-700">Source</th>

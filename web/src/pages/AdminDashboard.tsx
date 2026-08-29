@@ -5,6 +5,11 @@ import api from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { UserEditModal } from '../components/UserEditModal';
+import { GlassCard, GlassPanel } from '../components/ui/Glass';
+import {
+  Wrench, ShieldCheck, BarChart3, Users, Map as MapIcon, Settings, CalendarDays, Wallet, Ticket,
+  Gem, MapPin, Trash2, AlertTriangle, Lock, FileDown, Mail, Phone, CheckCircle2, Clock, Check, X, RefreshCw, Rocket, Sparkles as SparklesIcon
+} from 'lucide-react';
 // Chart imports removed as we use custom UI components
 // import { Chart as ChartJS, ... } from 'chart.js';
 // import { Bar, Line, Doughnut } from 'react-chartjs-2';
@@ -421,10 +426,10 @@ const AdminDashboard: React.FC = () => {
   const TripsManagement = () => (
     <div className="space-y-6">
       {/* Trips Header */}
-      <div className="bg-white p-6 rounded-lg shadow-sm border">
+      <div className="glass-card p-6 !rounded-glass-sm">
         <div className="flex justify-between items-start mb-4">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">🗺️ Trips Management</h3>
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2"><MapIcon size={18} strokeWidth={2} /> Trips Management</h3>
             <p className="text-sm text-gray-600 mt-1">
               Manage all trips across the platform, update status, and view organizer details.
             </p>
@@ -457,7 +462,7 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Trips Table */}
-      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+      <div className="glass-panel !rounded-glass-sm overflow-hidden">
         {tripsLoading ? (
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-forest-600"></div>
@@ -496,7 +501,7 @@ const AdminDashboard: React.FC = () => {
                       <div className="flex items-start">
                         <div>
                           <div className="text-sm font-medium text-gray-900">{trip.title}</div>
-                          <div className="text-sm text-gray-500">📍 {trip.destination}</div>
+                          <div className="text-sm text-gray-500 flex items-center gap-1"><MapPin size={13} strokeWidth={2} />{trip.destination}</div>
                           <div className="text-xs text-gray-400 mt-1">
                             {new Date(trip.startDate).toLocaleDateString()} - {new Date(trip.endDate).toLocaleDateString()}
                           </div>
@@ -601,7 +606,7 @@ const AdminDashboard: React.FC = () => {
                             className="text-red-500 hover:text-red-700 text-xs font-medium"
                             title="Delete Trip Permanently"
                           >
-                            🗑️
+                            <Trash2 size={15} strokeWidth={2} />
                           </button>
                         </div>
                       </div>
@@ -636,7 +641,7 @@ const AdminDashboard: React.FC = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-red-500 text-xl mb-4">⚠️ Error</div>
+          <div className="text-red-500 text-xl mb-4 flex items-center justify-center gap-2"><AlertTriangle size={22} strokeWidth={2} /> Error</div>
           <p className="text-gray-600">{error}</p>
           <button
             onClick={fetchDashboardStats}
@@ -652,18 +657,18 @@ const AdminDashboard: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <div className="glass-panel !rounded-none border-b border-white/40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <h1 className="text-2xl font-bold text-gray-900">
-              🛠️ Admin Dashboard
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <Wrench size={22} strokeWidth={2} /> Admin Dashboard
             </h1>
             <div className="flex items-center gap-4">
               <button
                 onClick={() => navigate('/admin/organizer-verification')}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-medium"
               >
-                <span>🔐</span>
+                <ShieldCheck size={16} strokeWidth={2} />
                 Organizer Verification
               </button>
               <span className="text-sm text-gray-500">
@@ -684,20 +689,20 @@ const AdminDashboard: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
         <div className="flex space-x-8 border-b border-gray-200">
           {[
-            { id: 'overview', name: 'Overview', icon: '📊' },
-            { id: 'users', name: 'Users', icon: '👥' },
-            { id: 'trips', name: 'Trips', icon: '🗺️' },
-            { id: 'system', name: 'System', icon: '⚙️' }
+            { id: 'overview', name: 'Overview', icon: BarChart3 },
+            { id: 'users', name: 'Users', icon: Users },
+            { id: 'trips', name: 'Trips', icon: MapIcon },
+            { id: 'system', name: 'System', icon: Settings }
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 py-2 px-1 border-b-2 font-medium text-sm ${activeTab === tab.id
+              className={`flex items-center gap-2 py-2 px-1 border-b-2 font-medium text-sm transition-all duration-300 ease-spring ${activeTab === tab.id
                 ? 'border-forest-500 text-forest-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
             >
-              <span>{tab.icon}</span>
+              <tab.icon size={16} strokeWidth={2} />
               {tab.name}
             </button>
           ))}
@@ -709,10 +714,10 @@ const AdminDashboard: React.FC = () => {
         {activeTab === 'overview' && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Stats Cards */}
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="glass-card p-6 !rounded-glass-sm">
               <div className="flex items-center">
                 <div className="p-3 rounded-full bg-blue-100">
-                  <span className="text-2xl">👥</span>
+                  <Users size={22} strokeWidth={2} className="text-gray-700" />
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-500">Total Users</p>
@@ -721,10 +726,10 @@ const AdminDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="glass-card p-6 !rounded-glass-sm">
               <div className="flex items-center">
                 <div className="p-3 rounded-full bg-green-100">
-                  <span className="text-2xl">🗺️</span>
+                  <MapIcon size={22} strokeWidth={2} className="text-gray-700" />
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-500">Total Trips</p>
@@ -733,10 +738,10 @@ const AdminDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="glass-card p-6 !rounded-glass-sm">
               <div className="flex items-center">
                 <div className="p-3 rounded-full bg-purple-100">
-                  <span className="text-2xl">📅</span>
+                  <CalendarDays size={22} strokeWidth={2} className="text-gray-700" />
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-500">Total Bookings</p>
@@ -745,10 +750,10 @@ const AdminDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="glass-card p-6 !rounded-glass-sm">
               <div className="flex items-center">
                 <div className="p-3 rounded-full bg-yellow-100">
-                  <span className="text-2xl">💰</span>
+                  <Wallet size={22} strokeWidth={2} className="text-gray-700" />
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-500">Trip Revenue</p>
@@ -757,10 +762,10 @@ const AdminDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="glass-card p-6 !rounded-glass-sm">
               <div className="flex items-center">
                 <div className="p-3 rounded-full bg-emerald-100">
-                  <span className="text-2xl">📊</span>
+                  <BarChart3 size={22} strokeWidth={2} className="text-gray-700" />
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-500">Subscription Revenue</p>
@@ -772,10 +777,10 @@ const AdminDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="glass-card p-6 !rounded-glass-sm">
               <div className="flex items-center">
                 <div className="p-3 rounded-full bg-orange-100">
-                  <span className="text-2xl">🎫</span>
+                  <Ticket size={22} strokeWidth={2} className="text-gray-700" />
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-500">Support Tickets</p>
@@ -790,8 +795,8 @@ const AdminDashboard: React.FC = () => {
             {/* Charts Section */}
             <div className="col-span-full grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
               {/* Subscription Revenue by Plan */}
-              <div className="bg-white p-6 rounded-lg shadow-sm border">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">💎 Revenue by Subscription Plan</h3>
+              <div className="glass-card p-6 !rounded-glass-sm">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2"><Gem size={18} strokeWidth={2} /> Revenue by Subscription Plan</h3>
                 <div className="space-y-3">
                   {stats?.subscriptions?.byPlan && stats.subscriptions.byPlan.length > 0 ? stats.subscriptions.byPlan.map((item) => (
                     <div key={item.plan} className="flex justify-between items-center">
@@ -816,8 +821,8 @@ const AdminDashboard: React.FC = () => {
               </div>
 
               {/* Tickets by Status */}
-              <div className="bg-white p-6 rounded-lg shadow-sm border">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">🎫 Support Tickets</h3>
+              <div className="glass-card p-6 !rounded-glass-sm">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2"><Ticket size={18} strokeWidth={2} /> Support Tickets</h3>
                 <div className="space-y-3">
                   {stats?.tickets?.byStatus && stats.tickets.byStatus.length > 0 ? stats.tickets.byStatus.map((item) => (
                     <div key={item.status} className="flex justify-between items-center">
@@ -843,8 +848,8 @@ const AdminDashboard: React.FC = () => {
             {/* Existing Charts Section */}
             <div className="col-span-full grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
               {/* Users by Role */}
-              <div className="bg-white p-6 rounded-lg shadow-sm border">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">👥 Users by Role</h3>
+              <div className="glass-card p-6 !rounded-glass-sm">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2"><Users size={18} strokeWidth={2} /> Users by Role</h3>
                 <div className="space-y-3">
                   {stats?.users.byRole?.map((item) => (
                     <div key={item.role} className="flex justify-between items-center">
@@ -864,8 +869,8 @@ const AdminDashboard: React.FC = () => {
               </div>
 
               {/* Trips by Status */}
-              <div className="bg-white p-6 rounded-lg shadow-sm border">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">🗺️ Trips by Status</h3>
+              <div className="glass-card p-6 !rounded-glass-sm">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2"><MapIcon size={18} strokeWidth={2} /> Trips by Status</h3>
                 <div className="space-y-3">
                   {stats?.trips.byStatus?.map((item) => (
                     <div key={item.status} className="flex justify-between items-center">
@@ -892,19 +897,19 @@ const AdminDashboard: React.FC = () => {
         {activeTab === 'users' && (
           <div className="space-y-6">
             {/* User Contacts Header */}
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="glass-card p-6 !rounded-glass-sm">
               <div className="flex justify-between items-start mb-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">👥 User Contact Information</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2"><Users size={18} strokeWidth={2} /> User Contact Information</h3>
                   <p className="text-sm text-red-600 font-medium mt-1">
-                    ⚠️ This section contains sensitive user data. All access is logged and monitored.
+                    <span className="inline-flex items-center gap-1.5"><Lock size={14} strokeWidth={2} /> This section contains sensitive user data. All access is logged and monitored.</span>
                   </p>
                 </div>
                 <button
                   onClick={exportUserContacts}
                   className="bg-forest-600 text-white px-4 py-2 rounded-lg hover:bg-forest-700 transition-colors"
                 >
-                  📄 Export CSV
+                  <span className="inline-flex items-center gap-1.5"><FileDown size={15} strokeWidth={2} /> Export CSV</span>
                 </button>
               </div>
 
@@ -934,7 +939,7 @@ const AdminDashboard: React.FC = () => {
             </div>
 
             {/* User Contacts Table */}
-            <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+            <div className="glass-panel !rounded-glass-sm overflow-hidden">
               {contactsLoading ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-forest-600"></div>
@@ -1037,20 +1042,20 @@ const AdminDashboard: React.FC = () => {
                           </td>
                           <td className="px-6 py-4">
                             <div className="space-y-1">
-                              <div className="text-sm text-gray-900">
-                                📧 {contact.email}
+                              <div className="text-sm text-gray-900 flex items-center gap-1.5">
+                                <Mail size={13} strokeWidth={2} /> {contact.email}
                               </div>
                               {
                                 contact.phone && (
-                                  <div className="text-sm text-gray-900">
-                                    📱 {contact.phone}
+                                  <div className="text-sm text-gray-900 flex items-center gap-1.5">
+                                    <Phone size={13} strokeWidth={2} /> {contact.phone}
                                   </div>
                                 )
                               }
                               {
                                 contact.location && (
-                                  <div className="text-sm text-gray-500">
-                                    📍 {contact.location}
+                                  <div className="text-sm text-gray-500 flex items-center gap-1.5">
+                                    <MapPin size={13} strokeWidth={2} /> {contact.location}
                                   </div>
                                 )
                               }
@@ -1065,12 +1070,12 @@ const AdminDashboard: React.FC = () => {
                                 <div className="text-sm text-gray-500">
                                   ({contact.emergencyContact.relationship})
                                 </div>
-                                <div className="text-sm text-gray-900">
-                                  📞 {contact.emergencyContact.phone}
+                                <div className="text-sm text-gray-900 flex items-center gap-1.5">
+                                  <Phone size={13} strokeWidth={2} /> {contact.emergencyContact.phone}
                                 </div>
                                 {contact.emergencyContact.email && (
-                                  <div className="text-sm text-gray-500">
-                                    📧 {contact.emergencyContact.email}
+                                  <div className="text-sm text-gray-500 flex items-center gap-1.5">
+                                    <Mail size={13} strokeWidth={2} /> {contact.emergencyContact.email}
                                   </div>
                                 )}
                               </div>
@@ -1082,7 +1087,11 @@ const AdminDashboard: React.FC = () => {
                             <div className="space-y-2">
                               <div className={`inline-flex px-2 py-1 text-xs rounded-full ${contact.isVerified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
                                 }`}>
-                                {contact.isVerified ? '✅ Verified' : '⏳ Unverified'}
+                                {contact.isVerified ? (
+                                  <span className="inline-flex items-center gap-1"><CheckCircle2 size={13} strokeWidth={2} /> Verified</span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1"><Clock size={13} strokeWidth={2} /> Unverified</span>
+                                )}
                               </div>
                               <div className="text-xs text-gray-500">
                                 Joined: {new Date(contact.createdAt).toLocaleDateString()}
@@ -1107,7 +1116,7 @@ const AdminDashboard: React.FC = () => {
                                   onClick={() => recalculateTrustScore(contact._id)}
                                   className="text-xs text-blue-600 hover:text-blue-900 text-left"
                                 >
-                                  ↻ Recalculate Score
+                                  <span className="inline-flex items-center gap-1"><RefreshCw size={12} strokeWidth={2} /> Recalculate Score</span>
                                 </button>
                                 {contact.organizerVerificationStatus === 'pending' && (
                                   <>
@@ -1115,13 +1124,13 @@ const AdminDashboard: React.FC = () => {
                                       onClick={() => verifyOrganizer(contact._id, 'approved')}
                                       className="text-xs text-green-600 hover:text-green-900 text-left"
                                     >
-                                      ✓ Approve Organizer
+                                      <span className="inline-flex items-center gap-1"><Check size={12} strokeWidth={2} /> Approve Organizer</span>
                                     </button>
                                     <button
                                       onClick={() => verifyOrganizer(contact._id, 'rejected')}
                                       className="text-xs text-red-600 hover:text-red-900 text-left"
                                     >
-                                      ✕ Reject Organizer
+                                      <span className="inline-flex items-center gap-1"><X size={12} strokeWidth={2} /> Reject Organizer</span>
                                     </button>
                                   </>
                                 )}
@@ -1134,7 +1143,7 @@ const AdminDashboard: React.FC = () => {
                                 onClick={() => deleteUser(contact._id)}
                                 className="text-red-600 hover:text-red-800 text-xs font-medium flex items-center"
                               >
-                                🗑️ Delete User
+                                <span className="inline-flex items-center gap-1"><Trash2 size={12} strokeWidth={2} /> Delete User</span>
                               </button>
                             </div>
 
@@ -1162,7 +1171,7 @@ const AdminDashboard: React.FC = () => {
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
               <div className="flex">
                 <div className="flex-shrink-0">
-                  <span className="text-red-400 text-xl">⚠️</span>
+                  <AlertTriangle size={20} strokeWidth={2} className="text-red-400" />
                 </div>
                 <div className="ml-3">
                   <h3 className="text-sm font-medium text-red-800">
@@ -1193,8 +1202,8 @@ const AdminDashboard: React.FC = () => {
           activeTab === 'system' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* System Status */}
-              <div className="bg-white p-6 rounded-lg shadow-sm border">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">⚙️ System Status</h3>
+              <div className="glass-card p-6 !rounded-glass-sm">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2"><Settings size={18} strokeWidth={2} /> System Status</h3>
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Uptime</span>
@@ -1226,15 +1235,15 @@ const AdminDashboard: React.FC = () => {
               </div>
 
               {/* Quick Actions */}
-              <div className="bg-white p-6 rounded-lg shadow-sm border">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">🚀 Quick Actions</h3>
+              <div className="glass-card p-6 !rounded-glass-sm">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2"><Rocket size={18} strokeWidth={2} /> Quick Actions</h3>
                 <div className="space-y-3">
                   <button
                     onClick={fetchDashboardStats}
                     className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-xl">🔄</span>
+                      <RefreshCw size={20} strokeWidth={2} className="text-forest-600" />
                       <div>
                         <div className="text-sm font-medium text-gray-900">Refresh Statistics</div>
                         <div className="text-xs text-gray-500">Update all dashboard data</div>
@@ -1244,7 +1253,7 @@ const AdminDashboard: React.FC = () => {
 
                   <button className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
                     <div className="flex items-center gap-3">
-                      <span className="text-xl">📊</span>
+                      <BarChart3 size={20} strokeWidth={2} className="text-forest-600" />
                       <div>
                         <div className="text-sm font-medium text-gray-900">Export Data</div>
                         <div className="text-xs text-gray-500">Download system reports</div>
@@ -1254,7 +1263,7 @@ const AdminDashboard: React.FC = () => {
 
                   <button className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
                     <div className="flex items-center gap-3">
-                      <span className="text-xl">🧹</span>
+                      <SparklesIcon size={20} strokeWidth={2} className="text-forest-600" />
                       <div>
                         <div className="text-sm font-medium text-gray-900">System Cleanup</div>
                         <div className="text-xs text-gray-500">Clean temporary files and logs</div>

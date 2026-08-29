@@ -1,11 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { MapPin, Calendar, Users } from 'lucide-react';
+import { MapPin, Calendar, Users, Mountain, Trees, Waves, Landmark, Globe2 } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import SaveTripButton from '../SaveTripButton';
 import SocialShareButtons from '../SocialShareButtons';
+import { ScarcityBadge } from '../ui/Glass';
 
 export interface TripCardProps {
   trip: any; // Using any for simplicity here, in real app import Trip type
@@ -15,20 +16,21 @@ export interface TripCardProps {
 }
 
 export function TripCard({ trip, user, onJoinClick, onLeaveClick }: TripCardProps) {
-  
-  const tripEmoji = (cats: string[]) => {
-    if (cats?.includes('Mountain')) return '🏔️';
-    if (cats?.includes('Nature')) return '🌲';
-    if (cats?.includes('Beach')) return '🏖️';
-    if (cats?.includes('Cultural')) return '🏛️';
-    return '🌍';
+
+  const TripCategoryIcon = (cats: string[]) => {
+    if (cats?.includes('Mountain')) return Mountain;
+    if (cats?.includes('Nature')) return Trees;
+    if (cats?.includes('Beach')) return Waves;
+    if (cats?.includes('Cultural')) return Landmark;
+    return Globe2;
   };
 
   const isLeaving = trip.participants?.includes(user?.id || '');
   const isFull = (trip.participants?.length || 0) >= trip.capacity;
+  const spotsLeft = Math.max(0, (trip.capacity || 0) - (trip.participants?.length || 0));
 
   return (
-    <Card padding="none" interactive className="flex flex-col overflow-hidden relative">
+    <Card padding="none" interactive className="flex flex-col overflow-hidden relative glass-card !bg-white/75 !border-white/60">
       {/* Image Area */}
       <div className="relative h-56 md:h-64 overflow-hidden bg-gray-100 cursor-pointer" onClick={() => window.location.href = `/trip/${trip._id}`}>
         {(trip.coverImage || trip.images?.length > 0) ? (
@@ -40,25 +42,31 @@ export function TripCard({ trip, user, onJoinClick, onLeaveClick }: TripCardProp
             }} />
         ) : null}
         
-        {/* Fallback Emoji BG */}
+        {/* Fallback Icon BG */}
         <div className={`absolute inset-0 bg-gradient-to-br from-forest-500 to-[#b4d4b4] items-center justify-center ${(trip.coverImage || trip.images?.length > 0) ? 'hidden' : 'flex'}`}>
           <div className="text-center text-forest-900 p-4">
-            <div className="text-6xl mb-2 drop-shadow-md">{tripEmoji(trip.categories)}</div>
+            {(() => { const Icon = TripCategoryIcon(trip.categories); return <Icon size={56} strokeWidth={1.75} className="mx-auto mb-2 drop-shadow-md" />; })()}
             <p className="text-sm font-bold opacity-90 tracking-wide uppercase">{trip.categories?.[0] || 'Adventure'}</p>
           </div>
         </div>
-        
+
         {/* Floating Actions Overlay */}
         <div className="absolute top-4 right-4 flex gap-2">
           <SaveTripButton tripId={trip._id} size="md" className="z-10 shadow-[0_4px_12px_rgb(0,0,0,0.1)] rounded-full backdrop-blur-md bg-white/90" />
         </div>
-        
+
         {/* Price Tag */}
         <div className="absolute top-4 left-0">
-          <div className="bg-white/95 backdrop-blur-sm rounded-r-2xl px-4 py-1.5 text-forest-900 text-sm font-extrabold shadow-sm flex items-center gap-1 border border-white/20">
+          <div className="glass-panel rounded-r-2xl px-4 py-1.5 text-forest-900 text-sm font-extrabold flex items-center gap-1 tabular-nums">
             Rs.{trip.price.toLocaleString()}
           </div>
         </div>
+
+        {spotsLeft > 0 && spotsLeft <= 5 && !isFull && (
+          <div className="absolute bottom-4 left-4">
+            <ScarcityBadge spotsLeft={spotsLeft} className="glass-panel !bg-red-50/90" />
+          </div>
+        )}
       </div>
       
       {/* Content Area */}

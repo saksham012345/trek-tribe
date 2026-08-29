@@ -7,6 +7,11 @@ import ReviewModal from '../components/ReviewModal';
 import ReviewsList from '../components/ReviewsList';
 import { User } from '../types';
 import { getTripShareUrl } from '../utils/config';
+import { GlassPanel, ScarcityBadge } from '../components/ui/Glass';
+import {
+  ArrowLeft, MapPin, Calendar, CalendarDays, Users, CheckCircle2, ClipboardList,
+  Map as MapIcon, Sparkles, PartyPopper, Share2, Check, Compass, Mountain
+} from 'lucide-react';
 
 interface Trip {
   _id: string;
@@ -126,12 +131,12 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
     }
   };
 
-  const getDifficultyIcon = (level?: string) => {
+  const getDifficultyDotColor = (level?: string) => {
     switch (level) {
-      case 'beginner': return '🟢';
-      case 'intermediate': return '🟡';
-      case 'advanced': return '🔴';
-      default: return '⚪';
+      case 'beginner': return 'bg-green-500';
+      case 'intermediate': return 'bg-yellow-500';
+      case 'advanced': return 'bg-red-500';
+      default: return 'bg-gray-400';
     }
   };
 
@@ -177,12 +182,12 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-forest-50 to-nature-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-6xl mb-4">🏔️</div>
+          <Mountain size={64} strokeWidth={1.5} className="mx-auto mb-4 text-forest-400" />
           <h2 className="text-2xl font-bold text-forest-800 mb-4">Trip Not Found</h2>
           <p className="text-forest-600 mb-6">{error || 'This adventure seems to have gone missing!'}</p>
           <Link
             to="/trips"
-            className="px-6 py-3 bg-gradient-to-r from-forest-600 to-nature-600 text-white rounded-xl font-semibold hover:from-forest-700 hover:to-nature-700 transition-all duration-300"
+            className="px-6 py-3 bg-gradient-to-r from-forest-600 to-nature-600 hover:shadow-glow-forest text-white rounded-xl font-semibold hover:from-forest-700 hover:to-nature-700 transition-all duration-300 ease-spring"
           >
             Browse Other Adventures
           </Link>
@@ -241,9 +246,9 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
                 navigate('/discover');
               }
             }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-forest-200 bg-white text-forest-700 hover:bg-forest-50 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg glass-panel text-forest-700 hover:bg-white/80 transition-all duration-300 ease-spring"
           >
-            <span>←</span>
+            <ArrowLeft size={16} strokeWidth={2.25} />
             <span>Back</span>
           </button>
         </div>
@@ -272,22 +277,18 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
                     ))}
                   </div>
                   <h1 className="text-4xl font-bold mb-2">{trip.title}</h1>
-                  <p className="text-xl opacity-90">📍 {trip.destination}</p>
+                  <p className="text-xl opacity-90 flex items-center gap-1.5"><MapPin size={18} strokeWidth={2.25} /> {trip.destination}</p>
                 </div>
                 <div className="absolute top-6 right-6">
                   <button
                     onClick={handleShareTrip}
-                    className="bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white p-3 rounded-full transition-all duration-300 group"
+                    className="glass-panel-dark hover:bg-white/20 text-white p-3 rounded-full transition-all duration-300 ease-spring group"
                     title="Share this adventure"
                   >
                     {copySuccess ? (
-                      <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
+                      <Check size={20} strokeWidth={2.25} className="text-green-400" />
                     ) : (
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
-                      </svg>
+                      <Share2 size={20} strokeWidth={2.25} />
                     )}
                   </button>
                 </div>
@@ -315,9 +316,9 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
           ) : (
             <div className="h-96 bg-gradient-to-br from-forest-400 to-nature-500 rounded-2xl flex items-center justify-center text-white shadow-2xl">
               <div className="text-center">
-                <div className="text-8xl mb-4">🏔️</div>
+                <Mountain size={72} strokeWidth={1.5} className="mx-auto mb-4" />
                 <h1 className="text-4xl font-bold mb-2">{trip.title}</h1>
-                <p className="text-xl">📍 {trip.destination}</p>
+                <p className="text-xl flex items-center justify-center gap-1.5"><MapPin size={18} strokeWidth={2.25} /> {trip.destination}</p>
               </div>
             </div>
           )}
@@ -327,18 +328,19 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-8">
             {/* Trip Info */}
-            <div className="bg-white rounded-2xl p-8 shadow-lg border border-forest-200">
+            <GlassPanel className="rounded-glass p-8">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-4">
                   <h2 className="text-2xl font-bold text-forest-800">Adventure Details</h2>
                   {trip.difficultyLevel && (
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getDifficultyColor(trip.difficultyLevel)}`}>
-                      {getDifficultyIcon(trip.difficultyLevel)} {trip.difficultyLevel.charAt(0).toUpperCase() + trip.difficultyLevel.slice(1)}
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${getDifficultyColor(trip.difficultyLevel)}`}>
+                      <span className={`w-2 h-2 rounded-full ${getDifficultyDotColor(trip.difficultyLevel)}`} />
+                      {trip.difficultyLevel.charAt(0).toUpperCase() + trip.difficultyLevel.slice(1)}
                     </span>
                   )}
                 </div>
                 <div className="text-right">
-                  <div className="text-3xl font-bold text-nature-600">₹{trip.price.toLocaleString()}</div>
+                  <div className="text-3xl font-bold text-nature-600 tabular-nums">₹{trip.price.toLocaleString()}</div>
                   <div className="text-sm text-forest-600">per person</div>
                 </div>
               </div>
@@ -346,14 +348,14 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
               <div className="grid md:grid-cols-2 gap-6 mb-6">
                 <div className="space-y-3">
                   <div className="flex items-center text-forest-700">
-                    <span className="mr-3 text-xl">📅</span>
+                    <Calendar size={20} strokeWidth={2} className="mr-3 flex-shrink-0 text-forest-500" />
                     <div>
                       <div className="font-semibold">Duration</div>
                       <div className="text-sm text-forest-600">{duration} days, {duration - 1} nights</div>
                     </div>
                   </div>
                   <div className="flex items-center text-forest-700">
-                    <span className="mr-3 text-xl">🗓️</span>
+                    <CalendarDays size={20} strokeWidth={2} className="mr-3 flex-shrink-0 text-forest-500" />
                     <div>
                       <div className="font-semibold">Start Date</div>
                       <div className="text-sm text-forest-600">{formatDate(trip.startDate)}</div>
@@ -362,14 +364,14 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
                 </div>
                 <div className="space-y-3">
                   <div className="flex items-center text-forest-700">
-                    <span className="mr-3 text-xl">👥</span>
+                    <Users size={20} strokeWidth={2} className="mr-3 flex-shrink-0 text-forest-500" />
                     <div>
                       <div className="font-semibold">Group Size</div>
-                      <div className="text-sm text-forest-600">{trip.participants?.length || 0}/{trip.capacity} adventurers</div>
+                      <div className="text-sm text-forest-600 tabular-nums">{trip.participants?.length || 0}/{trip.capacity} adventurers</div>
                     </div>
                   </div>
                   <div className="flex items-center text-forest-700">
-                    <span className="mr-3 text-xl">🏁</span>
+                    <Compass size={20} strokeWidth={2} className="mr-3 flex-shrink-0 text-forest-500" />
                     <div>
                       <div className="font-semibold">End Date</div>
                       <div className="text-sm text-forest-600">{formatDate(trip.endDate)}</div>
@@ -382,16 +384,16 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
                 <h3 className="text-lg font-semibold text-forest-800 mb-3">About This Adventure</h3>
                 <p className="text-forest-700 leading-relaxed">{trip.description}</p>
               </div>
-            </div>
+            </GlassPanel>
 
             {/* What's Included & Requirements */}
             {(trip.includedItems || trip.requirements) && (
-              <div className="bg-white rounded-2xl p-8 shadow-lg border border-forest-200">
+              <GlassPanel className="rounded-glass p-8">
                 <div className="grid md:grid-cols-2 gap-8">
                   {trip.includedItems && trip.includedItems.length > 0 && (
                     <div>
-                      <h3 className="text-lg font-semibold text-forest-800 mb-4 flex items-center">
-                        <span className="mr-2">✅</span>
+                      <h3 className="text-lg font-semibold text-forest-800 mb-4 flex items-center gap-2">
+                        <CheckCircle2 size={20} strokeWidth={2} className="text-nature-500" />
                         What's Included
                       </h3>
                       <ul className="space-y-2">
@@ -407,8 +409,8 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
 
                   {trip.requirements && trip.requirements.length > 0 && (
                     <div>
-                      <h3 className="text-lg font-semibold text-forest-800 mb-4 flex items-center">
-                        <span className="mr-2">📋</span>
+                      <h3 className="text-lg font-semibold text-forest-800 mb-4 flex items-center gap-2">
+                        <ClipboardList size={20} strokeWidth={2} className="text-amber-500" />
                         Requirements
                       </h3>
                       <ul className="space-y-2">
@@ -422,15 +424,15 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
                     </div>
                   )}
                 </div>
-              </div>
+              </GlassPanel>
             )}
 
             {/* Itinerary & Schedule */}
             {(trip.itinerary || (trip.schedule && trip.schedule.length > 0) || trip.itineraryPdf) && (
-              <div className="bg-white rounded-2xl p-8 shadow-lg border border-forest-200">
+              <GlassPanel className="rounded-glass p-8">
                 <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-lg font-semibold text-forest-800 flex items-center">
-                    <span className="mr-2">🗺️</span>
+                  <h3 className="text-lg font-semibold text-forest-800 flex items-center gap-2">
+                    <MapIcon size={20} strokeWidth={2} className="text-forest-500" />
                     Adventure Itinerary
                   </h3>
                   {trip.itineraryPdf && (
@@ -478,33 +480,33 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
                     {trip.itinerary}
                   </div>
                 )}
-              </div>
+              </GlassPanel>
             )}
 
             {/* Reviews Section */}
-            <div className="bg-white rounded-2xl p-8 shadow-lg border border-forest-200">
+            <GlassPanel className="rounded-glass p-8">
               <ReviewsList
                 tripId={trip._id}
                 allowReview={!!canReview}
                 currentUserId={user?.email}
                 onWriteReview={() => setShowReviewModal(true)}
               />
-            </div>
+            </GlassPanel>
           </div>
 
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Booking Card */}
-            <div className="bg-white rounded-2xl p-6 shadow-lg border border-forest-200 sticky top-4">
+            <GlassPanel className="rounded-glass p-6 sticky top-4 shadow-glass">
               <div className="text-center mb-6">
-                <div className="text-3xl font-bold text-nature-600 mb-1">₹{trip.price.toLocaleString()}</div>
+                <div className="text-3xl font-bold text-nature-600 mb-1 tabular-nums">₹{trip.price.toLocaleString()}</div>
                 <div className="text-sm text-forest-600">per adventurer</div>
               </div>
 
               <div className="space-y-4 mb-6">
                 <div className="flex justify-between text-sm">
                   <span className="text-forest-600">Available spots:</span>
-                  <span className="font-semibold text-forest-800">{trip.capacity - (trip.participants?.length || 0)}/{trip.capacity}</span>
+                  <span className="font-semibold text-forest-800 tabular-nums">{trip.capacity - (trip.participants?.length || 0)}/{trip.capacity}</span>
                 </div>
                 {trip.minimumAge && (
                   <div className="flex justify-between text-sm">
@@ -518,40 +520,43 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
                     style={{ width: `${((trip.participants?.length || 0) / trip.capacity) * 100}%` }}
                   ></div>
                 </div>
+                {(trip.capacity - (trip.participants?.length || 0)) > 0 && (trip.capacity - (trip.participants?.length || 0)) <= 5 && (
+                  <ScarcityBadge spotsLeft={trip.capacity - (trip.participants?.length || 0)} />
+                )}
               </div>
 
               <div className="space-y-3">
                 {canJoin ? (
                   <button
                     onClick={() => setShowJoinModal(true)}
-                    className="w-full bg-gradient-to-r from-forest-600 to-nature-600 hover:from-forest-700 hover:to-nature-700 text-white py-4 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg"
+                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-forest-600 to-nature-600 hover:from-forest-700 hover:to-nature-700 hover:shadow-glow-forest text-white py-4 rounded-xl font-semibold transition-all duration-300 ease-spring transform hover:scale-105 shadow-lg"
                   >
-                    🌟 Join This Adventure
+                    <Sparkles size={18} strokeWidth={2.25} /> Join This Adventure
                   </button>
                 ) : isParticipant ? (
                   <div className="text-center py-4">
-                    <div className="text-nature-600 font-semibold mb-2">✅ You're signed up!</div>
+                    <div className="text-nature-600 font-semibold mb-2 flex items-center justify-center gap-1.5"><CheckCircle2 size={18} strokeWidth={2.25} /> You're signed up!</div>
                     <div className="text-sm text-forest-600">Get ready for an amazing adventure</div>
                   </div>
                 ) : isOrganizer ? (
                   <div className="text-center py-4">
-                    <div className="text-forest-600 font-semibold mb-2">🗺️ You're organizing this trip</div>
+                    <div className="text-forest-600 font-semibold mb-2 flex items-center justify-center gap-1.5"><MapIcon size={18} strokeWidth={2.25} /> You're organizing this trip</div>
                     <Link
                       to={`/edit-trip/${trip._id}`}
-                      className="inline-block px-4 py-2 bg-forest-600 text-white rounded-lg hover:bg-forest-700 transition-colors"
+                      className="inline-block px-4 py-2 bg-forest-600 text-white rounded-lg hover:bg-forest-700 transition-all duration-300 ease-spring"
                     >
                       Edit Trip
                     </Link>
                   </div>
                 ) : (trip.participants?.length || 0) >= trip.capacity ? (
-                  <div className="text-center py-4 text-amber-600 font-semibold">
-                    🎆 This adventure is fully booked
+                  <div className="text-center py-4 text-amber-600 font-semibold flex items-center justify-center gap-1.5">
+                    <PartyPopper size={18} strokeWidth={2.25} /> This adventure is fully booked
                   </div>
                 ) : !user ? (
                   <div className="text-center">
                     <Link
                       to="/login"
-                      className="w-full inline-block bg-gradient-to-r from-forest-600 to-nature-600 hover:from-forest-700 hover:to-nature-700 text-white py-4 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg text-center"
+                      className="w-full inline-block bg-gradient-to-r from-forest-600 to-nature-600 hover:from-forest-700 hover:to-nature-700 hover:shadow-glow-forest text-white py-4 rounded-xl font-semibold transition-all duration-300 ease-spring transform hover:scale-105 shadow-lg text-center"
                     >
                       Login to Join Adventure
                     </Link>
@@ -564,20 +569,16 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
 
                 <button
                   onClick={handleShareTrip}
-                  className="w-full mt-2 bg-forest-100 hover:bg-forest-200 text-forest-700 py-2 rounded-lg font-medium transition-all duration-300 flex items-center justify-center space-x-2"
+                  className="w-full mt-2 bg-forest-100 hover:bg-forest-200 text-forest-700 py-2 rounded-lg font-medium transition-all duration-300 ease-spring flex items-center justify-center space-x-2"
                 >
                   {copySuccess ? (
                     <>
-                      <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
+                      <Check size={16} strokeWidth={2.25} className="text-green-600" />
                       <span className="text-green-600">Link Copied!</span>
                     </>
                   ) : (
                     <>
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
-                      </svg>
+                      <Share2 size={16} strokeWidth={2.25} />
                       <span>Share Adventure</span>
                     </>
                   )}
@@ -586,10 +587,10 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
                   Free cancellation up to 7 days before start date
                 </div>
               </div>
-            </div>
+            </GlassPanel>
 
             {/* Organizer Info */}
-            <div className="bg-white rounded-2xl p-6 shadow-lg border border-forest-200">
+            <GlassPanel className="rounded-glass p-6">
               <h3 className="text-lg font-semibold text-forest-800 mb-4">Adventure Guide</h3>
               <div className="flex items-center space-x-3">
                 <div className="w-12 h-12 bg-gradient-to-br from-forest-400 to-nature-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
@@ -603,7 +604,7 @@ const TripDetails: React.FC<TripDetailsProps> = ({ user }) => {
               <div className="mt-4 text-sm text-forest-600">
                 Experienced guide with multiple successful expeditions
               </div>
-            </div>
+            </GlassPanel>
           </div>
         </div>
       </div>

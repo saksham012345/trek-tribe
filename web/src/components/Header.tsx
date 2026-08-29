@@ -1,5 +1,9 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import {
+  Compass, Users, BookOpen, Sparkles, PlusCircle, LayoutDashboard, Store,
+  Shield, FileText, Newspaper, UserCircle, Ticket, Heart, LogOut
+} from 'lucide-react';
 import { User } from '../types';
 import NotificationCenter from './NotificationCenter';
 import { getSafeUrl } from '../utils/url';
@@ -46,10 +50,10 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
     <>
       <header
         className={`
-          fixed w-full top-0 z-50 transition-all duration-500 border-b
+          fixed w-full top-0 z-50 transition-all duration-500 ease-spring border-b
           ${scrolled
-            ? 'bg-white/80 backdrop-blur-xl border-forest-100 shadow-sm py-2'
-            : 'bg-white/60 backdrop-blur-md border-transparent py-4'
+            ? 'bg-white/70 backdrop-blur-glass saturate-150 border-white/40 shadow-elevation-2 py-2'
+            : 'bg-white/50 backdrop-blur-glass saturate-150 border-transparent py-4'
           }
         `}
       >
@@ -86,6 +90,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
                   <div className="w-px h-6 bg-forest-200 mx-2"></div>
                   <NavLink to="/create-trip">Create</NavLink>
                   <NavLink to="/crm">CRM</NavLink>
+                  <NavLink to="/organizer/vendors">Vendors</NavLink>
                 </>
               )}
 
@@ -111,8 +116,9 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
                     to="/wishlist"
                     className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-red-50 text-forest-400 hover:text-red-500 transition-colors"
                     title="Wishlist"
+                    aria-label="Wishlist"
                   >
-                    ❤
+                    <Heart size={19} strokeWidth={2} />
                   </Link>
 
                   <div className="w-px h-6 bg-forest-200 mx-1"></div>
@@ -195,7 +201,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
 
       <div
         className={`
-          fixed top-0 right-0 z-50 w-[80%] max-w-sm h-full bg-white shadow-2xl transition-transform duration-300 ease-out transform md:hidden
+          fixed top-0 right-0 z-50 w-[80%] max-w-sm h-full bg-white/90 backdrop-blur-glass saturate-150 shadow-2xl transition-transform duration-500 ease-spring transform md:hidden
           ${isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}
         `}
       >
@@ -238,21 +244,21 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
           <div className="space-y-1">
             <h4 className="text-xs font-bold text-forest-400 uppercase tracking-wider mb-2 px-4">Menu</h4>
             {[
-              { to: '/discover', icon: 'D', label: 'Discover' },
-              { to: '/search', icon: 'O', label: 'Organizers' },
-              { to: '/blogs', icon: 'B', label: 'Blogs' },
-              { to: '/ai-showcase', icon: 'A', label: 'AI Compass' },
+              { to: '/discover', icon: Compass, label: 'Discover' },
+              { to: '/search', icon: Users, label: 'Organizers' },
+              { to: '/blogs', icon: BookOpen, label: 'Blogs' },
+              { to: '/ai-showcase', icon: Sparkles, label: 'AI Compass' },
             ].map((link) => (
               <Link
                 key={link.to}
                 to={link.to}
                 onClick={closeMobileMenu}
                 className={`
-                  flex items-center gap-4 px-4 py-3 rounded-xl transition-colors
+                  flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 ease-spring
                   ${isActive(link.to) ? 'bg-forest-100 text-forest-900 font-bold' : 'text-forest-600 hover:bg-forest-50'}
                 `}
               >
-                <span className="text-xl">{link.icon}</span>
+                <link.icon size={20} strokeWidth={2} />
                 {link.label}
               </Link>
             ))}
@@ -261,11 +267,14 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
               <>
                 <div className="my-4 border-t border-forest-100"></div>
                 <h4 className="text-xs font-bold text-forest-400 uppercase tracking-wider mb-2 px-4">Organizer</h4>
-                <Link to="/create-trip" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50">
-                  <span className="text-xl">C</span> Create Trip
+                <Link to="/create-trip" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50 transition-all duration-300 ease-spring">
+                  <PlusCircle size={20} strokeWidth={2} /> Create Trip
                 </Link>
-                <Link to="/crm" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50">
-                  <span className="text-xl">R</span> CRM
+                <Link to="/crm" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50 transition-all duration-300 ease-spring">
+                  <LayoutDashboard size={20} strokeWidth={2} /> CRM
+                </Link>
+                <Link to="/organizer/vendors" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50 transition-all duration-300 ease-spring">
+                  <Store size={20} strokeWidth={2} /> Vendors
                 </Link>
               </>
             )}
@@ -274,8 +283,8 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
               <>
                 <div className="my-4 border-t border-forest-100"></div>
                 <h4 className="text-xs font-bold text-forest-400 uppercase tracking-wider mb-2 px-4">Agent</h4>
-                <Link to="/agent" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50">
-                  <span className="text-xl">G</span> Dashboard
+                <Link to="/agent" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50 transition-all duration-300 ease-spring">
+                  <LayoutDashboard size={20} strokeWidth={2} /> Dashboard
                 </Link>
               </>
             )}
@@ -284,14 +293,14 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
               <>
                 <div className="my-4 border-t border-forest-100"></div>
                 <h4 className="text-xs font-bold text-forest-400 uppercase tracking-wider mb-2 px-4">Admin</h4>
-                <Link to="/admin" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50">
-                  <span className="text-xl">A</span> Dashboard
+                <Link to="/admin" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50 transition-all duration-300 ease-spring">
+                  <Shield size={20} strokeWidth={2} /> Dashboard
                 </Link>
-                <Link to="/admin/content" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50">
-                  <span className="text-xl">C</span> Content
+                <Link to="/admin/content" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50 transition-all duration-300 ease-spring">
+                  <FileText size={20} strokeWidth={2} /> Content
                 </Link>
-                <Link to="/admin/blogs" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50">
-                  <span className="text-xl">B</span> Blog Admin
+                <Link to="/admin/blogs" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50 transition-all duration-300 ease-spring">
+                  <Newspaper size={20} strokeWidth={2} /> Blog Admin
                 </Link>
               </>
             )}
@@ -300,23 +309,23 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
               <>
                 <div className="my-4 border-t border-forest-100"></div>
                 <h4 className="text-xs font-bold text-forest-400 uppercase tracking-wider mb-2 px-4">Account</h4>
-                <Link to="/my-profile" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50">
-                  <span className="text-xl">P</span> Profile
+                <Link to="/my-profile" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50 transition-all duration-300 ease-spring">
+                  <UserCircle size={20} strokeWidth={2} /> Profile
                 </Link>
-                <Link to="/my-bookings" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50">
-                  <span className="text-xl">K</span> Bookings
+                <Link to="/my-bookings" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50 transition-all duration-300 ease-spring">
+                  <Ticket size={20} strokeWidth={2} /> Bookings
                 </Link>
-                <Link to="/wishlist" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50">
-                  <span className="text-xl">W</span> Wishlist
+                <Link to="/wishlist" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50 transition-all duration-300 ease-spring">
+                  <Heart size={20} strokeWidth={2} /> Wishlist
                 </Link>
                 <button
                   onClick={() => {
                     onLogout();
                     closeMobileMenu();
                   }}
-                  className="w-full flex items-center gap-4 px-4 py-3 rounded-xl text-red-600 hover:bg-red-50 text-left mt-2"
+                  className="w-full flex items-center gap-4 px-4 py-3 rounded-xl text-red-600 hover:bg-red-50 text-left mt-2 transition-all duration-300 ease-spring"
                 >
-                  <span className="text-xl">L</span> Logout
+                  <LogOut size={20} strokeWidth={2} /> Logout
                 </button>
               </>
             )}
