@@ -213,6 +213,25 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
         setError('');
         return;
       }
+
+      // The other way the server can answer: registration complete, no
+      // verification needed. It replies requiresVerification: false with a
+      // token and the message "You are now logged in".
+      //
+      // There was no branch for that. The token was dropped, nothing navigated,
+      // and the user was left looking at the same filled-in form — no message,
+      // no spinner, no change. A successful signup was indistinguishable from a
+      // dead button, and pressing it again answered "already registered", which
+      // reads as confirmation that it had never worked.
+      //
+      // The completion path already exists and is the one verification uses, so
+      // it is reused rather than reimplemented: sign in, claim the profile URL,
+      // save organizer basics, and go to the homepage.
+      if (responseData.success) {
+        setError('');
+        await handleEmailVerified();
+        return;
+      }
     } catch (error: any) {
       console.log('Registration error details:', error);
       setErrorField(error.response?.data?.field || '');
