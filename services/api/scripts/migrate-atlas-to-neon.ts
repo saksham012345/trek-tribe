@@ -34,7 +34,7 @@
  */
 
 import { MongoClient, ObjectId } from 'mongodb';
-import { PrismaClient } from '@prisma/client';
+import { scriptPrisma } from './_scriptPrisma';
 import crypto from 'crypto';
 import dns from 'dns';
 
@@ -57,7 +57,7 @@ if (process.env.MIGRATION_DNS) {
 const WRITE = process.argv.includes('--write');
 const ATLAS_URI = process.env.ATLAS_URI ?? process.env.MONGODB_URI ?? '';
 
-const prisma = new PrismaClient();
+const prisma = scriptPrisma();
 
 interface Tally {
   collection: string;

@@ -6,10 +6,10 @@
  * transaction that is always rolled back.
  */
 
-import { PrismaClient } from '@prisma/client';
+import { scriptPrisma } from './_scriptPrisma';
 import { UserPrisma } from '../src/models/userPrismaAdapter';
 
-const prisma = new PrismaClient();
+const prisma = scriptPrisma();
 
 let passed = 0;
 let failed = 0;

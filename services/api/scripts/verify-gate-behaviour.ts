@@ -9,9 +9,10 @@
  * leaves the database exactly as it found it.
  */
 
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { scriptPrisma } from './_scriptPrisma';
 
-const prisma = new PrismaClient();
+const prisma = scriptPrisma();
 
 let passed = 0;
 let failed = 0;
