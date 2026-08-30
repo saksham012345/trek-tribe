@@ -15,6 +15,11 @@ const BankDetailsTab: React.FC = () => {
     const [bankDetails, setBankDetails] = useState<BankDetails | null>(null);
     const [loading, setLoading] = useState(true);
     const [editing, setEditing] = useState(false);
+    // Deleting is two clicks rather than a native confirm(). The bare global
+    // fails the build under no-restricted-globals — which nobody had seen,
+    // because this component was imported nowhere and so was never compiled —
+    // and a modal dialog freezes the page for anything driving the browser.
+    const [confirmingDelete, setConfirmingDelete] = useState(false);
     const [formData, setFormData] = useState<BankDetails>({
         accountHolderName: '',
         accountNumber: '',
@@ -65,9 +70,11 @@ const BankDetailsTab: React.FC = () => {
     };
 
     const handleDelete = async () => {
-        if (!confirm('Are you sure you want to delete your bank details?')) {
+        if (!confirmingDelete) {
+            setConfirmingDelete(true);
             return;
         }
+        setConfirmingDelete(false);
 
         try {
             setLoading(true);
@@ -121,8 +128,16 @@ const BankDetailsTab: React.FC = () => {
                             onClick={handleDelete}
                             className="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors"
                         >
-                            🗑️ Delete
+                            {confirmingDelete ? 'Click again to delete' : '🗑️ Delete'}
                         </button>
+                        {confirmingDelete && (
+                            <button
+                                onClick={() => setConfirmingDelete(false)}
+                                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                        )}
                     </div>
                 )}
             </div>

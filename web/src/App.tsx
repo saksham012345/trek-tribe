@@ -68,6 +68,10 @@ const AIShowcase = React.lazy(() => retryLazyLoad(() => import('./pages/AIShowca
 const CRMDashboard = React.lazy(() => retryLazyLoad(() => import('./pages/CRMDashboard')));
 const PaymentVerificationDashboard = React.lazy(() => retryLazyLoad(() => import('./pages/PaymentVerificationDashboard')));
 const OrganizerRouteOnboarding = React.lazy(() => retryLazyLoad(() => import('./pages/OrganizerRouteOnboarding')));
+// The screen 'Bank & KYC' actually leads to. Route onboarding below was
+// switched off in favour of this simpler collection, but nothing was ever
+// routed to it, so the nav link led to a blank page.
+const BankDetailsScreen = React.lazy(() => retryLazyLoad(() => import('./pages/organizer-os/BankDetails')));
 const OrganizerSettlements = React.lazy(() => retryLazyLoad(() => import('./pages/OrganizerSettlements')));
 
 // Sprint 3 — Organizer OS read-only analytics screens
@@ -346,6 +350,14 @@ function AppContent() {
                 element={
                   !user ? <Navigate to="/login" /> :
                     user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><PaymentVerificationDashboard /></EmailVerificationGuard> :
+                      <Navigate to="/home?error=organizer-required" />
+                }
+              />
+              <Route
+                path="/organizer/bank-details"
+                element={
+                  !user ? <Navigate to="/login" /> :
+                    user.role === 'organizer' || user.role === 'admin' ? <EmailVerificationGuard><BankDetailsScreen /></EmailVerificationGuard> :
                       <Navigate to="/home?error=organizer-required" />
                 }
               />

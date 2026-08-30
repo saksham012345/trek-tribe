@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/roleCheck';
 import { UserPrisma as User } from '../models/userPrismaAdapter';
+import { prisma } from '../lib/prisma';
 import {
     encryptBankDetail,
     decryptBankDetail,
@@ -62,7 +63,14 @@ class BankDetailsController {
             // Encrypt sensitive data
             const encryptedAccountNumber = encryptBankDetail(accountNumber);
 
-            // Update user's bank details
+            // Bank details live in organizer_payout_configs, not on the user.
+            //
+            // This used to assign user.organizerProfile.bankDetails and call
+            // save(). The adapter has no mapping for that nested path, so it was
+            // dropped without an error: the request answered 200, the form showed
+            // the details back, and a reload showed "No bank details added yet".
+            // Nothing was ever stored. The schema has said so in a comment for a
+            // while; this is that move.
             const user = await User.findById(req.user.id);
 
             if (!user) {
@@ -72,21 +80,24 @@ class BankDetailsController {
                 });
             }
 
-            // Initialize organizerProfile if it doesn't exist
-            if (!user.organizerProfile) {
-                user.organizerProfile = {};
-            }
-
-            // Update bank details
-            user.organizerProfile.bankDetails = {
-                accountHolderName,
-                accountNumber: encryptedAccountNumber, // Store encrypted
-                ifscCode: ifscCode.toUpperCase(),
-                bankName,
-                upiId: upiId || undefined,
-            };
-
-            await user.save();
+            await prisma.organizerPayoutConfig.upsert({
+                where: { organizerId: req.user.id },
+                create: {
+                    organizerId: req.user.id,
+                    accountHolderName,
+                    accountNumberEncrypted: encryptedAccountNumber,
+                    ifscCode: ifscCode.toUpperCase(),
+                    bankName,
+                    upiId: upiId || null,
+                },
+                update: {
+                    accountHolderName,
+                    accountNumberEncrypted: encryptedAccountNumber,
+                    ifscCode: ifscCode.toUpperCase(),
+                    bankName,
+                    upiId: upiId || null,
+                },
+            });
 
             console.log(`✅ Bank details updated for organizer ${req.user.id}`);
 
@@ -133,16 +144,24 @@ class BankDetailsController {
                 });
             }
 
-            const user = await User.findById(userId);
+            const config = await prisma.organizerPayoutConfig.findUnique({
+                where: { organizerId: userId },
+            });
 
-            if (!user || !user.organizerProfile?.bankDetails) {
+            if (!config) {
                 return res.status(404).json({
                     success: false,
                     message: 'Bank details not found',
                 });
             }
 
-            const bankDetails = user.organizerProfile.bankDetails;
+            const bankDetails = {
+                accountHolderName: config.accountHolderName,
+                accountNumber: config.accountNumberEncrypted,
+                ifscCode: config.ifscCode,
+                bankName: config.bankName,
+                upiId: config.upiId,
+            };
 
             // Decrypt account number for display (masked)
             let maskedAccountNumber = '****';
@@ -187,16 +206,24 @@ class BankDetailsController {
 
             const { organizerId } = req.params;
 
-            const user = await User.findById(organizerId);
+            const config = await prisma.organizerPayoutConfig.findUnique({
+                where: { organizerId },
+            });
 
-            if (!user || !user.organizerProfile?.bankDetails) {
+            if (!config) {
                 return res.status(404).json({
                     success: false,
                     message: 'Bank details not found',
                 });
             }
 
-            const bankDetails = user.organizerProfile.bankDetails;
+            const bankDetails = {
+                accountHolderName: config.accountHolderName,
+                accountNumber: config.accountNumberEncrypted,
+                ifscCode: config.ifscCode,
+                bankName: config.bankName,
+                upiId: config.upiId,
+            };
 
             // Decrypt account number for admin
             const decryptedAccountNumber = decryptBankDetail(bankDetails.accountNumber || '');
@@ -233,19 +260,11 @@ class BankDetailsController {
                 });
             }
 
-            const user = await User.findById(req.user.id);
-
-            if (!user) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'User not found',
-                });
-            }
-
-            if (user.organizerProfile) {
-                user.organizerProfile.bankDetails = undefined;
-                await user.save();
-            }
+            // deleteMany rather than delete: removing details that were never
+            // there should not be a 500, and this endpoint is idempotent.
+            await prisma.organizerPayoutConfig.deleteMany({
+                where: { organizerId: req.user.id },
+            });
 
             console.log(`🗑️  Bank details deleted for organizer ${req.user.id}`);
 

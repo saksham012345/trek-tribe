@@ -101,7 +101,7 @@ export const ORGANIZER_NAV: Group[] = [
     title: 'Account',
     items: [
       { label: 'Settings', to: '/organizer/settings' },
-      { label: 'Bank & KYC', to: '/organizer/route-onboarding' },
+      { label: 'Bank & KYC', to: '/organizer/bank-details' },
       {
         label: 'Integrations',
         to: '#',

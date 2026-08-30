@@ -61,7 +61,7 @@ const Payouts: React.FC = () => {
 
             {data.state === 'kyc_blocked' && (
               <a
-                href="/organizer/route-onboarding"
+                href="/organizer/bank-details"
                 className="inline-block mt-4 rounded bg-amber-600 px-3 py-1.5 text-sm text-white hover:bg-amber-700"
               >
                 Go to KYC details
@@ -69,7 +69,7 @@ const Payouts: React.FC = () => {
             )}
             {data.state === 'not_onboarded' && (
               <a
-                href="/organizer/route-onboarding"
+                href="/organizer/bank-details"
                 className="inline-block mt-4 rounded bg-gray-800 px-3 py-1.5 text-sm text-white hover:bg-gray-900"
               >
                 Connect a bank account
