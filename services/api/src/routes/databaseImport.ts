@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { authenticateJwt, requireRole } from '../middleware/auth';
 import { databaseImportService } from '../services/databaseImportService';
 import { importQueue } from '../workers/importWorker';
@@ -13,7 +13,10 @@ const router = Router();
 const importRateLimit = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 10,
-  keyGenerator: (req: any) => req.auth?.userId || req.ip,
+  // req.ip must go through ipKeyGenerator: an IPv6 address is one of many in a
+  // /64 the same user holds, so keying on the raw address lets them rotate past
+  // the limit. express-rate-limit refuses to start without it.
+  keyGenerator: (req: any) => req.auth?.userId || ipKeyGenerator(req.ip),
   message: { success: false, error: 'Import limit exceeded. Maximum 10 imports per hour.' },
   standardHeaders: true,
   legacyHeaders: false,

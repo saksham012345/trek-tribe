@@ -23,9 +23,19 @@ import { redisService } from '../services/redisService';
 let fallbackAnnounced = false;
 
 const getRedisStore = (prefix: string) => {
-  const client = redisService.getClient();
-
-  if (!client || !redisService.isRedisConnected()) {
+  // What is checked here is configuration, not connectivity.
+  //
+  // The comment above described the bug and the first fix still walked into it:
+  // this runs at import time, before redisService has finished connecting, so
+  // asking "is Redis connected right now" is answered "no" almost every time.
+  // As a silent fallback that meant MemoryStore for the life of the process. As
+  // a production throw it meant the process could not start at all — the server
+  // refused to boot on a box where Redis was up and answering PONG.
+  //
+  // So the boot-time question is the one that has a stable answer: is Redis
+  // configured? The connection itself is resolved per command below, by which
+  // time it exists.
+  if (!process.env.REDIS_URL) {
     if (process.env.NODE_ENV === 'production' && process.env.ALLOW_MEMORY_RATE_LIMIT !== 'yes') {
       throw new Error(
         'Rate limiting requires Redis in production. Without it, limits are ' +
@@ -38,7 +48,7 @@ const getRedisStore = (prefix: string) => {
     if (!fallbackAnnounced) {
       fallbackAnnounced = true;
       console.warn(
-        '⚠️  Rate limiting is using in-memory storage — Redis is not connected.\n' +
+        '⚠️  Rate limiting is using in-memory storage — REDIS_URL is not set.\n' +
         '    Limits are per-process and reset on restart. Fine locally; not in production.'
       );
     }
@@ -46,7 +56,19 @@ const getRedisStore = (prefix: string) => {
   }
 
   return new RedisStore({
-    sendCommand: (...args: string[]) => client.sendCommand(args),
+    // Looked up per command rather than captured at import: the client does not
+    // exist yet when this module loads, and a captured null would silently
+    // never recover.
+    sendCommand: (...args: string[]) => {
+      const client = redisService.getClient();
+      if (!client) {
+        // Fail the request rather than quietly counting in a store that is not
+        // shared. A rate limiter that stops limiting is the failure this whole
+        // module exists to prevent.
+        throw new Error('Rate limiting is unavailable: no Redis client.');
+      }
+      return client.sendCommand(args);
+    },
     prefix: `rl:${prefix}:`,
   });
 };
