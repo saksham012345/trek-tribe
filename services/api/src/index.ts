@@ -443,6 +443,9 @@ app.use('/api/internal/seed', seedRoutes);
 
 // Health check endpoint with detailed info
 app.get('/health', asyncErrorHandler(async (_req: Request, res: Response) => {
+  // Mongo is reported for as long as the connection exists, so an operator can
+  // see whether anything is still attached to it during the changeover. It is
+  // no longer what "healthy" means — nothing reads from it.
   const mongoStatus = mongoose.connection.readyState;
   const statusMap = {
     0: 'disconnected',
@@ -451,7 +454,6 @@ app.get('/health', asyncErrorHandler(async (_req: Request, res: Response) => {
     3: 'disconnecting'
   };
 
-  // Test database operation
   const dbTest = mongoose.connection.db ? await mongoose.connection.db.admin().ping() : false;
 
   let postgresStatus = 'disconnected';
@@ -483,7 +485,20 @@ app.get('/health', asyncErrorHandler(async (_req: Request, res: Response) => {
 
 // Readiness probe: checks critical dependencies (DB + optional Redis + Razorpay)
 app.get('/ready', asyncErrorHandler(async (_req: Request, res: Response) => {
-  const mongoStatus = mongoose.connection.readyState === 1;
+  // Readiness means Postgres, not Mongo.
+  //
+  // This used to require a live Mongo connection, which would have kept the
+  // app out of the load balancer forever once Mongo was removed — a 503 with
+  // no failing request behind it, which is the kind of thing that gets blamed
+  // on the deploy rather than on the probe.
+  let dbOk = false;
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    dbOk = true;
+  } catch {
+    dbOk = false;
+  }
+
   // Optional Redis check
   let redisOk = true;
   try {
@@ -499,11 +514,13 @@ app.get('/ready', asyncErrorHandler(async (_req: Request, res: Response) => {
   // Razorpay credential check (lightweight): ensure env vars exist
   const razorpayOk = !!(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET);
 
-  const ready = mongoStatus && redisOk && razorpayOk;
+  // Razorpay is credentials-only and Redis is optional, so neither should hold
+  // the whole service out of rotation. Postgres is the one that decides.
+  const ready = dbOk;
   if (!ready) {
-    return res.status(503).json({ ready: false, mongo: mongoStatus, redis: redisOk, razorpay: razorpayOk });
+    return res.status(503).json({ ready: false, postgres: dbOk, redis: redisOk, razorpay: razorpayOk });
   }
-  return res.json({ ready: true });
+  return res.json({ ready: true, postgres: dbOk, redis: redisOk, razorpay: razorpayOk });
 }));
 
 // Prometheus metrics endpoint
@@ -792,11 +809,24 @@ export async function start() {
     console.log(`📡 Port: ${port}`);
 
     // 1. Establish database connection
-    try {
-      await connectToDatabase();
-    } catch (dbError: any) {
-      console.error('❌ Critical failure: Could not connect to database at startup');
-      // We continue to allow the port to bind so health checks can report the state
+    //
+    // Postgres is the database now. Prisma connects lazily on first query and
+    // pools from there, so there is nothing to await here.
+    //
+    // Mongo is connected only when MONGODB_URI is set, and nothing in the
+    // application reads from it any more — the last models were ported and the
+    // connection is kept for one release so a rollback has something to land
+    // on. With the variable unset, as it is by default now, this does nothing.
+    if (process.env.MONGODB_URI || process.env.USE_MEM_DB === 'true') {
+      console.log('ℹ️  MONGODB_URI is set — connecting Mongo for rollback safety only.');
+      console.log('ℹ️  No application code reads from it. Unset it to run on Postgres alone.');
+      try {
+        await connectToDatabase();
+      } catch (dbError: any) {
+        console.error('⚠️  Mongo did not connect. This is not fatal: nothing reads from it.');
+      }
+    } else {
+      console.log('✅ Running on Postgres alone — no MongoDB connection attempted.');
     }
 
     // 2. Initialize Core Services (Socket.IO, CRM Chat)

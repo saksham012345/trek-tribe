@@ -15,7 +15,10 @@ import { UserPrisma as User } from '../../models/userPrismaAdapter';
 import { databaseImportService } from '../../services/databaseImportService';
 import analyticsService from '../../services/analyticsService';
 import notificationService from '../../services/notificationService';
-import { PipelineStage } from '../../models/Lead';
+// The Mongoose Lead model is gone; this is the same six values, generated from
+// the Postgres enum rather than hand-written beside a model that no longer
+// exists.
+import type { LeadPipelineStage as PipelineStage } from '@prisma/client';
 import mongoose from 'mongoose';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
