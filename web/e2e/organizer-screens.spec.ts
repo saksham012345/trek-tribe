@@ -83,12 +83,38 @@ async function signIn(page: Page) {
   // A repeat run finds the account already there, which is fine.
   expect([200, 201, 409]).toContain(res.status());
 
-  await page.goto('/login');
-  await page.getByLabel(/email/i).or(page.locator('input[type="email"]')).first().fill(ORGANIZER.email);
-  await page.locator('input[type="password"]').first().fill(ORGANIZER.password);
-  await page.getByRole('button', { name: /sign in|log ?in/i }).first().click();
+  // Registration already authenticates.
+  //
+  // The first run of this file assumed otherwise and went to /login next, then
+  // failed hunting for a password field — because the app had redirected an
+  // already-signed-in user away from the login page. The test was wrong about
+  // the app, not the other way round.
+  //
+  // When the account already exists (409 on a repeat run) there is no session
+  // from that call, so the form is used. Both paths end signed in.
+  if (res.status() === 409) {
+    // The account survives from an earlier test in the run, so sign in through
+    // the API rather than the form.
+    //
+    // Not because the form is broken — it is not, and one test below drives it
+    // deliberately. The submit button carries
+    // `transition-all duration-500 ease-spring hover:scale-[1.02]`, so
+    // Playwright's stability wait never settles and the click times out. A real
+    // person clicks it without noticing. Repeating that fight in the setup of
+    // all thirty-three tests would be thirty-three chances to fail for a reason
+    // that has nothing to do with the screen under test.
+    const login = await page.request.post(`${API}/auth/login`, {
+      data: { email: ORGANIZER.email, password: ORGANIZER.password },
+      failOnStatusCode: false,
+    });
+    expect(login.status(), 'sign-in through the API failed').toBe(200);
+  }
 
-  await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 45_000 });
+  await page.goto('/');
+
+  // Whichever route got here, prove there is a session rather than assume it.
+  const me = await page.request.get(`${API}/auth/me`, { failOnStatusCode: false });
+  expect(me.status(), 'expected an authenticated session after sign-in').toBe(200);
 }
 
 test.describe('organizer screens', () => {
@@ -96,9 +122,49 @@ test.describe('organizer screens', () => {
     await signIn(page);
   });
 
-  test('the login form actually signs a real organizer in', async ({ page }) => {
-    // beforeEach did it; this asserts the outcome rather than assuming it.
-    expect(page.url()).not.toContain('/login');
+  /**
+   * The login form itself, driven the way a person drives it.
+   *
+   * The other tests sign in through the API, so this is the one place the form
+   * is exercised — and it needs its own account, because an already-signed-in
+   * visitor is redirected away from /login before the form renders.
+   *
+   * The submit button animates continuously, so Playwright's stability wait
+   * never settles on it. force: true skips that wait: the button is visible and
+   * enabled, and the only thing stopping the click is a CSS transition that a
+   * real user clicks straight through.
+   */
+  test('the login form signs a real organizer in', async ({ browser }) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+
+    const email = `pw-form-${Date.now()}@trektribe.test`;
+    const reg = await page.request.post(`${API}/auth/register`, {
+      data: {
+        name: 'Playwright Form',
+        email,
+        password: ORGANIZER.password,
+        phone: `+9196${String(Date.now()).slice(-8)}`,
+        role: 'organizer',
+      },
+      failOnStatusCode: false,
+    });
+    expect([200, 201]).toContain(reg.status());
+
+    // Registration signed us in; clear that so the form is reachable.
+    await ctx.clearCookies();
+    await page.goto('/login');
+
+    await page.locator('#email').fill(email);
+    await page.locator('#password').fill(ORGANIZER.password);
+    await page.locator('button[type="submit"]').first().click({ force: true });
+
+    await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 45_000 });
+
+    const me = await page.request.get(`${API}/auth/me`, { failOnStatusCode: false });
+    expect(me.status(), 'the form did not produce a session').toBe(200);
+
+    await ctx.close();
   });
 
   for (const screen of SCREENS) {
@@ -143,7 +209,10 @@ test.describe('behaviour, not just rendering', () => {
 
   test('AI screens refuse rather than offering a button that spends', async ({ page }) => {
     await page.goto('/organizer/ai-studio');
-    await expect(page.getByText(/no ai provider is configured/i)).toBeVisible({ timeout: 30_000 });
+    // .first() because the screen says it twice on purpose — once as the heading
+    // and once in the explanation beneath. Strict mode refuses the ambiguity,
+    // which is the locator being imprecise rather than the page being wrong.
+    await expect(page.getByText(/no ai provider is configured/i).first()).toBeVisible({ timeout: 30_000 });
 
     const generate = page.getByRole('button', { name: /generate a draft/i });
     await expect(generate).toBeDisabled();
