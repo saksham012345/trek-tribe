@@ -31,7 +31,7 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({ onUpgrade }) => {
 
   const fetchSubscription = async () => {
     try {
-      const response = await api.get('/subscriptions/my');
+      const response = await api.get('/api/subscriptions/my');
       setSubscription(response.data as SubscriptionData);
     } catch (error) {
       console.error('Error fetching subscription:', error);

@@ -173,7 +173,7 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
   const fetchFinanceData = React.useCallback(async () => {
     setFinanceLoading(true);
     try {
-      const res = await api.get('/finance/overview');
+      const res = await api.get('/api/finance/overview');
       if (res.data?.summary) {
         setFinanceSummary(res.data.summary);
       }

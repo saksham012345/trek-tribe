@@ -57,7 +57,7 @@ export const PaymentVerificationDashboard: React.FC = () => {
 
   const checkAuthorization = async () => {
     try {
-      const response = await apiClient.get('/subscriptions/verify-crm-access');
+      const response = await apiClient.get('/api/subscriptions/verify-crm-access');
       if (!response.data.hasCRMAccess) {
         showToast('You need a CRM-enabled subscription to access payment verification', 'error');
         navigate('/subscribe');

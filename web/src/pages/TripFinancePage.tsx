@@ -45,7 +45,7 @@ const TripFinancePage: React.FC = () => {
     const fetchData = React.useCallback(async () => {
         try {
             setLoading(true);
-            const res = await api.get(`/finance/trips/${tripId}`);
+            const res = await api.get(`/api/finance/trips/${tripId}`);
             setData(res.data);
         } catch (error: any) {
             console.error('Error fetching trip finance:', error);
@@ -63,7 +63,7 @@ const TripFinancePage: React.FC = () => {
         e.preventDefault();
         setSubmitting(true);
         try {
-            await api.post('/finance/expenses', {
+            await api.post('/api/finance/expenses', {
                 tripId,
                 ...newExpense,
                 amount: Number(newExpense.amount)
@@ -84,10 +84,22 @@ const TripFinancePage: React.FC = () => {
         }
     };
 
+    // Two clicks rather than window.confirm.
+    //
+    // A native dialog stops the page dead: nothing driving the browser can get
+    // past it, and a person gets a grey box with no idea which of five rows it
+    // is about. The row says which one it is, because the row is where the
+    // second click lands.
+    const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
+
     const handleDeleteExpense = async (expenseId: string) => {
-        if (!window.confirm('Are you sure you want to delete this expense?')) return;
+        if (confirmingDelete !== expenseId) {
+            setConfirmingDelete(expenseId);
+            return;
+        }
+        setConfirmingDelete(null);
         try {
-            await api.delete(`/finance/expenses/${expenseId}`);
+            await api.delete(`/api/finance/expenses/${expenseId}`);
             toast.success('Expense deleted');
             fetchData();
         } catch (error: any) {
@@ -222,9 +234,11 @@ const TripFinancePage: React.FC = () => {
                                                 <td className="px-6 py-4 text-center">
                                                     <button
                                                         onClick={() => handleDeleteExpense(exp._id)}
-                                                        className="text-gray-400 hover:text-red-600 transition-colors"
+                                                        className={confirmingDelete === exp._id
+                                                            ? 'text-xs font-medium text-red-600 hover:text-red-700'
+                                                            : 'text-gray-400 hover:text-red-600 transition-colors'}
                                                     >
-                                                        <Trash2 size={16} />
+                                                        {confirmingDelete === exp._id ? 'Click again to delete' : <Trash2 size={16} />}
                                                     </button>
                                                 </td>
                                             </tr>
