@@ -41,6 +41,12 @@ const OpsDocuments: React.FC = () => {
     subjectId: '',
   });
 
+  // The organizer's own trips, so a document can be attached by picking one.
+  const [trips, setTrips] = React.useState<{ id: string; title: string }[]>([]);
+  React.useEffect(() => {
+    apiClient.get('/trips/mine').then((r) => setTrips(r.data ?? [])).catch(() => {});
+  }, []);
+
   const load = React.useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -136,12 +142,34 @@ const OpsDocuments: React.FC = () => {
             <option value="booking">Belongs to a booking</option>
             <option value="participant">Belongs to a person</option>
           </select>
-          <input
-            placeholder={`${form.subject} id`}
-            value={form.subjectId}
-            onChange={(e) => setForm({ ...form, subjectId: e.target.value })}
-            className="rounded border border-gray-300 px-2 py-1.5 text-sm"
-          />
+          {/* Pick the trip; do not ask anyone to type a uuid.
+
+              This was a text box labelled "trip id", and Add stayed disabled
+              until something was in it — so attaching a document meant finding a
+              trip's uuid somewhere else and pasting it in. Bookings and people
+              keep the box for now: there is no list endpoint here to fill a
+              picker from, and inventing one is a larger change than this. */}
+          {form.subject === 'trip' ? (
+            <select
+              value={form.subjectId}
+              onChange={(e) => setForm({ ...form, subjectId: e.target.value })}
+              className="rounded border border-gray-300 px-2 py-1.5 text-sm"
+            >
+              <option value="">Which trip?</option>
+              {trips.map((tr) => (
+                <option key={tr.id} value={tr.id}>
+                  {tr.title}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              placeholder={`${form.subject} id`}
+              value={form.subjectId}
+              onChange={(e) => setForm({ ...form, subjectId: e.target.value })}
+              className="rounded border border-gray-300 px-2 py-1.5 text-sm"
+            />
+          )}
         </div>
         <button
           onClick={add}
@@ -151,6 +179,15 @@ const OpsDocuments: React.FC = () => {
           Add
         </button>
         <p className="text-xs text-gray-500 mt-2">
+          {!form.title || !form.fileUrl || !form.subjectId ? (
+            <span className="text-amber-700">
+              Still needed:{' '}
+              {[!form.title && 'a title', !form.fileUrl && 'a file URL', !form.subjectId && `a ${form.subject}`]
+                .filter(Boolean)
+                .join(', ')}
+              .{' '}
+            </span>
+          ) : null}
           A document belongs to exactly one subject — the database refuses anything else.
         </p>
       </div>
