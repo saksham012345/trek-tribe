@@ -219,6 +219,69 @@ function flattenNested(data: Doc): Doc {
  * dropping it breaks the app in ways nothing typechecks. Both are present and
  * hold the same value.
  */
+/**
+ * The inverse of flattenNested, for reading.
+ *
+ * flattenNested was built so callers could keep *writing* the nested shape.
+ * Nothing was built for reading it back, so every caller that reads
+ * `user.organizerProfile.something` has been getting undefined since wave 9:
+ *
+ *   trips.service      autoPay gate -> every organizer got 402 "AutoPay
+ *                      required" when creating a trip, including ones an admin
+ *                      had just enabled, because the admin write set the column
+ *                      and the read never looked at it
+ *   crmAccess          the same check -> CRM refused everyone
+ *   bankDetails        organizerProfile?.bankDetails -> always "not found"
+ *
+ * Attached non-enumerable, for the reason save() is: it must not appear in JSON
+ * responses or in save()'s change detection. A fresh object every read would
+ * never compare equal to the original, so an enumerable one would make every
+ * save() rewrite the whole profile.
+ *
+ * Only built from columns the row actually has, so a .select() that omitted
+ * them yields undefined rather than a confidently wrong `false`.
+ */
+function nestOrganizerProfile(row: Doc): Doc | undefined {
+  const has = (k: string) => Object.prototype.hasOwnProperty.call(row, k);
+  const set = (o: Doc, k: string, col: string) => { if (has(col)) o[k] = row[col]; };
+
+  const op: Doc = {};
+  set(op, 'bio', 'organizerBio');
+  set(op, 'experience', 'organizerExperience');
+  set(op, 'specialties', 'specialties');
+  set(op, 'certifications', 'certifications');
+  set(op, 'languages', 'languages');
+  set(op, 'yearsOfExperience', 'yearsOfExperience');
+  set(op, 'totalTripsOrganized', 'totalTripsOrganized');
+  set(op, 'achievements', 'organizerAchievements');
+  set(op, 'companyName', 'companyName');
+  set(op, 'licenseNumber', 'licenseNumber');
+  set(op, 'verificationBadge', 'verificationBadge');
+  set(op, 'routingEnabled', 'routingEnabled');
+
+  const ap: Doc = {};
+  set(ap, 'isSetupRequired', 'autoPaySetupRequired');
+  set(ap, 'isSetupCompleted', 'autoPaySetupCompleted');
+  set(ap, 'autoPayEnabled', 'autoPayEnabled');
+  if (Object.keys(ap).length) op.autoPay = ap;
+
+  const ts: Doc = {};
+  set(ts, 'overall', 'trustScoreOverall');
+  set(ts, 'lastCalculated', 'trustScoreLastCalculated');
+  const bd: Doc = {};
+  set(bd, 'documentVerified', 'trustDocumentVerified');
+  set(bd, 'bankVerified', 'trustBankVerified');
+  set(bd, 'experienceYears', 'trustExperienceYears');
+  set(bd, 'completedTrips', 'trustCompletedTrips');
+  set(bd, 'userReviews', 'trustUserReviews');
+  set(bd, 'responseTime', 'trustResponseTime');
+  set(bd, 'refundRate', 'trustRefundRate');
+  if (Object.keys(bd).length) ts.breakdown = bd;
+  if (Object.keys(ts).length) op.trustScore = ts;
+
+  return Object.keys(op).length ? op : undefined;
+}
+
 function shape(row: Doc | null): Doc | null {
   if (!row) return null;
 
@@ -239,6 +302,19 @@ function shape(row: Doc | null): Doc | null {
   // spread — a save function serialised into an API response would be both
   // noise and a small disclosure of how this works.
   const original = { ...row };
+
+  // Read-side organizerProfile. See nestOrganizerProfile: without this, every
+  // caller reading a nested path got undefined, and the autoPay gate refused
+  // every organizer.
+  const nested = nestOrganizerProfile(row);
+  if (nested) {
+    Object.defineProperty(doc, 'organizerProfile', {
+      enumerable: false,
+      configurable: true,
+      writable: true,
+      value: nested,
+    });
+  }
 
   Object.defineProperty(doc, 'save', {
     enumerable: false,
