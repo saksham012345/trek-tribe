@@ -324,9 +324,9 @@ router.get('/:slug', async (req, res) => {
       return res.status(404).json({ error: 'Blog not found' });
     }
 
-    // populate('authorId', 'name') is gone - User is still a Mongo document -
-    // so the author is fetched and put back under the key the page reads.
-    const { User } = require('../models/User');
+    // populate('authorId', 'name') is gone, so the author is fetched separately
+    // and put back under the key the page reads.
+    const { UserPrisma: User } = require('../models/userPrismaAdapter');
     const author = await User.findById(item.authorId).select('name').lean();
 
     res.json({ data: { ...withMongoId(item), authorId: asPopulated(author) } });

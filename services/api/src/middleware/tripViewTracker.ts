@@ -103,7 +103,7 @@ export const trackTripView = async (req: Request, res: Response, next: NextFunct
 async function autoCreateLeadFromViews(userId: string, tripId: string, viewCount: number) {
   try {
     // Get user details
-    const { User } = require('../models/User');
+    const { UserPrisma: User } = require('../models/userPrismaAdapter');
     const user = await User.findById(userId);
     
     if (!user) return;

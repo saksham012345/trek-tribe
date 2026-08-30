@@ -237,7 +237,7 @@ export const trackPartialBooking = (
   }
 ) => {
   // Get userId from email lookup (async operation)
-  const { User } = require('../models/User');
+  const { UserPrisma: User } = require('../models/userPrismaAdapter');
   
   return User.findOne({ email }).then((user: any) => {
     if (!user) {

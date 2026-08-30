@@ -51,7 +51,7 @@ const createAccountSchema = z.object({
 router.post('/razorpay/create-account', authenticateJwt, requireRole(['organizer', 'admin']), async (req, res) => {
   try {
     const userId = (req as any).auth.userId;
-    const { User } = require('../models/User');
+    const { UserPrisma: User } = require('../models/userPrismaAdapter');
     const user = await User.findById(userId);
 
     if (!user) {

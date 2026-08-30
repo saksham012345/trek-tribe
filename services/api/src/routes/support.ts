@@ -266,7 +266,7 @@ router.post('/:ticketId/messages', messageValidators, handleValidationErrors, as
     const { message } = req.body;
     const userId = (req as any).auth.userId;
 
-    const User = require('../models/User').User;
+    const User = require('../models/userPrismaAdapter').UserPrisma;
     const user = await User.findById(userId);
     if (!user) {
       const err: any = new Error('User not found');
@@ -375,7 +375,7 @@ router.post('/tickets/:ticketId/resolve', async (req, res, next) => {
     const userId = (req as any).auth.userId;
     const userRole = (req as any).auth.role;
 
-    const UserModel = require('../models/User').User;
+    const UserModel = require('../models/userPrismaAdapter').UserPrisma;
     const user = await UserModel.findById(userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
 

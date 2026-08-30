@@ -178,7 +178,7 @@ class ChatService {
         skip
       });
 
-      const { User } = require('../models/User');
+      const { UserPrisma: User } = require('../models/userPrismaAdapter');
       const ids = Array.from(new Set(
         messages.flatMap(m => [m.senderId, m.recipientId]).filter(Boolean) as string[]
       ));

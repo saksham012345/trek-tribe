@@ -50,7 +50,7 @@ class ChatLeadService {
       }
 
       // Get user details
-      const { User } = require('../models/User');
+      const { UserPrisma: User } = require('../models/userPrismaAdapter');
       const user = await User.findById(userId);
       
       if (!user) return;
