@@ -443,9 +443,12 @@ app.use('/api/internal/seed', seedRoutes);
 
 // Health check endpoint with detailed info
 app.get('/health', asyncErrorHandler(async (_req: Request, res: Response) => {
-  // Mongo is reported for as long as the connection exists, so an operator can
-  // see whether anything is still attached to it during the changeover. It is
-  // no longer what "healthy" means — nothing reads from it.
+  // Mongo reporting distinguishes "gone on purpose" from "should be here and
+  // isn't". With MONGODB_URI unset — the finished state of the migration — a
+  // readyState of 0 renders as "disconnected" and a ping that was never
+  // attempted renders as "failed", which reads to an operator as a fault. It
+  // is not one; there is nothing to connect to by design.
+  const mongoConfigured = Boolean(process.env.MONGODB_URI || process.env.USE_MEM_DB === 'true');
   const mongoStatus = mongoose.connection.readyState;
   const statusMap = {
     0: 'disconnected',
@@ -467,10 +470,12 @@ app.get('/health', asyncErrorHandler(async (_req: Request, res: Response) => {
   const health = {
     status: 'ok',
     timestamp: new Date().toISOString(),
-    mongodb: {
-      status: statusMap[mongoStatus as keyof typeof statusMap],
-      ping: dbTest ? 'successful' : 'failed'
-    },
+    mongodb: mongoConfigured
+      ? {
+          status: statusMap[mongoStatus as keyof typeof statusMap],
+          ping: dbTest ? 'successful' : 'failed'
+        }
+      : { status: 'not_configured', ping: 'not_attempted' },
     postgres: {
       status: postgresStatus
     },
