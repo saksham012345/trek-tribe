@@ -26,6 +26,23 @@ class LeadController {
       // The email column is lowercase-only (a CHECK), so normalise before the
       // lookup as well as the insert - otherwise a capitalised address would
       // miss its own duplicate and then be refused by the constraint.
+      // source is a database enum. Passing an unknown value straight through
+      // made Prisma throw, which surfaced as 500 "Failed to create lead" — a
+      // message that tells the caller nothing and reads like a server fault
+      // when it is a bad field.
+      const SOURCES = ['trip_view', 'inquiry', 'partial_booking', 'chat', 'form', 'other'];
+      if (source && !SOURCES.includes(String(source))) {
+        return res.status(400).json({
+          success: false,
+          message: `source must be one of: ${SOURCES.join(', ')}`,
+          field: 'source',
+        });
+      }
+
+      if (!email) {
+        return res.status(400).json({ success: false, message: 'email is required', field: 'email' });
+      }
+
       const normalisedEmail = String(email).toLowerCase().trim();
 
       // metadata is no longer one blob: the parts that get filtered are columns.
@@ -49,6 +66,13 @@ class LeadController {
       } else {
         lead = await prisma.lead.create({
           data: {
+            // Whoever took the enquiry owns it.
+            //
+            // getLeads scopes an organizer to assignedTo === their id, and this
+            // never set it — so a lead an organizer added by hand was invisible
+            // to that same organizer the moment it was saved. It answered 201
+            // and vanished.
+            assignedTo: req.user?.role === 'organizer' ? req.user.id : undefined,
             userId,
             tripId,
             email: normalisedEmail,
