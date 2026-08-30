@@ -93,10 +93,22 @@ api.interceptors.response.use(
     if (response.config.method && response.config.method !== 'get' && response.status < 400) {
       const url = (response.config.url || '').split('?')[0];
       const parts = url.split('/').filter(Boolean);
-      // Drop a trailing id-looking segment so /coupons/<uuid> invalidates /coupons.
-      if (parts.length > 1 && /^[0-9a-f-]{8,}$/i.test(parts[parts.length - 1])) parts.pop();
-      const prefix = '/' + parts.join('/');
-      if (prefix.length > 1) apiCache.invalidatePrefix(prefix);
+
+      // Invalidate every ancestor of the path written to, not one guessed prefix.
+      //
+      // The list a screen reads is almost never the path it writes to. Changing
+      // a role is PATCH /api/team/members/<id>/role while the table reads
+      // /api/team, and cutting at the id gave /api/team/members — which is not a
+      // prefix of /api/team, so nothing was dropped. The role changed, the
+      // request answered 200, and the table kept showing the old value until a
+      // reload.
+      //
+      // Walking up covers both directions: the collection above the write and
+      // anything nested under it. Two segments is the shallowest worth touching
+      // — '/api' alone would empty the cache for every unrelated screen.
+      for (let n = parts.length; n >= 2; n--) {
+        apiCache.invalidatePrefix('/' + parts.slice(0, n).join('/'));
+      }
     }
 
     return response;

@@ -141,7 +141,31 @@ const Team: React.FC = () => {
         {active.map((m) => (
           <tr key={m.id} className="hover:bg-gray-50">
             <td className="px-4 py-3 font-mono text-xs text-gray-600">{m.userId.slice(0, 12)}…</td>
-            <td className="px-4 py-3">{roleLabel[m.role] ?? m.role}</td>
+            <td className="px-4 py-3">
+              {/* Changing a role, not just reading it.
+
+                  PATCH /api/team/members/:id/role existed and nothing called it,
+                  so a viewer stayed a viewer — and only a trip leader can be given
+                  trips, which left the assignment screen with nobody to assign to.
+                  The owner row is fixed: there is no endpoint to demote yourself
+                  and no sensible thing for it to do. */}
+              {m.role === 'owner' ? (
+                <span className="text-gray-500">{roleLabel[m.role] ?? m.role}</span>
+              ) : (
+                <select
+                  value={m.role}
+                  disabled={busy}
+                  onChange={(e) =>
+                    act(() => apiClient.patch(`/api/team/members/${m.id}/role`, { role: e.target.value }))
+                  }
+                  className="rounded border border-gray-300 px-2 py-1 text-sm disabled:opacity-50"
+                >
+                  <option value="viewer">Viewer — read only</option>
+                  <option value="trip_leader">Trip leader — only assigned trips</option>
+                  <option value="manager">Manager — everything but billing</option>
+                </select>
+              )}
+            </td>
             <td className="px-4 py-3 tabular-nums">
               {m.role === 'trip_leader' ? (
                 m.assignments.length === 0 ? (

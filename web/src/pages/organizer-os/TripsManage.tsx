@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { apiClient } from '../../services/apiClient';
 import { Shell, StatTile, Table, inr, pct } from './analyticsShared';
 
@@ -107,6 +108,23 @@ const TripsManage: React.FC = () => {
       error={error}
       empty={trips.length === 0}
     >
+      {/* A way to start one, on the screen that lists them.
+
+          The trips screen could publish and duplicate, and offered no way to
+          create — for that you had to already know about "Create" in the header.
+          The place you look for it is here. */}
+      <div className="mb-6 flex items-center justify-between">
+        <p className="text-sm text-gray-500">
+          Drafts are visible only to you until you publish them.
+        </p>
+        <Link
+          to="/create-trip"
+          className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+        >
+          New trip
+        </Link>
+      </div>
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <StatTile label="Trips" value={String(trips.length)} />
         <StatTile label="Live" value={String(live.length)} hint="visible to the public" />
