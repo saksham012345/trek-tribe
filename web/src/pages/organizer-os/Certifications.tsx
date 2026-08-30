@@ -30,23 +30,46 @@ const Certifications: React.FC = () => {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
-  React.useEffect(() => {
-    let alive = true;
-    apiClient
-      .get('/api/ops/certifications')
-      .then((res) => {
-        if (alive) setRows(res.data ?? []);
-      })
-      .catch((e: any) => {
-        if (alive) setError(e?.response?.data?.error || e?.message || 'Request failed');
-      })
-      .finally(() => {
-        if (alive) setLoading(false);
-      });
-    return () => {
-      alive = false;
-    };
+  const [creating, setCreating] = React.useState(false);
+  const [form, setForm] = React.useState({
+    name: '', issuingBody: '', referenceCode: '', issuedOn: '', expiresOn: '',
+  });
+
+  const load = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await apiClient.get('/api/ops/certifications');
+      setRows(res.data ?? []);
+    } catch (e: any) {
+      setError(e?.response?.data?.error || e?.message || 'Request failed');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  React.useEffect(() => {
+    load();
+  }, [load]);
+
+  const create = async () => {
+    setCreating(true);
+    setError(null);
+    try {
+      await apiClient.post('/api/ops/certifications', {
+        name: form.name.trim(),
+        issuingBody: form.issuingBody.trim() || undefined,
+        referenceCode: form.referenceCode.trim() || undefined,
+        issuedOn: form.issuedOn || undefined,
+        expiresOn: form.expiresOn || undefined,
+      });
+      setForm({ name: '', issuingBody: '', referenceCode: '', issuedOn: '', expiresOn: '' });
+      await load();
+    } catch (e: any) {
+      setError(e?.response?.data?.error || 'Could not add the certification');
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const expired = rows.filter((r) => r.expiryState === 'expired').length;
   const soon = rows.filter((r) => r.expiryState === 'expiring_soon').length;
@@ -57,9 +80,44 @@ const Certifications: React.FC = () => {
       subtitle="Your organisation's credentials and when they lapse"
       loading={loading}
       error={error}
-      empty={rows.length === 0}
-      emptyMessage="No certifications recorded. Add the qualifications your leaders hold — first aid, mountaineering, licences — so expiries can be tracked."
     >
+      {/* Adding a certification.
+
+          POST /api/ops/certifications existed; nothing called it. The screen
+          tracked expiries for records it gave you no way to enter, and the
+          Shell's empty gate hid the whole body while there were none — so the
+          state that needed the form was the state without it. */}
+      <section className="rounded-lg border border-gray-200 bg-white p-4 mb-6">
+        <h2 className="font-medium text-gray-900 mb-1">Add a certification</h2>
+        <p className="text-xs text-gray-500 mb-3">
+          An expiry date is what makes this useful — leave it blank only for a qualification
+          that does not lapse.
+        </p>
+        <div className="flex flex-wrap gap-2 items-start">
+          <input className="rounded border border-gray-300 px-3 py-2 text-sm" placeholder="e.g. Wilderness First Aid"
+            value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <input className="rounded border border-gray-300 px-3 py-2 text-sm" placeholder="Issued by"
+            value={form.issuingBody} onChange={(e) => setForm({ ...form, issuingBody: e.target.value })} />
+          <input className="rounded border border-gray-300 px-3 py-2 text-sm w-40" placeholder="Reference no."
+            value={form.referenceCode} onChange={(e) => setForm({ ...form, referenceCode: e.target.value })} />
+          <input type="date" title="Issued on" className="rounded border border-gray-300 px-3 py-2 text-sm"
+            value={form.issuedOn} onChange={(e) => setForm({ ...form, issuedOn: e.target.value })} />
+          <input type="date" title="Expires on" className="rounded border border-gray-300 px-3 py-2 text-sm"
+            value={form.expiresOn} onChange={(e) => setForm({ ...form, expiresOn: e.target.value })} />
+          <button onClick={create} disabled={creating || !form.name.trim()}
+            className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-40">
+            Add certification
+          </button>
+        </div>
+      </section>
+
+      {rows.length === 0 && (
+        <div className="py-12 text-center text-gray-500 text-sm">
+          Nothing recorded yet. Add the qualifications your leaders hold — first aid,
+          mountaineering, licences — so expiries can be tracked.
+        </div>
+      )}
+
       <div className="grid grid-cols-3 gap-3 mb-6">
         <StatTile label="Certifications" value={String(rows.length)} />
         <StatTile label="Expired" value={String(expired)} hint={expired > 0 ? 'needs attention' : undefined} />

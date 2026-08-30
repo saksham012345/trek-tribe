@@ -429,7 +429,32 @@ export async function listCertifications(organizerId: string) {
 }
 
 export async function createCertification(organizerId: string, data: any) {
-  return prisma.certification.create({ data: { ...data, organizerId } });
+  // Named fields rather than a spread of the request body.
+  //
+  // The spread had two faults, both invisible until something finally called
+  // this. A date arrives from a date input as "2027-06-30", which Prisma
+  // rejects as not ISO-8601, so every attempt answered 500. And verifiedAt and
+  // verifiedBy are on this table: spreading the body let the organizer mark
+  // their own certification verified by sending two extra fields.
+  const onDate = (v: any) => {
+    if (!v) return null;
+    // A date-only value is midday UTC, not midnight, so a timezone shift
+    // cannot move it to the day before.
+    const d = typeof v === 'string' && /^d{4}-d{2}-d{2}$/.test(v) ? new Date(v + 'T12:00:00Z') : new Date(v);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+
+  return prisma.certification.create({
+    data: {
+      organizerId,
+      name: String(data?.name ?? '').trim(),
+      issuingBody: data?.issuingBody ? String(data.issuingBody).trim() : null,
+      referenceCode: data?.referenceCode ? String(data.referenceCode).trim() : null,
+      issuedOn: onDate(data?.issuedOn),
+      expiresOn: onDate(data?.expiresOn),
+      documentUrl: data?.documentUrl ? String(data.documentUrl) : null,
+    },
+  });
 }
 
 // ─── Emergency plan ──────────────────────────────────────────────────────────

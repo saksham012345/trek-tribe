@@ -30,6 +30,33 @@ const TripTemplates: React.FC = () => {
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [useFor, setUseFor] = React.useState<Template | null>(null);
   const [dates, setDates] = React.useState({ startDate: '', endDate: '' });
+  const [creating, setCreating] = React.useState(false);
+  const [form, setForm] = React.useState({
+    name: '', title: '', destination: '', difficulty: 'moderate',
+    durationDays: '', capacity: '', price: '',
+  });
+
+  const createTemplate = async () => {
+    setCreating(true);
+    setError(null);
+    try {
+      await apiClient.post('/trips/templates', {
+        name: form.name.trim(),
+        title: form.title.trim(),
+        destination: form.destination.trim() || undefined,
+        difficulty: form.difficulty,
+        durationDays: form.durationDays ? Number(form.durationDays) : undefined,
+        capacity: form.capacity ? Number(form.capacity) : undefined,
+        price: form.price ? Number(form.price) : undefined,
+      });
+      setForm({ ...form, name: '', title: '', destination: '', durationDays: '', capacity: '', price: '' });
+      await load();
+    } catch (e: any) {
+      setError(e?.response?.data?.error || 'Could not create the template');
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -85,9 +112,85 @@ const TripTemplates: React.FC = () => {
       subtitle="Reusable starting points — never listed as trips themselves"
       loading={loading}
       error={error}
-      empty={templates.length === 0}
-      emptyMessage="No templates yet. A template is a trip you save to start from next time — create one from any trip you have already set up."
     >
+      {/* Creating a template.
+
+          The screen could use a template and delete one, but not make one —
+          POST /trips/templates existed and nothing called it. Worse, the whole
+          body was behind the Shell's empty gate, so with no templates yet there
+          was nothing on the page at all: the one state where you most need the
+          form was the state that hid it. The form sits outside that gate now and
+          the empty note is rendered below it. */}
+      <section className="rounded-lg border border-gray-200 bg-white p-4 mb-6">
+        <h2 className="font-medium text-gray-900 mb-1">New template</h2>
+        <p className="text-xs text-gray-500 mb-3">
+          A template holds the parts of a trip that stay the same. Dates and price are
+          chosen each time you start a trip from it.
+        </p>
+        <div className="flex flex-wrap gap-2 items-start">
+          <input
+            className="rounded border border-gray-300 px-3 py-2 text-sm"
+            placeholder="Template name — e.g. Hampta 4D standard"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+          />
+          <input
+            className="rounded border border-gray-300 px-3 py-2 text-sm"
+            placeholder="Trip title travellers see"
+            value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+          />
+          <input
+            className="rounded border border-gray-300 px-3 py-2 text-sm w-40"
+            placeholder="Destination"
+            value={form.destination}
+            onChange={(e) => setForm({ ...form, destination: e.target.value })}
+          />
+          <select
+            className="rounded border border-gray-300 px-3 py-2 text-sm"
+            value={form.difficulty}
+            onChange={(e) => setForm({ ...form, difficulty: e.target.value })}
+          >
+            <option value="easy">Easy</option>
+            <option value="moderate">Moderate</option>
+            <option value="challenging">Challenging</option>
+            <option value="extreme">Extreme</option>
+          </select>
+          <input
+            className="rounded border border-gray-300 px-3 py-2 text-sm w-24"
+            placeholder="Days"
+            value={form.durationDays}
+            onChange={(e) => setForm({ ...form, durationDays: e.target.value })}
+          />
+          <input
+            className="rounded border border-gray-300 px-3 py-2 text-sm w-28"
+            placeholder="Capacity"
+            value={form.capacity}
+            onChange={(e) => setForm({ ...form, capacity: e.target.value })}
+          />
+          <input
+            className="rounded border border-gray-300 px-3 py-2 text-sm w-32"
+            placeholder="Price ₹"
+            value={form.price}
+            onChange={(e) => setForm({ ...form, price: e.target.value })}
+          />
+          <button
+            onClick={createTemplate}
+            disabled={creating || !form.name.trim() || !form.title.trim()}
+            className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+          >
+            Create template
+          </button>
+        </div>
+      </section>
+
+      {templates.length === 0 && (
+        <div className="py-12 text-center text-gray-500 text-sm">
+          No templates yet. Fill the form above to make your first one.
+        </div>
+      )}
+
+
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
         <StatTile label="Templates" value={String(templates.length)} />
         <StatTile label="Trips created" value={String(totalUses)} hint="from templates" />
