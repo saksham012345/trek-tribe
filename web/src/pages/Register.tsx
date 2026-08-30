@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mountain, AlertTriangle, User, Link2, Mail, Phone, Target, Lock, CheckCircle2, Sprout, ArrowRight, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -24,6 +24,31 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
     role: undefined as undefined | 'traveler' | 'organizer'
   });
   const [error, setError] = useState('');
+
+  // The error banner is the first child of a form whose submit button sits some
+  // eight hundred pixels below it. A rejected registration set the message
+  // correctly and rendered it correctly — above the fold the user had scrolled
+  // away from — so from where they were sitting the button simply did nothing.
+  // Three attempts in, still nothing. The server had said exactly what was
+  // wrong each time, and named the field.
+  const errorRef = useRef<HTMLDivElement>(null);
+  const [errorField, setErrorField] = useState('');
+
+  // The API names the field it rejected; the form's ids do not always match it.
+  const FIELD_IDS: Record<string, string> = {
+    phone: 'phoneNumber', phoneNumber: 'phoneNumber', email: 'email',
+    username: 'username', name: 'name', password: 'password',
+  };
+
+  useEffect(() => {
+    if (!error) return;
+    errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const id = FIELD_IDS[errorField];
+    if (id) {
+      // Focus after the scroll starts, so the browser does not fight it.
+      window.setTimeout(() => document.getElementById(id)?.focus(), 400);
+    }
+  }, [error, errorField]);
   const [passwordHint, setPasswordHint] = useState('Use at least 10 characters with upper, lower, number, and symbol.');
   const [loading, setLoading] = useState(false);
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle');
@@ -190,6 +215,7 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
       }
     } catch (error: any) {
       console.log('Registration error details:', error);
+      setErrorField(error.response?.data?.field || '');
       if (error.response?.data?.error) {
         let errorMessage = '';
         // Check for field-level validation errors first (from Zod)
@@ -349,7 +375,7 @@ const Register: React.FC<RegisterProps> = ({ onLogin }) => {
 
               <form className="space-y-4 sm:space-y-6" onSubmit={handleSubmit}>
                 {error && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-glass-sm flex items-center gap-2">
+                  <div ref={errorRef} className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-glass-sm flex items-center gap-2">
                     <AlertTriangle size={20} strokeWidth={2.25} className="flex-shrink-0" />
                     <span className="text-sm">{error}</span>
                   </div>
