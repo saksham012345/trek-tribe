@@ -88,6 +88,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
               {user?.role === 'organizer' && (
                 <>
                   <div className="w-px h-6 bg-forest-200 mx-2"></div>
+                  <NavLink to="/organizer">Dashboard</NavLink>
                   <NavLink to="/create-trip">Create</NavLink>
                   <NavLink to="/crm">CRM</NavLink>
                   <NavLink to="/organizer/vendors">Vendors</NavLink>
@@ -267,6 +268,9 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
               <>
                 <div className="my-4 border-t border-forest-100"></div>
                 <h4 className="text-xs font-bold text-forest-400 uppercase tracking-wider mb-2 px-4">Organizer</h4>
+                <Link to="/organizer" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50 transition-all duration-300 ease-spring">
+                  <LayoutDashboard size={20} strokeWidth={2} /> Dashboard
+                </Link>
                 <Link to="/create-trip" onClick={closeMobileMenu} className="flex items-center gap-4 px-4 py-3 rounded-xl text-forest-600 hover:bg-forest-50 transition-all duration-300 ease-spring">
                   <PlusCircle size={20} strokeWidth={2} /> Create Trip
                 </Link>

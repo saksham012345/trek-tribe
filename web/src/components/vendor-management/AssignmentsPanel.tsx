@@ -44,7 +44,7 @@ const AssignmentsPanel: React.FC = () => {
       setLoadingTrips(true);
       try {
         const [tripsRes, vendorsRes] = await Promise.all([
-          api.get('/organizer/trips'),
+          api.get('/api/organizer/trips'),
           api.get('/api/vendors')
         ]);
         const tripList: Trip[] = tripsRes.data?.trips || [];

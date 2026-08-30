@@ -120,8 +120,8 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
   const fetchDashboardData = async () => {
     try {
       const [tripsResponse, bookingsResponse] = await Promise.all([
-        api.get('/organizer/trips'),
-        api.get('/organizer/pending-verifications')
+        api.get('/api/organizer/trips'),
+        api.get('/api/organizer/pending-verifications')
       ]);
 
       setTrips((tripsResponse.data as any).trips || []);
@@ -210,7 +210,7 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
   const handleVerifyPayment = async (bookingId: string, action: 'verify' | 'reject') => {
     setVerificationLoading(bookingId);
     try {
-      await api.post(`/organizer/verify-payment/${bookingId}`, {
+      await api.post(`/api/organizer/verify-payment/${bookingId}`, {
         action,
         notes: action === 'reject' ? 'Payment verification failed' : 'Payment verified successfully'
       });
@@ -257,6 +257,19 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
             Welcome back, <span className="font-semibold">{user.name}</span>! Manage trips, verify payments, and preview CRM without purchasing yet.
           </p>
         </div>
+      </div>
+
+      {/* Every organizer screen, at the top.
+
+          This sat at the bottom of the page when it was added, on the reasoning
+          that appending was the smallest possible change. The effect was that it
+          began 2182px down a 3100px page: an organizer landed here, saw earnings
+          and "No trips yet", and the way to all thirty-one screens was two full
+          screens below the fold. Reachable only by scrolling past everything, which
+          is not far off being unreachable. */}
+      <div className="max-w-7xl mx-auto mb-8 rounded-2xl bg-white p-6 shadow-xl">
+        <h2 className="font-medium text-gray-900 mb-4">Everything else</h2>
+        <OrganizerNav />
       </div>
 
       {/* Real-time Notifications */}
@@ -348,15 +361,6 @@ const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user }) => {
           </div>
           <CRMPreviewSection hasCRMAccess={hasCRMAccess} crmSubscription={crmSubscription} />
 
-          {/* Sprint 8 — the way into everything else.
-              Ten organizer screens were added across sprints 3 to 8 with no
-              navigation anywhere in the app, reachable only by typing a URL.
-              This is the only addition to this page; the sections above are
-              untouched. */}
-          <div className="max-w-7xl mx-auto mt-8 rounded-xl bg-white p-6 shadow-sm">
-            <h2 className="font-medium text-gray-900 mb-4">Everything else</h2>
-            <OrganizerNav />
-          </div>
         </>
       )}
     </div>
