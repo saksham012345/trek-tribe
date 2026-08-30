@@ -58,6 +58,7 @@ const Certifications: React.FC = () => {
       loading={loading}
       error={error}
       empty={rows.length === 0}
+      emptyMessage="No certifications recorded. Add the qualifications your leaders hold — first aid, mountaineering, licences — so expiries can be tracked."
     >
       <div className="grid grid-cols-3 gap-3 mb-6">
         <StatTile label="Certifications" value={String(rows.length)} />

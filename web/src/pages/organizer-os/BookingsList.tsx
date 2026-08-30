@@ -53,6 +53,7 @@ const BookingsList: React.FC = () => {
       loading={loading}
       error={error}
       empty={rows.length === 0}
+      emptyMessage="No bookings yet. They appear here as soon as someone books a published trip."
     >
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <StatTile label="Bookings" value={String(rows.length)} />

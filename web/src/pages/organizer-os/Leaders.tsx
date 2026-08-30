@@ -88,6 +88,7 @@ const Leaders: React.FC = () => {
       loading={loading}
       error={error}
       empty={leaders.length === 0}
+      emptyMessage="No trip leaders yet. Invite someone as a trip leader on the Team screen first, then assign them trips here."
     >
       <div className="grid grid-cols-3 gap-3 mb-6">
         <StatTile label="Trip leaders" value={String(leaders.length)} />

@@ -86,6 +86,7 @@ const TripTemplates: React.FC = () => {
       loading={loading}
       error={error}
       empty={templates.length === 0}
+      emptyMessage="No templates yet. A template is a trip you save to start from next time — create one from any trip you have already set up."
     >
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
         <StatTile label="Templates" value={String(templates.length)} />

@@ -42,6 +42,7 @@ const Leads: React.FC = () => {
       loading={loading}
       error={error}
       empty={rows.length === 0}
+      emptyMessage="No leads yet. Leads arrive from enquiries and abandoned bookings, and can also be added by hand in the CRM."
     >
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <StatTile label="Leads" value={String(rows.length)} />

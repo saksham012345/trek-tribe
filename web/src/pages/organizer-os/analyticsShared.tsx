@@ -49,8 +49,22 @@ export const Shell: React.FC<{
   loading: boolean;
   error: string | null;
   empty?: boolean;
+  /**
+   * What to say when there is nothing here yet.
+   *
+   * Twenty-eight screens shared one hardcoded line — "this fills in once trips
+   * have bookings" — which is true of the analytics views and wrong everywhere
+   * else. Trip templates do not appear when a booking arrives; you write one.
+   * Nor do trip leaders, certifications, documents, coupons or team members.
+   * On those screens the message told the reader to wait for something that
+   * would never happen, on a screen whose whole purpose was an action they
+   * were not being offered. It is the main reason these looked unfinished.
+   *
+   * Screens that really are booking-derived keep the default.
+   */
+  emptyMessage?: string;
   children: React.ReactNode;
-}> = ({ title, subtitle, loading, error, empty, children }) => (
+}> = ({ title, subtitle, loading, error, empty, emptyMessage, children }) => (
   <div className="p-6 max-w-7xl mx-auto">
     <header className="mb-6">
       <h1 className="text-2xl font-semibold text-gray-900">{title}</h1>
@@ -68,7 +82,7 @@ export const Shell: React.FC<{
 
     {!loading && !error && empty && (
       <div className="py-16 text-center text-gray-500">
-        Nothing to show yet — this fills in once trips have bookings.
+        {emptyMessage ?? 'Nothing to show yet — this fills in once trips have bookings.'}
       </div>
     )}
 
