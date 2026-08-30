@@ -47,7 +47,10 @@ const toTag = (s: string): ReviewTag | null => {
 const fromTag = (t: ReviewTag): string => t.replace(/_/g, '-');
 
 const createReviewSchema = z.object({
-  targetId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid ObjectId'),
+  // Was an ObjectId regex, which rejected every real target once ids became
+  // uuids — no review could be created at all. Ids are text columns, so a
+  // wrong one simply finds nothing rather than erroring.
+  targetId: z.string().min(1, 'targetId is required'),
   reviewType: z.enum(['trip', 'organizer']),
   rating: z.number().int().min(1).max(5),
   title: z.string().min(5).max(100).trim(),
@@ -221,9 +224,8 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
 router.get('/stats/:targetId/:reviewType', asyncHandler(async (req: Request, res: Response) => {
   const { targetId, reviewType } = req.params;
 
-  if (!Types.ObjectId.isValid(targetId)) {
-    return res.status(400).json({ error: 'Invalid target ID' });
-  }
+  // Same removal as above: this answered 400 for every real trip and organizer,
+  // on the live site, for as long as ids have been uuids.
 
   if (!['trip', 'organizer'].includes(reviewType)) {
     return res.status(400).json({ error: 'Invalid review type' });

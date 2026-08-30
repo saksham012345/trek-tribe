@@ -104,10 +104,10 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
 
   const getRoleIcon = (role: string) => {
     switch (role) {
-      case 'organizer': return 'ðŸ—ºï¸';
-      case 'admin': return 'ðŸ› ï¸';
-      case 'agent': return 'ðŸŽ§';
-      default: return 'ðŸŽ’';
+      case 'organizer': return '🗺️';
+      case 'admin': return '🛠️';
+      case 'agent': return '🎧';
+      default: return '🎒';
     }
   };
 
@@ -169,7 +169,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <span className="text-4xl">ðŸ‘¤</span>
+                <span className="text-4xl">👤</span>
               )}
             </div>
           </div>
@@ -192,7 +192,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
             </p>
             {profile.location && (
               <p className="text-white flex items-center gap-1 opacity-80">
-                ðŸ“ {profile.location}
+                📍 {profile.location}
               </p>
             )}
           </div>
@@ -313,7 +313,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 bg-pink-100 text-pink-700 px-3 py-2 rounded-full text-sm hover:bg-pink-200 transition-colors"
                 >
-                  ðŸ“· Instagram
+                  📷 Instagram
                 </a>
               )}
               {profile.socialLinks.website && (
@@ -323,7 +323,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 bg-blue-100 text-blue-700 px-3 py-2 rounded-full text-sm hover:bg-blue-200 transition-colors"
                 >
-                  ðŸŒ Website
+                  🌐 Website
                 </a>
               )}
               {profile.socialLinks.facebook && (
@@ -333,7 +333,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 bg-blue-100 text-blue-700 px-3 py-2 rounded-full text-sm hover:bg-blue-200 transition-colors"
                 >
-                  ðŸ“˜ Facebook
+                  📘 Facebook
                 </a>
               )}
               {profile.socialLinks.twitter && (
@@ -343,7 +343,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 bg-sky-100 text-sky-700 px-3 py-2 rounded-full text-sm hover:bg-sky-200 transition-colors"
                 >
-                  ðŸ¦ Twitter
+                  🐦 Twitter
                 </a>
               )}
               {profile.socialLinks.linkedin && (
@@ -353,7 +353,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 bg-blue-100 text-blue-700 px-3 py-2 rounded-full text-sm hover:bg-blue-200 transition-colors"
                 >
-                  ðŸ’¼ LinkedIn
+                  💼 LinkedIn
                 </a>
               )}
             </div>
@@ -370,7 +370,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
               )}
               {profile.organizerProfile.yearsOfExperience && (
                 <p className="text-sm text-gray-600">
-                  ðŸŽ–ï¸ {profile.organizerProfile.yearsOfExperience} years of experience
+                  🎖️ {profile.organizerProfile.yearsOfExperience} years of experience
                 </p>
               )}
               {profile.organizerProfile.specialties && profile.organizerProfile.specialties.length > 0 && (
@@ -414,7 +414,7 @@ const EnhancedProfileCard: React.FC<EnhancedProfileCardProps> = ({
               onClick={handleShareProfile}
               className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1 px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors"
             >
-              ðŸ“¤ Share
+              📤 Share
             </button>
           </div>
         </div>
@@ -512,7 +512,7 @@ const FollowersList: React.FC<{ userId: string }> = ({ userId }) => {
                 className="w-full h-full rounded-full object-cover"
               />
             ) : (
-              <span>ðŸ‘¤</span>
+              <span>👤</span>
             )}
           </div>
           <div>
@@ -571,7 +571,7 @@ const FollowingList: React.FC<{ userId: string }> = ({ userId }) => {
                 className="w-full h-full rounded-full object-cover"
               />
             ) : (
-              <span>ðŸ‘¤</span>
+              <span>👤</span>
             )}
           </div>
           <div>

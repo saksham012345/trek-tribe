@@ -19,9 +19,10 @@ router.get('/booking/:bookingId', authenticateJwt, async (req: Request, res: Res
     const userId = (req as any).auth.userId;
     const { bookingId } = req.params;
 
-    if (!mongoose.isValidObjectId(bookingId)) {
-      return res.status(400).json({ error: 'Invalid booking id' });
-    }
+    // No ObjectId guard: booking ids are uuids, so isValidObjectId rejected
+    // every real one and made both receipt endpoints answer 400. The lookup
+    // below returns null for an id that does not exist, which is already the
+    // right answer and does not depend on the id's shape.
 
     // Find the booking
     const bookingRow = await prisma.groupBooking.findUnique({
@@ -210,9 +211,10 @@ router.get('/booking/:bookingId/preview', authenticateJwt, async (req: Request, 
     const userId = (req as any).auth.userId;
     const { bookingId } = req.params;
 
-    if (!mongoose.isValidObjectId(bookingId)) {
-      return res.status(400).json({ error: 'Invalid booking id' });
-    }
+    // No ObjectId guard: booking ids are uuids, so isValidObjectId rejected
+    // every real one and made both receipt endpoints answer 400. The lookup
+    // below returns null for an id that does not exist, which is already the
+    // right answer and does not depend on the id's shape.
 
     const bookingRow = await prisma.groupBooking.findUnique({
       where: { id: bookingId },

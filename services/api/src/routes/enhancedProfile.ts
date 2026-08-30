@@ -78,15 +78,18 @@ router.get('/enhanced/:userId?', async (req, res) => {
       });
     }
 
-    // Validate MongoDB ObjectId format
-    const mongooseObjectIdRegex = /^[0-9a-fA-F]{24}$/;
-    if (!mongooseObjectIdRegex.test(userId)) {
-      logger.info('Invalid user ID format provided', { userId });
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid user ID format'
-      });
-    }
+    // No id-format guard here.
+    //
+    // This one checked /^[0-9a-fA-F]{24}$/ — a Mongo ObjectId. Ids are uuids
+    // now, so it rejected every real user with "Invalid user ID format", and
+    // /my-profile answered "Server Error" to anyone who clicked their own name
+    // in the header. bookings, trips and wishlist dropped the same guard during
+    // the migration; this route was missed.
+    //
+    // Nothing replaces it. A lookup that finds nothing already answers 404,
+    // which is the correct response for an id that does not exist, whatever
+    // shape it has — and pinning the format again is how this broke the first
+    // time.
 
     console.log('Fetching profile:', userId);
     const user = await User.findById(userId).select('-passwordHash -resetPasswordToken');

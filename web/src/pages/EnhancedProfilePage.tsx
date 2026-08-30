@@ -270,10 +270,16 @@ const EnhancedProfilePage: React.FC = () => {
     try {
       // This would fetch past trips from the trips API
       const response = await api.get('/trips');
-      const allTrips = response.data;
+      // /trips answers { data, pagination }, not a bare array. This read
+      // response.data and cast it to any[], so the cast silenced the compiler
+      // and .filter threw at runtime: "allTrips.filter is not a function" on
+      // every visit to the profile page. Both shapes are accepted rather than
+      // assuming either.
+      const payload = response.data as any;
+      const allTrips: any[] = Array.isArray(payload) ? payload : (payload?.data ?? []);
 
       // Filter for completed trips where user participated
-      const completedTrips = (allTrips as any[]).filter((trip: any) => {
+      const completedTrips = allTrips.filter((trip: any) => {
         const participants = Array.isArray(trip.participants) ? trip.participants : [];
 
         return trip.status === 'completed' &&
