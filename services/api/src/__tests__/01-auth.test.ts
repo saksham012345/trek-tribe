@@ -28,8 +28,27 @@ const VALID_ORGANIZER = {
   phone: '+919876543210',
 };
 
+/**
+ * Only this test's own users, and only ever those.
+ *
+ * This was `User.deleteMany({})` — every row, no filter. That was survivable
+ * while users lived in a separate Mongo database: the blast radius was one
+ * throwaway store. It is not survivable now. The same line against Postgres
+ * empties the real users table, and running it once with a production
+ * DATABASE_URL would delete every account in the product.
+ *
+ * It also broke a Playwright run while this was being checked. The browser
+ * tests were signed in against the same database, this wiped the row behind
+ * their session mid-run, and four screens failed with 404s that looked like
+ * application bugs and were not.
+ *
+ * Every other test file here already scopes its cleanup by email. This one now
+ * does too.
+ */
+const OWN_TEST_EMAILS = [VALID_USER.email, VALID_ORGANIZER.email];
+
 beforeEach(async () => {
-  await User.deleteMany({});
+  await User.deleteMany({ email: { $in: OWN_TEST_EMAILS } });
 });
 
 describe('POST /auth/register', () => {

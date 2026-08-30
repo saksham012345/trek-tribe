@@ -6,7 +6,7 @@ import mongoose from 'mongoose';
 import { prisma } from '../lib/prisma';
 import request from 'supertest';
 // REMOVED static import
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { CustomTripRequest } from '../models/CustomTripRequest';
 import jwt from 'jsonwebtoken';
 import { MongoMemoryServer } from 'mongodb-memory-server';
@@ -37,6 +37,29 @@ async function runTest() {
 
         if (mongoose.connection.readyState === 0) {
             await mongoose.connect(mongoUri);
+        }
+
+        // Refuse to run against anything but a throwaway database.
+        //
+        // This script sets NODE_ENV='test' and starts an in-memory Mongo, which
+        // makes it look self-contained. It is not any more: User resolves to the
+        // Prisma adapter and prisma.trip is Postgres, so the three deletes below
+        // empty the real users and trips tables of whatever DATABASE_URL points
+        // at. With the current .env that is Neon.
+        //
+        // NODE_ENV does not change DATABASE_URL, so it cannot be the guard. The
+        // URL itself has to be.
+        const dbUrl = process.env.DATABASE_URL ?? '';
+        const isThrowaway =
+            /localhost|127\.0\.0\.1|_test|test_|-test\b/i.test(dbUrl) ||
+            process.env.ALLOW_DESTRUCTIVE_TEST === 'yes-really';
+
+        if (!isThrowaway) {
+            console.error('❌ Refusing to run: this script deletes every user and trip.');
+            console.error(`   DATABASE_URL points at: ${dbUrl.split('@').pop()?.split('?')[0] || '(unset)'}`);
+            console.error('   Point it at a local or _test database, or set');
+            console.error('   ALLOW_DESTRUCTIVE_TEST=yes-really if you truly meant it.');
+            process.exit(1);
         }
 
         // Cleanup
