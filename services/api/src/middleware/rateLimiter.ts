@@ -3,12 +3,46 @@ import RedisStore from 'rate-limit-redis';
 import { redisService } from '../services/redisService';
 
 /**
- * Shared Redis Store configuration
+ * Shared Redis store, or a loud refusal to pretend.
+ *
+ * This is evaluated when the module is imported, which happens before Redis has
+ * finished connecting. So the connected check almost always failed, undefined
+ * was returned, and express-rate-limit quietly fell back to MemoryStore — for
+ * the life of the process, even once Redis came up a second later.
+ *
+ * MemoryStore is per-process. Two PM2 instances means twice the configured
+ * attempts, and every deploy resets the counters. The limits looked like the
+ * config said and were not. Redis held 69 keys when this was checked and not
+ * one of them was an rl: key.
+ *
+ * Two changes. The fallback is announced rather than silent, and in production
+ * it is fatal: a login limiter that is quietly weaker than configured is worse
+ * than a service that refuses to start, because the first one nobody finds out
+ * about until an account is taken.
  */
+let fallbackAnnounced = false;
+
 const getRedisStore = (prefix: string) => {
   const client = redisService.getClient();
+
   if (!client || !redisService.isRedisConnected()) {
-    return undefined; // Fallback to MemoryStore
+    if (process.env.NODE_ENV === 'production' && process.env.ALLOW_MEMORY_RATE_LIMIT !== 'yes') {
+      throw new Error(
+        'Rate limiting requires Redis in production. Without it, limits are ' +
+        'per-process rather than per-IP and reset on every deploy, which makes ' +
+        'the login limiter weaker than its configuration claims. Set REDIS_URL, ' +
+        'or set ALLOW_MEMORY_RATE_LIMIT=yes to accept that trade deliberately.'
+      );
+    }
+
+    if (!fallbackAnnounced) {
+      fallbackAnnounced = true;
+      console.warn(
+        '⚠️  Rate limiting is using in-memory storage — Redis is not connected.\n' +
+        '    Limits are per-process and reset on restart. Fine locally; not in production.'
+      );
+    }
+    return undefined;
   }
 
   return new RedisStore({
