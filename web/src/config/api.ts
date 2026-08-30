@@ -79,6 +79,26 @@ api.interceptors.response.use(
       apiCache.set(response.config.url || '', response.data, response.config.params, ttl);
     }
 
+    // A write invalidates the reads it affects.
+    //
+    // Without this a POST succeeded and the list that followed it was served
+    // from a cache up to thirty minutes old, so the thing just created was
+    // invisible until a hard reload. The screen looked broken and the action
+    // looked ignored.
+    //
+    // Invalidation is by path prefix up to the collection: writing
+    // /api/marketing/coupons drops /api/marketing/coupons and anything under
+    // it, and writing /api/marketing/coupons/:id does the same, because the id
+    // segment is trimmed. Neighbouring collections keep their cache.
+    if (response.config.method && response.config.method !== 'get' && response.status < 400) {
+      const url = (response.config.url || '').split('?')[0];
+      const parts = url.split('/').filter(Boolean);
+      // Drop a trailing id-looking segment so /coupons/<uuid> invalidates /coupons.
+      if (parts.length > 1 && /^[0-9a-f-]{8,}$/i.test(parts[parts.length - 1])) parts.pop();
+      const prefix = '/' + parts.join('/');
+      if (prefix.length > 1) apiCache.invalidatePrefix(prefix);
+    }
+
     return response;
   },
   (error) => {

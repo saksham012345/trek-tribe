@@ -54,6 +54,29 @@ class APICache {
     this.cache.delete(key);
   }
 
+  /**
+   * Drop every entry whose URL starts with a prefix.
+   *
+   * GET responses are cached for five minutes, ten for trips and thirty for AI,
+   * and nothing invalidated them when something was written. So creating a
+   * coupon returned 201, the list refetched, the interceptor answered from the
+   * cache without touching the network, and the new row did not appear for five
+   * minutes. From the user's side the button did nothing — and pressing it again
+   * gave "code already exists" for a coupon they could not see.
+   *
+   * That applied to every create and update in the app, not only coupons.
+   */
+  invalidatePrefix(prefix: string): number {
+    let dropped = 0;
+    for (const key of Array.from(this.cache.keys())) {
+      if (key.startsWith(prefix)) {
+        this.cache.delete(key);
+        dropped++;
+      }
+    }
+    return dropped;
+  }
+
   // Clear all cache
   clear(): void {
     this.cache.clear();

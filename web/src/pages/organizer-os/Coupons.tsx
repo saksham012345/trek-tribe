@@ -55,6 +55,10 @@ const Coupons: React.FC = () => {
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [floorForm, setFloorForm] = React.useState({ kind: 'max_total_percent', value: '' });
+  const [couponForm, setCouponForm] = React.useState({
+    code: '', kind: 'percent', amount: '', startsAt: new Date().toISOString().slice(0, 10),
+    endsAt: '', maxRedemptions: '',
+  });
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -76,6 +80,33 @@ const Coupons: React.FC = () => {
   React.useEffect(() => {
     load();
   }, [load]);
+
+  const createCoupon = async () => {
+    const amount = Number(couponForm.amount);
+    if (!Number.isFinite(amount)) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await apiClient.post('/api/marketing/coupons', {
+        code: couponForm.code.trim().toUpperCase(),
+        kind: couponForm.kind,
+        // The API takes a percentage as a number and a fixed amount as whole
+        // paise. A rupee figure typed in the box is converted here, the same
+        // way the floor does it, so the two boxes behave alike.
+        percentOff: couponForm.kind === 'percent' ? amount : undefined,
+        amountOffPaise: couponForm.kind === 'fixed_amount' ? Math.round(amount * 100) : undefined,
+        startsAt: couponForm.startsAt,
+        endsAt: couponForm.endsAt || undefined,
+        maxRedemptions: couponForm.maxRedemptions ? Number(couponForm.maxRedemptions) : undefined,
+      });
+      setCouponForm({ ...couponForm, code: '', amount: '', endsAt: '', maxRedemptions: '' });
+      await load();
+    } catch (e: any) {
+      setError(e?.response?.data?.error || 'Could not create the coupon');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const saveFloor = async () => {
     const raw = Number(floorForm.value);
@@ -157,6 +188,72 @@ const Coupons: React.FC = () => {
             className="rounded bg-green-600 px-3 py-1.5 text-sm text-white hover:bg-green-700 disabled:opacity-50"
           >
             {floor?.floor ? 'Update floor' : 'Set floor'}
+          </button>
+        </div>
+      </section>
+
+      {/* Creating a coupon.
+
+          The screen listed coupons, explained how the floor bounds them, and
+          offered no way to make one — POST /api/marketing/coupons existed and
+          nothing in the app called it. A screen that can only display the thing
+          it is named after reads as unfinished, which is exactly how it read.
+
+          The floor is not required to create a code, only for one to apply. So
+          the form stays usable without a floor and says what will happen. */}
+      <section className="rounded-lg border border-gray-200 bg-white p-4 mb-6">
+        <h2 className="font-medium text-gray-900 mb-1">New coupon</h2>
+        <p className="text-xs text-gray-500 mb-3">
+          Codes are stored uppercase. {floor?.couponsUsable
+            ? 'The floor above bounds whatever this takes off.'
+            : 'Until a floor is set this code will be refused at checkout.'}
+        </p>
+        <div className="flex flex-wrap gap-2 items-start">
+          <input
+            className="rounded border border-gray-300 px-3 py-2 text-sm uppercase"
+            placeholder="e.g. MONSOON20"
+            value={couponForm.code}
+            onChange={(e) => setCouponForm({ ...couponForm, code: e.target.value })}
+          />
+          <select
+            className="rounded border border-gray-300 px-3 py-2 text-sm"
+            value={couponForm.kind}
+            onChange={(e) => setCouponForm({ ...couponForm, kind: e.target.value })}
+          >
+            <option value="percent">Percent off</option>
+            <option value="fixed_amount">Fixed amount off</option>
+          </select>
+          <input
+            className="rounded border border-gray-300 px-3 py-2 text-sm w-32"
+            placeholder={couponForm.kind === 'percent' ? 'e.g. 20' : 'e.g. 500'}
+            value={couponForm.amount}
+            onChange={(e) => setCouponForm({ ...couponForm, amount: e.target.value })}
+          />
+          <input
+            type="date"
+            className="rounded border border-gray-300 px-3 py-2 text-sm"
+            value={couponForm.startsAt}
+            onChange={(e) => setCouponForm({ ...couponForm, startsAt: e.target.value })}
+          />
+          <input
+            type="date"
+            className="rounded border border-gray-300 px-3 py-2 text-sm"
+            title="Ends (optional)"
+            value={couponForm.endsAt}
+            onChange={(e) => setCouponForm({ ...couponForm, endsAt: e.target.value })}
+          />
+          <input
+            className="rounded border border-gray-300 px-3 py-2 text-sm w-36"
+            placeholder="Max uses (optional)"
+            value={couponForm.maxRedemptions}
+            onChange={(e) => setCouponForm({ ...couponForm, maxRedemptions: e.target.value })}
+          />
+          <button
+            onClick={createCoupon}
+            disabled={busy || !couponForm.code.trim() || couponForm.amount === '' || !couponForm.startsAt}
+            className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+          >
+            Create coupon
           </button>
         </div>
       </section>
