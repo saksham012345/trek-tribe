@@ -10,6 +10,7 @@
 
 import { prisma } from '../../lib/prisma';
 import { toNumber } from '../../lib/money';
+import { invalidateCache } from '../../utils/cache';
 
 export type EffectiveStatus =
   | 'draft'
@@ -284,13 +285,22 @@ export async function setPublication(
     throw new Error('A scheduled trip needs a publish time');
   }
 
-  return prisma.trip.update({
+  const updated = await prisma.trip.update({
     where: { id: tripId },
     data: {
       publicationStatus,
       publishAt: publicationStatus === 'scheduled' ? publishAt : null,
     },
   });
+
+  // GET /trips is cached for five minutes and publishing is exactly the event
+  // that changes what it should return. Creating and editing a trip already
+  // invalidate it; publishing did not, so a trip could go live and stay
+  // invisible to travellers for the rest of the window — on the one action
+  // whose entire purpose is to make it visible.
+  await invalidateCache('/trips');
+
+  return updated;
 }
 
 // ─── The organizer's own list ────────────────────────────────────────────────

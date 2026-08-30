@@ -365,12 +365,29 @@ export async function listTrips(query: TripListQuery) {
   const filter: any = {};
   const statusQuery = status?.toLowerCase();
 
+  // What the public may see is publication_status, not status.
+  //
+  // These are two different things and the default filter used the wrong one.
+  // status is the lifecycle — pending, active, completed, cancelled — and every
+  // trip is created pending. publicationStatus is the publish gate that sprint 4
+  // added, and it is what v_public_trips already filters on.
+  //
+  // Filtering the public list on status === 'active' therefore hid every trip
+  // ever created through the app: publishing sets publicationStatus and leaves
+  // status pending, so an organizer could build a trip, publish it, watch their
+  // own screen report it live, and no traveller could find it. The public list
+  // was permanently empty.
+  //
+  // Cancelled and finished trips stay out of the default view; asking for them
+  // explicitly still works.
   if (statusQuery === 'completed') {
     filter.status = 'completed';
+    filter.publicationStatus = 'published';
   } else if (statusQuery === 'all') {
     filter.status = { in: ['pending', 'active', 'completed', 'cancelled'] };
   } else {
-    filter.status = 'active';
+    filter.publicationStatus = 'published';
+    filter.status = { in: ['pending', 'active'] };
   }
 
   // categories is a string array; `filter.categories = category` was Mongo's
