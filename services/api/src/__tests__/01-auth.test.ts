@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach } from '@jest/globals';
 import request from 'supertest';
 import express from 'express';
 import authRoutes from '../routes/auth';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 
 const app = express();
 app.use(express.json());
