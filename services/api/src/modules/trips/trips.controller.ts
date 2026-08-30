@@ -66,7 +66,7 @@ export async function createTrip(req: any, res: Response) {
         difficulty: req.body.difficulty || 'moderate',
         destination: req.body.destination || 'Unknown Destination',
         categories: req.body.categories || ['Adventure'],
-        location: req.body.location || null,
+        location: req.body.location || undefined,
         schedule: req.body.schedule || [],
         images: req.body.images || [],
         capacity: req.body.capacity || 10,
@@ -159,6 +159,21 @@ export async function createTrip(req: any, res: Response) {
     }
     if (error.message === 'Database operation timeout') {
       return res.status(503).json({ success: false, error: 'Service temporarily unavailable. Please try again.' });
+    }
+
+    // A rejected field is the caller's to fix, so it must not arrive as a 500
+    // saying "try again later" — that is advice which can never work, and it
+    // hid a create that failed on every attempt for months. Zod names the
+    // field; the response says so.
+    if (error?.name === 'ZodError' && Array.isArray(error.issues)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation failed',
+        details: error.issues.map((i: any) => ({
+          field: Array.isArray(i.path) ? i.path.join('.') : String(i.path ?? ''),
+          message: i.message,
+        })),
+      });
     }
 
     res.status(500).json({

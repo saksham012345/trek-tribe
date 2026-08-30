@@ -41,7 +41,12 @@ export const createTripSchema = z.object({
   categories: z.array(z.string()).min(1),
   images: z.array(z.string()).optional(),
   schedule: z.array(z.object({ day: z.number(), title: z.string(), activities: z.array(z.string()) })).optional(),
-  location: z.object({ coordinates: z.tuple([z.number(), z.number()]) }).optional(),
+  // nullish, not optional. The controller's defaults block turned a missing
+  // location into null, and .optional() accepts undefined but not null — so it
+  // manufactured the one value its own schema rejected, and every trip created
+  // without coordinates failed. A client sending an explicit null is reasonable
+  // too; tripShapeService already reads it with optional chaining.
+  location: z.object({ coordinates: z.tuple([z.number(), z.number()]) }).nullish(),
   paymentConfig: z.object({
     paymentType: z.string().optional(),
     paymentMethods: z.array(z.string()).optional(),
@@ -62,7 +67,12 @@ export const updateTripSchema = z.object({
   description: z.string().min(1).optional(),
   categories: z.array(z.string()).optional(),
   destination: z.string().min(1).optional(),
-  location: z.object({ coordinates: z.tuple([z.number(), z.number()]) }).optional(),
+  // nullish, not optional. The controller's defaults block turned a missing
+  // location into null, and .optional() accepts undefined but not null — so it
+  // manufactured the one value its own schema rejected, and every trip created
+  // without coordinates failed. A client sending an explicit null is reasonable
+  // too; tripShapeService already reads it with optional chaining.
+  location: z.object({ coordinates: z.tuple([z.number(), z.number()]) }).nullish(),
   schedule: z.array(z.object({ day: z.number(), title: z.string(), activities: z.array(z.string()).default([]) })).optional(),
   images: z.array(z.string()).optional(),
   capacity: z.number().int().positive().optional(),
