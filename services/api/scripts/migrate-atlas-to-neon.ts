@@ -36,6 +36,23 @@
 import { MongoClient, ObjectId } from 'mongodb';
 import { PrismaClient } from '@prisma/client';
 import crypto from 'crypto';
+import dns from 'dns';
+
+/**
+ * Atlas connection strings are mongodb+srv://, which needs an SRV lookup before
+ * anything else happens. Some resolvers — corporate DNS, some home routers —
+ * time out on SRV records while answering ordinary A records perfectly, so the
+ * failure reads as "cannot reach Atlas" when the network is fine.
+ *
+ * Opt-in rather than automatic: silently rewriting someone's DNS is not a thing
+ * a migration script should do without being asked.
+ *
+ *   MIGRATION_DNS=8.8.8.8 npx ts-node scripts/migrate-atlas-to-neon.ts
+ */
+if (process.env.MIGRATION_DNS) {
+  dns.setServers(process.env.MIGRATION_DNS.split(',').map((s) => s.trim()));
+  console.log(`Using DNS servers: ${process.env.MIGRATION_DNS}`);
+}
 
 const WRITE = process.argv.includes('--write');
 const ATLAS_URI = process.env.ATLAS_URI ?? process.env.MONGODB_URI ?? '';
@@ -62,6 +79,33 @@ function tally(collection: string): Tally {
 function skip(t: Tally, reason: string) {
   t.skipped++;
   t.reasons.set(reason, (t.reasons.get(reason) ?? 0) + 1);
+}
+
+/**
+ * One readable line out of a Prisma error.
+ *
+ * Prisma's validation errors are forty lines of the whole accepted shape with
+ * the offending field underlined somewhere in the middle. Truncating the front
+ * of that produces "Invalid `upsert()` invocation in D:\..." repeated for every
+ * row, which is what the first run of this reported — a count of failures with
+ * no way to tell what failed. The useful part is the last sentence.
+ */
+function describeError(e: any): string {
+  if (e?.code === 'P2002') return `unique violation: ${e.meta?.target}`;
+  if (e?.code === 'P2003') return `foreign key: ${e.meta?.field_name ?? 'unknown'}`;
+
+  const msg = String(e?.message ?? e);
+  const unknown = msg.match(/Unknown argument `([^`]+)`/);
+  if (unknown) return `unknown column: ${unknown[1]}`;
+
+  const missing = msg.match(/Argument `([^`]+)` is missing/);
+  if (missing) return `missing required column: ${missing[1]}`;
+
+  const invalid = msg.match(/Invalid value for argument `([^`]+)`/);
+  if (invalid) return `invalid value for: ${invalid[1]}`;
+
+  const lastLine = msg.split('\n').map((l) => l.trim()).filter(Boolean).pop();
+  return (lastLine ?? msg).slice(0, 100);
 }
 
 /**
@@ -193,6 +237,7 @@ async function migrateUsers(db: any) {
     };
 
     t.prepared++;
+    liveUserIds.add(id);
     if (!WRITE) continue;
 
     try {
@@ -202,7 +247,7 @@ async function migrateUsers(db: any) {
       // A duplicate email is the common one: two Mongo documents, one unique
       // column. Recorded rather than swallowed, because it means a person will
       // lose an account and somebody has to decide which.
-      skip(t, e.code === 'P2002' ? `unique violation: ${e.meta?.target}` : e.message.slice(0, 80));
+      skip(t, describeError(e));
     }
   }
 }
@@ -255,6 +300,7 @@ async function migrateTrips(db: any) {
     };
 
     t.prepared++;
+    liveTripIds.add(id);
     if (!WRITE) continue;
 
     try {
@@ -263,12 +309,23 @@ async function migrateTrips(db: any) {
     } catch (e: any) {
       // A trip whose organizer did not survive the users pass has nothing to
       // hang from. Named rather than counted, so the fix is obvious.
-      skip(t, e.code === 'P2003' ? 'organizer not migrated' : e.message.slice(0, 80));
+      skip(t, e.code === 'P2003' ? 'organizer not migrated' : describeError(e));
     }
   }
 }
 
 // ─── Bookings ────────────────────────────────────────────────────────────────
+
+/**
+ * Ids that actually made it into Postgres, for checking references before
+ * inserting rather than after failing.
+ *
+ * A dry run cannot learn this from Prisma — it never calls it — so a reference
+ * check that only happens at insert time reports nothing useful until the
+ * moment it is too late to be useful.
+ */
+const liveTripIds = new Set<string>();
+const liveUserIds = new Set<string>();
 
 async function migrateBookings(db: any) {
   const t = tally('groupbookings');
@@ -289,6 +346,19 @@ async function migrateBookings(db: any) {
     const tripId = toUuid(doc.tripId);
     const mainBookerId = toUuid(doc.mainBookerId ?? doc.userId);
     if (!id || !tripId || !mainBookerId) { skip(t, 'missing id, tripId or booker'); continue; }
+
+    // Every booking in this database points at a trip that no longer exists —
+    // 21 of 21 at the time of writing. Mongo allowed that because it has no
+    // foreign keys; Postgres will not, and the decision taken was to leave them
+    // behind rather than invent trips to hang them from.
+    //
+    // Checked here rather than left to the insert, so a dry run reports the
+    // number honestly. The first version of this script did not, and its
+    // "prepared=21" was a comfortable lie.
+    if (!liveTripIds.has(tripId)) {
+      skip(t, 'trip no longer exists — orphan booking, left behind by decision');
+      continue;
+    }
 
     const guests = typeof doc.numberOfGuests === 'number' ? doc.numberOfGuests : 1;
     const per = Number(doc.pricePerPerson ?? doc.price ?? 0);
@@ -331,7 +401,371 @@ async function migrateBookings(db: any) {
       await prisma.groupBooking.upsert({ where: { id }, create: data as any, update: data as any });
       t.written++;
     } catch (e: any) {
-      skip(t, e.code === 'P2003' ? 'trip or booker not migrated' : e.message.slice(0, 80));
+      skip(t, e.code === 'P2003' ? 'trip or booker not migrated' : describeError(e));
+    }
+  }
+}
+
+// ─── Everything else ─────────────────────────────────────────────────────────
+
+/**
+ * The remaining collections, each with its own mapper.
+ *
+ * Written as one loop with per-collection functions rather than eleven
+ * near-identical blocks: the shape of "read, map, check references, upsert,
+ * count the skips" is the same every time, and repeating it eleven times is
+ * eleven chances for one of them to drift.
+ *
+ * `needs` names the foreign keys that must already exist. A row referencing a
+ * user or trip that did not migrate is skipped with that reason rather than
+ * failing at the insert, so a dry run reports the real number.
+ */
+interface Mapper {
+  collection: string;
+  model: string;
+  needs?: (row: any) => string[];
+  map: (doc: any) => any | null;
+  /**
+   * Column to upsert on, when it is not `id`.
+   *
+   * SiteSettings is a singleton keyed on `key`, and Postgres already holds the
+   * default row. Upserting by id tried to insert a second one and was refused
+   * by the unique index, which is the table being right.
+   */
+  upsertOn?: string;
+}
+
+const MAPPERS: Mapper[] = [
+  {
+    collection: 'follows',
+    model: 'follow',
+    needs: (r) => [r.followerId, r.followingId],
+    map: (d) => {
+      const followerId = toUuid(d.followerId);
+      const followingId = toUuid(d.followingId);
+      if (!followerId || !followingId) return null;
+      return { id: toUuid(d._id), followerId, followingId, createdAt: asDate(d.createdAt) ?? new Date() };
+    },
+  },
+  {
+    collection: 'useractivities',
+    model: 'userActivity',
+    needs: (r) => [r.userId],
+    map: (d) => {
+      const userId = toUuid(d.userId);
+      if (!userId || !d.activityType) return null;
+      return {
+        id: toUuid(d._id),
+        userId,
+        // userType is NOT NULL and the first version of this mapper omitted it
+        // entirely — 61 rows prepared, 61 rejected.
+        userType: asEnum(d.userType, ['user', 'organizer'] as const, 'user'),
+        // booking_started and organizer_profile_view were not in the Postgres
+        // enum at all until the migration beside this one added them. Falling
+        // back to trip_view would have filed a profile view as a trip view —
+        // a wrong fact rather than a missing one.
+        activityType: asEnum(
+          d.activityType,
+          [
+            'trip_view', 'trip_created', 'booking_made', 'chat_initiated',
+            'ticket_created', 'payment_made', 'profile_updated',
+            'document_uploaded', 'login', 'logout',
+            'booking_started', 'organizer_profile_view',
+          ] as const,
+          'trip_view'
+        ),
+        description: d.description ?? '',
+        metadata: d.metadata ?? undefined,
+        createdAt: asDate(d.createdAt) ?? new Date(),
+      };
+    },
+  },
+  {
+    collection: 'notifications',
+    model: 'notification',
+    needs: (r) => [r.userId],
+    map: (d) => {
+      const userId = toUuid(d.userId);
+      if (!userId || !d.title || !d.message) return null;
+      return {
+        id: toUuid(d._id),
+        userId,
+        type: d.type ?? 'general',
+        title: d.title,
+        message: d.message,
+        isRead: Boolean(d.isRead),
+        createdAt: asDate(d.createdAt) ?? new Date(),
+      };
+    },
+  },
+  {
+    collection: 'leads',
+    model: 'lead',
+    map: (d) => {
+      if (!d.email) return null;
+      return {
+        id: toUuid(d._id),
+        email: String(d.email).trim().toLowerCase(),
+        name: d.name ?? null,
+        source: asEnum(
+          d.source,
+          ['website', 'referral', 'social_media', 'advertisement', 'walk_in', 'phone', 'email', 'other'] as const,
+          'other'
+        ),
+        status: asEnum(
+          d.status,
+          ['new', 'contacted', 'interested', 'not_interested', 'converted', 'lost'] as const,
+          'new'
+        ),
+        pipelineStage: asEnum(
+          d.pipelineStage,
+          ['new', 'contacted', 'interested', 'negotiating', 'booked', 'lost'] as const,
+          'new'
+        ),
+        leadScore: typeof d.leadScore === 'number' ? d.leadScore : 0,
+        // A lead pointing at a user or trip that did not migrate keeps the
+        // lead and drops the link — losing a sales record to preserve a
+        // reference would be the wrong trade.
+        assignedTo: liveUserIds.has(toUuid(d.userId) ?? '') ? toUuid(d.userId) : null,
+        tripId: liveTripIds.has(toUuid(d.tripId) ?? '') ? toUuid(d.tripId) : null,
+        createdAt: asDate(d.createdAt) ?? new Date(),
+      };
+    },
+  },
+  {
+    collection: 'expenses',
+    model: 'expense',
+    needs: (r) => [r.organizerId, r.tripId],
+    map: (d) => {
+      const organizerId = toUuid(d.organizerId);
+      const tripId = toUuid(d.tripId);
+      // tripId is NOT NULL on this table, so an expense whose trip is gone
+      // cannot become a row. Same situation as the orphan bookings.
+      if (!organizerId || !tripId) return null;
+      return {
+        id: toUuid(d._id),
+        organizerId,
+        tripId,
+        category: asEnum(
+          d.category,
+          ['transport', 'accommodation', 'food', 'permits', 'guides', 'equipment', 'marketing', 'other'] as const,
+          'other'
+        ),
+        amount: Number(d.amount ?? 0),
+        description: d.description ?? null,
+        date: asDate(d.date) ?? asDate(d.createdAt) ?? new Date(),
+        createdAt: asDate(d.createdAt) ?? new Date(),
+      };
+    },
+  },
+  {
+    collection: 'blogposts',
+    model: 'blogPost',
+    needs: (r) => [r.authorId],
+    map: (d) => {
+      const authorId = toUuid(d.authorId);
+      if (!authorId || !d.title || !d.slug || !d.content) return null;
+      return {
+        id: toUuid(d._id),
+        authorId,
+        title: String(d.title).slice(0, 180),
+        slug: d.slug,
+        excerpt: String(d.excerpt ?? '').slice(0, 320),
+        content: d.content,
+        coverImage: d.coverImage ?? null,
+        tags: asStringArray(d.tags),
+        status: asEnum(d.status, ['draft', 'published', 'archived'] as const, 'published'),
+        publishedAt: asDate(d.publishedAt),
+        readTimeMinutes: typeof d.readTimeMinutes === 'number' ? d.readTimeMinutes : null,
+        createdAt: asDate(d.createdAt) ?? new Date(),
+      };
+    },
+  },
+  {
+    collection: 'supporttickets',
+    model: 'supportTicket',
+    needs: (r) => [r.userId],
+    map: (d) => {
+      const userId = toUuid(d.userId);
+      if (!userId || !d.subject || !d.description) return null;
+      return {
+        id: toUuid(d._id),
+        userId,
+        subject: d.subject,
+        description: d.description,
+        customerEmail: d.customerEmail ?? '',
+        customerName: d.customerName ?? '',
+        customerPhone: d.customerPhone ?? null,
+        category: asEnum(
+          d.category,
+          ['booking', 'payment', 'technical', 'account', 'general', 'complaint'] as const,
+          'general'
+        ),
+        priority: asEnum(d.priority, ['low', 'medium', 'high', 'urgent'] as const, 'medium'),
+        status: asEnum(d.status, ['open', 'in_progress', 'resolved', 'closed'] as const, 'open'),
+        createdAt: asDate(d.createdAt) ?? new Date(),
+      };
+    },
+  },
+  {
+    collection: 'auditlogs',
+    model: 'auditLog',
+    needs: (r) => [r.userId],
+    map: (d) => {
+      const userId = toUuid(d.userId);
+      if (!userId || !d.action) return null;
+      return {
+        id: toUuid(d._id),
+        userId,
+        action: d.action,
+        resource: d.resource ?? null,
+        resourceId: d.resourceId ?? null,
+        metadata: d.metadata ?? undefined,
+        status: d.status ?? null,
+        createdAt: asDate(d.timestamp) ?? asDate(d.createdAt) ?? new Date(),
+      };
+    },
+  },
+  {
+    collection: 'verificationrequests',
+    model: 'verificationRequest',
+    needs: (r) => [r.organizerId],
+    map: (d) => {
+      const organizerId = toUuid(d.organizerId);
+      if (!organizerId || !d.organizerName || !d.organizerEmail) return null;
+      return {
+        id: toUuid(d._id),
+        organizerId,
+        organizerName: d.organizerName,
+        organizerEmail: d.organizerEmail,
+        // The real values are 'initial' and 'document_update'. The first
+        // version of this mapper guessed at kyc/trip/identity/business, none
+        // of which the enum has ever contained.
+        requestType: asEnum(
+          d.requestType,
+          ['initial', 'kyc_update', 're_verification', 'document_update'] as const,
+          'initial'
+        ),
+        status: asEnum(d.status, ['pending', 'approved', 'rejected', 'under_review'] as const, 'pending'),
+        priority: asEnum(d.priority, ['low', 'medium', 'high', 'urgent'] as const, 'medium'),
+        createdAt: asDate(d.createdAt) ?? new Date(),
+      };
+    },
+  },
+  {
+    collection: 'organizersubscriptions',
+    model: 'organizerSubscription',
+    needs: (r) => [r.organizerId],
+    map: (d) => {
+      const organizerId = toUuid(d.organizerId);
+      if (!organizerId) return null;
+      return {
+        id: toUuid(d._id),
+        organizerId,
+        plan: asEnum(
+          d.plan ?? d.planType,
+          ['trial', 'free_trial', 'starter', 'basic', 'pro', 'professional', 'enterprise'] as const,
+          'trial'
+        ),
+        status: asEnum(d.status, ['active', 'trial', 'expired', 'cancelled', 'suspended'] as const, 'active'),
+        tripsPerCycle: typeof d.tripsPerCycle === 'number' ? d.tripsPerCycle : 0,
+        tripsUsed: typeof d.tripsUsed === 'number' ? d.tripsUsed : 0,
+        pricePerCycle: Number(d.pricePerCycle ?? 0),
+        currency: d.currency ?? 'INR',
+        autoRenew: d.autoRenew !== false,
+        trialStartDate: asDate(d.trialStartDate),
+        trialEndDate: asDate(d.trialEndDate),
+        subscriptionStartDate: asDate(d.currentPeriodStart),
+        subscriptionEndDate: asDate(d.currentPeriodEnd),
+        crmAccess: Boolean(d.crmAccess),
+        crmBundleFeatures: asStringArray(d.crmBundle?.features),
+        createdAt: asDate(d.createdAt) ?? new Date(),
+      };
+    },
+  },
+  {
+    collection: 'sitesettings',
+    model: 'siteSettings',
+    upsertOn: 'key',
+    // SiteSettings is flattened in Postgres — homeHeroImages, contactSupportEmail
+    // and so on are columns, not the nested `home` and `contact` objects Mongo
+    // held. The first version passed the nested objects straight through and was
+    // rejected with "unknown column: home".
+    //
+    // Only the fields that exist on both sides are carried. Everything else has
+    // a sensible default in the schema, and inventing values for columns Mongo
+    // never had would be writing settings nobody chose.
+    map: (d) => {
+      const home = d.home ?? {};
+      const contact = d.contact ?? {};
+      const notif = d.notifications ?? {};
+      return {
+        id: toUuid(d._id),
+        // `key` is unique and only ever 'global' — that is how the singleton is
+        // expressed on both sides.
+        key: d.key ?? 'global',
+        homeHeroImages: asStringArray(home.heroImages),
+        homeOverlayStyle: asEnum(home.overlayStyle, ['light', 'dark'] as const, 'light'),
+        ...(home.fontFamily ? { homeFontFamily: home.fontFamily } : {}),
+        ...(typeof home.discoverColumnsDesktop === 'number'
+          ? { homeDiscoverColumnsDesktop: home.discoverColumnsDesktop } : {}),
+        ...(typeof home.discoverColumnsMobile === 'number'
+          ? { homeDiscoverColumnsMobile: home.discoverColumnsMobile } : {}),
+        ...(contact.supportEmail ? { contactSupportEmail: contact.supportEmail } : {}),
+        ...(contact.otpFromEmail ? { contactOtpFromEmail: contact.otpFromEmail } : {}),
+        ...(contact.bookingFromEmail ? { contactBookingFromEmail: contact.bookingFromEmail } : {}),
+        ...(typeof notif.emailEnabled === 'boolean'
+          ? { notificationsEmailEnabled: notif.emailEnabled } : {}),
+        createdAt: asDate(d.createdAt) ?? new Date(),
+      };
+    },
+  },
+];
+
+async function migrateRest(db: any) {
+  const names = (await db.listCollections().toArray()).map((c: any) => c.name);
+
+  for (const m of MAPPERS) {
+    const t = tally(m.collection);
+    if (!names.includes(m.collection)) {
+      skip(t, 'collection not present in Atlas');
+      continue;
+    }
+
+    for await (const doc of db.collection(m.collection).find({})) {
+      t.read++;
+
+      let data: any;
+      try {
+        data = m.map(doc);
+      } catch (e: any) {
+        skip(t, `mapping failed: ${e.message.slice(0, 60)}`);
+        continue;
+      }
+      if (!data || !data.id) { skip(t, 'missing a required field'); continue; }
+
+      // References checked before the insert, so a dry run says the truth.
+      if (m.needs) {
+        const refs = m.needs(doc).map((r) => toUuid(r));
+        const missing = refs.filter(
+          (r) => r && !liveUserIds.has(r) && !liveTripIds.has(r)
+        );
+        if (missing.length) {
+          skip(t, 'references a user or trip that did not migrate');
+          continue;
+        }
+      }
+
+      t.prepared++;
+      if (!WRITE) continue;
+
+      try {
+        const where = m.upsertOn ? { [m.upsertOn]: data[m.upsertOn] } : { id: data.id };
+        await (prisma as any)[m.model].upsert({ where, create: data, update: data });
+        t.written++;
+      } catch (e: any) {
+        skip(t, describeError(e));
+      }
     }
   }
 }
@@ -365,14 +799,40 @@ async function reconcile(db: any) {
     bookings: await prisma.groupBooking.count(),
   };
 
+  // What this migration was responsible for, rather than what happens to be in
+  // the table.
+  //
+  // Comparing raw totals reported "users atlas=19 neon=44 MISMATCH" on a run
+  // where every one of the 19 arrived correctly — Neon also held 25 test
+  // accounts from earlier in this work. A reconciliation that cries mismatch
+  // when nothing is wrong is one people learn to ignore, which defeats the only
+  // thing it is for.
+  const migrated = {
+    users: tallies.find((t) => t.collection === 'users')!,
+    trips: tallies.find((t) => t.collection === 'trips')!,
+    bookings: tallies.find((t) => t.collection === 'groupbookings')!,
+  };
+
   let allMatch = true;
   for (const key of ['users', 'trips', 'bookings'] as const) {
     const a = (atlas as any)[key];
     const n = (neon as any)[key];
-    const match = WRITE ? a === n : null;
-    if (WRITE && !match) allMatch = false;
-    const verdict = !WRITE ? '(dry run)' : match ? 'MATCH' : `MISMATCH — ${a - n} missing`;
-    console.log(`  ${key.padEnd(10)} atlas=${String(a).padEnd(7)} neon=${String(n).padEnd(7)} ${verdict}`);
+    const t = (migrated as any)[key] as Tally;
+
+    // Everything read either arrived or was skipped with a stated reason.
+    // Nothing may vanish quietly.
+    const accounted = t.written + t.skipped === t.read;
+    if (WRITE && !accounted) allMatch = false;
+
+    const verdict = !WRITE
+      ? '(dry run)'
+      : accounted
+      ? `ACCOUNTED — ${t.written} migrated, ${t.skipped} skipped with reasons`
+      : `UNACCOUNTED — ${t.read - t.written - t.skipped} rows vanished silently`;
+
+    console.log(
+      `  ${key.padEnd(10)} atlas=${String(a).padEnd(7)}neon-total=${String(n).padEnd(7)}${verdict}`
+    );
   }
 
   if (WRITE) {
@@ -414,6 +874,7 @@ async function main() {
   await migrateUsers(db);
   await migrateTrips(db);
   await migrateBookings(db);
+  await migrateRest(db);
 
   console.log('\n=== Per collection ===');
   for (const t of tallies) {

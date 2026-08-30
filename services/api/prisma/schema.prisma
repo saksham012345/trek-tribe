@@ -222,6 +222,8 @@ enum UserActivityActorType {
 }
 
 enum UserActivityType {
+  booking_started
+  organizer_profile_view
   trip_view
   trip_created
   booking_made
@@ -3024,6 +3026,7 @@ model TripVerificationReview {
 // ─── Organizer verification requests ──────────────────────────────────────────
 
 enum VerificationRequestType {
+  document_update
   initial
   kyc_update
   re_verification
