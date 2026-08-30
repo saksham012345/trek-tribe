@@ -5,7 +5,7 @@
  * No req/res objects — pure data in, data out.
  */
 
-import { User } from '../../models/User';
+import { UserPrisma as User } from '../../models/userPrismaAdapter';
 import { prisma } from '../../lib/prisma';
 import { withMongoIds } from '../../lib/apiShape';
 import { razorpayRouteService } from '../../services/razorpayRouteService';

@@ -1,4 +1,4 @@
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { prisma } from '../lib/prisma';
 import { razorpayService } from './razorpayService';
 import { emailService } from './emailService';

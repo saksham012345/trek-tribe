@@ -1,5 +1,5 @@
 import Razorpay from 'razorpay';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { logger } from '../utils/logger';
 
 /**

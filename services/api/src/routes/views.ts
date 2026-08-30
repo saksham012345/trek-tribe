@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { prisma } from '../lib/prisma';
 
 const router = Router();
@@ -39,10 +39,7 @@ router.get('/stats', async (req, res) => {
     ]);
 
     // Get users by role
-    const usersByRole = await User.aggregate([
-      { $group: { _id: '$role', count: { $sum: 1 } } },
-      { $project: { role: '$_id', count: 1, _id: 0 } }
-    ]);
+    const usersByRole = await User.groupByRole();
 
     // Calculate total bookings from trip participants. Was every trip loaded so
     // the participant arrays could be summed in JavaScript; it is a count.

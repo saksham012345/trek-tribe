@@ -1,6 +1,6 @@
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { prisma } from '../lib/prisma';
 import { upsertRacingSafely } from '../lib/upsert';
 import { toNumber } from '../lib/money';

@@ -1,7 +1,7 @@
 import { prisma } from '../lib/prisma';
 import { Prisma } from '@prisma/client';
 import { toNumber } from '../lib/money';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 
 /**
  * The GroupBooking response shape, rebuilt from columns and rows.
@@ -140,7 +140,7 @@ export async function attachBookingOrganizers(bookings: any[]): Promise<Map<stri
   if (organizerIds.length === 0) return new Map();
 
   const users = await User.find({ _id: { $in: organizerIds } }, 'name phone email').lean();
-  return new Map(users.map((u: any) => [u._id.toString(), u]));
+  return new Map<string, any>(users.map((u: any) => [u._id.toString(), u]));
 }
 
 /** A booking with its trip and participants, in the old shape. */

@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/roleCheck';
 import { withMongoId, withMongoIds, asPopulated } from '../lib/apiShape';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 
 /** Load the Mongo users behind a set of ids; populate() cannot cross databases. */
 async function loadTicketUsers(ids: (string | null | undefined)[]) {
@@ -10,7 +10,7 @@ async function loadTicketUsers(ids: (string | null | undefined)[]) {
   const users = await User.find({ _id: { $in: unique } })
     .select('name email phone')
     .lean();
-  return new Map(users.map((u: any) => [u._id.toString(), u]));
+  return new Map<string, any>(users.map((u: any) => [u._id.toString(), u]));
 }
 import notificationService from '../services/notificationService';
 import { prisma } from '../lib/prisma';

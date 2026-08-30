@@ -1,7 +1,7 @@
 import express from 'express';
 import { prisma } from '../lib/prisma';
 import { z } from 'zod';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { authenticateJwt } from '../middleware/auth';
 import { logger } from '../utils/logger';
 

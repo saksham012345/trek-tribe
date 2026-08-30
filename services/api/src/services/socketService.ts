@@ -6,7 +6,7 @@ import tokenHelper from '../utils/tokenHelper';
 import { aiSupportService } from './aiSupportService';
 import { emailService } from './emailService';
 import { prisma } from '../lib/prisma';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 
 interface ChatMessage {
   id: string;

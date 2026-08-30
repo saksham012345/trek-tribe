@@ -1,6 +1,6 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { prisma } from '../lib/prisma';
 import { logger } from '../utils/logger';
 import { extractTokenFromHeaders } from '../utils/tokenHelper';

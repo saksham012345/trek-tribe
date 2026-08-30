@@ -11,7 +11,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import { User } from '../../models/User';
+import { UserPrisma as User } from '../../models/userPrismaAdapter';
 import { createInitialVerificationRequest } from '../../services/verificationRequestService';
 import { logger } from '../../utils/logger';
 

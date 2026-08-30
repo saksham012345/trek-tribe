@@ -9,7 +9,7 @@
  */
 
 import { prisma } from '../lib/prisma';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import mongoose from 'mongoose';
 
 interface LeadEvent {

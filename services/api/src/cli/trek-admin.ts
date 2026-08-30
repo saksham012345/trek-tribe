@@ -5,7 +5,7 @@ import { Command } from 'commander';
 import mongoose from 'mongoose';
 import fs from 'fs/promises';
 import path from 'path';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { shapeTrips, tripInclude } from '../services/tripShapeService';
 
 import { prisma } from '../lib/prisma';
@@ -213,9 +213,7 @@ async function showStats() {
       prisma.trip.count(),
       prisma.review.count(),
       prisma.wishlist.count(),
-      User.aggregate([
-        { $group: { _id: '$role', count: { $sum: 1 } } }
-      ]),
+      User.groupByRole(),
       prisma.trip.groupBy({ by: ['status'], _count: { status: true } }),
       prisma.review.aggregate({ _avg: { rating: true } }),
       fileHandler.getStorageStats()
@@ -226,7 +224,7 @@ async function showStats() {
 
     colorLog('cyan', `👥 Total Users: ${totalUsers}`);
     usersByRole.forEach(role => {
-      console.log(`   ${role._id}: ${role.count}`);
+      console.log(`   ${role.role}: ${role.count}`);
     });
 
     colorLog('cyan', `\n🗺️  Total Trips: ${totalTrips}`);
@@ -355,8 +353,8 @@ async function restoreData(inputPath: string, options: any) {
 
     console.log('\n📋 Restoration Summary:');
     console.log(`   Users: ${results[0].length}`);
-    // Trip restore is refused above, so this line is unreachable in practice;
-    // it is kept so the summary still lines up if that changes.
+    // Trip restore is refused above, so this line is unreachable in practice;
+    // it is kept so the summary still lines up if that changes.
     console.log(`   Trips: see error above`);
     console.log(`   Reviews: ${results[2].count}`);
     console.log(`   Wishlist Items: ${results[3].count}`);

@@ -11,7 +11,7 @@ import {
 } from '../services/bookingShapeService';
 import { addPaidParticipant, leaveTrip } from '../services/tripParticipationService';
 import { toNumber } from '../lib/money';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { logger } from '../utils/logger';
 import mongoose from 'mongoose';
 
@@ -841,7 +841,7 @@ router.get('/organizer/bookings', auth, async (req: AuthenticatedRequest, res: R
     const bookers = bookerIds.length
       ? await User.find({ _id: { $in: bookerIds } }, 'name email phone').lean()
       : [];
-    const bookerById = new Map(bookers.map((u: any) => [u._id.toString(), u]));
+    const bookerById = new Map<string, any>(bookers.map((u: any) => [u._id.toString(), u]));
 
     const bookings = rows.map(row => {
       const booking: any = shapeBooking(row);

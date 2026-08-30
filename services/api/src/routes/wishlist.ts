@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { Types } from 'mongoose';
 import { prisma } from '../lib/prisma';
 import { shapeTrip, shapeTrips } from '../services/tripShapeService';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { authenticateJwt } from '../middleware/auth';
 import { withMongoId, asPopulated } from '../lib/apiShape';
 

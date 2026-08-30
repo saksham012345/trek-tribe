@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authenticateJwt, requireRole } from '../middleware/auth';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { shapeTrip, shapeTrips } from '../services/tripShapeService';
 import { shapeBooking } from '../services/bookingShapeService';
 import { toNumber } from '../lib/money';
@@ -20,7 +20,7 @@ async function withOrganizers(rows: any[], select: string): Promise<any[]> {
   if (rows.length === 0) return [];
   const ids = Array.from(new Set(rows.map(r => r.organizerId)));
   const users = await User.find({ _id: { $in: ids } }, select).lean();
-  const byId = new Map(users.map((u: any) => [u._id.toString(), u]));
+  const byId = new Map(users.map((u: any): [string, any] => [u._id.toString(), u]));
   return rows.map(row => {
     const trip = shapeTrip(row);
     trip.organizerId = byId.get(row.organizerId) ?? row.organizerId;
@@ -33,7 +33,7 @@ async function withBookers(rows: any[], select: string): Promise<any[]> {
   if (rows.length === 0) return [];
   const ids = Array.from(new Set(rows.map(r => r.mainBookerId)));
   const users = await User.find({ _id: { $in: ids } }, select).lean();
-  const byId = new Map(users.map((u: any) => [u._id.toString(), u]));
+  const byId = new Map(users.map((u: any): [string, any] => [u._id.toString(), u]));
   return rows.map(row => {
     const booking: any = shapeBooking(row);
     booking.tripId = row.trip ? shapeTrip(row.trip) : row.tripId;
@@ -130,7 +130,7 @@ router.get('/organizer', authenticateJwt, requireRole(['organizer']), async (req
     const recentBookers = recentBookerIds.length
       ? await User.find({ _id: { $in: recentBookerIds } }, 'name email').lean()
       : [];
-    const recentBookerById = new Map(recentBookers.map((u: any) => [u._id.toString(), u]));
+    const recentBookerById = new Map(recentBookers.map((u: any): [string, any] => [u._id.toString(), u]));
 
     const recentBookings = recentBookingRows.map(row => {
       const booking: any = shapeBooking(row);
@@ -680,7 +680,7 @@ router.get('/admin', authenticateJwt, requireRole(['admin']), async (req, res) =
       { _id: { $in: organizerTotals.map(o => o.organizer_id) } },
       'name email'
     ).lean();
-    const topOrganizerById = new Map(topOrganizerUsers.map((u: any) => [u._id.toString(), u]));
+    const topOrganizerById = new Map<string, any>(topOrganizerUsers.map((u: any): [string, any] => [u._id.toString(), u]));
 
     const topOrganizers = organizerTotals.map(o => ({
       _id: o.organizer_id,

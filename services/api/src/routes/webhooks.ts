@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import crypto from 'crypto';
 import { razorpayService } from '../services/razorpayService';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { emailService } from '../services/emailService';
 import { emailTemplates } from '../templates/emailTemplates';
 import { logger } from '../utils/logger';

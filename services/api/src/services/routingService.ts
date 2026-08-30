@@ -1,4 +1,4 @@
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { CustomTripRequest } from '@prisma/client';
 import { logger } from '../utils/logger';
 import mongoose from 'mongoose';
@@ -44,7 +44,7 @@ export class RoutingService {
     /**
      * Determine if an organizer is eligible for Auto-Conversion (Trust Score >= 80)
      */
-    static async isEligibleForAutoConversion(organizerId: string | mongoose.Types.ObjectId): Promise<boolean> {
+    static async isEligibleForAutoConversion(organizerId: string): Promise<boolean> {
         const organizer = await User.findById(organizerId).select('organizerProfile.trustScore');
         if (!organizer || !organizer.organizerProfile?.trustScore?.overall) return false;
 

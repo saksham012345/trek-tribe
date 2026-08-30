@@ -11,7 +11,7 @@ import { prisma } from '../../lib/prisma';
 import { upsertRacingSafely } from '../../lib/upsert';
 import { toNumber } from '../../lib/money';
 import { decorate, tripsRemaining as slotsLeft } from '../../services/organizerSubscriptionService';
-import { User } from '../../models/User';
+import { UserPrisma as User } from '../../models/userPrismaAdapter';
 import { auditLogService } from '../../services/auditLogService';
 import { SUBSCRIPTION_PLANS } from '../../config/subscription.config';
 

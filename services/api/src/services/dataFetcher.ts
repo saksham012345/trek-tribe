@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { prisma } from '../lib/prisma';
 import { shapeTrip, shapeTrips, tripInclude } from '../services/tripShapeService';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 
 interface FetchedTrip {
   id: string;
@@ -82,7 +82,7 @@ export class DataFetcherService {
             'name email phone profilePhoto location bio'
           ).lean()
         : [];
-      const organizerById = new Map(organizerDocs.map((u: any) => [u._id.toString(), u]));
+      const organizerById = new Map<string, any>(organizerDocs.map((u: any): [string, any] => [u._id.toString(), u]));
 
       const trips = shapeTrips(tripRows as any);
 

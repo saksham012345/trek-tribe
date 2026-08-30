@@ -11,7 +11,7 @@ import { prisma } from '../../lib/prisma';
 import { withMongoId, withMongoIds } from '../../lib/apiShape';
 import { leadScoringService } from '../../services/leadScoringService';
 import { toNumber } from '../../lib/money';
-import { User } from '../../models/User';
+import { UserPrisma as User } from '../../models/userPrismaAdapter';
 import { databaseImportService } from '../../services/databaseImportService';
 import analyticsService from '../../services/analyticsService';
 import notificationService from '../../services/notificationService';

@@ -185,7 +185,7 @@ class ChatService {
       const people = ids.length
         ? await User.find({ _id: { $in: ids } }).select('name avatar').lean()
         : [];
-      const byId = new Map(people.map((u: any) => [u._id.toString(), u]));
+      const byId = new Map<string, any>(people.map((u: any) => [u._id.toString(), u]));
 
       return messages
         .map(m => ({

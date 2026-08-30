@@ -15,14 +15,14 @@ async function tripsWithOrganizers(rows: any[], select: string): Promise<any[]> 
   if (present.length === 0) return [];
   const ids = Array.from(new Set(present.map(r => r.organizerId)));
   const users = await User.find({ _id: { $in: ids } }, select).lean();
-  const byId = new Map(users.map((u: any) => [u._id.toString(), u]));
+  const byId = new Map<string, any>(users.map((u: any) => [u._id.toString(), u]));
   return present.map(row => {
     const trip = shapeTrip(row);
     trip.organizerId = byId.get(row.organizerId) ?? row.organizerId;
     return trip;
   });
 }
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { prisma } from '../lib/prisma';
 import { aiConfig, getScaledScore, isHighConfidence } from '../config/ai';
 import { aiCacheService } from '../services/aiCacheService';

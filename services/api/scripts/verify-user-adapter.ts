@@ -115,6 +115,38 @@ async function main() {
     UserPrisma.findOne({ name: { $regex: '^Adapter$' } })
   );
 
+  console.log('\n=== save(), the way fifty call sites use it ===');
+
+  const forSave: any = await UserPrisma.findById(made.id);
+  forSave.name = 'Saved name';
+  forSave.bio = 'Set through save';
+  await forSave.save();
+  const afterSave: any = await UserPrisma.findById(made.id);
+  check(
+    'save() writes the fields that changed',
+    afterSave?.name === 'Saved name' && afterSave?.bio === 'Set through save',
+    `name=${afterSave?.name} bio=${afterSave?.bio}`
+  );
+
+  // The important half: a save must not overwrite columns the caller never
+  // touched, or a one-field edit becomes a whole-row clobber.
+  const partial: any = await UserPrisma.findById(made.id);
+  const emailBefore = partial.email;
+  partial.name = 'Only the name';
+  await partial.save();
+  const afterPartial: any = await UserPrisma.findById(made.id);
+  check('save() leaves untouched columns alone', afterPartial?.email === emailBefore);
+  check('and does write the one that changed', afterPartial?.name === 'Only the name');
+
+  const noop: any = await UserPrisma.findById(made.id);
+  check('save() with nothing changed is harmless', Boolean(await noop.save()));
+
+  check(
+    'save is not serialised into an API response',
+    !JSON.stringify(afterSave).includes('"save"')
+  );
+  check('toObject() works where a document was expected', typeof afterSave.toObject === 'function');
+
   console.log('\n=== cleanup ===');
   await UserPrisma.findByIdAndDelete(made.id);
   const gone = await UserPrisma.findById(made.id);

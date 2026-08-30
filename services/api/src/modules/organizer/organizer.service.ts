@@ -10,7 +10,7 @@ import { shapeTrip } from '../../services/tripShapeService';
 import { shapeBooking } from '../../services/bookingShapeService';
 import { addPaidParticipant } from '../../services/tripParticipationService';
 import { toNumber } from '../../lib/money';
-import { User } from '../../models/User';
+import { UserPrisma as User } from '../../models/userPrismaAdapter';
 import { socketService } from '../../services/socketService';
 import { logger } from '../../utils/logger';
 
@@ -51,7 +51,7 @@ export async function getPendingVerifications(organizerId: string) {
   const bookers = bookerIds.length
     ? await User.find({ _id: { $in: bookerIds } }, 'name email phone').lean()
     : [];
-  const bookerById = new Map(bookers.map((u: any) => [u._id.toString(), u]));
+  const bookerById = new Map<string, any>(bookers.map((u: any) => [u._id.toString(), u]));
 
   const pendingBookings = pendingRows.map(row => {
     const booking: any = shapeBooking(row);
@@ -229,7 +229,7 @@ export async function getOrganizerStats(organizerId: string) {
   const recentBookers = recentBookerIds.length
     ? await User.find({ _id: { $in: recentBookerIds } }, 'name').lean()
     : [];
-  const recentBookerById = new Map(recentBookers.map((u: any) => [u._id.toString(), u]));
+  const recentBookerById = new Map<string, any>(recentBookers.map((u: any) => [u._id.toString(), u]));
 
   const recentBookings = recentRows.map(row => ({
     ...shapeBooking(row),
@@ -272,7 +272,7 @@ export async function getTripParticipants(organizerId: string, tripId: string) {
   const participantBookers = participantBookerIds.length
     ? await User.find({ _id: { $in: participantBookerIds } }, 'name email phone').lean()
     : [];
-  const participantBookerById = new Map(participantBookers.map((u: any) => [u._id.toString(), u]));
+  const participantBookerById = new Map<string, any>(participantBookers.map((u: any) => [u._id.toString(), u]));
 
   const bookings = bookingRows.map(row => {
     const booking: any = shapeBooking(row);

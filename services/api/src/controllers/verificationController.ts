@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/roleCheck';
 import { prisma } from '../lib/prisma';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import notificationService from '../services/notificationService';
 
 /** Load a verification with its three child tables, in the shape callers read. */
@@ -45,7 +45,7 @@ async function attachVerificationRefs(rows: any[]): Promise<any[]> {
     }),
   ]);
 
-  const userById = new Map(users.map((u: any) => [u._id.toString(), u]));
+  const userById = new Map<string, any>(users.map((u: any) => [u._id.toString(), u]));
   const tripById = new Map(trips.map((t: any) => [t.id, t]));
 
   return rows.map(row => ({

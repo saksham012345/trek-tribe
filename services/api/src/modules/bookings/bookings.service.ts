@@ -22,7 +22,7 @@ import {
   addPaidParticipant,
   TripFullError
 } from '../../services/tripParticipationService';
-import { User } from '../../models/User';
+import { UserPrisma as User } from '../../models/userPrismaAdapter';
 import { whatsappService } from '../../services/whatsappService';
 import { logger } from '../../utils/logger';
 import { emailService } from '../../services/emailService';
@@ -279,7 +279,7 @@ async function loadUserBookings(userId: string): Promise<any[]> {
   const organizers = organizerIds.length
     ? await User.find({ _id: { $in: organizerIds } }, 'name phone email').lean()
     : [];
-  const organizerById = new Map(organizers.map((u: any) => [u._id.toString(), u]));
+  const organizerById = new Map<string, any>(organizers.map((u: any) => [u._id.toString(), u]));
 
   return rows.map(row => {
     const booking = shapeBooking(row);

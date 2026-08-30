@@ -1,5 +1,5 @@
 import sgMail from '@sendgrid/mail';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 

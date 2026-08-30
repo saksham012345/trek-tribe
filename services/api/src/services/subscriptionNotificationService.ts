@@ -1,6 +1,6 @@
 import { emailService } from './emailService';
 import { prisma } from '../lib/prisma';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { logger } from '../utils/logger';
 import { SUBSCRIPTION_PLANS } from './razorpayService';
 

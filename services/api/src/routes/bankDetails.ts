@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { authenticateJwt, requireRole } from '../middleware/auth';
 import { prisma } from '../lib/prisma';
 import { upsertRacingSafely } from '../lib/upsert';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { logger } from '../utils/logger';
 import crypto from 'crypto';
 

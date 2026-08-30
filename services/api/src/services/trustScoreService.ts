@@ -3,7 +3,7 @@
  * Calculates and updates organizer trust scores based on multiple factors
  */
 
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { prisma } from '../lib/prisma';
 import { logger } from '../utils/logger';
 import chatService from './chatService'; // Correct default import

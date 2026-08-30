@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import { z } from 'zod';
 import { authenticateJwt } from '../middleware/auth';
 import { prisma } from '../lib/prisma';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { RoutingService } from '../services/routingService';
 import { AIQualityService } from '../services/aiQualityService';
 import { logger } from '../utils/logger';

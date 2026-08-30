@@ -2,7 +2,7 @@ import express from 'express';
 import { z } from 'zod';
 import { authenticateJwt } from '../middleware/auth';
 import { prisma } from '../lib/prisma';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { logger } from '../utils/logger';
 import { withMongoId, asPopulated } from '../lib/apiShape';
 
@@ -71,7 +71,7 @@ async function authorsById(ids: string[], fields = 'name profilePhoto role') {
   const unique = Array.from(new Set(ids));
   if (unique.length === 0) return new Map<string, any>();
   const users = await User.find({ _id: { $in: unique } }).select(fields).lean();
-  return new Map(users.map((u: any) => [u._id.toString(), u]));
+  return new Map<string, any>(users.map((u: any) => [u._id.toString(), u]));
 }
 
 /**

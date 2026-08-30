@@ -1,6 +1,6 @@
 import express from 'express';
-import { User } from '../models/User';
-import { prisma } from '../lib/prisma';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
+import { prisma } from '../lib/prisma';
 import { toNumber } from '../lib/money';
 import { logger } from '../utils/logger';
 

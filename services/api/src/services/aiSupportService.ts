@@ -1,8 +1,8 @@
 import { logger } from '../utils/logger';
-import { prisma } from '../lib/prisma';
-import { shapeTrip } from './tripShapeService';
+import { prisma } from '../lib/prisma';
+import { shapeTrip } from './tripShapeService';
 import { shapeBooking } from './bookingShapeService';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { sanitizeText } from '../utils/sanitize';
 import mongoose from 'mongoose';
 
@@ -877,7 +877,7 @@ class TrekTribeAI {
       const recOrganizers = recOrganizerIds.length
         ? await User.find({ _id: { $in: recOrganizerIds } }, 'name').lean()
         : [];
-      const recOrganizerById = new Map(recOrganizers.map((u: any) => [u._id.toString(), u]));
+      const recOrganizerById = new Map<string, any>(recOrganizers.map((u: any) => [u._id.toString(), u]));
       const trips = tripRows.map(row => ({
         ...shapeTrip(row),
         organizerId: recOrganizerById.get(row.organizerId) ?? row.organizerId

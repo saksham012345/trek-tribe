@@ -7,7 +7,7 @@
 
 
 import { shapeTrips } from '../../services/tripShapeService';
-import { User } from '../../models/User';
+import { UserPrisma as User } from '../../models/userPrismaAdapter';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { toNumber } from '../../lib/money';
@@ -122,11 +122,11 @@ export async function getAdminDashboard() {
       openTickets,
       responseTime: '2.5 hours',
     },
-    // groupBy rows carry the grouped column and a _count, not a Mongo-style
-    // _id/count pair.
-    topDestinations: topDestinations.map((dest: any) => ({
-      name: dest.destination,
-      count: dest._count.destination
+    // groupBy rows carry the grouped column and a _count, not a Mongo-style
+    // _id/count pair.
+    topDestinations: topDestinations.map((dest: any) => ({
+      name: dest.destination,
+      count: dest._count.destination
     })),
     recentActivity: recentTrips.map((trip: any) => ({
       id: trip.id,
@@ -364,10 +364,9 @@ export async function getUserGrowthAnalytics() {
   const [totalUsers, activeUsers, usersByRole] = await Promise.all([
     User.countDocuments(),
     User.countDocuments({ lastActive: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } }),
-    User.aggregate([
-      { $group: { _id: '$role', count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-    ]),
+    // groupByRole already sorts by count descending, which is what this asked
+    // for and what the three other copies of this pipeline did not.
+    User.groupByRole(),
   ]);
 
   return {
@@ -563,7 +562,7 @@ export async function getTopOrganizers() {
     { _id: { $in: ranked.map(([id]) => id) } },
     'name email'
   ).lean();
-  const organizerById = new Map(organizerDocs.map((u: any) => [u._id.toString(), u]));
+  const organizerById = new Map<string, any>(organizerDocs.map((u: any): [string, any] => [u._id.toString(), u]));
 
   return ranked.map(([organizerId, totals]) => ({
     _id: organizerId,

@@ -1,5 +1,5 @@
 import { prisma } from '../lib/prisma';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { emailService } from './emailService';
 import { smsService } from './smsService';
 import { getSiteSettings } from './siteSettingsService';
@@ -85,7 +85,7 @@ export async function send24HourTripReminders(): Promise<{ processed: number; no
   const bookers = bookerIds.length
     ? await User.find({ _id: { $in: bookerIds } }, 'name email phone preferences').lean()
     : [];
-  const bookerById = new Map(bookers.map((u: any) => [u._id.toString(), u]));
+  const bookerById = new Map<string, any>(bookers.map((u: any): [string, any] => [u._id.toString(), u]));
 
   let notified = 0;
   for (const booking of bookings as any[]) {

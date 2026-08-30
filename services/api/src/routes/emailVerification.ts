@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { emailOtpService } from '../services/emailOtpService';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import jwt from 'jsonwebtoken';
 
 const router = Router();

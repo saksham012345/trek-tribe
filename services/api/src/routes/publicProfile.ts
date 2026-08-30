@@ -1,7 +1,7 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { shapeTrip, shapeTrips } from '../services/tripShapeService';
 import { prisma } from '../lib/prisma';
 
@@ -17,7 +17,7 @@ async function tripsWithOrganizers(rows: any[], select: string): Promise<any[]> 
   if (rows.length === 0) return [];
   const ids = Array.from(new Set(rows.map(r => r.organizerId)));
   const users = await User.find({ _id: { $in: ids } }, select).lean();
-  const byId = new Map(users.map((u: any) => [u._id.toString(), u]));
+  const byId = new Map<string, any>(users.map((u: any) => [u._id.toString(), u]));
   return rows.map(row => {
     const trip = shapeTrip(row);
     trip.organizerId = byId.get(row.organizerId) ?? row.organizerId;

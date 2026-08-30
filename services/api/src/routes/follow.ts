@@ -1,7 +1,7 @@
 import express from 'express';
 import { authenticateJwt } from '../middleware/auth';
 import { prisma } from '../lib/prisma';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { logger } from '../utils/logger';
 
 const router = express.Router();
@@ -29,7 +29,7 @@ async function usersInIdOrder(ids: string[]) {
   const users = await User.find({ _id: { $in: ids } })
     .select('name profilePhoto role')
     .lean();
-  const byId = new Map(users.map((u: any) => [u._id.toString(), u]));
+  const byId = new Map<string, any>(users.map((u: any) => [u._id.toString(), u]));
   return ids.map(id => byId.get(id)).filter(Boolean);
 }
 

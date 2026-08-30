@@ -2,9 +2,9 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { Types } from 'mongoose';
 import { Prisma, ReviewType, ReviewTag } from '@prisma/client';
-import { prisma } from '../lib/prisma';
+import { prisma } from '../lib/prisma';
 import { isParticipant } from '../services/tripParticipationService';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { authenticateJwt } from '../middleware/auth';
 import { withMongoId, asPopulated } from '../lib/apiShape';
 
@@ -133,7 +133,7 @@ async function shapeReviews(rows: any[]) {
   const reviewers = await User.find({ _id: { $in: rows.map(r => r.reviewerId) } })
     .select('name email')
     .lean();
-  const byId = new Map(reviewers.map((u: any) => [u._id.toString(), u]));
+  const byId = new Map<string, any>(reviewers.map((u: any) => [u._id.toString(), u]));
 
   // ReviewsList.tsx reads review._id and review.reviewerId.name, so the
   // response keeps both: _id beside id, and the reviewer populated under the

@@ -1,5 +1,5 @@
 import { prisma } from '../lib/prisma';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { emailService } from './emailService';
 import { smsService } from './smsService';
 import { getSiteSettings } from './siteSettingsService';

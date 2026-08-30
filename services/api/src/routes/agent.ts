@@ -2,7 +2,7 @@ import express from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { withMongoId, withMongoIds, asPopulated } from '../lib/apiShape';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { shapeTrip, shapeTrips } from '../services/tripShapeService';
 import { authenticateJwt } from '../middleware/auth';
 import { whatsappService } from '../services/whatsappService';
@@ -21,7 +21,7 @@ async function loadUsers(ids: (string | null | undefined)[]) {
   const users = await User.find({ _id: { $in: unique } })
     .select('name email phone profilePhoto')
     .lean();
-  return new Map(users.map((u: any) => [u._id.toString(), u]));
+  return new Map<string, any>(users.map((u: any) => [u._id.toString(), u]));
 }
 
 const router = express.Router();
@@ -45,7 +45,7 @@ async function withOrganizers(rows: any[], select: string): Promise<any[]> {
   if (present.length === 0) return [];
   const ids = Array.from(new Set(present.map(r => r.organizerId)));
   const users = await User.find({ _id: { $in: ids } }, select).lean();
-  const byId = new Map(users.map((u: any) => [u._id.toString(), u]));
+  const byId = new Map<string, any>(users.map((u: any) => [u._id.toString(), u]));
   return present.map(row => {
     const trip = shapeTrip(row);
     trip.organizerId = byId.get(row.organizerId) ?? row.organizerId;

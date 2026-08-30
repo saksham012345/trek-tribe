@@ -19,7 +19,7 @@ import {
   leaveTrip as leaveTripRow,
   TripFullError
 } from '../../services/tripParticipationService';
-import { User } from '../../models/User';
+import { UserPrisma as User } from '../../models/userPrismaAdapter';
 import { prisma } from '../../lib/prisma';
 import { paymentConfig, shouldEnableRoutingForOrganizer } from '../../config/payment.config';
 import { razorpayRouteService as razorpaySubmerchantService } from '../../services/razorpayRouteService';
@@ -564,5 +564,5 @@ async function organizerMap(ids: string[], select: string): Promise<Map<string, 
   if (unique.length === 0) return new Map();
 
   const users = await User.find({ _id: { $in: unique } }, select).lean();
-  return new Map(users.map((u: any) => [u._id.toString(), u]));
+  return new Map<string, any>(users.map((u: any) => [u._id.toString(), u]));
 }

@@ -5,7 +5,7 @@
  * No req/res objects — pure data in, data out.
  */
 
-import { User } from '../../models/User';
+import { UserPrisma as User } from '../../models/userPrismaAdapter';
 import { shapeTrip, shapeTrips } from '../../services/tripShapeService';
 import { prisma } from '../../lib/prisma';
 import { upsertRacingSafely } from '../../lib/upsert';
@@ -31,7 +31,7 @@ async function tripsWithOrganizers(rows: any[], select: string): Promise<any[]> 
   if (present.length === 0) return [];
   const ids = Array.from(new Set(present.map(r => r.organizerId)));
   const users = await User.find({ _id: { $in: ids } }, select).lean();
-  const byId = new Map(users.map((u: any) => [u._id.toString(), u]));
+  const byId = new Map<string, any>(users.map((u: any) => [u._id.toString(), u]));
   return present.map(row => {
     const trip = shapeTrip(row);
     trip.organizerId = byId.get(row.organizerId) ?? row.organizerId;
@@ -52,10 +52,8 @@ export async function getDashboardStats() {
       prisma.cRMSubscription.count({ where: { status: 'active' } }),
     ]);
 
-  const usersByRole = await User.aggregate([
-    { $group: { _id: '$role', count: { $sum: 1 } } },
-    { $project: { role: '$_id', count: 1, _id: 0 } },
-  ]);
+  // Was a Mongo pipeline; the same query now has one name and one definition.
+  const usersByRole = await User.groupByRole();
 
   const tripStatusGroups = await prisma.trip.groupBy({
     by: ['status'],
@@ -164,10 +162,8 @@ export async function getDashboardStats() {
 
 export async function getUserStats() {
   const totalUsers = await User.countDocuments();
-  const usersByRole = await User.aggregate([
-    { $group: { _id: '$role', count: { $sum: 1 } } },
-    { $project: { role: '$_id', count: 1, _id: 0 } },
-  ]);
+  // Was a Mongo pipeline; the same query now has one name and one definition.
+  const usersByRole = await User.groupByRole();
   const recentUsers = await User.find({}, 'name email role createdAt')
     .sort({ createdAt: -1 })
     .limit(10)
@@ -646,7 +642,7 @@ async function attachVerificationUsers(rows: any[]): Promise<any[]> {
     'name email phone createdAt organizerProfile'
   ).lean();
 
-  const byId = new Map(users.map((u: any) => [u._id.toString(), u]));
+  const byId = new Map<string, any>(users.map((u: any) => [u._id.toString(), u]));
 
   return rows.map(row => ({
     ...row,

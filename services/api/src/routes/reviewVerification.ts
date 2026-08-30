@@ -2,7 +2,7 @@ import express, { Request, Response } from 'express';
 import { auth, requireRole, AuthPayload } from '../middleware/auth';
 import { Prisma, ReviewType } from '@prisma/client';
 import { prisma } from '../lib/prisma';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { logger } from '../utils/logger';
 import mongoose from 'mongoose';
 
@@ -48,7 +48,7 @@ async function decorate(rows: any[]) {
       : Promise.resolve([])
   ]);
 
-  const personById = new Map(people.map((u: any) => [u._id.toString(), u]));
+  const personById = new Map<string, any>(people.map((u: any) => [u._id.toString(), u]));
   // Prisma rows key on id, not _id - t._id.toString() here threw for every
   // review with a trip target, which is what turned unflagging into a 500.
   const tripById = new Map<string, any>(trips.map((t: any) => [t.id, t] as [string, any]));

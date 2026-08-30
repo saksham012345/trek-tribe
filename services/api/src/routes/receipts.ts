@@ -4,7 +4,7 @@ import { pdfService } from '../services/pdfService';
 import { prisma } from '../lib/prisma';
 import { shapeBooking } from '../services/bookingShapeService';
 import { toNumber } from '../lib/money';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { logger } from '../utils/logger';
 import mongoose from 'mongoose';
 

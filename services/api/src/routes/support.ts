@@ -1,7 +1,7 @@
 import express from 'express';
 import { prisma } from '../lib/prisma';
 import { withMongoId, withMongoIds, asPopulated } from '../lib/apiShape';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 
 import { authenticateJwt } from '../middleware/auth';
 import { socketService } from '../services/socketService';
@@ -21,7 +21,7 @@ async function loadSupportUsers(ids: (string | null | undefined)[]) {
   const users = await User.find({ _id: { $in: unique } })
     .select('name email')
     .lean();
-  return new Map(users.map((u: any) => [u._id.toString(), u]));
+  return new Map<string, any>(users.map((u: any) => [u._id.toString(), u]));
 }
 
 const router = express.Router();

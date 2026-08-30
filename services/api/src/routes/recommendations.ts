@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { authenticateJwt } from '../middleware/auth';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { prisma } from '../lib/prisma';
 import { shapeTrips } from '../services/tripShapeService';
 import { z } from 'zod';

@@ -3360,6 +3360,13 @@ model User {
   resetPasswordExpires DateTime? @map("reset_password_expires")
   firstOrganizerLogin  DateTime? @map("first_organizer_login")
 
+  // Wave 9 did not carry this across, and it is not decorative: login writes it,
+  // the admin CSV export reads it in three places, and the analytics figure
+  // "users active in the last 30 days" counts on it. Without the column that
+  // count is zero and the export column is blank — neither of which announces
+  // itself, which is why it took a Prisma validation error to find.
+  lastActive DateTime? @map("last_active")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

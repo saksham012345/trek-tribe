@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { authenticateToken } from '../middleware/auth';
 import { prisma } from '../lib/prisma';
 import { withMongoId, withMongoIds, asPopulated } from '../lib/apiShape';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { logger } from '../utils/logger';
 
 /**
@@ -16,7 +16,7 @@ async function loadUsers(ids: string[]) {
   const users = await User.find({ _id: { $in: unique } })
     .select('name profilePhoto location')
     .lean();
-  return new Map(users.map((u: any) => [u._id.toString(), u]));
+  return new Map<string, any>(users.map((u: any) => [u._id.toString(), u]));
 }
 
 const router = express.Router();

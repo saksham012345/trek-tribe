@@ -1,4 +1,4 @@
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { prisma } from '../lib/prisma';
 import { shapeTrips } from '../services/tripShapeService';
 import { logger } from '../utils/logger';
@@ -161,7 +161,7 @@ export class RecommendationService {
       const organizerDocs = organizerIds.length
         ? await User.find({ _id: { $in: organizerIds } }, 'name profilePhoto organizerProfile').lean()
         : [];
-      const organizerById = new Map(organizerDocs.map((u: any) => [u._id.toString(), u]));
+      const organizerById = new Map<string, any>(organizerDocs.map((u: any) => [u._id.toString(), u]));
 
       const trips = shapeTrips(tripRows as any).map(trip => ({
         ...trip,

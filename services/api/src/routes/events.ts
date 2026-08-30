@@ -4,7 +4,7 @@ import { authenticateToken } from '../middleware/auth';
 import { prisma } from '../lib/prisma';
 import { upsertRacingSafely } from '../lib/upsert';
 import { withMongoId, asPopulated } from '../lib/apiShape';
-import { User } from '../models/User';
+import { UserPrisma as User } from '../models/userPrismaAdapter';
 import { logger } from '../utils/logger';
 
 /** Load the Mongo users behind a set of ids. populate() cannot cross databases. */
@@ -14,7 +14,7 @@ async function loadUsers(ids: string[]) {
   const users = await User.find({ _id: { $in: unique } })
     .select('name profilePhoto location organizerProfile')
     .lean();
-  return new Map(users.map((u: any) => [u._id.toString(), u]));
+  return new Map<string, any>(users.map((u: any) => [u._id.toString(), u]));
 }
 
 const router = express.Router();
