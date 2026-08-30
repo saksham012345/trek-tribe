@@ -74,12 +74,24 @@ const getRedisStore = (prefix: string) => {
 };
 
 /**
- * General API rate limiter
- * Limits: 100 requests per 15 minutes per IP
+ * General API rate limiter.
+ *
+ * The 100 here was written against a limiter that never worked. It stored
+ * counts in a per-process MemoryStore that reset constantly, so the number was
+ * never reached and never tested. Backing it with Redis made it real, and a
+ * measurement on the live site showed what real means: the homepage issues ten
+ * requests on load, four of them socket.io long-polling, which continues for as
+ * long as the tab is open. A visitor sitting on the front page would have been
+ * refused within a couple of minutes.
+ *
+ * So two changes, both from that measurement rather than from taste. Polling is
+ * a transport and is not counted. The ceiling is high enough for a person and
+ * still low enough to stop a scraper — and it is shared, so an office or a
+ * mobile carrier behind one NAT address counts as one caller.
  */
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: 1000, // per IP per 15 minutes; see the note above for where this came from
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
@@ -92,30 +104,47 @@ export const apiLimiter = rateLimit({
   // session chasing an outage that was not there.
   //
   // Anything deployed sets NODE_ENV=production and is unaffected.
-  skip: () =>
-    process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development'
+  skip: (req) =>
+    process.env.NODE_ENV === 'test' ||
+    process.env.NODE_ENV === 'development' ||
+    // socket.io's polling transport reopens a request every few seconds for the
+    // life of the page. Counting it measures how long someone left a tab open,
+    // not how hard they are hitting the API.
+    req.path.startsWith('/socket.io/')
 });
 
 /**
- * Stricter rate limiter for authentication routes
- * Limits: 3 login attempts per 15 minutes
+ * Stricter limiter for authentication.
+ *
+ * This guards the whole /auth router, and skipSuccessfulRequests means only
+ * failures count. /auth/me is in that router, it is called on every page load,
+ * and for a signed-out visitor it answers 401 — a failure. At a limit of three
+ * that is three page views before an anonymous visitor is locked out of the
+ * login form for fifteen minutes, on an address shared by everyone behind the
+ * same NAT.
+ *
+ * It never showed up because the store was per-process memory that reset before
+ * anyone reached three. Giving the limiter a real shared store is what made it
+ * reachable, so the shape of the rule has to be right rather than merely strict.
+ *
+ * The rule it should express is: slow down credential guessing. A GET is not a
+ * credential attempt, so GETs are not counted. Ten remaining attempts still
+ * ends a brute force well before it starts, and leaves room for a person who
+ * mistypes a password more than twice.
  */
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 3, // limit each IP to 3 requests per windowMs
-  skipSuccessfulRequests: true, // Don't count successful requests
+  max: 10,
+  skipSuccessfulRequests: true, // only failures count
   message: 'Too many login attempts, please try again after 15 minutes.',
   standardHeaders: true,
   legacyHeaders: false,
   store: getRedisStore('auth'),
-  // This guards the whole /auth router, not just /login - so a 400 from
-  // /auth/complete-profile counts against it exactly as a wrong password does.
-  // Three mistyped phone numbers lock the caller out for fifteen minutes, which
-  // makes local testing impractical.
-  //
-  // apiLimiter already skips itself for 'test'; this does the same for local
-  // development. Anything deployed sets NODE_ENV=production and is unaffected.
-  skip: () => process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test'
+  skip: (req) =>
+    process.env.NODE_ENV === 'development' ||
+    process.env.NODE_ENV === 'test' ||
+    // Reading who you are is not an attempt to become someone.
+    req.method === 'GET'
 });
 
 /**
