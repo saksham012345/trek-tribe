@@ -227,6 +227,27 @@ function flattenNested(data: Doc): Doc {
     delete out.qrCodes;
   }
 
+  // idVerification, the same story as organizerProfile.
+  //
+  // The columns exist — id_document_type, id_document_front and the rest — and
+  // idVerificationService writes the nested shape the Mongoose document had.
+  // Nothing translated it, so Prisma was handed an unknown argument and threw,
+  // the service caught it and answered "Failed to submit ID verification", and
+  // no traveller could ever verify. Booking requires verification, so no
+  // traveller could book either.
+  const idv = out.idVerification;
+  if (idv && typeof idv === 'object') {
+    delete out.idVerification;
+    if (idv.documentType !== undefined) out.idDocumentType = idv.documentType;
+    if (idv.documentNumber !== undefined) out.idDocumentNumber = idv.documentNumber;
+    if (idv.documentFront !== undefined) out.idDocumentFront = idv.documentFront;
+    if (idv.documentBack !== undefined) out.idDocumentBack = idv.documentBack;
+    if (idv.verified !== undefined) out.idVerified = idv.verified;
+    if (idv.verifiedAt !== undefined) out.idVerifiedAt = idv.verifiedAt;
+    if (idv.expiryDate !== undefined) out.idExpiryDate = idv.expiryDate;
+    if (idv.rejectionReason !== undefined) out.idRejectionReason = idv.rejectionReason;
+  }
+
   const prefs = out.preferences;
   if (prefs && typeof prefs === 'object') {
     delete out.preferences;
@@ -277,6 +298,22 @@ function flattenNested(data: Doc): Doc {
  * Only built from columns the row actually has, so a .select() that omitted
  * them yields undefined rather than a confidently wrong `false`.
  */
+/** The read side of the idVerification flattening above. */
+function nestIdVerification(row: Doc): Doc | undefined {
+  const has = (k: string) => Object.prototype.hasOwnProperty.call(row, k);
+  const out: Doc = {};
+  const set = (k: string, col: string) => { if (has(col)) out[k] = row[col]; };
+  set('documentType', 'idDocumentType');
+  set('documentNumber', 'idDocumentNumber');
+  set('documentFront', 'idDocumentFront');
+  set('documentBack', 'idDocumentBack');
+  set('verified', 'idVerified');
+  set('verifiedAt', 'idVerifiedAt');
+  set('expiryDate', 'idExpiryDate');
+  set('rejectionReason', 'idRejectionReason');
+  return Object.keys(out).length ? out : undefined;
+}
+
 function nestOrganizerProfile(row: Doc): Doc | undefined {
   const has = (k: string) => Object.prototype.hasOwnProperty.call(row, k);
   const set = (o: Doc, k: string, col: string) => { if (has(col)) o[k] = row[col]; };
@@ -342,6 +379,13 @@ function shape(row: Doc | null): Doc | null {
   // Read-side organizerProfile. See nestOrganizerProfile: without this, every
   // caller reading a nested path got undefined, and the autoPay gate refused
   // every organizer.
+  const idv2 = nestIdVerification(row);
+  if (idv2) {
+    Object.defineProperty(doc, 'idVerification', {
+      enumerable: false, configurable: true, writable: true, value: idv2,
+    });
+  }
+
   const nested = nestOrganizerProfile(row);
   if (nested) {
     Object.defineProperty(doc, 'organizerProfile', {

@@ -143,23 +143,31 @@ const IdVerificationUpload: React.FC<IdVerificationUploadProps> = ({ userId, onS
     setUploadProgress(0);
 
     try {
-      // Upload images to Firebase Storage
-      const frontPath = `id-documents/${userId}/${documentType}-front-${Date.now()}.jpg`;
-      const frontUrl = await uploadToFirebase(frontImage, frontPath);
+      // The files go to our own API, as multipart.
+      //
+      // This used to upload to Cloudinary first and post the resulting URLs.
+      // REACT_APP_CLOUDINARY_CLOUD_NAME and _UPLOAD_PRESET are not set, so the
+      // helper threw before any request was made and the whole thing failed with
+      // "Failed to submit verification request" — which is why no traveller could
+      // ever verify, and therefore why no traveller could ever book.
+      //
+      // The server was never expecting URLs. Its route declares
+      // upload.fields([documentFront, documentBack]) and reads the buffers, so
+      // the two sides disagreed about the mechanism as well as the host. Sending
+      // the files is what it asks for, and it keeps identity documents on our own
+      // storage rather than a third party's.
+      const body = new FormData();
+      body.append('documentType', documentType);
+      body.append('documentNumber', documentNumber);
+      if (expiryDate) body.append('expiryDate', new Date(expiryDate).toISOString());
+      body.append('documentFront', frontImage);
+      if (backImage) body.append('documentBack', backImage);
 
-      let backUrl: string | undefined;
-      if (backImage) {
-        const backPath = `id-documents/${userId}/${documentType}-back-${Date.now()}.jpg`;
-        backUrl = await uploadToFirebase(backImage, backPath);
-      }
-
-      // Submit verification request
-      const response = await api.post('/id-verification/submit', {
-        documentType,
-        documentNumber,
-        documentFront: frontUrl,
-        documentBack: backUrl,
-        expiryDate: expiryDate ? new Date(expiryDate) : undefined
+      const response = await api.post('/api/verification/id-verification/submit', body, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (e: any) => {
+          if (e.total) setUploadProgress(Math.round((e.loaded / e.total) * 100));
+        },
       });
 
       if (response.data.success) {

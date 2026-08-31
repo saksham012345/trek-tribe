@@ -94,7 +94,12 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
     // Check ID verification status when modal opens
     const checkIdVerification = async () => {
       try {
-        const response = await api.get('/id-verification/status');
+        // The router lives at /api/verification and its paths are prefixed
+        // id-verification/. Calling /id-verification/status hit nothing, 404'd,
+        // and the catch below swallowed it — so the modal always believed
+        // verification was unknown while the server refused the booking for
+        // exactly that reason. Two screens, one message each, neither agreeing.
+        const response = await api.get('/api/verification/id-verification/status');
         const status = response.data.status || 'not_submitted';
         setIdVerificationStatus(status);
 
@@ -266,7 +271,14 @@ const JoinTripModal: React.FC<JoinTripModalProps> = ({ trip, user, isOpen, onClo
       });
 
       // 1. Create Booking Order (Manual Flow)
-      const bookingRes = await api.post('/api/bookings', {
+      // /bookings, not /api/bookings.
+      //
+      // The bookings router is mounted bare — app.use('/bookings', ...) — with
+      // no /api twin, unlike group-bookings which has both. So this answered
+      // 404 "Route not found" and no booking was ever created through the join
+      // form. Every other call in the app reads /bookings correctly; this one
+      // was the outlier.
+      const bookingRes = await api.post('/bookings', {
         tripId: trip._id,
         selectedPackage: formData.selectedPackage,
         numberOfTravelers: formData.numberOfGuests,
