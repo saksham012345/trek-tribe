@@ -1,7 +1,13 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
+    "./index.html",
     "./src/**/*.{js,jsx,ts,tsx}",
+    // The screens themselves live in the main web app. Tailwind has to scan
+    // them there or every class they use is stripped from the production
+    // build and the app comes out unstyled — which the dev server never shows,
+    // because dev builds nothing away.
+    "../web/src/**/*.{js,jsx,ts,tsx}",
   ],
   theme: {
     extend: {
