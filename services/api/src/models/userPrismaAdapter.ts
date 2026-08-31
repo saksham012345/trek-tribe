@@ -98,6 +98,30 @@ function translateFilter(filter: Doc = {}): Doc {
 }
 
 /** `select('-passwordHash')` and `select('name email')`, as Prisma select. */
+/**
+ * Every column organizerProfile is built from.
+ *
+ * Five call sites select dotted paths — "organizerProfile.bio",
+ * "organizerProfile.autoPay", "organizerProfile.trustScore" — which were passed
+ * to Prisma verbatim and rejected, so each of them answered 500. Opening any
+ * trip from Discover was one of them: the page loads the organizer with
+ * "name profilePhoto organizerProfile.bio ...", and every trip detail page in
+ * the app failed on it.
+ *
+ * Asking for any nested path selects the whole set and lets nestOrganizerProfile
+ * rebuild the shape. That reads a few more columns than the caller asked for,
+ * which is the honest trade against mapping every sub-path — autoPay and
+ * trustScore are objects spanning several columns each.
+ */
+const ORGANIZER_PROFILE_COLUMNS = [
+  'organizerBio', 'organizerExperience', 'specialties', 'certifications', 'languages',
+  'yearsOfExperience', 'totalTripsOrganized', 'organizerAchievements', 'companyName',
+  'licenseNumber', 'verificationBadge', 'routingEnabled',
+  'autoPaySetupRequired', 'autoPaySetupCompleted', 'autoPayEnabled',
+  'trustScoreOverall', 'trustScoreLastCalculated', 'trustDocumentVerified',
+  'trustBankVerified', 'trustExperienceYears', 'trustCompletedTrips',
+  'trustUserReviews', 'trustResponseTime', 'trustRefundRate',
+];
 function translateSelect(spec: string | Doc | undefined): Doc | undefined {
   if (!spec) return undefined;
 
@@ -113,7 +137,19 @@ function translateSelect(spec: string | Doc | undefined): Doc | undefined {
 
   if (included.length) {
     const out: Doc = { id: true };
-    for (const f of included) out[f === '_id' ? 'id' : f] = true;
+    for (const f of included) {
+      if (f.startsWith('organizerProfile.')) {
+        for (const c of ORGANIZER_PROFILE_COLUMNS) out[c] = true;
+        continue;
+      }
+      if (f.includes('.')) {
+        throw new Error(
+          `Cannot select the nested path "${f}". Only organizerProfile.* is rebuilt from columns; ` +
+            'everything else was flattened with a different name. Select the column instead.'
+        );
+      }
+      out[f === '_id' ? 'id' : f] = true;
+    }
     return out;
   }
 
